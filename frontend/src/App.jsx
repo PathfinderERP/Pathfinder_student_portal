@@ -30,6 +30,10 @@ function App() {
       <p className="mt-8 text-gray-500 text-sm">
         Click on the Vite and React logos to learn more
       </p>
+      <div className="mt-4 p-4 bg-gray-200 rounded text-xs text-gray-700">
+        <p>Environment: {import.meta.env.VITE_ENV_NAME}</p>
+        <p>API URL: {import.meta.env.VITE_API_URL}</p>
+      </div>
     </div>
   )
 }
