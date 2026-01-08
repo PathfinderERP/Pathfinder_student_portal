@@ -29,7 +29,8 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password) => {
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3001';
+            const apiUrl = import.meta.env.VITE_API_URL || 'https://pathfinder-student-portal.onrender.com';
+            console.log("Using API URL:", apiUrl);
             const response = await axios.post(`${apiUrl}/api/token/`, { username, password });
             const newToken = response.data.access;
             setToken(newToken);
