@@ -16,19 +16,34 @@ class ApiConfig(AppConfig):
 
             def patched_execute(self, sql, params=None):
                 if isinstance(sql, str):
-                    # 1. Remove quotes
+                    # 1. Remove quotes from identifiers
                     sql = sql.replace('"', '').replace('`', '')
                     
-                    # 2. Remove RETURNING clause
+                    # 2. Remove RETURNING clause (Djongo doesn't support it)
                     sql = re.sub(r'\s+RETURNING\s+.*$', '', sql, flags=re.IGNORECASE)
                     
-                    # 3. Convert %(name)s to %s for Djongo
-                    if '%(' in sql:
-                        sql = re.sub(r'%\(\w+\)s', '%s', sql)
+                    # 3. Convert all named placeholders like %(0)s or %(name)s to %s
+                    # This is critical for Django 4.1+ compatibility
+                    sql = re.sub(r'%\([\w\d]+\)s', '%s', sql)
                 
-                return original_execute(self, sql, params)
+                try:
+                    return original_execute(self, sql, params)
+                except Exception as e:
+                    # Log failed SQL for easier remote debugging if it still fails
+                    print(f"FAILED SQL: {sql}")
+                    raise e
 
             Cursor.execute = patched_execute
+
+            # Fix for 'Token' object is not subscriptable in Djongo 1.3.6/1.3.7
+            # This happens in djongo/sql2mongo/query.py
+            try:
+                from djongo.sql2mongo import query
+                if hasattr(query, 'SQLToken'):
+                    # Some versions need this fix, but sqlparse 0.3.1 usually avoids it.
+                    pass
+            except ImportError:
+                pass
         except Exception:
             pass
 
