@@ -13,4 +13,11 @@ from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
+# Apply Djongo patches BEFORE application load
+try:
+    from djongo_patch import apply_djongo_patches
+    apply_djongo_patches()
+except ImportError:
+    pass
+
 application = get_wsgi_application()
