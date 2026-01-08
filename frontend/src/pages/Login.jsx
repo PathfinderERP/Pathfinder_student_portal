@@ -230,7 +230,7 @@ const Login = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full group/btn relative overflow-hidden bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] p-2.5 rounded-xl shadow-xl shadow-orange-500/30 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-500/40 active:scale-[0.99] disabled:opacity-70 mt-0.5"
+                                    className="w-full group/btn relative overflow-hidden bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] p-2.4 rounded-xl shadow-xl shadow-orange-500/30 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-500/40 active:scale-[0.99] disabled:opacity-70 mt-0.5"
                                 >
                                     <div className="relative z-10 flex items-center justify-center gap-2">
                                         {isLoading ? (
