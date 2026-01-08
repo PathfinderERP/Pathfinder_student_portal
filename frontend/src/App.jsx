@@ -1,41 +1,39 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import SystemPortal from './pages/SystemPortal';
+import StudentPortal from './pages/StudentPortal';
+import ParentPortal from './pages/ParentPortal';
+import PrivateRoute from './components/PrivateRoute';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="flex space-x-4 mb-4">
-        <a href="https://vite.dev" target="_blank" rel="noreferrer">
-          <img src={viteLogo} className="w-16 h-16" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank" rel="noreferrer">
-          <img src={reactLogo} className="w-16 h-16 animate-spin" alt="React logo" />
-        </a>
-      </div>
-      <h1 className="text-4xl font-bold text-gray-800 mb-4">Vite + React + Tailwind</h1>
-      <div className="bg-white p-6 rounded-lg shadow-lg text-center">
-        <button
-          onClick={() => setCount((count) => count + 1)}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded transition duration-300 pointer-events-auto"
-        >
-          count is {count}
-        </button>
-        <p className="mt-4 text-gray-600">
-          Edit <code className="bg-gray-200 px-1 rounded">src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="mt-8 text-gray-500 text-sm">
-        Click on the Vite and React logos to learn more
-      </p>
-      <div className="mt-4 p-4 bg-gray-200 rounded text-xs text-gray-700">
-        <p>Environment: {import.meta.env.VITE_ENV_NAME}</p>
-        <p>API URL: {import.meta.env.VITE_API_URL}</p>
-      </div>
-    </div>
-  )
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          {/* Registration is now internal only */}
+
+          <Route element={<PrivateRoute roles={['superadmin', 'admin', 'staff']} />}>
+            <Route path="/system/*" element={<SystemPortal />} />
+          </Route>
+
+          <Route element={<PrivateRoute roles={['student']} />}>
+            <Route path="/student/*" element={<StudentPortal />} />
+          </Route>
+
+          <Route element={<PrivateRoute roles={['parent']} />}>
+            <Route path="/parent/*" element={<ParentPortal />} />
+          </Route>
+
+          <Route path="/" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </AuthProvider>
+    </Router>
+  );
 }
 
-export default App
+export default App;
