@@ -57,66 +57,66 @@ const Login = () => {
                     </div>
 
                     {/* Content */}
-                    <div className="relative z-10 flex flex-col justify-between p-7 text-white w-full h-full">
+                    <div className="relative z-10 flex flex-col justify-between p-10 text-white w-full h-full">
                         {/* Logo & Brand */}
                         <div className="animate-fade-in-down">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="p-1.5 bg-white/20 backdrop-blur-md rounded-xl border border-white/30 shadow-2xl">
-                                        <GraduationCap size={20} strokeWidth={2.5} />
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl border border-white/30 shadow-2xl">
+                                        <GraduationCap size={28} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                        <h1 className="text-lg font-bold tracking-tight">PATHFINDER</h1>
-                                        <p className="text-white/90 text-[9px] font-medium uppercase tracking-wider">Where Aspiration Meets Success</p>
+                                        <h1 className="text-2xl font-bold tracking-tight">PATHFINDER</h1>
+                                        <p className="text-white/90 text-xs font-medium uppercase tracking-wider">Where Aspiration Meets Success</p>
                                     </div>
                                 </div>
                                 {/* Sign In Toggle Link/Button as per User Request */}
                                 <button
                                     onClick={() => setIsSwapped(!isSwapped)}
-                                    className="px-4 py-1 bg-white/20 backdrop-blur-md rounded-full border border-white/30 hover:bg-white/30 transition-all font-bold text-[10px] shadow-xl active:scale-95"
+                                    className="px-5 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/30 hover:bg-white/30 transition-all font-bold text-xs shadow-xl active:scale-95"
                                 >
                                     Sign In
                                 </button>
                             </div>
 
-                            <h2 className="text-2xl font-bold leading-tight mb-2">
+                            <h2 className="text-4xl font-bold leading-tight mb-4">
                                 Welcome to Your<br />
                                 <span className="text-yellow-100">Learning Hub</span>
                             </h2>
-                            <p className="text-white/95 text-xs leading-relaxed max-sm">
+                            <p className="text-white/95 text-lg leading-relaxed max-w-md">
                                 Access your courses, track progress, and connect with your community in one place.
                             </p>
                         </div>
 
                         {/* Features */}
-                        <div className="space-y-1.5 animate-fade-in-up">
-                            <div className="flex items-center gap-3 bg-white/11 backdrop-blur-md rounded-xl p-2 border border-white/20 hover:bg-white/20 transition-all group">
-                                <div className="p-1 bg-white/25 rounded-lg group-hover:scale-110 transition-transform">
-                                    <BookOpen size={16} strokeWidth={2.5} />
+                        <div className="space-y-4 animate-fade-in-up">
+                            <div className="flex items-center gap-4 bg-white/11 backdrop-blur-md rounded-2xl p-4 border border-white/20 hover:bg-white/20 transition-all group">
+                                <div className="p-2 bg-white/25 rounded-xl group-hover:scale-110 transition-transform">
+                                    <BookOpen size={24} strokeWidth={2.5} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-xs">Interactive Learning</h3>
-                                    <p className="text-[9px] text-white/90">Access courses anytime, anywhere</p>
+                                    <h3 className="font-bold text-lg">Interactive Learning</h3>
+                                    <p className="text-sm text-white/90">Access courses anytime, anywhere</p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 bg-white/11 backdrop-blur-md rounded-xl p-2 border border-white/20 hover:bg-white/20 transition-all group">
-                                <div className="p-1 bg-white/25 rounded-lg group-hover:scale-110 transition-transform">
-                                    <Award size={16} strokeWidth={2.5} />
+                            <div className="flex items-center gap-4 bg-white/11 backdrop-blur-md rounded-2xl p-4 border border-white/20 hover:bg-white/20 transition-all group">
+                                <div className="p-2 bg-white/25 rounded-xl group-hover:scale-110 transition-transform">
+                                    <Award size={24} strokeWidth={2.5} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-xs">Track Progress</h3>
-                                    <p className="text-[9px] text-white/90">Monitor your academic journey</p>
+                                    <h3 className="font-bold text-lg">Track Progress</h3>
+                                    <p className="text-sm text-white/90">Monitor your academic journey</p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 bg-white/11 backdrop-blur-md rounded-xl p-2 border border-white/20 hover:bg-white/20 transition-all group">
-                                <div className="p-1 bg-white/25 rounded-lg group-hover:scale-110 transition-transform">
-                                    <Users size={16} strokeWidth={2.5} />
+                            <div className="flex items-center gap-4 bg-white/11 backdrop-blur-md rounded-2xl p-4 border border-white/20 hover:bg-white/20 transition-all group">
+                                <div className="p-2 bg-white/25 rounded-xl group-hover:scale-110 transition-transform">
+                                    <Users size={24} strokeWidth={2.5} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-xs">Community Connect</h3>
-                                    <p className="text-[9px] text-white/90">Engage with peers and teachers</p>
+                                    <h3 className="font-bold text-lg">Community Connect</h3>
+                                    <p className="text-sm text-white/90">Engage with peers and teachers</p>
                                 </div>
                             </div>
                         </div>
@@ -134,23 +134,23 @@ const Login = () => {
                     </div>
 
                     {/* Mobile Logo */}
-                    <div className="lg:hidden absolute top-5 left-5 flex items-center gap-2">
-                        <div className="p-1.5 bg-[#FF6B35] rounded-lg shadow-lg">
-                            <GraduationCap className="text-white" size={18} />
+                    <div className="lg:hidden absolute top-6 left-6 flex items-center gap-3">
+                        <div className="p-2 bg-[#FF6B35] rounded-xl shadow-lg">
+                            <GraduationCap className="text-white" size={24} />
                         </div>
-                        <span className="text-base font-bold text-[#5C2E1F]">PATHFINDER</span>
+                        <span className="text-xl font-bold text-[#5C2E1F]">PATHFINDER</span>
                     </div>
 
                     {/* Form Container - Glassmorphism Edition */}
-                    <div className="relative z-10 w-full max-w-[380px] animate-fade-in-up">
+                    <div className="relative z-10 w-full max-w-[480px] animate-fade-in-up">
                         {/* Interactive Glow Behind Card */}
                         <div className="absolute -inset-1 bg-gradient-to-r from-[#FF6B35] to-[#FFA500] rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
 
-                        <div className="relative bg-white/70 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-5 border border-white/40 transition-all duration-500 hover:shadow-[0_20px_60px_rgba(255,107,53,0.15)] group">
+                        <div className="relative bg-white/70 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-10 border border-white/40 transition-all duration-500 hover:shadow-[0_20px_60px_rgba(255,107,53,0.15)] group">
 
                             {/* Header with Icon */}
-                            <div className="text-center mb-3 relative">
-                                <div className="inline-flex items-center justify-center w-12 h-12 bg-white rounded-xl shadow-xl shadow-orange-500/10 border border-white/50 mb-2.5 transform hover:rotate-[360deg] hover:scale-110 transition-all duration-700 overflow-hidden p-2 relative group/logo">
+                            <div className="text-center mb-8 relative">
+                                <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl shadow-xl shadow-orange-500/10 border border-white/50 mb-4 transform hover:rotate-[360deg] hover:scale-110 transition-all duration-700 overflow-hidden p-4 relative group/logo">
                                     <div className="absolute inset-0 bg-gradient-to-tr from-orange-50 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity"></div>
                                     <img
                                         src="/images/icon/favicon.svg"
@@ -158,68 +158,68 @@ const Login = () => {
                                         className="w-full h-full object-contain relative z-10"
                                     />
                                 </div>
-                                <h2 className="text-lg font-black tracking-tight text-[#5C2E1F] mb-0.5">Sign In</h2>
+                                <h2 className="text-3xl font-black tracking-tight text-[#5C2E1F] mb-2">Sign In</h2>
                                 <div className="flex justify-center">
-                                    <div className="h-0.5 w-6 bg-gradient-to-r from-[#FF6B35] to-transparent rounded-full mb-0.5"></div>
+                                    <div className="h-1.5 w-12 bg-gradient-to-r from-[#FF6B35] to-transparent rounded-full mb-1"></div>
                                 </div>
-                                <p className="text-slate-500 text-[9px] font-semibold">Ready to continue your journey?</p>
+                                <p className="text-slate-500 text-sm font-semibold mt-2">Ready to continue your journey?</p>
                             </div>
 
                             {/* Error Message */}
                             {error && (
-                                <div className="mb-2.5 p-2 rounded-xl bg-red-500/10 backdrop-blur-md border border-red-500/20 text-red-600 flex items-center gap-2 text-[9px] font-bold animate-shake">
-                                    <div className="bg-red-500 text-white p-1 rounded-full">
-                                        <AlertCircle size={8} />
+                                <div className="mb-6 p-4 rounded-xl bg-red-500/10 backdrop-blur-md border border-red-500/20 text-red-600 flex items-center gap-3 text-sm font-bold animate-shake">
+                                    <div className="bg-red-500 text-white p-1.5 rounded-full">
+                                        <AlertCircle size={16} />
                                     </div>
                                     {error}
                                 </div>
                             )}
 
                             {/* Form */}
-                            <form onSubmit={handleSubmit} className="space-y-3 relative">
-                                <div className="space-y-0.5 group/input">
-                                    <label className="text-[9px] font-black text-[#5C2E1F]/60 ml-1 block uppercase tracking-widest text-left">Username</label>
+                            <form onSubmit={handleSubmit} className="space-y-6 relative">
+                                <div className="space-y-2 group/input">
+                                    <label className="text-sm font-black text-[#5C2E1F]/60 ml-1 block uppercase tracking-widest text-left">Username</label>
                                     <div className="relative">
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#FF6B35] group-focus-within/input:scale-110 transition-all z-10">
-                                            <User size={14} strokeWidth={2.5} />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#FF6B35] group-focus-within/input:scale-110 transition-all z-10">
+                                            <User size={20} strokeWidth={2.5} />
                                         </div>
                                         <input
                                             type="text"
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            className="w-full bg-white/50 backdrop-blur-sm border-2 border-white/80 rounded-xl px-9 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
+                                            className="w-full bg-white/50 backdrop-blur-sm border-2 border-white/80 rounded-xl px-12 py-3.5 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
                                             placeholder="Your username"
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-0.5 group/input">
-                                    <label className="text-[9px] font-black text-[#5C2E1F]/60 ml-1 block uppercase tracking-widest text-left">Password</label>
+                                <div className="space-y-2 group/input">
+                                    <label className="text-sm font-black text-[#5C2E1F]/60 ml-1 block uppercase tracking-widest text-left">Password</label>
                                     <div className="relative">
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#FF6B35] group-focus-within/input:scale-110 transition-all z-10">
-                                            <Lock size={14} strokeWidth={2.5} />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#FF6B35] group-focus-within/input:scale-110 transition-all z-10">
+                                            <Lock size={20} strokeWidth={2.5} />
                                         </div>
                                         <input
                                             type="password"
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full bg-white/50 backdrop-blur-sm border-2 border-white/80 rounded-xl px-9 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
+                                            className="w-full bg-white/50 backdrop-blur-sm border-2 border-white/80 rounded-xl px-12 py-3.5 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
                                             placeholder="Your password"
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between text-[9px] pt-0 px-0.5">
-                                    <label className="flex items-center gap-1.5 cursor-pointer group/check">
+                                <div className="flex items-center justify-between text-sm pt-1 px-1">
+                                    <label className="flex items-center gap-2 cursor-pointer group/check">
                                         <div className="relative flex items-center">
                                             <input
                                                 type="checkbox"
-                                                className="peer appearance-none w-3.5 h-3.5 rounded border-2 border-white/80 bg-white/30 checked:bg-[#FF6B35] checked:border-[#FF6B35] transition-all cursor-pointer"
+                                                className="peer appearance-none w-5 h-5 rounded border-2 border-white/80 bg-white/30 checked:bg-[#FF6B35] checked:border-[#FF6B35] transition-all cursor-pointer"
                                             />
-                                            <div className="absolute text-white scale-0 peer-checked:scale-100 transition-transform left-0.5 pointer-events-none">
-                                                <svg className="w-2 h-2 fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z" /></svg>
+                                            <div className="absolute text-white scale-0 peer-checked:scale-100 transition-transform left-1 top-1 pointer-events-none">
+                                                <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z" /></svg>
                                             </div>
                                         </div>
                                         <span className="text-slate-600 font-bold group-hover/check:text-[#FF6B35] transition-colors">Remember Me</span>
@@ -230,15 +230,15 @@ const Login = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full group/btn relative overflow-hidden bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] p-2.4 rounded-xl shadow-xl shadow-orange-500/30 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-500/40 active:scale-[0.99] disabled:opacity-70 mt-0.5"
+                                    className="w-full group/btn relative overflow-hidden bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] p-4 rounded-xl shadow-xl shadow-orange-500/30 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-500/40 active:scale-[0.99] disabled:opacity-70 mt-4"
                                 >
                                     <div className="relative z-10 flex items-center justify-center gap-2">
                                         {isLoading ? (
-                                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                         ) : (
                                             <>
-                                                <span className="text-white font-black uppercase tracking-wider text-[11px]">Secure Sign In</span>
-                                                <ArrowRight size={14} className="text-white group-hover/btn:translate-x-1 transition-transform" strokeWidth={3} />
+                                                <span className="text-white font-black uppercase tracking-wider text-base">Secure Sign In</span>
+                                                <ArrowRight size={20} className="text-white group-hover/btn:translate-x-1 transition-transform" strokeWidth={3} />
                                             </>
                                         )}
                                     </div>
@@ -247,8 +247,8 @@ const Login = () => {
                             </form>
 
                             {/* Footer */}
-                            <div className="mt-3 pt-2 text-center">
-                                <p className="text-slate-400 text-[8px] font-bold tracking-tight">
+                            <div className="mt-8 pt-2 text-center">
+                                <p className="text-slate-400 text-xs font-bold tracking-tight">
                                     Empowering Tomorrow's Leaders © 2026
                                 </p>
                             </div>
