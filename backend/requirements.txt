@@ -6,8 +6,6 @@ django-cors-headers==4.5.0
 django-storages==1.14.6
 djangorestframework==3.15.1
 djangorestframework-simplejwt==5.3.1
-# Install Djongo from git to bypass strict version checks
-git+https://github.com/doableware/djongo.git@master#egg=djongo
 dnspython==2.8.0
 gunicorn==23.0.0
 jmespath==1.0.1
