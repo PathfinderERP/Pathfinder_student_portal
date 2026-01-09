@@ -1,7 +1,16 @@
-import React from 'react';
-import { LogOut, ChevronsLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogOut, ChevronsLeft, ChevronDown } from 'lucide-react';
 
 const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
+    const [expandedItems, setExpandedItems] = useState({});
+
+    const toggleExpand = (label) => {
+        setExpandedItems(prev => ({
+            ...prev,
+            [label]: !prev[label]
+        }));
+    };
+
     return (
         <aside
             className={`fixed inset-y-0 left-0 z-50 transition-all duration-300 ease-in-out border-r
@@ -29,32 +38,65 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
 
                 {/* Navigation Section */}
                 <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
-                    {items.map((item, index) => (
-                        <button
-                            key={index}
-                            className={`w-full flex items-center py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group 
-                            ${isOpen ? "px-4" : "px-2 justify-center"} 
-                            ${item.active
-                                    ? (isDarkMode ? "bg-orange-900/20 text-orange-500" : "bg-orange-50 text-orange-600")
-                                    : (isDarkMode ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")
-                                }`}
-                        >
-                            <item.icon
-                                size={20}
-                                className={`transition-colors duration-200 flex-shrink-0 ${isOpen ? "mr-3" : "mr-0"} 
-                                ${item.active
-                                        ? (isDarkMode ? "text-orange-500" : "text-orange-600")
-                                        : (isDarkMode ? "text-slate-500 group-hover:text-slate-400" : "text-gray-400 group-hover:text-gray-500")
-                                    }`}
-                            />
-                            <span className={`whitespace-nowrap transition-opacity duration-200 ${isOpen ? "opacity-100" : "hidden opacity-0 w-0 overflow-hidden"}`}>
-                                {item.label}
-                            </span>
-                            {item.active && isOpen && (
-                                <span className={`ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0 ${isDarkMode ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'bg-orange-600'}`} />
-                            )}
-                        </button>
-                    ))}
+                    {items.map((item, index) => {
+                        const hasSubItems = item.subItems && item.subItems.length > 0;
+                        const isExpanded = expandedItems[item.label];
+
+                        return (
+                            <div key={index} className="space-y-1">
+                                <button
+                                    onClick={() => hasSubItems ? toggleExpand(item.label) : null}
+                                    className={`w-full flex items-center py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group 
+                                    ${isOpen ? "px-4" : "px-2 justify-center"} 
+                                    ${item.active
+                                            ? (isDarkMode ? "bg-orange-900/20 text-orange-500" : "bg-orange-50 text-orange-600")
+                                            : (isDarkMode ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")
+                                        }`}
+                                >
+                                    <item.icon
+                                        size={20}
+                                        className={`transition-colors duration-200 flex-shrink-0 ${isOpen ? "mr-3" : "mr-0"} 
+                                        ${item.active
+                                                ? (isDarkMode ? "text-orange-500" : "text-orange-600")
+                                                : (isDarkMode ? "text-slate-500 group-hover:text-slate-400" : "text-gray-400 group-hover:text-gray-500")
+                                            }`}
+                                    />
+                                    <span className={`whitespace-nowrap transition-opacity duration-200 ${isOpen ? "opacity-100" : "hidden opacity-0 w-0 overflow-hidden"}`}>
+                                        {item.label}
+                                    </span>
+
+                                    {isOpen && hasSubItems && (
+                                        <ChevronDown
+                                            size={16}
+                                            className={`ml-auto transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                        />
+                                    )}
+
+                                    {item.active && isOpen && !hasSubItems && (
+                                        <span className={`ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0 ${isDarkMode ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'bg-orange-600'}`} />
+                                    )}
+                                </button>
+
+                                {/* Sub Items */}
+                                {isOpen && hasSubItems && isExpanded && (
+                                    <div className="ml-9 space-y-1 border-l border-orange-500/20 pl-4 py-1">
+                                        {item.subItems.map((subItem, subIndex) => (
+                                            <button
+                                                key={subIndex}
+                                                className={`w-full flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200
+                                                ${subItem.active
+                                                        ? (isDarkMode ? "text-orange-500" : "text-orange-600")
+                                                        : (isDarkMode ? "text-slate-500 hover:text-white" : "text-gray-500 hover:text-gray-900")
+                                                    }`}
+                                            >
+                                                {subItem.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </nav>
 
                 {/* Footer Section */}
