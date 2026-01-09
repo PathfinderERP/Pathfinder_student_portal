@@ -45,7 +45,14 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                         return (
                             <div key={index} className="space-y-1">
                                 <button
-                                    onClick={() => hasSubItems ? toggleExpand(item.label) : null}
+                                    onClick={() => {
+                                        if (hasSubItems) {
+                                            toggleExpand(item.label);
+                                        }
+                                        if (item.onClick) {
+                                            item.onClick();
+                                        }
+                                    }}
                                     className={`w-full flex items-center py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group 
                                     ${isOpen ? "px-4" : "px-2 justify-center"} 
                                     ${item.active
@@ -83,6 +90,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                         {item.subItems.map((subItem, subIndex) => (
                                             <button
                                                 key={subIndex}
+                                                onClick={() => subItem.onClick && subItem.onClick()}
                                                 className={`w-full flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200
                                                 ${subItem.active
                                                         ? (isDarkMode ? "text-orange-500" : "text-orange-600")
@@ -102,8 +110,12 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                 {/* Footer Section */}
                 <div className={`p-4 border-t ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}>
                     <div className={`flex items-center p-3 rounded-xl ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'} ${isOpen ? "" : "justify-center"}`}>
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${isDarkMode ? 'bg-orange-900/30 text-orange-500' : 'bg-orange-100 text-orange-600'}`}>
-                            {user?.username?.charAt(0) || user?.role?.charAt(0) || "U"}
+                        <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold flex-shrink-0 border-2 ${isDarkMode ? 'bg-orange-900/30 text-orange-500 border-white/5' : 'bg-orange-100 text-orange-600 border-white'}`}>
+                            {user?.profile_image ? (
+                                <img src={user.profile_image} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <span>{user?.username?.charAt(0) || user?.role?.charAt(0) || "U"}</span>
+                            )}
                         </div>
                         <div className={`ml-3 overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100 w-auto" : "hidden opacity-0 w-0"}`}>
                             <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>

@@ -35,6 +35,8 @@ class CustomUser(AbstractUser):
     
     # Permissions for staff: simple JSON field storing booleans
     permissions = SafeJSONField(default=dict, blank=True)
+    
+    profile_image = models.ImageField(upload_to='profile_images/', null=True, blank=True)
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"

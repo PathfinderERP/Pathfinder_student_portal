@@ -31,19 +31,30 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                 </button>
 
                 <div className={`flex items-center gap-3 pl-6 border-l h-8 ${isDarkMode ? 'border-white/20' : 'border-slate-200'}`}>
-                    <div className="text-right hidden sm:block">
-                        <div className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{user?.username}</div>
-                        <div className={`text-[10px] font-black uppercase tracking-tighter ${user?.user_type === 'superadmin' ? 'text-orange-600' :
-                            user?.user_type === 'admin' ? 'text-orange-400' :
-                                user?.user_type === 'student' ? 'text-blue-500' :
-                                    user?.user_type === 'parent' ? 'text-emerald-500' :
-                                        'text-slate-500'
-                            }`}>
-                            {user?.user_type === 'superadmin' ? 'SUPERADMIN' :
-                                user?.user_type === 'admin' ? 'ADMIN' :
-                                    user?.user_type === 'student' ? 'STUDENT' :
-                                        user?.user_type === 'parent' ? 'PARENT' :
-                                            user?.user_type || 'User'}
+                    <div className="flex items-center gap-3">
+                        <div className="text-right hidden sm:block">
+                            <div className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{user?.username}</div>
+                            <div className={`text-[10px] font-black uppercase tracking-tighter ${user?.user_type === 'superadmin' ? 'text-orange-600' :
+                                user?.user_type === 'admin' ? 'text-orange-400' :
+                                    user?.user_type === 'student' ? 'text-blue-500' :
+                                        user?.user_type === 'parent' ? 'text-emerald-500' :
+                                            'text-slate-500'
+                                }`}>
+                                {user?.user_type === 'superadmin' ? 'SUPERADMIN' :
+                                    user?.user_type === 'admin' ? 'ADMIN' :
+                                        user?.user_type === 'student' ? 'STUDENT' :
+                                            user?.user_type === 'parent' ? 'PARENT' :
+                                                user?.user_type || 'User'}
+                            </div>
+                        </div>
+                        <div className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all duration-300 ${isDarkMode ? 'border-white/10' : 'border-slate-100'}`}>
+                            {user?.profile_image ? (
+                                <img src={user.profile_image} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className={`w-full h-full flex items-center justify-center font-black text-sm ${isDarkMode ? 'bg-orange-900/20 text-orange-500' : 'bg-orange-50 text-orange-600'}`}>
+                                    {user?.username?.charAt(0).toUpperCase()}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">

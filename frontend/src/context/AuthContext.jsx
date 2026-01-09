@@ -9,15 +9,28 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('auth_token'));
     const [loading, setLoading] = useState(true);
 
+    const normalizeUser = (userData) => {
+        if (userData && userData.profile_image && !userData.profile_image.startsWith('http')) {
+            const apiUrl = getApiUrl();
+            // Ensure we don't double slash
+            const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+            const imgPath = userData.profile_image.startsWith('/') ? userData.profile_image : `/${userData.profile_image}`;
+            return {
+                ...userData,
+                profile_image: `${baseUrl}${imgPath}`
+            };
+        }
+        return userData;
+    };
+
     useEffect(() => {
         if (token) {
             try {
                 const decoded = jwtDecode(token);
-                // Check expiry
                 if (decoded.exp * 1000 < Date.now()) {
                     logout();
                 } else {
-                    setUser(decoded);
+                    setUser(normalizeUser(decoded));
                     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
                 }
             } catch (e) {
@@ -27,24 +40,65 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, [token]);
 
+    const getApiUrl = () => {
+        let defaultUrl = 'https://pathfinder-student-portal.onrender.com';
+        if (import.meta.env.MODE === 'development') {
+            defaultUrl = 'http://127.0.0.1:3001';
+        }
+        let url = import.meta.env.VITE_API_URL || defaultUrl;
+        // Fix for common development connectivity issues: replace localhost with 127.0.0.1
+        if (url.includes('localhost')) {
+            url = url.replace('localhost', '127.0.0.1');
+        }
+        return url;
+    };
+
     const login = async (username, password) => {
         try {
-            let defaultUrl = 'https://pathfinder-student-portal.onrender.com';
-            if (import.meta.env.MODE === 'development') {
-                defaultUrl = 'http://127.0.0.1:3001';
-            }
-            const apiUrl = import.meta.env.VITE_API_URL || defaultUrl;
-            console.log("Using API URL:", apiUrl);
+            const apiUrl = getApiUrl();
             const response = await axios.post(`${apiUrl}/api/token/`, { username, password });
             const newToken = response.data.access;
             setToken(newToken);
             localStorage.setItem('auth_token', newToken);
             const decoded = jwtDecode(newToken);
-            setUser(decoded);
+            setUser(normalizeUser(decoded));
             axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-            return decoded; // Return user info
+            return decoded;
         } catch (error) {
             console.error("Login failed", error);
+            throw error;
+        }
+    };
+
+    const updateProfile = async (formData) => {
+        try {
+            const apiUrl = getApiUrl();
+            const config = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            };
+
+            // Explicitly add token from state to headers
+            if (token) {
+                config.headers['Authorization'] = `Bearer ${token}`;
+            } else {
+                const localToken = localStorage.getItem('auth_token');
+                if (localToken) {
+                    config.headers['Authorization'] = `Bearer ${localToken}`;
+                }
+            }
+
+            const response = await axios.patch(`${apiUrl}/api/profile/`, formData, config);
+            const updatedUser = normalizeUser(response.data);
+            setUser(prev => ({ ...prev, ...updatedUser }));
+            return updatedUser;
+        } catch (error) {
+            console.error("Profile update failed", error);
+            if (error.response?.status === 401) {
+                // If unauthorized, could be expired token
+                logout();
+            }
             throw error;
         }
     };
@@ -57,7 +111,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, login, updateProfile, logout, loading, isAuthenticated: !!user, getApiUrl, normalizeUser }}>
             {children}
         </AuthContext.Provider>
     );
