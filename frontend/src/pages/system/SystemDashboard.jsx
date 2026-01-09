@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, Settings, Plus, ChevronRight, ExternalLink,
-    Users, GraduationCap, Briefcase, FilePlus, Camera, Upload, X, User
+    Users, GraduationCap, Briefcase, FilePlus, Camera, Upload, X, User, Clock
 } from 'lucide-react';
 import PortalLayout from '../../components/common/PortalLayout';
 import CreateUserModal from '../../components/CreateUserModal';
@@ -56,12 +56,20 @@ const SystemDashboard = () => {
     };
 
     useEffect(() => {
-        if (activeTab === 'Admin Management') {
+        if (activeTab.startsWith('Admin')) {
             const fetchUsers = async () => {
                 try {
                     const apiUrl = getApiUrl();
                     const response = await axios.get(`${apiUrl}/api/users/`);
-                    const normalizedUsers = response.data.map(u => normalizeUser(u));
+                    let data = response.data;
+
+                    // Filter based on tab if needed, or just show all for now
+                    // For System/Student/Parent submenus
+                    if (activeTab === 'Admin Student') data = data.filter(u => u.user_type === 'student');
+                    else if (activeTab === 'Admin Parent') data = data.filter(u => u.user_type === 'parent');
+                    else if (activeTab === 'Admin System') data = data.filter(u => !['student', 'parent'].includes(u.user_type));
+
+                    const normalizedUsers = data.map(u => normalizeUser(u));
                     setUsersList(normalizedUsers);
                 } catch (error) {
                     console.error("Failed to fetch users", error);
@@ -89,7 +97,16 @@ const SystemDashboard = () => {
             ]
         },
         { icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
-        { icon: ShieldCheck, label: 'Admin Management', active: activeTab === 'Admin Management', onClick: () => setActiveTab('Admin Management') },
+        {
+            icon: ShieldCheck,
+            label: 'Admin Management',
+            active: activeTab.startsWith('Admin'),
+            subItems: [
+                { label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
+                { label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
+                { label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
+            ]
+        },
         { icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
         { icon: Settings, label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
     ];
@@ -220,64 +237,102 @@ const SystemDashboard = () => {
                         </div>
                     </>
                 );
-            case 'Admin Management':
+            case 'Admin System':
+            case 'Admin Student':
+            case 'Admin Parent':
+                const tabTitle = activeTab.split(' ')[1];
                 return (
-                    <div className={`p-10 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">Admin <span className="text-orange-500">Management</span></h2>
-                                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage system administrators and their core permissions.</p>
+                    <div className="space-y-8">
+                        <div className={`p-10 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                                <div>
+                                    <h2 className="text-3xl font-black tracking-tight mb-2 uppercase"><span className="text-orange-500">{tabTitle}</span> Management</h2>
+                                    <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage {tabTitle.toLowerCase()} level access and configurations.</p>
+                                </div>
+                                <button onClick={() => setCreateModalOpen(true)} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
+                                    <Plus size={20} strokeWidth={3} />
+                                    <span>Add New {tabTitle}</span>
+                                </button>
                             </div>
-                            <button onClick={() => setCreateModalOpen(true)} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
-                                <Plus size={20} strokeWidth={3} />
-                                <span>Add New Admin</span>
-                            </button>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                                            <th className="pb-4 px-4 font-black">User</th>
+                                            <th className="pb-4 px-4 font-black">Role</th>
+                                            <th className="pb-4 px-4 font-black">Email</th>
+                                            <th className="pb-4 px-4 font-black">Last Login</th>
+                                            <th className="pb-4 px-4 text-right font-black">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-transparent">
+                                        {usersList.map((admin, i) => (
+                                            <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors`}>
+                                                <td className="py-5 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden border-2 ${isDarkMode ? 'bg-orange-900/20 text-orange-500 border-white/5' : 'bg-orange-100 text-orange-600 border-slate-100'}`}>
+                                                            {admin.profile_image ? (
+                                                                <img src={admin.profile_image} alt={admin.username} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                admin.username?.charAt(0).toUpperCase()
+                                                            )}
+                                                        </div>
+                                                        <span className="font-bold text-sm">{admin.username}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-5 px-4 text-sm font-bold opacity-70">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-tighter hover:scale-110 transition-transform cursor-default ${admin.user_type === 'superadmin' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
+                                                        'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                                        }`}>
+                                                        {admin.user_type?.toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 text-sm font-medium opacity-60 italic">{admin.email}</td>
+                                                <td className="py-5 px-4 text-xs font-bold opacity-50 whitespace-nowrap">2 mins ago</td>
+                                                <td className="py-5 px-4 text-right">
+                                                    <button className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-900'}`}>
+                                                        <Settings size={18} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
-                                        <th className="pb-4 px-4 font-black">User</th>
-                                        <th className="pb-4 px-4 font-black">Role</th>
-                                        <th className="pb-4 px-4 font-black">Email</th>
-                                        <th className="pb-4 px-4 font-black text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-transparent">
-                                    {usersList.map((admin, i) => (
-                                        <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors`}>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden border-2 ${isDarkMode ? 'bg-orange-900/20 text-orange-500 border-white/5' : 'bg-orange-100 text-orange-600 border-slate-100'}`}>
-                                                        {admin.profile_image ? (
-                                                            <img src={admin.profile_image} alt={admin.username} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            admin.username?.charAt(0).toUpperCase()
-                                                        )}
-                                                    </div>
-                                                    <span className="font-bold text-sm">{admin.username}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4 text-sm font-bold opacity-70">
-                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-tighter hover:scale-110 transition-transform cursor-default ${admin.user_type === 'superadmin' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
-                                                    'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                                    }`}>
-                                                    {admin.user_type?.toUpperCase()}
-                                                </span>
-                                            </td>
-                                            <td className="py-5 px-4 text-sm font-medium opacity-60 italic">{admin.email}</td>
-                                            <td className="py-5 px-4 text-right">
-                                                <button className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-900'}`}>
-                                                    <Settings size={18} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className={`p-10 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600'}`}>
+                                    <Clock size={20} />
+                                </div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Recent Login <span className="text-orange-500">History</span></h3>
+                            </div>
+                            <div className="space-y-4">
+                                {[
+                                    { user: 'admin', time: 'Jan 09, 14:55', ip: '103.44.22.11', status: 'Success' },
+                                    { user: 'atanu', time: 'Jan 09, 14:20', ip: '103.44.22.15', status: 'Success' },
+                                ].map((log, i) => (
+                                    <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-2 ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/5' : 'bg-slate-50/50 border-slate-100 hover:bg-slate-50'}`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                                                {log.user.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-sm tracking-tight">{log.user}</p>
+                                                <p className="text-[10px] opacity-50 font-medium">{log.ip} • Windows 11</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black opacity-40 uppercase mb-0.5">{log.time}</p>
+                                            <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">{log.status}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div >
+                    </div>
                 );
             case 'Profile':
                 return (
@@ -423,6 +478,27 @@ const SystemDashboard = () => {
                                         <span className="text-xs font-bold opacity-50">Member Since</span>
                                         <span className="text-xs font-black opacity-80">January 2026</span>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className={`p-8 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <Clock size={16} className="text-orange-500" />
+                                    <h3 className="text-lg font-black uppercase tracking-tight">Login <span className="text-orange-500">History</span></h3>
+                                </div>
+                                <div className="space-y-4">
+                                    {[
+                                        { time: 'Jan 09, 14:55', status: 'Success', ip: '103.44.22.11' },
+                                        { time: 'Jan 08, 10:20', status: 'Success', ip: '103.44.23.01' },
+                                    ].map((log, i) => (
+                                        <div key={i} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-black opacity-40">{log.time}</span>
+                                                <span className="text-[9px] font-black uppercase text-emerald-500">{log.status}</span>
+                                            </div>
+                                            <p className="text-[11px] font-bold opacity-70 italic">{log.ip} • Chrome / Windows</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
