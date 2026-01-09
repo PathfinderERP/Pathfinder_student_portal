@@ -29,9 +29,9 @@ const permissionTabs = [
         label: 'Admin Management',
         subs: [
             { id: 'admin_system', label: 'System' },
-            { id: 'settings', label: 'Settings' },
             { id: 'admin_student', label: 'Student' },
-            { id: 'admin_parent', label: 'Parent' }
+            { id: 'admin_parent', label: 'Parent' },
+            { id: 'settings', label: 'Settings' }
         ]
     },
 ];
@@ -332,9 +332,9 @@ const CreateUserPage = ({ onBack }) => {
             admin_mgmt: {
                 view: false, create: false, edit: false, delete: false,
                 admin_system: { view: false, create: false, edit: false, delete: false },
-                settings: { view: false, create: false, edit: false, delete: false },
                 admin_student: { view: false, create: false, edit: false, delete: false },
-                admin_parent: { view: false, create: false, edit: false, delete: false }
+                admin_parent: { view: false, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false }
             },
         }
     });
@@ -871,9 +871,9 @@ const SystemDashboard = () => {
             active: activeTab.startsWith('Admin'),
             subItems: [
                 { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
-                { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
                 { id: 'admin_student', label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
                 { id: 'admin_parent', label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
+                { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
             ].filter(sub => hasPermission('admin_mgmt', sub.id))
         },
         { id: 'profile', icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
