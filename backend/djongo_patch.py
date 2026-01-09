@@ -19,7 +19,7 @@ def apply_djongo_patches():
                 # Fix common SQL syntax that Djongo doesn't support well
                 sql = re.sub(r'\s+RETURNING\s+.*$', '', sql, flags=re.IGNORECASE)
                 sql = re.sub(r'%\([\w\d]+\)s', '%s', sql)
-                # Normalize all whitespace to single spaces to help the skip(N) parser
+                # Normalize all whitespace to single spaces
                 sql = ' '.join(sql.split())
                 
             try:
@@ -29,34 +29,67 @@ def apply_djongo_patches():
                 if 'SQLDecodeError' in str(type(e)) or 'DatabaseError' in str(type(e)):
                     # Add spaces around parentheses to help sqlparse group them
                     sql = sql.replace('(', ' ( ').replace(')', ' ) ')
-                    return original_execute(self, sql, params)
+                    try:
+                        return original_execute(self, sql, params)
+                    except Exception:
+                        pass
                 raise
         Cursor.execute = patched_execute
 
-        # 2. Patch InsertQuery.parse to be extremely robust
+        # 2. Patch InsertQuery components to be robust without breaking data mapping
         from djongo.sql2mongo.query import InsertQuery, SQLToken
-        
-        original_insert_parse = InsertQuery.parse
-        def robust_insert_parse(self):
+        from sqlparse.sql import Parenthesis, TokenList
+
+        def safe_tokens2sql(tok, query):
+            # Djongo's SQLToken.tokens2sql expects a TokenList (subscriptable)
+            # If we have a single Token, wrap it or handle it
+            if isinstance(tok, (Parenthesis, TokenList, list, tuple)):
+                try:
+                    return SQLToken.tokens2sql(tok[1] if isinstance(tok, Parenthesis) else tok, query)
+                except (TypeError, IndexError):
+                    pass
+            
+            # Desperation: if it's not a list, it's just a Token (like a single col or placeholder)
+            # But tokens2sql usually expects the INNER content of the parenthesis
+            return []
+
+        def robust_columns(self, statement):
+            tok = statement.next()
+            while tok and tok.is_whitespace:
+                tok = statement.next()
+            if not tok: return
+            
             try:
-                return original_insert_parse(self)
+                self._cols = [token.column for token in safe_tokens2sql(tok, self)]
             except Exception:
-                # If standard parse fails, use regex fallback
-                sql = str(self.statement)
-                
-                # Extract columns
-                col_match = re.search(r'INSERT INTO .*?\((.*?)\)', sql, re.IGNORECASE | re.DOTALL)
-                if col_match:
-                    self._cols = [c.strip().replace('"', '').replace('`', '') for c in col_match.group(1).split(',')]
-                
-                # Extract values/placeholders
-                val_match = re.search(r'VALUES\s*\((.*)\)', sql, re.IGNORECASE | re.DOTALL)
-                if val_match:
-                    self._values = [v.strip() for v in val_match.group(1).split(',')]
-                
-                return self
-        
-        InsertQuery.parse = robust_insert_parse
+                # Regex fallback for columns 
+                match = re.search(r'INSERT INTO .*?\((.*?)\)', str(statement), re.IGNORECASE)
+                if match:
+                    self._cols = [c.strip().replace('"', '').replace('`', '') for c in match.group(1).split(',')]
+                else:
+                    self._cols = []
+
+        def robust_values(self, statement):
+            tok = statement.next()
+            while tok and tok.value.upper() != 'VALUES':
+                tok = statement.next()
+            tok = statement.next()
+            while tok and tok.is_whitespace:
+                tok = statement.next()
+            if not tok: return
+
+            try:
+                self._values = [token.value for token in safe_tokens2sql(tok, self)]
+            except Exception:
+                # Regex fallback for values
+                match = re.search(r'VALUES\s*\((.*?)\)', str(statement), re.IGNORECASE)
+                if match:
+                    self._values = [v.strip() for v in match.group(1).split(',')]
+                else:
+                    self._values = []
+
+        InsertQuery._columns = robust_columns
+        InsertQuery._values = robust_values
 
     except Exception as e:
         print(f"Djongo patch failed: {e}")

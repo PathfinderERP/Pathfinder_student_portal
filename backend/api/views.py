@@ -4,6 +4,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import UploadedFile, CustomUser
 from .serializers import UploadedFileSerializer, CustomTokenObtainPairSerializer, UserSerializer, UserCreateSerializer
 
+class IsSuperAdmin(permissions.BasePermission):
+    """
+    Custom permission to only allow superadmins to create users.
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and getattr(request.user, 'user_type', None) == 'superadmin'
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
@@ -17,12 +24,30 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserCreateSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsSuperAdmin]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_object(self):
+        """
+        Override get_object to handle MongoDB ObjectId lookups properly with Djongo
+        """
+        from bson import ObjectId
+        pk = self.kwargs.get('pk')
+        try:
+            # Try to get the user by _id (MongoDB ObjectId)
+            return CustomUser.objects.get(_id=ObjectId(pk))
+        except (CustomUser.DoesNotExist, Exception):
+            # Fallback to default behavior
+            return super().get_object()
 
     @action(detail=True, methods=['post'])
     def change_password(self, request, pk=None):

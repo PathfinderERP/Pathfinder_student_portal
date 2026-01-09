@@ -3,11 +3,261 @@ import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, Settings, Plus, ChevronRight, ExternalLink,
-    Users, GraduationCap, Briefcase, FilePlus, Camera, Upload, X, User, Clock, ArrowLeft, Shield, UserPlus, Power, Key, Eye, EyeOff, ChevronDown
+    Users, GraduationCap, Briefcase, FilePlus, Camera, Upload, X, User, Clock, ArrowLeft, Shield, UserPlus, Power, Key, Eye, EyeOff, ChevronDown, Trash2, CheckCircle
 } from 'lucide-react';
 import PortalLayout from '../../components/common/PortalLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+
+const permissionTabs = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'centre_mgmt', label: 'Centre Management' },
+    { id: 'section_mgmt', label: 'Section Management' },
+    {
+        id: 'test_mgmt',
+        label: 'Test Management',
+        subs: [
+            { id: 'test_create', label: 'Test Create' },
+            { id: 'test_allotment', label: 'Test Allotment' },
+            { id: 'test_responses', label: 'Test Responses' },
+            { id: 'test_result', label: 'Test Result' }
+        ]
+    },
+    { id: 'question_bank', label: 'Question Bank' },
+    {
+        id: 'admin_mgmt',
+        label: 'Admin Management',
+        subs: [
+            { id: 'admin_system', label: 'System' },
+            { id: 'admin_student', label: 'Student' },
+            { id: 'admin_parent', label: 'Parent' }
+        ]
+    },
+];
+
+const EditUserModal = ({ user, onClose, onUpdate }) => {
+    const { isDarkMode } = useTheme();
+    const { getApiUrl } = useAuth();
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Initialize with safe defaults for every tab/subtab
+    const getSafePermissions = (existing) => {
+        let base = existing;
+        if (typeof base === 'string') {
+            try { base = JSON.parse(base); } catch (e) { base = {}; }
+        }
+        base = JSON.parse(JSON.stringify(base || {}));
+
+        // Ensure base is an object
+        if (typeof base !== 'object' || base === null || Array.isArray(base)) {
+            base = {};
+        }
+
+        permissionTabs.forEach(tab => {
+            if (!base[tab.id]) {
+                if (tab.subs) {
+                    base[tab.id] = {};
+                    tab.subs.forEach(s => {
+                        base[tab.id][s.id] = { view: false, create: false, edit: false, delete: false };
+                    });
+                } else {
+                    base[tab.id] = { view: false, create: false, edit: false, delete: false };
+                }
+            } else if (tab.subs) {
+                tab.subs.forEach(s => {
+                    if (!base[tab.id][s.id]) {
+                        base[tab.id][s.id] = { view: false, create: false, edit: false, delete: false };
+                    }
+                });
+            }
+        });
+        return base;
+    };
+
+    const [formData, setFormData] = useState({
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || '',
+        email: user?.email || '',
+        user_type: user?.user_type || 'student',
+        permissions: getSafePermissions(user?.permissions)
+    });
+
+    const handlePermissionChange = (tab, action, subTab = null) => {
+        if (formData.user_type === 'superadmin') return;
+        setFormData(prev => {
+            const newPerms = { ...prev.permissions };
+            if (subTab) {
+                newPerms[tab] = {
+                    ...newPerms[tab],
+                    [subTab]: { ...newPerms[tab][subTab], [action]: !newPerms[tab][subTab][action] }
+                };
+            } else {
+                newPerms[tab] = { ...newPerms[tab], [action]: !newPerms[tab][action] };
+            }
+            return { ...prev, permissions: newPerms };
+        });
+    };
+
+    const toggleAllPermissions = (tab, subTab = null) => {
+        if (formData.user_type === 'superadmin') return;
+        setFormData(prev => {
+            const newPerms = JSON.parse(JSON.stringify(prev.permissions));
+            if (subTab) {
+                const target = newPerms[tab][subTab];
+                const allTrue = ['view', 'create', 'edit', 'delete'].every(action => target[action]);
+                ['view', 'create', 'edit', 'delete'].forEach(action => {
+                    newPerms[tab][subTab][action] = !allTrue;
+                });
+            } else {
+                const tabConfig = permissionTabs.find(t => t.id === tab);
+                if (tabConfig.subs) {
+                    const allSubsTrue = tabConfig.subs.every(sub =>
+                        ['view', 'create', 'edit', 'delete'].every(action => newPerms[tab][sub.id][action])
+                    );
+                    tabConfig.subs.forEach(sub => {
+                        ['view', 'create', 'edit', 'delete'].forEach(action => {
+                            newPerms[tab][sub.id][action] = !allSubsTrue;
+                        });
+                    });
+                } else {
+                    const allTrue = ['view', 'create', 'edit', 'delete'].every(action => newPerms[tab][action]);
+                    ['view', 'create', 'edit', 'delete'].forEach(action => {
+                        newPerms[tab][action] = !allTrue;
+                    });
+                }
+            }
+            return { ...prev, permissions: newPerms };
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.patch(`${apiUrl}/api/users/${user.id}/`, formData);
+            onUpdate(response.data);
+            onClose();
+        } catch (err) {
+            console.error("Failed to update user", err);
+            if (err.response?.status === 404) {
+                alert(`User "${user.username}" not found in database. This entry will be removed.`);
+                onUpdate({ ...user, _shouldRemove: true });
+                onClose();
+            } else {
+                alert("Failed to update user details");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] border shadow-2xl p-8 animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 className="text-2xl font-black uppercase tracking-tight">Edit <span className="text-orange-500">User Access</span></h2>
+                        <p className="text-xs font-bold opacity-50 uppercase tracking-widest mt-1">Updating: {user.username}</p>
+                    </div>
+                    <button onClick={onClose} className={`p-2 rounded-xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
+                        <X size={20} strokeWidth={3} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">First Name</label>
+                                <input type="text" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })}
+                                    className={`w-full p-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Last Name</label>
+                                <input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })}
+                                    className={`w-full p-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Email</label>
+                            <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                className={`w-full p-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Role</label>
+                            <div className="relative">
+                                <select value={formData.user_type} onChange={e => setFormData({ ...formData, user_type: e.target.value })}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                    className={`w-full p-3.5 pr-10 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none cursor-pointer 
+                                        ${isDarkMode ? 'bg-white/5 border-white/10 text-white [&>option]:bg-[#10141D]' : 'bg-slate-100 border-slate-200 text-slate-900 [&>option]:bg-white'}`}>
+                                    <option value="student">Student</option>
+                                    <option value="parent">Parent</option>
+                                    <option value="staff">Staff</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="superadmin">Super Admin</option>
+                                </select>
+                                <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" />
+                            </div>
+                        </div>
+
+                        <button disabled={isLoading} type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3">
+                            {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Save Profile Changes"}
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2">
+                            <Shield size={14} className="text-orange-500" /> Granular Permissions
+                        </h3>
+                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                            {permissionTabs.map(tab => (
+                                <div key={tab.id} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{tab.label}</span>
+                                        <button type="button" onClick={() => toggleAllPermissions(tab.id)} disabled={formData.user_type === 'superadmin'}
+                                            className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-500 hover:text-white' : 'bg-slate-200 text-slate-600'} ${formData.user_type === 'superadmin' && 'opacity-20'}`}>ALL</button>
+                                    </div>
+                                    {!tab.subs ? (
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {['view', 'create', 'edit', 'delete'].map(action => (
+                                                <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action)}
+                                                    className={`py-1.5 rounded-lg text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
+                                                    {action}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {tab.subs.map(sub => (
+                                                <div key={sub.id} className="space-y-2">
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <span className="text-[9px] font-bold opacity-60">{sub.label}</span>
+                                                        <button type="button" onClick={() => toggleAllPermissions(tab.id, sub.id)} disabled={formData.user_type === 'superadmin'}
+                                                            className={`text-[8px] font-black uppercase ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Toggle</button>
+                                                    </div>
+                                                    <div className="grid grid-cols-4 gap-2">
+                                                        {['view', 'create', 'edit', 'delete'].map(action => (
+                                                            <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action, sub.id)}
+                                                                className={`py-1 rounded-md text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-700' : 'bg-white border-slate-100 text-slate-300'}`}>
+                                                                {action}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
 
 const CreateUserPage = ({ onBack }) => {
     const { isDarkMode } = useTheme();
@@ -146,31 +396,7 @@ const CreateUserPage = ({ onBack }) => {
         }
     };
 
-    const tabs = [
-        { id: 'dashboard', label: 'Dashboard' },
-        { id: 'centre_mgmt', label: 'Centre Management' },
-        { id: 'section_mgmt', label: 'Section Management' },
-        {
-            id: 'test_mgmt',
-            label: 'Test Management',
-            subs: [
-                { id: 'test_create', label: 'Test Create' },
-                { id: 'test_allotment', label: 'Test Allotment' },
-                { id: 'test_responses', label: 'Test Responses' },
-                { id: 'test_result', label: 'Test Result' }
-            ]
-        },
-        { id: 'question_bank', label: 'Question Bank' },
-        {
-            id: 'admin_mgmt',
-            label: 'Admin Management',
-            subs: [
-                { id: 'admin_system', label: 'System' },
-                { id: 'admin_student', label: 'Student' },
-                { id: 'admin_parent', label: 'Parent' }
-            ]
-        },
-    ];
+    const tabs = permissionTabs;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -386,6 +612,8 @@ const SystemDashboard = () => {
     const [newPass, setNewPass] = useState('');
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [showResetPass, setShowResetPass] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
 
     const handleToggleStatus = async (userObj) => {
         setIsActionLoading(true);
@@ -394,8 +622,48 @@ const SystemDashboard = () => {
             await axios.patch(`${apiUrl}/api/users/${userObj.id}/`, { is_active: !userObj.is_active });
             // Manual update in list to avoid refetch lag
             setUsersList(prev => prev.map(u => u.id === userObj.id ? { ...u, is_active: !u.is_active } : u));
+            setSuccessMessage(`User "${userObj.username}" ${!userObj.is_active ? 'activated' : 'locked'} successfully`);
+            setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
             console.error("Failed to toggle status", error);
+            if (error.response?.status === 404) {
+                // User doesn't exist in database, remove from list
+                setUsersList(prev => prev.filter(u => u.id !== userObj.id));
+                alert(`User "${userObj.username}" not found in database. This was likely a corrupted entry. It has been removed from the list.`);
+            } else {
+                alert("Failed to toggle user status");
+            }
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleDeleteUser = async (userObj) => {
+        // Prevent superadmin from deleting themselves
+        if (userObj.id === user.id) {
+            alert("You cannot delete your own account!");
+            return;
+        }
+
+        if (!window.confirm(`Are you sure you want to delete ${userObj.username}? This cannot be undone.`)) return;
+
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            await axios.delete(`${apiUrl}/api/users/${userObj.id}/`);
+            setUsersList(prev => prev.filter(u => u.id !== userObj.id));
+            setSuccessMessage("User deleted successfully");
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+            console.error("Failed to delete user", error);
+            if (error.response?.status === 404) {
+                // User doesn't exist, remove from list anyway
+                setUsersList(prev => prev.filter(u => u.id !== userObj.id));
+                setSuccessMessage("Corrupted entry removed from list");
+                setTimeout(() => setSuccessMessage(''), 3000);
+            } else {
+                alert("Failed to delete user");
+            }
         } finally {
             setIsActionLoading(false);
         }
@@ -643,7 +911,7 @@ const SystemDashboard = () => {
                     setActiveTab('Dashboard');
                     return null;
                 }
-                return <CreateUserPage onBack={() => setActiveTab('Dashboard')} />;
+                return <CreateUserPage onBack={() => setActiveTab('Admin System')} />;
             case 'Admin System':
             case 'Admin Student':
             case 'Admin Parent':
@@ -659,7 +927,7 @@ const SystemDashboard = () => {
                                 {activeTab === 'Admin System' && (
                                     <button onClick={() => setActiveTab('Create User')} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
                                         <Plus size={20} strokeWidth={3} />
-                                        <span>Add New System</span>
+                                        <span>Add New User</span>
                                     </button>
                                 )}
                             </div>
@@ -671,7 +939,8 @@ const SystemDashboard = () => {
                                             <th className="pb-4 px-4 font-black">User</th>
                                             <th className="pb-4 px-4 font-black">Role</th>
                                             <th className="pb-4 px-4 font-black">Email</th>
-                                            <th className="pb-4 px-4 font-black">Last Login</th>
+                                            <th className="pb-4 px-4 font-black">Created By</th>
+                                            <th className="pb-4 px-4 font-black">Creation Time</th>
                                             <th className="pb-4 px-4 font-black text-center">Status</th>
                                             <th className="pb-4 px-4 text-right font-black">Actions</th>
                                         </tr>
@@ -699,7 +968,12 @@ const SystemDashboard = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-4 text-sm font-medium opacity-60 italic whitespace-nowrap">{admin.email}</td>
-                                                <td className="py-5 px-4 text-xs font-bold opacity-50 whitespace-nowrap text-center">2 mins ago</td>
+                                                <td className="py-5 px-4 text-[11px] font-bold opacity-60 whitespace-nowrap">
+                                                    {admin.created_by_username || 'System'}
+                                                </td>
+                                                <td className="py-5 px-4 text-[10px] font-bold opacity-50 whitespace-nowrap text-center">
+                                                    {admin.date_joined ? new Date(admin.date_joined).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                </td>
                                                 <td className="py-5 px-4">
                                                     <div className="flex justify-center">
                                                         <button
@@ -724,8 +998,20 @@ const SystemDashboard = () => {
                                                         >
                                                             <Key size={16} strokeWidth={2.5} />
                                                         </button>
-                                                        <button className={`p-2 rounded-xl transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white border border-white/5' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white border border-slate-200'}`}>
+                                                        <button
+                                                            onClick={() => { setSelectedUserForEdit(admin); setEditModalOpen(true); }}
+                                                            className={`p-2 rounded-xl transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white border border-white/5' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white border border-slate-200'}`}
+                                                            title="Edit User Permissions"
+                                                        >
                                                             <Settings size={16} strokeWidth={2.5} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteUser(admin)}
+                                                            disabled={isActionLoading || admin.id === user.id}
+                                                            className={`p-2 rounded-xl transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100'} disabled:opacity-50`}
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={16} strokeWidth={2.5} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1020,6 +1306,14 @@ const SystemDashboard = () => {
             subtitle={activeTab === 'Dashboard' ? "Manage your application content and users" : `System Administration > ${activeTab}`}
             headerActions={headerActions}
         >
+            {successMessage && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top duration-500">
+                    <div className="flex items-center gap-3 px-6 py-3 bg-emerald-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest text-[10px]">
+                        <CheckCircle size={14} strokeWidth={3} />
+                        {successMessage}
+                    </div>
+                </div>
+            )}
 
             {renderContent()}
 
@@ -1081,6 +1375,23 @@ const SystemDashboard = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {editModalOpen && selectedUserForEdit && (
+                <EditUserModal
+                    user={selectedUserForEdit}
+                    onClose={() => { setEditModalOpen(false); setSelectedUserForEdit(null); }}
+                    onUpdate={(updated) => {
+                        if (updated._shouldRemove) {
+                            setUsersList(prev => prev.filter(u => u.id !== updated.id));
+                            setSuccessMessage("Corrupted entry removed from list");
+                        } else {
+                            setUsersList(prev => prev.map(u => u.id === updated.id ? updated : u));
+                            setSuccessMessage("User updated successfully!");
+                        }
+                        setTimeout(() => setSuccessMessage(''), 3000);
+                    }}
+                />
             )}
         </PortalLayout>
     );

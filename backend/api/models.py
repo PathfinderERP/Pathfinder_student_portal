@@ -25,6 +25,9 @@ class CustomUser(AbstractUser):
     permissions = SafeJSONField(default=dict, blank=True)
     
     profile_image = models.ImageField(upload_to='profile_images/', null=True, blank=True)
+    
+    # Track who created this user (storing username directly to avoid ForeignKey issues with Djongo)
+    created_by_username = models.CharField(max_length=150, blank=True, null=True)
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"
