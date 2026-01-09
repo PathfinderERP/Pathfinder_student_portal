@@ -7,6 +7,8 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('auth_token'));
+    const [lastUsername, setLastUsername] = useState(null);
+    const [lastPassword, setLastPassword] = useState(null);
     const [loading, setLoading] = useState(true);
 
     const normalizeUser = (userData) => {
@@ -70,6 +72,8 @@ export const AuthProvider = ({ children }) => {
             const response = await axios.post(`${apiUrl}/api/token/`, { username, password });
             const newToken = response.data.access;
             setToken(newToken);
+            setLastUsername(username);
+            setLastPassword(password);
             localStorage.setItem('auth_token', newToken);
             const decoded = jwtDecode(newToken);
             setUser(normalizeUser(decoded));
@@ -117,12 +121,14 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         setToken(null);
         setUser(null);
+        setLastUsername(null);
+        setLastPassword(null);
         localStorage.removeItem('auth_token');
         delete axios.defaults.headers.common['Authorization'];
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, updateProfile, logout, loading, isAuthenticated: !!user, getApiUrl, normalizeUser }}>
+        <AuthContext.Provider value={{ user, login, updateProfile, logout, loading, isAuthenticated: !!user, getApiUrl, normalizeUser, lastUsername, lastPassword }}>
             {children}
         </AuthContext.Provider>
     );
