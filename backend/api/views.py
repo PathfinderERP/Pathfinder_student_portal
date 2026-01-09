@@ -1,8 +1,8 @@
 from rest_framework import viewsets, permissions, generics, status, response
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import UploadedFile, CustomUser
-from .serializers import UploadedFileSerializer, CustomTokenObtainPairSerializer, UserSerializer, UserCreateSerializer
+from .models import UploadedFile, CustomUser, LoginLog
+from .serializers import UploadedFileSerializer, CustomTokenObtainPairSerializer, UserSerializer, UserCreateSerializer, LoginLogSerializer
 
 class IsSuperAdmin(permissions.BasePermission):
     """
@@ -13,6 +13,15 @@ class IsSuperAdmin(permissions.BasePermission):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+class LoginHistoryView(generics.ListAPIView):
+    serializer_class = LoginLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        from .db_utils import get_recent_logs_direct
+        logs = get_recent_logs_direct(10)
+        return response.Response(logs)
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer

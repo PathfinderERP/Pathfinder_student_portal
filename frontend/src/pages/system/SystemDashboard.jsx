@@ -29,6 +29,7 @@ const permissionTabs = [
         label: 'Admin Management',
         subs: [
             { id: 'admin_system', label: 'System' },
+            { id: 'settings', label: 'Settings' },
             { id: 'admin_student', label: 'Student' },
             { id: 'admin_parent', label: 'Parent' }
         ]
@@ -331,6 +332,7 @@ const CreateUserPage = ({ onBack }) => {
             admin_mgmt: {
                 view: false, create: false, edit: false, delete: false,
                 admin_system: { view: false, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
                 admin_student: { view: false, create: false, edit: false, delete: false },
                 admin_parent: { view: false, create: false, edit: false, delete: false }
             },
@@ -559,7 +561,7 @@ const CreateUserPage = ({ onBack }) => {
                                                 type="button"
                                                 onClick={() => toggleAllPermissions(tab.id)}
                                                 disabled={formData.user_type === 'superadmin'}
-                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id][a])
+                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[a])
                                                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                                                     : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-200 text-slate-600'
                                                     } ${formData.user_type === 'superadmin' ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -567,8 +569,8 @@ const CreateUserPage = ({ onBack }) => {
                                                 ALL
                                             </button>
                                         </div>
-                                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${formData.permissions[tab.id].view ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                            {formData.permissions[tab.id].view ? 'Enabled' : 'Disabled'}
+                                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${formData.permissions[tab.id]?.view ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                            {formData.permissions[tab.id]?.view ? 'Enabled' : 'Disabled'}
                                         </div>
                                     </div>
 
@@ -602,7 +604,7 @@ const CreateUserPage = ({ onBack }) => {
                                                                 type="button"
                                                                 onClick={() => toggleAllPermissions(tab.id, sub.id)}
                                                                 disabled={formData.user_type === 'superadmin'}
-                                                                className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id][sub.id][a])
+                                                                className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[sub.id]?.[a])
                                                                     ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
                                                                     : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500'
                                                                     } ${formData.user_type === 'superadmin' ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -610,7 +612,7 @@ const CreateUserPage = ({ onBack }) => {
                                                                 ALL
                                                             </button>
                                                         </div>
-                                                        {formData.permissions[tab.id][sub.id].view && (
+                                                        {formData.permissions[tab.id]?.[sub.id]?.view && (
                                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                                                         )}
                                                     </div>
@@ -621,7 +623,7 @@ const CreateUserPage = ({ onBack }) => {
                                                                 type="button"
                                                                 disabled={formData.user_type === 'superadmin'}
                                                                 onClick={() => handlePermissionChange(tab.id, action, sub.id)}
-                                                                className={`py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id][sub.id][action]
+                                                                className={`py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id]?.[sub.id]?.[action]
                                                                     ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/20'
                                                                     : isDarkMode ? 'bg-white/5 border-white/5 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
                                                                     } ${formData.user_type === 'superadmin' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
@@ -658,6 +660,9 @@ const SystemDashboard = () => {
     const [showResetPass, setShowResetPass] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
+    const [loginHistory, setLoginHistory] = useState([]);
 
     const handleToggleStatus = async (userObj) => {
         setIsActionLoading(true);
@@ -689,22 +694,30 @@ const SystemDashboard = () => {
             return;
         }
 
-        if (!window.confirm(`Are you sure you want to delete ${userObj.username}? This cannot be undone.`)) return;
+        setSelectedUserForDelete(userObj);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDeleteUser = async () => {
+        if (!selectedUserForDelete) return;
 
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.delete(`${apiUrl}/api/users/${userObj.id}/`);
-            setUsersList(prev => prev.filter(u => u.id !== userObj.id));
+            await axios.delete(`${apiUrl}/api/users/${selectedUserForDelete.id}/`);
+            setUsersList(prev => prev.filter(u => u.id !== selectedUserForDelete.id));
             setSuccessMessage("User deleted successfully");
             setTimeout(() => setSuccessMessage(''), 3000);
+            setDeleteModalOpen(false);
+            setSelectedUserForDelete(null);
         } catch (error) {
             console.error("Failed to delete user", error);
             if (error.response?.status === 404) {
-                // User doesn't exist, remove from list anyway
-                setUsersList(prev => prev.filter(u => u.id !== userObj.id));
+                setUsersList(prev => prev.filter(u => u.id !== selectedUserForDelete.id));
                 setSuccessMessage("Corrupted entry removed from list");
                 setTimeout(() => setSuccessMessage(''), 3000);
+                setDeleteModalOpen(false);
+                setSelectedUserForDelete(null);
             } else {
                 alert("Failed to delete user");
             }
@@ -790,6 +803,20 @@ const SystemDashboard = () => {
             };
             fetchUsers();
         }
+
+        if (activeTab === 'Dashboard') {
+            const fetchLoginHistory = async () => {
+                try {
+                    const apiUrl = getApiUrl();
+                    const response = await axios.get(`${apiUrl}/api/login-history/?_t=${Date.now()}`);
+                    console.log("Login History API Response:", response.data);
+                    setLoginHistory(response.data);
+                } catch (error) {
+                    console.error("Failed to fetch login history", error);
+                }
+            };
+            fetchLoginHistory();
+        }
     }, [activeTab, getApiUrl, normalizeUser]);
 
     const isSuperAdmin = user?.user_type === 'superadmin';
@@ -844,15 +871,15 @@ const SystemDashboard = () => {
             active: activeTab.startsWith('Admin'),
             subItems: [
                 { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
+                { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
                 { id: 'admin_student', label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
                 { id: 'admin_parent', label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
             ].filter(sub => hasPermission('admin_mgmt', sub.id))
         },
         { id: 'profile', icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
-        { id: 'settings', icon: Settings, label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
     ].filter(item => {
-        // Dashboard, Profile and Settings are always visible for logged in users
-        if (['dashboard', 'profile', 'settings'].includes(item.id)) return true;
+        // Dashboard and Profile are always visible for logged in users
+        if (['dashboard', 'profile'].includes(item.id)) return true;
         return hasPermission(item.id);
     });
 
@@ -1106,26 +1133,30 @@ const SystemDashboard = () => {
                                 <h3 className="text-xl font-black uppercase tracking-tight">Recent Login <span className="text-orange-500">History</span></h3>
                             </div>
                             <div className="space-y-4">
-                                {[
-                                    { user: 'admin', time: 'Jan 09, 14:55', ip: '103.44.22.11', status: 'Success' },
-                                    { user: 'atanu', time: 'Jan 09, 14:20', ip: '103.44.22.15', status: 'Success' },
-                                ].map((log, i) => (
-                                    <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-2 ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/5' : 'bg-slate-100/50 border-slate-200/60 hover:bg-slate-100'}`}>
+                                {loginHistory.length > 0 ? loginHistory.map((log, i) => (
+                                    <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all group">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
-                                                {log.user.charAt(0).toUpperCase()}
+                                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 shadow-lg shadow-orange-500/5">
+                                                <Clock size={18} strokeWidth={2.5} />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-sm tracking-tight">{log.user}</p>
-                                                <p className="text-[10px] opacity-50 font-medium">{log.ip} • Windows 11</p>
+                                                <p className="font-black text-base tracking-tight text-white/90">{log.time}</p>
+                                                <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.2em]">Verified Login</p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-black opacity-40 uppercase mb-0.5">{log.time}</p>
-                                            <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">{log.status}</span>
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
                                         </div>
                                     </div>
-                                ))}
+                                )) : (
+                                    <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">
+                                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                                            <Clock size={32} />
+                                        </div>
+                                        <p className="font-bold">No Login History</p>
+                                        <p className="text-xs">Your recent logins will appear here.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1468,6 +1499,42 @@ const SystemDashboard = () => {
                         setTimeout(() => setSuccessMessage(''), 3000);
                     }}
                 />
+            )}
+
+            {deleteModalOpen && selectedUserForDelete && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setDeleteModalOpen(false)} />
+                    <div className={`relative w-full max-w-md p-8 rounded-[2.5rem] border shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+                        <div className="flex flex-col items-center text-center space-y-6">
+                            <div className="w-20 h-20 rounded-3xl bg-red-500/10 flex items-center justify-center text-red-500 mb-2">
+                                <Trash2 size={40} strokeWidth={2.5} />
+                            </div>
+
+                            <div>
+                                <h2 className="text-2xl font-black uppercase tracking-tight mb-3">Delete <span className="text-red-500">Account</span>?</h2>
+                                <p className={`text-sm font-medium opacity-70 leading-relaxed px-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                    This user will no longer exist in the system. Are you really want to delete the <span className="text-red-500 font-bold">"{selectedUserForDelete.username}"</span> user?
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col w-full gap-3 pt-4">
+                                <button
+                                    onClick={confirmDeleteUser}
+                                    disabled={isActionLoading}
+                                    className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-red-600/30 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                                >
+                                    {isActionLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Yes, Delete User"}
+                                </button>
+                                <button
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </PortalLayout>
     );

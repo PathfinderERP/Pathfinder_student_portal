@@ -119,7 +119,51 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['profile_image'] = user.profile_image.url if user.profile_image else None
         return token
 
+    def validate(self, attrs):
+        # We must call super().validate first to authenticate the user
+        data = super().validate(attrs)
+        
+        # Log the login session with full context using direct DB access
+        try:
+            from .db_utils import log_login_direct
+            # self.user is set by the parent validate() method
+            user = getattr(self, 'user', None)
+            request = self.context.get('request')
+            
+            # Use identifier from attrs as fallback
+            identifier = attrs.get('username', 'Unknown')
+            
+            if user:
+                username_to_log = str(user.username) if user.username else str(identifier)
+                ip = 'Unknown IP'
+                user_agent = 'Unknown Browser'
+                
+                if request:
+                    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                    if x_forwarded_for:
+                        ip = str(x_forwarded_for.split(',')[0])
+                    else:
+                        ip = str(request.META.get('REMOTE_ADDR', 'Unknown IP'))
+                    user_agent = str(request.META.get('HTTP_USER_AGENT', 'Unknown Browser'))
+                
+                print(f"Bypassing ORM: Logging {username_to_log} directly to Mongo")
+                log_login_direct(user.id, username_to_log, ip, user_agent)
+            else:
+                print("CRITICAL LOGIN DEBUG: No user object found after validation")
+        except Exception as e:
+            print(f"CRITICAL LOGIN ERROR in Direct Access: {str(e)}")
+            
+        return data
+
 class UploadedFileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadedFile
         fields = '__all__'
+
+class LoginLogSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    username = serializers.CharField()
+    ip_address = serializers.CharField()
+    status = serializers.CharField()
+    time = serializers.CharField()
+    user_agent = serializers.CharField()

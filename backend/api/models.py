@@ -40,3 +40,17 @@ class UploadedFile(models.Model):
 
     def __str__(self):
         return self.title
+
+class LoginLog(models.Model):
+    user_id = models.CharField(max_length=100, null=True, blank=True)
+    username = models.CharField(max_length=150, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=20, default='Success')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.username or 'Unknown'} - {self.ip_address} - {self.created_at}"
