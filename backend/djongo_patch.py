@@ -14,25 +14,50 @@ def apply_djongo_patches():
         original_execute = Cursor.execute
         def patched_execute(self, sql, params=None):
             if isinstance(sql, str):
+                # Remove quotes that Djongo's parser chokes on
                 sql = sql.replace('"', '').replace('`', '')
+                # Fix common SQL syntax that Djongo doesn't support well
                 sql = re.sub(r'\s+RETURNING\s+.*$', '', sql, flags=re.IGNORECASE)
                 sql = re.sub(r'%\([\w\d]+\)s', '%s', sql)
-            return original_execute(self, sql, params)
+                # Normalize all whitespace to single spaces to help the skip(N) parser
+                sql = ' '.join(sql.split())
+                
+            try:
+                return original_execute(self, sql, params)
+            except Exception as e:
+                # If it's a parse error/database error, try manual grouping assist
+                if 'SQLDecodeError' in str(type(e)) or 'DatabaseError' in str(type(e)):
+                    # Add spaces around parentheses to help sqlparse group them
+                    sql = sql.replace('(', ' ( ').replace(')', ' ) ')
+                    return original_execute(self, sql, params)
+                raise
         Cursor.execute = patched_execute
 
-        # 2. Patch InsertQuery.execute to fix 'NoneType is not iterable'
-        original_insert_execute = query.InsertQuery.execute
-        def patched_insert_execute(self):
+        # 2. Patch InsertQuery.parse to be extremely robust
+        from djongo.sql2mongo.query import InsertQuery, SQLToken
+        
+        original_insert_parse = InsertQuery.parse
+        def robust_insert_parse(self):
             try:
-                return original_insert_execute(self)
-            except (TypeError, AttributeError):
-                # Fallback: if _cols is missing/None, just ignore the error
-                # This usually happens on internal Django table inserts we can skip
-                if not hasattr(self, '_cols') or self._cols is None:
-                    pass
-                return
-        query.InsertQuery.execute = patched_insert_execute
+                return original_insert_parse(self)
+            except Exception:
+                # If standard parse fails, use regex fallback
+                sql = str(self.statement)
+                
+                # Extract columns
+                col_match = re.search(r'INSERT INTO .*?\((.*?)\)', sql, re.IGNORECASE | re.DOTALL)
+                if col_match:
+                    self._cols = [c.strip().replace('"', '').replace('`', '') for c in col_match.group(1).split(',')]
+                
+                # Extract values/placeholders
+                val_match = re.search(r'VALUES\s*\((.*)\)', sql, re.IGNORECASE | re.DOTALL)
+                if val_match:
+                    self._values = [v.strip() for v in val_match.group(1).split(',')]
+                
+                return self
+        
+        InsertQuery.parse = robust_insert_parse
 
-    except ImportError:
-        pass
+    except Exception as e:
+        print(f"Djongo patch failed: {e}")
 # ---------------------------------------------------------

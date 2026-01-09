@@ -3,24 +3,12 @@ from django.contrib.auth.models import AbstractUser
 from djongo import models as djongo_models
 import json
 
-class SafeJSONField(models.JSONField):
+class SafeJSONField(djongo_models.JSONField):
     """
-    Djongo sometimes returns data already parsed as a dict/list/OrderedDict.
-    Django's native JSONField tries to json.loads() it, which fails.
-    This field safely handles both string and already-parsed cases.
+    Djongo native JSONField handles MongoDB objects correctly.
     """
     def get_internal_type(self):
         return 'JSONField'
-
-    def from_db_value(self, value, expression, connection):
-        if value is None:
-            return value
-        if not isinstance(value, str):
-            return value
-        try:
-            return json.loads(value, cls=self.decoder)
-        except (ValueError, TypeError):
-            return value
 
 class CustomUser(AbstractUser):
     _id = djongo_models.ObjectIdField(primary_key=True)

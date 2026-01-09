@@ -24,20 +24,31 @@ export const AuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        if (token) {
-            try {
-                const decoded = jwtDecode(token);
-                if (decoded.exp * 1000 < Date.now()) {
+        const initAuth = async () => {
+            if (token) {
+                try {
+                    const decoded = jwtDecode(token);
+                    if (decoded.exp * 1000 < Date.now()) {
+                        logout();
+                    } else {
+                        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                        // Fetch full user data to get profile images etc. which might not be in JWT
+                        try {
+                            const apiUrl = getApiUrl();
+                            const response = await axios.get(`${apiUrl}/api/profile/`);
+                            setUser(normalizeUser(response.data));
+                        } catch (e) {
+                            // Only fallback to JWT decode if profile fetch fails
+                            setUser(normalizeUser(decoded));
+                        }
+                    }
+                } catch (e) {
                     logout();
-                } else {
-                    setUser(normalizeUser(decoded));
-                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
                 }
-            } catch (e) {
-                logout();
             }
-        }
-        setLoading(false);
+            setLoading(false);
+        };
+        initAuth();
     }, [token]);
 
     const getApiUrl = () => {

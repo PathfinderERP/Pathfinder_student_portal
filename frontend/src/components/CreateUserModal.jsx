@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useTheme } from '../context/ThemeContext';
-import { UserPlus, User, Mail, Lock, Briefcase, AlertCircle, X, CheckCircle2 } from 'lucide-react';
+import { UserPlus, User, Mail, Lock, Briefcase, AlertCircle, X, CheckCircle2, Shield } from 'lucide-react';
 
 const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
     const { isDarkMode } = useTheme();
@@ -9,8 +9,24 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
         username: '',
         email: '',
         password: '',
-        user_type: 'student'
+        user_type: 'student',
+        permissions: {
+            system: { create: false, view: false, edit: false, delete: false },
+        }
     });
+
+    const handlePermissionChange = (module, type) => {
+        setFormData(prev => ({
+            ...prev,
+            permissions: {
+                ...prev.permissions,
+                [module]: {
+                    ...prev.permissions[module],
+                    [type]: !prev.permissions[module][type]
+                }
+            }
+        }));
+    };
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -30,7 +46,15 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
                 if (onSuccess) onSuccess();
                 onClose();
                 setIsSuccess(false);
-                setFormData({ username: '', email: '', password: '', user_type: 'student' });
+                setFormData({
+                    username: '',
+                    email: '',
+                    password: '',
+                    user_type: 'student',
+                    permissions: {
+                        system: { create: false, view: false, edit: false, delete: false },
+                    }
+                });
             }, 1500);
         } catch (err) {
             setError(err.response?.data?.detail || 'Creation failed.');
@@ -153,6 +177,37 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
                                     </select>
                                 </div>
                             </div>
+
+                            {(formData.user_type === 'admin' || formData.user_type === 'staff') && (
+                                <div className={`p-5 rounded-2xl border-2 ${isDarkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50 border-slate-100'} animate-in slide-in-from-top-2 duration-300`}>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Shield size={16} className="text-indigo-500" />
+                                        <h3 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Systems Permissions</h3>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {['view', 'create', 'edit', 'delete'].map((action) => (
+                                            <label
+                                                key={action}
+                                                className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all border
+                                                    ${formData.permissions.system[action]
+                                                        ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
+                                                        : isDarkMode ? 'bg-black/20 border-white/5 text-slate-500' : 'bg-white border-slate-200 text-slate-400'}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="hidden"
+                                                    checked={formData.permissions.system[action]}
+                                                    onChange={() => handlePermissionChange('system', action)}
+                                                />
+                                                <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all ${formData.permissions.system[action] ? 'bg-indigo-500 border-indigo-500' : 'border-current'}`}>
+                                                    {formData.permissions.system[action] && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                                </div>
+                                                <span className="text-[10px] font-black uppercase tracking-tighter">{action}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"
