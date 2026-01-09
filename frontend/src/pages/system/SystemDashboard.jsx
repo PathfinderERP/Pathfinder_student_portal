@@ -37,8 +37,9 @@ const permissionTabs = [
 
 const EditUserModal = ({ user, onClose, onUpdate }) => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl } = useAuth();
+    const { getApiUrl, user: currentUser } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const isCurrentSuperAdmin = currentUser?.user_type === 'superadmin';
 
     // Initialize with safe defaults for every tab/subtab
     const getSafePermissions = (existing) => {
@@ -63,12 +64,29 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                 } else {
                     base[tab.id] = { view: false, create: false, edit: false, delete: false };
                 }
-            } else if (tab.subs) {
-                tab.subs.forEach(s => {
-                    if (!base[tab.id][s.id]) {
-                        base[tab.id][s.id] = { view: false, create: false, edit: false, delete: false };
-                    }
-                });
+            } else {
+                // If tab exists, ensure all required actions/subtabs exist
+                if (tab.subs) {
+                    tab.subs.forEach(s => {
+                        if (!base[tab.id][s.id]) {
+                            base[tab.id][s.id] = { view: false, create: false, edit: false, delete: false };
+                        } else {
+                            // Ensure all actions exist within subtab
+                            ['view', 'create', 'edit', 'delete'].forEach(action => {
+                                if (base[tab.id][s.id][action] === undefined) {
+                                    base[tab.id][s.id][action] = false;
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    // Ensure all actions exist within tab
+                    ['view', 'create', 'edit', 'delete'].forEach(action => {
+                        if (base[tab.id][action] === undefined) {
+                            base[tab.id][action] = false;
+                        }
+                    });
+                }
             }
         });
         return base;
@@ -81,6 +99,26 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
         user_type: user?.user_type || 'student',
         permissions: getSafePermissions(user?.permissions)
     });
+
+    useEffect(() => {
+        if (formData.user_type === 'superadmin') {
+            const fullPermissions = JSON.parse(JSON.stringify(formData.permissions));
+            Object.keys(fullPermissions).forEach(key => {
+                if (typeof fullPermissions[key] === 'object' && fullPermissions[key] !== null) {
+                    Object.keys(fullPermissions[key]).forEach(action => {
+                        if (typeof fullPermissions[key][action] === 'object' && fullPermissions[key][action] !== null) {
+                            Object.keys(fullPermissions[key][action]).forEach(subAction => {
+                                fullPermissions[key][action][subAction] = true;
+                            });
+                        } else {
+                            fullPermissions[key][action] = true;
+                        }
+                    });
+                }
+            });
+            setFormData(prev => ({ ...prev, permissions: fullPermissions }));
+        }
+    }, [formData.user_type]);
 
     const handlePermissionChange = (tab, action, subTab = null) => {
         if (formData.user_type === 'superadmin') return;
@@ -155,7 +193,7 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] border shadow-2xl p-8 animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className={`relative w-full ${isCurrentSuperAdmin ? 'max-w-4xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto rounded-[2.5rem] border shadow-2xl p-8 animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-tight">Edit <span className="text-orange-500">User Access</span></h2>
@@ -165,8 +203,8 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                         <X size={20} strokeWidth={3} />
                     </button>
                 </div>
-
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Adjust layout based on superadmin status */}
+                <form onSubmit={handleSubmit} className={`grid grid-cols-1 ${isCurrentSuperAdmin ? 'lg:grid-cols-2' : ''} gap-8`}>
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
@@ -188,9 +226,13 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Role</label>
                             <div className="relative">
-                                <select value={formData.user_type} onChange={e => setFormData({ ...formData, user_type: e.target.value })}
+                                <select
+                                    disabled={!isCurrentSuperAdmin}
+                                    value={formData.user_type}
+                                    onChange={e => setFormData({ ...formData, user_type: e.target.value })}
                                     style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                    className={`w-full p-3.5 pr-10 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none cursor-pointer 
+                                    className={`w-full p-3.5 pr-10 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
+                                        ${!isCurrentSuperAdmin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
                                         ${isDarkMode ? 'bg-white/5 border-white/10 text-white [&>option]:bg-[#10141D]' : 'bg-slate-100 border-slate-200 text-slate-900 [&>option]:bg-white'}`}>
                                     <option value="student">Student</option>
                                     <option value="parent">Parent</option>
@@ -207,52 +249,54 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                         </button>
                     </div>
 
-                    <div className="space-y-4">
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2">
-                            <Shield size={14} className="text-orange-500" /> Granular Permissions
-                        </h3>
-                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                            {permissionTabs.map(tab => (
-                                <div key={tab.id} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{tab.label}</span>
-                                        <button type="button" onClick={() => toggleAllPermissions(tab.id)} disabled={formData.user_type === 'superadmin'}
-                                            className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-500 hover:text-white' : 'bg-slate-200 text-slate-600'} ${formData.user_type === 'superadmin' && 'opacity-20'}`}>ALL</button>
+                    {isCurrentSuperAdmin && (
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2">
+                                <Shield size={14} className="text-orange-500" /> Granular Permissions
+                            </h3>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                {permissionTabs.map(tab => (
+                                    <div key={tab.id} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{tab.label}</span>
+                                            <button type="button" onClick={() => toggleAllPermissions(tab.id)} disabled={formData.user_type === 'superadmin'}
+                                                className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-500 hover:text-white' : 'bg-slate-200 text-slate-600'} ${formData.user_type === 'superadmin' && 'opacity-20'}`}>ALL</button>
+                                        </div>
+                                        {!tab.subs ? (
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {['view', 'create', 'edit', 'delete'].map(action => (
+                                                    <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action)}
+                                                        className={`py-1.5 rounded-lg text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
+                                                        {action}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {tab.subs.map(sub => (
+                                                    <div key={sub.id} className="space-y-2">
+                                                        <div className="flex justify-between items-center px-1">
+                                                            <span className="text-[9px] font-bold opacity-60">{sub.label}</span>
+                                                            <button type="button" onClick={() => toggleAllPermissions(tab.id, sub.id)} disabled={formData.user_type === 'superadmin'}
+                                                                className={`text-[8px] font-black uppercase ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Toggle</button>
+                                                        </div>
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {['view', 'create', 'edit', 'delete'].map(action => (
+                                                                <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action, sub.id)}
+                                                                    className={`py-1 rounded-md text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-700' : 'bg-white border-slate-100 text-slate-300'}`}>
+                                                                    {action}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    {!tab.subs ? (
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {['view', 'create', 'edit', 'delete'].map(action => (
-                                                <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action)}
-                                                    className={`py-1.5 rounded-lg text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                                    {action}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {tab.subs.map(sub => (
-                                                <div key={sub.id} className="space-y-2">
-                                                    <div className="flex justify-between items-center px-1">
-                                                        <span className="text-[9px] font-bold opacity-60">{sub.label}</span>
-                                                        <button type="button" onClick={() => toggleAllPermissions(tab.id, sub.id)} disabled={formData.user_type === 'superadmin'}
-                                                            className={`text-[8px] font-black uppercase ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Toggle</button>
-                                                    </div>
-                                                    <div className="grid grid-cols-4 gap-2">
-                                                        {['view', 'create', 'edit', 'delete'].map(action => (
-                                                            <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action, sub.id)}
-                                                                className={`py-1 rounded-md text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-700' : 'bg-white border-slate-100 text-slate-300'}`}>
-                                                                {action}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </form>
             </div>
         </div>
@@ -750,35 +794,67 @@ const SystemDashboard = () => {
 
     const isSuperAdmin = user?.user_type === 'superadmin';
 
+    // Helper to check for view permission on a module
+    const hasPermission = (moduleId, subModuleId = null) => {
+        if (isSuperAdmin) return true;
+
+        let perms = user?.permissions;
+        if (typeof perms === 'string') {
+            try { perms = JSON.parse(perms); } catch (e) { return false; }
+        }
+
+        if (!perms || !perms[moduleId]) return false;
+
+        if (subModuleId) {
+            return perms[moduleId][subModuleId]?.view === true;
+        }
+
+        // For parent modules, return true if the module itself has view=true 
+        // OR if any of its submodules have view=true
+        if (perms[moduleId].view === true) return true;
+
+        if (typeof perms[moduleId] === 'object') {
+            return Object.values(perms[moduleId]).some(sub => sub && sub.view === true);
+        }
+
+        return false;
+    };
+
     const sidebarItems = [
-        { icon: LayoutDashboard, label: 'Dashboard', active: activeTab === 'Dashboard', onClick: () => setActiveTab('Dashboard') },
-        { icon: MapPin, label: 'Centre Management', active: activeTab === 'Centre Management', onClick: () => setActiveTab('Centre Management') },
-        { icon: Layers, label: 'Section Management', active: activeTab === 'Section Management', onClick: () => setActiveTab('Section Management') },
+        { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', active: activeTab === 'Dashboard', onClick: () => setActiveTab('Dashboard') },
+        { id: 'centre_mgmt', icon: MapPin, label: 'Centre Management', active: activeTab === 'Centre Management', onClick: () => setActiveTab('Centre Management') },
+        { id: 'section_mgmt', icon: Layers, label: 'Section Management', active: activeTab === 'Section Management', onClick: () => setActiveTab('Section Management') },
         {
+            id: 'test_mgmt',
             icon: FileText,
             label: 'Test Management',
             active: activeTab.startsWith('Test'),
             subItems: [
-                { label: 'Test Create', active: activeTab === 'Test Create', onClick: () => setActiveTab('Test Create') },
-                { label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
-                { label: 'Test Responses', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
-                { label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') }
-            ]
+                { id: 'test_create', label: 'Test Create', active: activeTab === 'Test Create', onClick: () => setActiveTab('Test Create') },
+                { id: 'test_allotment', label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
+                { id: 'test_responses', label: 'Test Responses', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
+                { id: 'test_result', label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') }
+            ].filter(sub => hasPermission('test_mgmt', sub.id))
         },
-        { icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
+        { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
         {
+            id: 'admin_mgmt',
             icon: ShieldCheck,
             label: 'Admin Management',
             active: activeTab.startsWith('Admin'),
             subItems: [
-                { label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
-                { label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
-                { label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
-            ]
+                { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
+                { id: 'admin_student', label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
+                { id: 'admin_parent', label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
+            ].filter(sub => hasPermission('admin_mgmt', sub.id))
         },
-        { icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
-        { icon: Settings, label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
-    ];
+        { id: 'profile', icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
+        { id: 'settings', icon: Settings, label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
+    ].filter(item => {
+        // Dashboard, Profile and Settings are always visible for logged in users
+        if (['dashboard', 'profile', 'settings'].includes(item.id)) return true;
+        return hasPermission(item.id);
+    });
 
     const headerActions = (
         <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50

@@ -1,14 +1,74 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import UploadedFile, CustomUser
+import json
 
 class UserSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='pk', read_only=True)
     
+    permissions = serializers.JSONField(required=False, allow_null=True)
+
     class Meta:
         model = CustomUser
         fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'permissions', 'is_active', 'date_joined', 'created_by_username']
-        read_only_fields = ['username', 'user_type', 'date_joined', 'created_by_username']
+        read_only_fields = ['username', 'date_joined', 'created_by_username']
+
+    def validate_user_type(self, value):
+        request = self.context.get('request')
+        if not request or not request.user:
+            return value
+        
+        # Only superadmin can change user roles
+        if request.user.user_type != 'superadmin':
+            if self.instance and self.instance.user_type != value:
+                raise serializers.ValidationError("Only superadmins can change user roles.")
+        return value
+
+    def update(self, instance, validated_data):
+        permissions_data = validated_data.pop('permissions', None)
+        request = self.context.get('request')
+        is_superadmin = (request and hasattr(request, 'user') and request.user.user_type == 'superadmin')
+
+        # Handle user_type security (redundant but safe)
+        new_user_type = validated_data.get('user_type')
+        if new_user_type and instance.user_type != new_user_type:
+            if not is_superadmin:
+                raise serializers.ValidationError("Only superadmins can change user roles.")
+
+        # Handle permissions explicitly
+        if permissions_data is not None:
+            if is_superadmin:
+                # Ensure it's a dict
+                if isinstance(permissions_data, str):
+                    try:
+                        permissions_data = json.loads(permissions_data)
+                    except:
+                        pass
+                instance.permissions = permissions_data
+            else:
+                # If not superadmin, we MUST NOT allow changing permissions
+                # so we ignore the permissions_data from the request
+                pass
+
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+            
+        instance.save()
+        return instance
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Ensure permissions is always a clean dict for the frontend
+        perms = ret.get('permissions')
+        if isinstance(perms, str):
+            try:
+                ret['permissions'] = json.loads(perms)
+            except:
+                ret['permissions'] = {}
+        elif perms is None:
+            ret['permissions'] = {}
+        return ret
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
