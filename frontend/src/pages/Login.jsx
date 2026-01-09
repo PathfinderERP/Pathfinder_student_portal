@@ -71,12 +71,7 @@ const Login = () => {
                                     </div>
                                 </div>
                                 {/* Sign In Toggle Link/Button as per User Request */}
-                                <button
-                                    onClick={() => setIsSwapped(!isSwapped)}
-                                    className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/30 hover:bg-white/30 transition-all font-bold text-[12px] shadow-xl active:scale-95"
-                                >
-                                    Sign In
-                                </button>
+
                             </div>
 
                             <h2 className="text-3xl font-bold leading-tight mb-3">
@@ -87,6 +82,26 @@ const Login = () => {
                                 Access your courses, track progress, and connect with your community in one place.
                             </p>
                         </div>
+
+                        {/* Sign In Toggle Button - Moved to Middle Right */}
+                        {/* Sign In Toggle Button - Moved to Middle Right */}
+                        <button
+                            onClick={() => setIsSwapped(!isSwapped)}
+                            className={`absolute top-[45%] -translate-y-1/2 p-4 bg-white/20 backdrop-blur-md border-y border-white/30 hover:bg-white/30 transition-all shadow-2xl active:scale-95 flex items-center justify-center group/swap-btn z-50
+                                ${isSwapped
+                                    ? 'left-0 rounded-r-2xl border-r pr-6'
+                                    : 'right-0 rounded-l-2xl border-l pl-6'
+                                }`}
+                            aria-label="Toggle Sign In"
+                        >
+                            <div className={`transition-transform duration-500 ${isSwapped ? 'rotate-180 group-hover/swap-btn:rotate-0' : 'group-hover/swap-btn:rotate-180'}`}>
+                                <ArrowRight
+                                    size={36}
+                                    strokeWidth={3}
+                                    className="text-white animate-bounce-horizontal filter drop-shadow-md"
+                                />
+                            </div>
+                        </button>
 
                         {/* Features */}
                         <div className="space-y-3 animate-fade-in-up">
@@ -325,6 +340,15 @@ const Login = () => {
                 
                 .animation-delay-4000 {
                     animation-delay: 4s;
+                }
+
+                @keyframes bounce-horizontal {
+                    0%, 100% { transform: translateX(0); }
+                    50% { transform: translateX(6px); }
+                }
+
+                .animate-bounce-horizontal {
+                    animation: bounce-horizontal 2s infinite ease-in-out;
                 }
             `}</style>
         </div>
