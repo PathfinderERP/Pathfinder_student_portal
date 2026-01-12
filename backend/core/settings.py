@@ -175,24 +175,36 @@ if os.getenv('R2_ACCESS_KEY_ID'):
     AWS_STORAGE_BUCKET_NAME = os.getenv('R2_BUCKET_NAME')
     AWS_S3_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL')
     
-    # Public Domain for serving files (Optional but recommended for R2)
-    AWS_S3_CUSTOM_DOMAIN = os.getenv('R2_PUBLIC_DOMAIN').replace('https://', '') if os.getenv('R2_PUBLIC_DOMAIN') else None
+    # Public Domain for serving files
+    # We strip https:// because boto3 adds it, and strip trailing slashes
+    # if os.getenv('R2_PUBLIC_DOMAIN'):
+    #     AWS_S3_CUSTOM_DOMAIN = os.getenv('R2_PUBLIC_DOMAIN').replace('https://', '').replace('http://', '').strip('/')
+    # else:
+    #     AWS_S3_CUSTOM_DOMAIN = None
+    AWS_S3_CUSTOM_DOMAIN = None # Force None to ensure we use signed URLs
 
     AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_REGION_NAME = 'auto' 
     AWS_S3_FILE_OVERWRITE = False
+    
+    # Enable signatures to allow access to Private Buckets
+    AWS_QUERYSTRING_AUTH = True
 
     STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
             "OPTIONS": {
-                "location": "media",
+                # "location": "media", # Removed to save to root of bucket
             },
         },
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+    
+    # REQUIRED for Django < 4.2 to use S3/R2
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # AWS_LOCATION = 'media' # Removed to save to root of bucket
 else:
     # Fallback to local storage if no keys
     STORAGES = {
@@ -203,6 +215,8 @@ else:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+    # REQUIRED for Django < 4.2
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
 

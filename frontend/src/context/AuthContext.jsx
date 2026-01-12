@@ -12,11 +12,20 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     const normalizeUser = (userData) => {
-        if (userData && userData.profile_image && !userData.profile_image.startsWith('http')) {
+        if (userData && userData.profile_image) {
+            // Debug the raw image path coming from backend
+            console.log("Raw Profile Image:", userData.profile_image);
+
+            // If it's already an absolute URL (http, https, or protocol-relative //), use it as is
+            if (userData.profile_image.startsWith('http') || userData.profile_image.startsWith('//')) {
+                return userData;
+            }
+
+            // Otherwise, assumes it is a relative path that needs the API base URL
             const apiUrl = getApiUrl();
-            // Ensure we don't double slash
             const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
             const imgPath = userData.profile_image.startsWith('/') ? userData.profile_image : `/${userData.profile_image}`;
+
             return {
                 ...userData,
                 profile_image: `${baseUrl}${imgPath}`
