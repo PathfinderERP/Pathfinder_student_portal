@@ -14,7 +14,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
     return (
         <aside
             className={`fixed inset-y-0 left-0 z-50 transition-all duration-300 ease-in-out border-r
-            ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-gray-100'} 
+            ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.02)]'} 
             ${isOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full lg:w-20 lg:translate-x-0"}`}
         >
             <div className="flex flex-col h-full">
@@ -56,8 +56,8 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                     className={`w-full flex items-center py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group 
                                     ${isOpen ? "px-4" : "px-2 justify-center"} 
                                     ${item.active
-                                            ? (isDarkMode ? "bg-orange-900/20 text-orange-500" : "bg-orange-50 text-orange-600")
-                                            : (isDarkMode ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")
+                                            ? (isDarkMode ? "bg-orange-900/20 text-orange-500" : "bg-white text-orange-600 shadow-lg shadow-orange-600/10")
+                                            : (isDarkMode ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-md transition-shadow")
                                         }`}
                                 >
                                     <item.icon
@@ -108,8 +108,8 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                 </nav>
 
                 {/* Footer Section */}
-                <div className={`p-4 border-t ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}>
-                    <div className={`flex items-center p-3 rounded-xl ${isDarkMode ? 'bg-white/5' : 'bg-gray-50'} ${isOpen ? "" : "justify-center"}`}>
+                <div className={`p-4 border-t ${isDarkMode ? 'border-white/5' : 'border-slate-200/40'}`}>
+                    <div className={`flex items-center p-3 rounded-xl ${isDarkMode ? 'bg-white/5' : 'bg-white shadow-lg shadow-slate-200/50 border border-slate-100'} ${isOpen ? "" : "justify-center"}`}>
                         <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold flex-shrink-0 border-2 ${isDarkMode ? 'bg-orange-900/30 text-orange-500 border-white/5' : 'bg-orange-100 text-orange-600 border-white'}`}>
                             {user?.profile_image ? (
                                 <img src={user.profile_image} alt="Profile" className="w-full h-full object-cover" />

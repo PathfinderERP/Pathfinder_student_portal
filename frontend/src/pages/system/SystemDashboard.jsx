@@ -36,12 +36,15 @@ const permissionTabs = [
     },
 ];
 
+import StudentDetailView from './StudentDetailView';
+
 const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
     const { isDarkMode } = useTheme();
     const { user: portalUser, lastUsername, lastPassword } = useAuth();
     const [students, setStudents] = useState(studentsData || []);
     const [isLoading, setIsLoading] = useState(!studentsData || studentsData.length === 0);
     const [error, setError] = useState(null);
+    const [selectedStudent, setSelectedStudent] = useState(null);
 
     useEffect(() => {
         if (studentsData && studentsData.length > 0) {
@@ -170,7 +173,7 @@ const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
                         </thead>
                         <tbody className="divide-y divide-transparent">
                             {students.length > 0 ? students.map((std, i) => (
-                                <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300`}>
+                                <tr key={i} onClick={() => setSelectedStudent(std)} className={`group cursor-pointer ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]`}>
                                     <td className="py-6 px-4">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 transition-all group-hover:scale-110 group-hover:rotate-3 ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-white/5 shadow-inner' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
@@ -228,6 +231,13 @@ const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
                     </table>
                 </div>
             </div>
+
+            {selectedStudent && (
+                <StudentDetailView
+                    student={selectedStudent}
+                    onClose={() => setSelectedStudent(null)}
+                />
+            )}
         </div>
     );
 };

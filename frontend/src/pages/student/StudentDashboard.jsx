@@ -9,6 +9,13 @@ import {
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import MyProfile from './components/MyProfile';
+import Attendance from './components/Attendance';
+import Exams from './components/Exams';
+import Performance from './components/Performance';
+import Grievances from './components/Grievances';
+
+import PortalLayout from '../../components/common/PortalLayout';
 
 const StudentDashboard = () => {
     const { user, logout } = useAuth();
@@ -116,38 +123,6 @@ const StudentDashboard = () => {
         fetchStudentData();
     }, [user]);
 
-    if (loading) {
-        return (
-            <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold animate-pulse">Syncing Student Profile...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!studentData && !loading) {
-        // Fallback to purely existing user data if ERP sync fails completely, 
-        // OR show a nice error state. For now, showing error.
-        return (
-            <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
-                <div className="text-center max-w-md p-8 rounded-3xl border border-red-500/20 bg-red-500/5">
-                    <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
-                    <h2 className="text-2xl font-black mb-2">Profile Sync Issue</h2>
-                    <p className="text-sm opacity-70 mb-6">{error || "Could not match your account with school records."}</p>
-                    <button onClick={logout} className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold text-sm">Logout</button>
-                </div>
-            </div>
-        );
-    }
-
-    // Extract Details safely
-    // Since we found the admission object, we grab basic info
-    const basicInfo = studentData.student.studentsDetails.find(d => (user.email && d.studentEmail?.toLowerCase() === user.email.toLowerCase()) || d.studentEmail?.toLowerCase() === user.username.toLowerCase()) || studentData.student.studentsDetails[0];
-    const className = studentData.class?.name || "N/A";
-    const rollNo = studentData.admissionNumber || "N/A";
-
     const navItems = [
         { name: 'Dashboard', icon: LayoutDashboard },
         { name: 'My Profile', icon: User },
@@ -163,10 +138,63 @@ const StudentDashboard = () => {
         { name: 'Parent Portal', icon: Users },
     ];
 
+    const sidebarItems = navItems.map(item => ({
+        label: item.name,
+        icon: item.icon,
+        active: activeTab === item.name,
+        onClick: () => setActiveTab(item.name)
+    }));
+
+    if (loading) {
+        return (
+            <div className={`min-h-screen flex flex-col items-center justify-center space-y-8 ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
+                <div className="relative">
+                    <div className="w-24 h-24 border-8 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <Zap size={32} className="text-orange-500 animate-pulse" />
+                    </div>
+                </div>
+                <div className="text-center">
+                    <p className="font-black uppercase tracking-[0.4em] text-sm text-orange-500 mb-2">Syncing ERP Data</p>
+                    <p className="text-xs font-bold opacity-40">Authenticating with Pathfinder ERP Systems...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !studentData) {
+        return (
+            <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
+                <div className="text-center max-w-md p-8 rounded-3xl border border-red-500/20 bg-red-500/5">
+                    <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
+                    <h2 className="text-2xl font-black mb-2">Profile Sync Issue</h2>
+                    <p className="text-sm opacity-70 mb-6">{error || "Could not match your account with school records."}</p>
+                    <button onClick={logout} className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold text-sm">Logout</button>
+                </div>
+            </div>
+        );
+    }
+
+    // Extract Details safely
+    // Since we found the admission object, we grab basic info
+    const basicInfo = studentData.student.studentsDetails.find(d => (user.email && d.studentEmail?.toLowerCase() === user.email.toLowerCase()) || d.studentEmail?.toLowerCase() === user.username.toLowerCase()) || studentData.student.studentsDetails[0];
+    const rollNo = studentData.admissionNumber || "N/A";
+    const classNameValue = studentData.class?.name || "N/A";
+
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
-                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} className={className} rollNo={rollNo} />;
+                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} />;
+            case 'My Profile':
+                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} />;
+            case 'Attendance':
+                return <Attendance isDarkMode={isDarkMode} />;
+            case 'Exams':
+                return <Exams isDarkMode={isDarkMode} />;
+            case 'Performance':
+                return <Performance isDarkMode={isDarkMode} />;
+            case 'Grievances':
+                return <Grievances isDarkMode={isDarkMode} />;
             default:
                 return (
                     <div className={`flex flex-col items-center justify-center h-[60vh] text-center p-8 rounded-[2.5rem] border ${isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-500' : 'bg-white border-slate-100 text-slate-400'}`}>
@@ -181,91 +209,18 @@ const StudentDashboard = () => {
     };
 
     return (
-        <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
-            {/* Sidebar */}
-            <aside className={`fixed top-0 left-0 h-full w-72 p-6 flex flex-col gap-8 border-r overflow-y-auto no-scrollbar hidden xl:flex z-50 transition-all
-                ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200'}`}>
-
-                <div className="flex items-center gap-3 px-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-black text-xl">
-                        P
-                    </div>
-                    <div>
-                        <h1 className="font-black text-lg tracking-tight uppercase leading-none">Pathfinder</h1>
-                        <p className={`text-[10px] font-bold tracking-widest mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>STUDENT PORTAL</p>
-                    </div>
-                </div>
-
-                <nav className="flex-1 space-y-2">
-                    {navItems.map((item) => (
-                        <button
-                            key={item.name}
-                            onClick={() => setActiveTab(item.name)}
-                            className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 group relative overflow-hidden
-                                ${activeTab === item.name
-                                    ? (isDarkMode ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' : 'bg-orange-600 text-white shadow-xl shadow-orange-600/30')
-                                    : (isDarkMode ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900')
-                                }`}
-                        >
-                            <item.icon size={18} strokeWidth={2.5} className={activeTab === item.name ? 'animate-pulse' : ''} />
-                            <span>{item.name}</span>
-                        </button>
-                    ))}
-                </nav>
-
-                <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold">
-                            {basicInfo.studentName[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h4 className="font-bold truncate text-sm">{basicInfo.studentName}</h4>
-                            <p className="text-xs text-slate-500 truncate">{rollNo}</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={logout}
-                        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all
-                        ${isDarkMode ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
-                    >
-                        <LogOut size={14} />
-                        Logout
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 xl:ml-72 p-6 md:p-10 max-w-[1920px] mx-auto w-full flex flex-col gap-6">
-                <StudentHeader activeTab={activeTab} isDarkMode={isDarkMode} />
-                {renderContent()}
-            </main>
-        </div>
-    );
-};
-
-// -- HEADER COMPONENT --
-const StudentHeader = ({ activeTab, isDarkMode }) => {
-    const { toggleTheme } = useTheme();
-
-    return (
-        <header className={`flex items-center justify-between py-4 px-6 rounded-[2rem] border transition-all
-            ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-            <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                {activeTab}
-            </h2>
-
-            <button
-                onClick={toggleTheme}
-                className={`p-3 rounded-xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-yellow-400' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
-            >
-                {isDarkMode ? '☀️' : '🌙'}
-            </button>
-        </header>
+        <PortalLayout
+            title={activeTab}
+            subtitle="Student Learning Portal"
+            sidebarItems={sidebarItems}
+        >
+            {renderContent()}
+        </PortalLayout>
     );
 };
 
 // -- DASHBOARD HOME COMPONENT --
-const DashboardHome = ({ isDarkMode, student, className, rollNo }) => {
+const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
     const stats = [
         { label: 'ATTENDANCE RATE', value: '92%', subtext: '37 of 40 classes | 3 absences', trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'emerald', icon: GraduationCap },
@@ -426,3 +381,4 @@ const DashboardHome = ({ isDarkMode, student, className, rollNo }) => {
 };
 
 export default StudentDashboard;
+
