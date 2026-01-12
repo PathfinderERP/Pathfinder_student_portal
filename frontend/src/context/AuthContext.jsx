@@ -14,8 +14,6 @@ export const AuthProvider = ({ children }) => {
     const normalizeUser = (userData) => {
         if (userData && userData.profile_image) {
             // Debug the raw image path coming from backend
-            console.log("Raw Profile Image:", userData.profile_image);
-
             // If it's already an absolute URL (http, https, or protocol-relative //), use it as is
             if (userData.profile_image.startsWith('http') || userData.profile_image.startsWith('//')) {
                 return userData;

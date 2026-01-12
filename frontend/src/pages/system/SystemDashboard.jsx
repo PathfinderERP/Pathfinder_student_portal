@@ -55,34 +55,17 @@ const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
             try {
                 const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
 
-                // Intelligent identifier: ERP strictly requires an email. 
-                // We prefer the registered user email, then fallback to login username, then hardcoded fallback.
-                const erpIdentifier = (portalUser?.email && portalUser.email.includes('@'))
-                    ? portalUser.email
-                    : (lastUsername && lastUsername.includes('@'))
-                        ? lastUsername
-                        : "atanu@gmail.com";
+                // FORCE Master Credentials for System Admin Sync
+                // The portal admin is viewing the registry, but the sync is authorized by the Master ERP Account.
+                const erpIdentifier = "atanu@gmail.com";
+                const erpPassword = "000000";
 
                 console.log("🚀 ERP Sync Started", { url: erpUrl, user: erpIdentifier });
 
-                let loginRes;
-                try {
-                    loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                        email: erpIdentifier,
-                        password: lastPassword || "000000"
-                    });
-                } catch (loginErr) {
-                    // EMERGENCY FALLBACK: If the current superadmin doesn't exist in ERP, use the master account
-                    if (loginErr.response?.data?.message === "User does not exist" && erpIdentifier !== "atanu@gmail.com") {
-                        console.warn("⚠️ Admin not found in ERP. Falling back to Master Sync Account...");
-                        loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                            email: "atanu@gmail.com",
-                            password: "000000"
-                        });
-                    } else {
-                        throw loginErr;
-                    }
-                }
+                const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                    email: erpIdentifier,
+                    password: erpPassword
+                });
 
                 console.log("✅ ERP Auth Success", { hasToken: !!loginRes.data.token });
                 const token = loginRes.data.token;
