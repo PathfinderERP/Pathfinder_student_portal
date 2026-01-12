@@ -54,10 +54,15 @@ const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
             setIsLoading(true);
             try {
                 const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-                console.log("🚀 ERP Sync Started", { url: erpUrl, user: lastUsername || portalUser?.email });
+
+                // Intelligent identifier: ERP strictly requires an email. 
+                // We prefer the registered user email, then fall back to the login username.
+                const erpIdentifier = portalUser?.email || lastUsername || "atanu@gmail.com";
+
+                console.log("🚀 ERP Sync Started", { url: erpUrl, user: erpIdentifier });
 
                 const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: lastUsername || portalUser?.email || "atanu@gmail.com",
+                    email: erpIdentifier,
                     password: lastPassword || "000000"
                 });
 
@@ -1020,8 +1025,11 @@ const SystemDashboard = () => {
                 setIsERPLoading(true);
                 try {
                     const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
+                    // ERP strictly requires an email identifier
+                    const erpIdentifier = user?.email || lastUsername;
+
                     const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                        email: lastUsername,
+                        email: erpIdentifier,
                         password: lastPassword
                     });
                     const token = loginRes.data.token;
