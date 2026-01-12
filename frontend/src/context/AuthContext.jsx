@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { jwtDecode } from "jwt-decode";
 import axios from 'axios';
 
@@ -11,7 +11,20 @@ export const AuthProvider = ({ children }) => {
     const [lastPassword, setLastPassword] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const normalizeUser = (userData) => {
+    const getApiUrl = useCallback(() => {
+        let defaultUrl = 'https://pathfinder-student-portal.onrender.com';
+        if (import.meta.env.MODE === 'development') {
+            defaultUrl = 'http://127.0.0.1:3001';
+        }
+        let url = import.meta.env.VITE_API_URL || defaultUrl;
+        // Fix for common development connectivity issues: replace localhost with 127.0.0.1
+        if (url.includes('localhost')) {
+            url = url.replace('localhost', '127.0.0.1');
+        }
+        return url;
+    }, []);
+
+    const normalizeUser = useCallback((userData) => {
         if (userData && userData.profile_image) {
             // Debug the raw image path coming from backend
             // If it's already an absolute URL (http, https, or protocol-relative //), use it as is
@@ -30,7 +43,7 @@ export const AuthProvider = ({ children }) => {
             };
         }
         return userData;
-    };
+    }, [getApiUrl]);
 
     useEffect(() => {
         const initAuth = async () => {
@@ -60,18 +73,6 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, [token]);
 
-    const getApiUrl = () => {
-        let defaultUrl = 'https://pathfinder-student-portal.onrender.com';
-        if (import.meta.env.MODE === 'development') {
-            defaultUrl = 'http://127.0.0.1:3001';
-        }
-        let url = import.meta.env.VITE_API_URL || defaultUrl;
-        // Fix for common development connectivity issues: replace localhost with 127.0.0.1
-        if (url.includes('localhost')) {
-            url = url.replace('localhost', '127.0.0.1');
-        }
-        return url;
-    };
 
     const login = async (username, password) => {
         try {

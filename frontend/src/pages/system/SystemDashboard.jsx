@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, Settings, Plus, ChevronRight, ExternalLink,
-    Users, GraduationCap, Briefcase, FilePlus, Camera, Upload, X, User, Clock, ArrowLeft, Shield, UserPlus, Power, Key, Eye, EyeOff, ChevronDown, Trash2, CheckCircle, AlertCircle, Mail
+    Users, GraduationCap, Briefcase, FilePlus, Camera, Upload, X, User, Clock, ArrowLeft, Shield, UserPlus, Power, Key, Eye, EyeOff, ChevronDown, Trash2, CheckCircle, AlertCircle, Mail, RefreshCw, RotateCcw
 } from 'lucide-react';
 import PortalLayout from '../../components/common/PortalLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -1028,62 +1028,78 @@ const SystemDashboard = () => {
         }
     }, [activeTab, getApiUrl]);
 
-    // 3. Background ERP Sync for Stats & Student Registry
-    useEffect(() => {
-        if (lastPassword && lastUsername && erpStudents.length === 0 && !isERPLoading) {
-            const syncERP = async () => {
-                console.log("⚡ Dashboard Background Sync Initiated");
-                setIsERPLoading(true);
-                try {
-                    const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-                    // ERP strictly requires an email identifier
-                    const erpIdentifier = (user?.email && user.email.includes('@'))
-                        ? user.email
-                        : (lastUsername && lastUsername.includes('@'))
-                            ? lastUsername
-                            : "atanu@gmail.com";
+    // 3. Background ERP Sync (Manual & Automatic)
+    const syncAttempted = React.useRef(false);
 
-                    let loginRes;
-                    try {
-                        loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                            email: erpIdentifier,
-                            password: lastPassword
-                        });
-                    } catch (loginErr) {
-                        if (loginErr.response?.data?.message === "User does not exist" && erpIdentifier !== "atanu@gmail.com") {
-                            loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                                email: "atanu@gmail.com",
-                                password: "000000"
-                            });
-                        } else {
-                            throw loginErr;
-                        }
-                    }
-                    const token = loginRes.data.token;
-                    const admissionRes = await axios.get(`${erpUrl}/api/admission`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+    const syncERP = React.useCallback(async (isManual = false) => {
+        // Prevent auto-sync if already done this mount, but always allow manual
+        if (!isManual && syncAttempted.current) return;
+
+        if (!lastPassword || !lastUsername) return;
+
+        console.log(isManual ? "Manual ERP Sync Triggered" : "Background ERP Sync Initiated");
+        setIsERPLoading(true);
+        syncAttempted.current = true;
+
+        try {
+            const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
+            const erpIdentifier = (user?.email && user.email.includes('@'))
+                ? user.email
+                : (lastUsername && lastUsername.includes('@'))
+                    ? lastUsername
+                    : "atanu@gmail.com";
+
+            let loginRes;
+            try {
+                loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                    email: erpIdentifier,
+                    password: lastPassword
+                });
+            } catch (loginErr) {
+                if (loginErr.response?.data?.message === "User does not exist" && erpIdentifier !== "atanu@gmail.com") {
+                    loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                        email: "atanu@gmail.com",
+                        password: "000000"
                     });
-
-                    let erpData = [];
-                    if (Array.isArray(admissionRes.data)) {
-                        erpData = admissionRes.data;
-                    } else if (admissionRes.data?.student?.studentsDetails) {
-                        erpData = admissionRes.data.student.studentsDetails;
-                    } else if (admissionRes.data?.data) {
-                        erpData = admissionRes.data.data;
-                    }
-
-                    console.log("✨ Background Sync Complete:", erpData.length, "records");
-                    setErpStudents(erpData);
-                } catch (err) {
-                    console.error("☢️ Background Sync Failed:", err.response?.data || err.message);
-                } finally {
-                    setIsERPLoading(false);
+                } else {
+                    throw loginErr;
                 }
-            };
-            syncERP();
+            }
+
+            const token = loginRes.data.token;
+            const admissionRes = await axios.get(`${erpUrl}/api/admission`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            let erpData = [];
+            if (Array.isArray(admissionRes.data)) {
+                erpData = admissionRes.data;
+            } else if (admissionRes.data?.student?.studentsDetails) {
+                erpData = admissionRes.data.student.studentsDetails;
+            } else if (admissionRes.data?.data) {
+                erpData = admissionRes.data.data;
+            }
+
+            console.log("ERP Sync Complete:", erpData.length, "records");
+            setErpStudents(erpData);
+        } catch (err) {
+            console.error("ERP Sync Failed:", err.response?.data || err.message);
+        } finally {
+            setIsERPLoading(false);
         }
-    }, [lastPassword, lastUsername, user?.email, erpStudents.length, isERPLoading]);
+    }, [lastPassword, lastUsername, user?.email]);
+
+    // Auto-sync on mount and every 10 minutes
+    useEffect(() => {
+        syncERP();
+
+        const interval = setInterval(() => {
+            console.log("Scheduled ERP Sync...");
+            syncERP(false);
+        }, 600000); // 10 minutes
+
+        return () => clearInterval(interval);
+    }, [syncERP]);
 
     const isSuperAdmin = user?.user_type === 'superadmin';
 
@@ -1178,6 +1194,19 @@ const SystemDashboard = () => {
                                     <p className={`text-sm font-medium max-w-xl leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                         Welcome back. Here is your daily activity summary and system health check.
                                     </p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => syncERP(true)}
+                                        disabled={isERPLoading}
+                                        className={`px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg
+                                            ${isERPLoading
+                                                ? 'bg-orange-500/20 text-orange-500 cursor-not-allowed'
+                                                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20'}`}
+                                    >
+                                        <RefreshCw size={16} className={isERPLoading ? 'animate-spin' : ''} />
+                                        <span>{isERPLoading ? 'Syncing...' : 'Sync with ERP'}</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
