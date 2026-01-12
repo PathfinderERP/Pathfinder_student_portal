@@ -7,8 +7,11 @@ import re
 
 def apply_djongo_patches():
     try:
-        from djongo.cursor import Cursor
-        from djongo.sql2mongo import query
+        import djongo.cursor
+        import djongo.sql2mongo.query
+        
+        Cursor = djongo.cursor.Cursor
+        query = djongo.sql2mongo.query
 
         # 1. Patch Cursor.execute to fix SQL quoting and placeholders
         original_execute = Cursor.execute
@@ -37,7 +40,9 @@ def apply_djongo_patches():
         Cursor.execute = patched_execute
 
         # 2. Patch InsertQuery components to be robust without breaking data mapping
-        from djongo.sql2mongo.query import InsertQuery, SQLToken
+        InsertQuery = djongo.sql2mongo.query.InsertQuery
+        SQLToken = djongo.sql2mongo.query.SQLToken
+        
         from sqlparse.sql import Parenthesis, TokenList
 
         def safe_tokens2sql(tok, query):
