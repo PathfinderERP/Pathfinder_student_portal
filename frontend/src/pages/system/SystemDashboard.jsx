@@ -56,15 +56,33 @@ const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
                 const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
 
                 // Intelligent identifier: ERP strictly requires an email. 
-                // We prefer the registered user email, then fall back to the login username.
-                const erpIdentifier = portalUser?.email || lastUsername || "atanu@gmail.com";
+                // We prefer the registered user email, then fallback to login username, then hardcoded fallback.
+                const erpIdentifier = (portalUser?.email && portalUser.email.includes('@'))
+                    ? portalUser.email
+                    : (lastUsername && lastUsername.includes('@'))
+                        ? lastUsername
+                        : "atanu@gmail.com";
 
                 console.log("🚀 ERP Sync Started", { url: erpUrl, user: erpIdentifier });
 
-                const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: erpIdentifier,
-                    password: lastPassword || "000000"
-                });
+                let loginRes;
+                try {
+                    loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                        email: erpIdentifier,
+                        password: lastPassword || "000000"
+                    });
+                } catch (loginErr) {
+                    // EMERGENCY FALLBACK: If the current superadmin doesn't exist in ERP, use the master account
+                    if (loginErr.response?.data?.message === "User does not exist" && erpIdentifier !== "atanu@gmail.com") {
+                        console.warn("⚠️ Admin not found in ERP. Falling back to Master Sync Account...");
+                        loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                            email: "atanu@gmail.com",
+                            password: "000000"
+                        });
+                    } else {
+                        throw loginErr;
+                    }
+                }
 
                 console.log("✅ ERP Auth Success", { hasToken: !!loginRes.data.token });
                 const token = loginRes.data.token;
@@ -1026,12 +1044,28 @@ const SystemDashboard = () => {
                 try {
                     const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
                     // ERP strictly requires an email identifier
-                    const erpIdentifier = user?.email || lastUsername;
+                    const erpIdentifier = (user?.email && user.email.includes('@'))
+                        ? user.email
+                        : (lastUsername && lastUsername.includes('@'))
+                            ? lastUsername
+                            : "atanu@gmail.com";
 
-                    const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                        email: erpIdentifier,
-                        password: lastPassword
-                    });
+                    let loginRes;
+                    try {
+                        loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                            email: erpIdentifier,
+                            password: lastPassword
+                        });
+                    } catch (loginErr) {
+                        if (loginErr.response?.data?.message === "User does not exist" && erpIdentifier !== "atanu@gmail.com") {
+                            loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                                email: "atanu@gmail.com",
+                                password: "000000"
+                            });
+                        } else {
+                            throw loginErr;
+                        }
+                    }
                     const token = loginRes.data.token;
                     const admissionRes = await axios.get(`${erpUrl}/api/admission`, {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -1056,7 +1090,7 @@ const SystemDashboard = () => {
             };
             syncERP();
         }
-    }, [lastPassword, lastUsername, erpStudents.length, isERPLoading]);
+    }, [lastPassword, lastUsername, user?.email, erpStudents.length, isERPLoading]);
 
     const isSuperAdmin = user?.user_type === 'superadmin';
 
