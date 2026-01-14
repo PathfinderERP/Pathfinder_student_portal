@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     'api',
     'sections',
     'centres',
+    'master_data',
+    'tests',
 ]
 
 MIDDLEWARE = [

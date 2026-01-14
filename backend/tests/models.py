@@ -1,14 +1,21 @@
-from djongo import models as djongo_models
 from django.db import models
-from sections.models import Section
+from master_data.models import Session, ExamType, ClassLevel
 
 class Test(models.Model):
-    _id = djongo_models.ObjectIdField(primary_key=True)
     name = models.CharField(max_length=255)
-    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='tests')
+    code = models.CharField(max_length=100, unique=True)
+    
+    # Relationships to Master Data
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, related_name='tests')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, related_name='tests')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, related_name='tests')
+    
+    duration = models.IntegerField(default=180, help_text="Duration in minutes")
     description = models.TextField(blank=True, null=True)
-    duration_minutes = models.IntegerField(default=60)
+    is_completed = models.BooleanField(default=False)
+    
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.code})"

@@ -20,6 +20,10 @@ import SettingsPage from './settings/SettingsPage';
 import UserManagementTable from './admin/UserManagementTable';
 import LoginHistory from './admin/LoginHistory';
 import MasterDataManagement from './admin/MasterDataManagement';
+import TestCreate from './admin/tests/TestCreate';
+import TestAllotment from './admin/tests/TestAllotment';
+import TestResponses from './admin/tests/TestResponses';
+import TestResult from './admin/tests/TestResult';
 
 // Modals
 import EditUserModal from './modals/EditUserModal';
@@ -308,6 +312,14 @@ const SystemDashboard = () => {
                 return <MasterDataManagement activeSubTab={masterSubTab} setActiveSubTab={setMasterSubTab} />;
             case 'Section Management':
                 return <SectionManagement />;
+            case 'Test Create':
+                return <TestCreate />;
+            case 'Test Allotment':
+                return <TestAllotment />;
+            case 'Test Responses':
+                return <TestResponses />;
+            case 'Test Result':
+                return <TestResult />;
             case 'Profile':
                 return (
                     <ProfilePage

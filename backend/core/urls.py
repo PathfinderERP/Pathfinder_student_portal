@@ -24,6 +24,8 @@ urlpatterns = [
     path('api/', include('api.urls')),
     path('api/sections/', include('sections.urls')),
     path('api/centres/', include('centres.urls')),
+    path('api/master-data/', include('master_data.urls')),
+    path('api/tests/', include('tests.urls')),
 ]
 
 if settings.DEBUG:
