@@ -29,6 +29,7 @@ import TestResult from './admin/tests/TestResult';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 
 const SystemDashboard = () => {
     const { user, updateProfile, getApiUrl, normalizeUser, lastUsername, lastPassword } = useAuth();
@@ -56,7 +57,10 @@ const SystemDashboard = () => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/users/${userObj.id}/`, { is_active: !userObj.is_active });
+            const token = localStorage.getItem('auth_token');
+            await axios.patch(`${apiUrl}/api/users/${userObj.id}/`, { is_active: !userObj.is_active }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             setUsersList(prev => prev.map(u => u.id === userObj.id ? { ...u, is_active: !u.is_active } : u));
             setSuccessMessage(`User "${userObj.username}" ${!userObj.is_active ? 'activated' : 'locked'} successfully`);
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -87,7 +91,10 @@ const SystemDashboard = () => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.delete(`${apiUrl}/api/users/${selectedUserForDelete.id}/`);
+            const token = localStorage.getItem('auth_token');
+            await axios.delete(`${apiUrl}/api/users/${selectedUserForDelete.id}/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             setUsersList(prev => prev.filter(u => u.id !== selectedUserForDelete.id));
             setSuccessMessage("User deleted successfully");
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -110,7 +117,10 @@ const SystemDashboard = () => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.post(`${apiUrl}/api/users/${targetUser.id}/change_password/`, { password: newPass });
+            const token = localStorage.getItem('auth_token');
+            await axios.post(`${apiUrl}/api/users/${targetUser.id}/change_password/`, { password: newPass }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             setPasswordModalOpen(false);
             setSelectedUserForPass(null);
             setSuccessMessage("Password reset successfully!");
@@ -144,7 +154,10 @@ const SystemDashboard = () => {
             const fetchUsers = async () => {
                 try {
                     const apiUrl = getApiUrl();
-                    const response = await axios.get(`${apiUrl}/api/users/`);
+                    const token = localStorage.getItem('auth_token');
+                    const response = await axios.get(`${apiUrl}/api/users/`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
                     let data = response.data;
 
                     if (activeTab === 'Admin Student') data = data.filter(u => u.user_type === 'student');
@@ -165,7 +178,10 @@ const SystemDashboard = () => {
             const fetchLoginHistory = async () => {
                 try {
                     const apiUrl = getApiUrl();
-                    const response = await axios.get(`${apiUrl}/api/login-history/?_t=${Date.now()}`);
+                    const token = localStorage.getItem('auth_token');
+                    const response = await axios.get(`${apiUrl}/api/login-history/?_t=${Date.now()}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
                     setLoginHistory(response.data);
                 } catch (error) {
                     console.error("Failed to fetch login history", error);
@@ -258,8 +274,10 @@ const SystemDashboard = () => {
                     onClick: () => setActiveTab('Admin Master Data'),
                     subItems: [
                         { label: 'Session', active: activeTab === 'Admin Master Data' && masterSubTab === 'Session', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Session'); } },
-                        { label: 'Exam Type', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Type', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Type'); } },
                         { label: 'Class', active: activeTab === 'Admin Master Data' && masterSubTab === 'Class', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Class'); } },
+                        { label: 'Target Exam', active: activeTab === 'Admin Master Data' && masterSubTab === 'Target Exam', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Target Exam'); } },
+                        { label: 'Exam Type', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Type', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Type'); } },
+                        { label: 'Exam Details', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Details', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Details'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
@@ -372,7 +390,9 @@ const SystemDashboard = () => {
                 </div>
             )}
 
-            {renderContent()}
+            <ErrorBoundary>
+                {renderContent()}
+            </ErrorBoundary>
 
             <PasswordResetModal
                 user={selectedUserForPass}

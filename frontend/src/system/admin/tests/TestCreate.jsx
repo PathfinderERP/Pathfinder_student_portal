@@ -2,14 +2,16 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import {
     FileText, Plus, Search, Edit2, Trash2, Filter, Loader2,
-    Database, X, Check, ChevronDown, RefreshCw, Layers, Clock, ToggleLeft, ToggleRight
+    Database, X, Check, ChevronDown, RefreshCw, Layers, Clock, ToggleLeft, ToggleRight,
+    Bold, Italic, Underline, Type, Quote, Code, List, Superscript, Subscript, AlignLeft,
+    AlignCenter, Link, Image, Sigma, Calculator
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 
-const TestManagement = () => {
+const TestCreate = () => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl } = useAuth();
+    const { getApiUrl, token } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +22,8 @@ const TestManagement = () => {
     const [sessions, setSessions] = useState([]);
     const [examTypes, setExamTypes] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [targetExams, setTargetExams] = useState([]);
+    const [examDetails, setExamDetails] = useState([]);
 
     // Filter State
     const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'completed', 'pending'
@@ -33,17 +37,21 @@ const TestManagement = () => {
         name: '',
         code: '',
         session: '',
+        target_exam: '',
         exam_type: '',
         class_level: '',
         duration: 180,
         description: '',
-        is_completed: false
+        instructions: '',
+        is_completed: false,
+        has_calculator: false,
+        option_type_numeric: false
     });
 
     const getAuthConfig = useCallback(() => {
-        const token = localStorage.getItem('auth_token');
-        return token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
-    }, []);
+        const activeToken = token || localStorage.getItem('auth_token');
+        return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
+    }, [token]);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -55,14 +63,18 @@ const TestManagement = () => {
             setData(response.data);
 
             // Fetch Master Data for dropdowns
-            const [sessRes, typeRes, classRes] = await Promise.all([
+            const [sessRes, typeRes, classRes, targetRes, detailRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
-                axios.get(`${apiUrl}/api/master-data/classes/`, config)
+                axios.get(`${apiUrl}/api/master-data/classes/`, config),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
             ]);
             setSessions(sessRes.data);
             setExamTypes(typeRes.data);
             setClasses(classRes.data);
+            setTargetExams(targetRes.data);
+            setExamDetails(detailRes.data);
 
         } catch (err) {
             console.error('Failed to fetch test data:', err);
@@ -83,11 +95,15 @@ const TestManagement = () => {
             name: '',
             code: '',
             session: sessions[0]?.id || '',
-            exam_type: examTypes[0]?.id || '',
+            target_exam: '',
+            exam_type: '',
             class_level: classes[0]?.id || '',
             duration: 180,
             description: '',
-            is_completed: false
+            instructions: '',
+            is_completed: false,
+            has_calculator: false,
+            option_type_numeric: false
         });
         setIsModalOpen(true);
     };
@@ -99,11 +115,15 @@ const TestManagement = () => {
             name: item.name,
             code: item.code,
             session: item.session || '',
+            target_exam: item.target_exam || '',
             exam_type: item.exam_type || '',
             class_level: item.class_level || '',
             duration: item.duration,
             description: item.description || '',
-            is_completed: item.is_completed
+            instructions: item.instructions || '',
+            is_completed: item.is_completed,
+            has_calculator: item.has_calculator || false,
+            option_type_numeric: item.option_type_numeric || false
         });
         setIsModalOpen(true);
     };
@@ -218,8 +238,8 @@ const TestManagement = () => {
                         <button
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
                             className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all ${statusFilter !== 'all'
-                                    ? 'bg-orange-500/10 border-orange-500/50 text-orange-500'
-                                    : isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                ? 'bg-orange-500/10 border-orange-500/50 text-orange-500'
+                                : isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                                 }`}
                         >
                             <Filter size={16} />
@@ -276,7 +296,7 @@ const TestManagement = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-sm mb-1">{item.name}</span>
                                             <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
-                                                {item.session_details?.name} • {item.class_level_details?.name}
+                                                {item.session_details?.name} • {item.class_level_details?.name} • {item.target_exam_details?.name}
                                             </span>
                                         </div>
                                     </td>
@@ -347,99 +367,227 @@ const TestManagement = () => {
         </div>
     );
 
+    // Auto-populate Code, Duration, and Marks based on Selected Exam Title (Name)
+    useEffect(() => {
+        if (formValues.name) {
+            const match = examDetails.find(d =>
+                d.name === formValues.name &&
+                String(d.session) === String(formValues.session) &&
+                String(d.class_level) === String(formValues.class_level) &&
+                String(d.target_exam) === String(formValues.target_exam) &&
+                String(d.exam_type) === String(formValues.exam_type)
+            );
+            if (match) {
+                setFormValues(prev => ({
+                    ...prev,
+                    code: match.code || prev.code,
+                    duration: match.duration || prev.duration
+                }));
+            }
+        }
+    }, [formValues.name, formValues.session, formValues.class_level, formValues.target_exam, formValues.exam_type, examDetails]);
+
+    const filteredExamTypes = useMemo(() => {
+        if (!formValues.target_exam) return [];
+        return examTypes.filter(et => String(et.target_exam) === String(formValues.target_exam));
+    }, [examTypes, formValues.target_exam]);
+
+    const availableTitles = useMemo(() => {
+        if (!formValues.session || !formValues.target_exam || !formValues.exam_type || !formValues.class_level) {
+            return [];
+        }
+        return examDetails.filter(d =>
+            String(d.session) === String(formValues.session) &&
+            String(d.class_level) === String(formValues.class_level) &&
+            String(d.target_exam) === String(formValues.target_exam) &&
+            String(d.exam_type) === String(formValues.exam_type)
+        ).map(d => d.name);
+    }, [formValues.session, formValues.class_level, formValues.target_exam, formValues.exam_type, examDetails]);
+
+    const isAllCriteriaSelected = !!(formValues.session && formValues.target_exam && formValues.exam_type && formValues.class_level);
+
     const renderModal = () => {
         if (!isModalOpen) return null;
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-2xl rounded-[2.5rem] border shadow-2xl p-8 animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-2xl font-black uppercase tracking-tight">
-                            {modalMode === 'create' ? 'Add New' : 'Edit'} <span className="text-orange-500">Test</span>
+                <div className={`relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
+                    {/* Header */}
+                    <div className="shrink-0 bg-orange-500 p-6 flex justify-between items-center z-10">
+                        <h2 className="text-xl font-bold text-white tracking-tight">
+                            {modalMode === 'create' ? 'Add' : 'Edit'} Exam Details
                         </h2>
-                        <button onClick={() => setIsModalOpen(false)} className={`p-2 rounded-xl transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-900'}`}>
-                            <X size={20} strokeWidth={3} />
+                        <button onClick={() => setIsModalOpen(false)} className="text-white hover:scale-110 transition-transform">
+                            <X size={24} strokeWidth={3} />
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Test Name</label>
-                            <input
-                                required
-                                value={formValues.name}
-                                onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Test Code</label>
-                            <input
-                                required
-                                value={formValues.code}
-                                onChange={e => setFormValues({ ...formValues, code: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            />
+                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                        <div className="space-y-6">
+                            {/* Title & Code */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title * {!isAllCriteriaSelected && '(Select Four Filters First)'}</label>
+                                    <select
+                                        disabled={!isAllCriteriaSelected}
+                                        required
+                                        value={formValues.name}
+                                        onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                        className={`w-full px-5 py-4 rounded-xl border font-semibold text-sm outline-none transition-all ${!isAllCriteriaSelected ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                    >
+                                        <option value="">Select Exam Title</option>
+                                        {availableTitles.map(title => (
+                                            <option key={title} value={title}>{title}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code *</label>
+                                    <input
+                                        readOnly
+                                        required
+                                        placeholder="Exam Code *"
+                                        value={formValues.code}
+                                        className={`w-full px-5 py-4 rounded-xl border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 opacity-60 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins) (Auto-selected)</label>
+                                    <input
+                                        type="number"
+                                        readOnly
+                                        required
+                                        value={formValues.duration}
+                                        className={`w-full px-5 py-4 rounded-xl border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Toggles */}
+                            <div className="flex items-center gap-8 py-2">
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormValues({ ...formValues, is_completed: !formValues.is_completed })}
+                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.is_completed ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.is_completed ? 'right-1' : 'left-1'}`} />
+                                    </button>
+                                    <span className="text-sm font-bold opacity-60">Completed</span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormValues({ ...formValues, has_calculator: !formValues.has_calculator })}
+                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.has_calculator ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.has_calculator ? 'right-1' : 'left-1'}`} />
+                                    </button>
+                                    <span className="text-sm font-bold opacity-60">Calculator</span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormValues({ ...formValues, option_type_numeric: !formValues.option_type_numeric })}
+                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.option_type_numeric ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.option_type_numeric ? 'right-1' : 'left-1'}`} />
+                                    </button>
+                                    <span className="text-sm font-bold opacity-60">Option type (1,2,3,4)</span>
+                                </div>
+                            </div>
+
+                            {/* Relational Selects */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
+                                    <select
+                                        value={formValues.session}
+                                        onChange={e => setFormValues({ ...formValues, session: e.target.value, name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
+                                    >
+                                        <option value="">Select Session</option>
+                                        {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                    <select
+                                        value={formValues.target_exam}
+                                        onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
+                                    >
+                                        <option value="">Select Target</option>
+                                        {targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                    <select
+                                        disabled={!formValues.target_exam}
+                                        value={formValues.exam_type}
+                                        onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
+                                    >
+                                        <option value="">Select Type</option>
+                                        {filteredExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                    <select
+                                        value={formValues.class_level}
+                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
+                                    >
+                                        <option value="">Select Class</option>
+                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Instructions */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-bold opacity-60">Instructions</label>
+                                <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className="p-3 border-b border-inherit flex flex-wrap gap-2 items-center opacity-60">
+                                        <Bold size={16} /> <Italic size={16} /> <Underline size={16} /> <Type size={16} />
+                                        <div className="w-px h-4 bg-slate-300 mx-1" />
+                                        <Quote size={16} /> <Code size={16} />
+                                        <div className="w-px h-4 bg-slate-300 mx-1" />
+                                        <List size={16} /> <List size={16} />
+                                        <div className="w-px h-4 bg-slate-300 mx-1" />
+                                        <Superscript size={16} /> <Subscript size={16} />
+                                        <div className="w-px h-4 bg-slate-300 mx-1" />
+                                        <span className="text-[11px] font-bold">Normal</span>
+                                        <div className="w-px h-4 bg-slate-300 mx-1" />
+                                        <AlignLeft size={16} /> <AlignCenter size={16} />
+                                        <div className="w-px h-4 bg-slate-300 mx-1" />
+                                        <Link size={16} /> <Image size={16} /> <Sigma size={16} />
+                                    </div>
+                                    <textarea
+                                        rows="4"
+                                        placeholder="Write something..."
+                                        value={formValues.instructions}
+                                        onChange={e => setFormValues({ ...formValues, instructions: e.target.value })}
+                                        className="w-full p-5 bg-transparent outline-none font-medium text-sm resize-none italic"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Academic Session</label>
-                            <select
-                                value={formValues.session}
-                                onChange={e => setFormValues({ ...formValues, session: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all appearance-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            >
-                                {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                            <select
-                                value={formValues.exam_type}
-                                onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all appearance-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            >
-                                {examTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class Level</label>
-                            <select
-                                value={formValues.class_level}
-                                onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all appearance-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            >
-                                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins)</label>
-                            <input
-                                type="number"
-                                value={formValues.duration}
-                                onChange={e => setFormValues({ ...formValues, duration: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            />
-                        </div>
-
-                        <div className="col-span-2 space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Description</label>
-                            <textarea
-                                rows="3"
-                                value={formValues.description}
-                                onChange={e => setFormValues({ ...formValues, description: e.target.value })}
-                                className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                            />
-                        </div>
-
-                        <div className="col-span-2">
+                        <div className="flex justify-center pt-8">
                             <button
                                 type="submit"
                                 disabled={isActionLoading}
-                                className="w-full py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-xs shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                                className="px-10 py-4 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-xl font-bold text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                             >
-                                {isActionLoading ? <Loader2 className="animate-spin" /> : <>SAVE TEST <Check size={18} strokeWidth={3} /></>}
+                                {isActionLoading ? <Loader2 className="animate-spin" /> : <>{modalMode === 'create' ? 'Add Test' : 'Update Test'}</>}
                             </button>
                         </div>
                     </form>
@@ -457,4 +605,4 @@ const TestManagement = () => {
     );
 };
 
-export default TestManagement;
+export default TestCreate;

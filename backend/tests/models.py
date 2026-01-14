@@ -1,5 +1,5 @@
 from django.db import models
-from master_data.models import Session, ExamType, ClassLevel
+from master_data.models import Session, ExamType, ClassLevel, TargetExam
 
 class Test(models.Model):
     name = models.CharField(max_length=255)
@@ -7,12 +7,17 @@ class Test(models.Model):
     
     # Relationships to Master Data
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, related_name='tests')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, related_name='tests')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, related_name='tests')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, related_name='tests')
     
     duration = models.IntegerField(default=180, help_text="Duration in minutes")
+    total_marks = models.IntegerField(default=0)
     description = models.TextField(blank=True, null=True)
+    instructions = models.TextField(blank=True, null=True)
     is_completed = models.BooleanField(default=False)
+    has_calculator = models.BooleanField(default=False)
+    option_type_numeric = models.BooleanField(default=False, help_text="If True, options are 1,2,3,4")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
