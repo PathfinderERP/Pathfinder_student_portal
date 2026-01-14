@@ -516,6 +516,17 @@ const TestCreate = () => {
                                     </select>
                                 </div>
                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                    <select
+                                        value={formValues.class_level}
+                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
+                                    >
+                                        <option value="">Select Class</option>
+                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
                                     <select
                                         value={formValues.target_exam}
@@ -536,17 +547,6 @@ const TestCreate = () => {
                                     >
                                         <option value="">Select Type</option>
                                         {filteredExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                    <select
-                                        value={formValues.class_level}
-                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
-                                    >
-                                        <option value="">Select Class</option>
-                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>
                             </div>

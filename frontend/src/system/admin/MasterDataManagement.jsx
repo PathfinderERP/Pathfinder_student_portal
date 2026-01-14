@@ -346,39 +346,6 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                 )}
                             </div>
 
-                            {/* Exam Type Dropdown */}
-                            <div className="relative">
-                                <button
-                                    onClick={() => setIsExamTypeFilterOpen(!isExamTypeFilterOpen)}
-                                    className={`pl-3 pr-7 py-2.5 rounded-xl border font-bold text-[10px] uppercase tracking-widest outline-none transition-all cursor-pointer flex items-center gap-2 ${examTypeFilter !== 'all' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
-                                >
-                                    {examTypeLabel}
-                                    <ChevronDown size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 transition-transform ${isExamTypeFilterOpen ? 'rotate-180' : ''}`} />
-                                </button>
-                                {isExamTypeFilterOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-[60]" onClick={() => setIsExamTypeFilterOpen(false)} />
-                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                            <button
-                                                onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
-                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                            >
-                                                All Types {examTypeFilter === 'all' && <Check size={14} strokeWidth={3} />}
-                                            </button>
-                                            {examTypes.map(et => (
-                                                <button
-                                                    key={et.id}
-                                                    onClick={() => { setExamTypeFilter(et.id); setIsExamTypeFilterOpen(false); }}
-                                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${String(examTypeFilter) === String(et.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                                >
-                                                    {et.name} {String(examTypeFilter) === String(et.id) && <Check size={14} strokeWidth={3} />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
                             {/* Class Dropdown */}
                             <div className="relative">
                                 <button
@@ -411,6 +378,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                     </>
                                 )}
                             </div>
+
                             {/* Target Dropdown */}
                             <div className="relative">
                                 <button
@@ -437,6 +405,39 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${String(targetFilter) === String(t.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                 >
                                                     {t.name} {String(targetFilter) === String(t.id) && <Check size={14} strokeWidth={3} />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Exam Type Dropdown */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsExamTypeFilterOpen(!isExamTypeFilterOpen)}
+                                    className={`pl-3 pr-7 py-2.5 rounded-xl border font-bold text-[10px] uppercase tracking-widest outline-none transition-all cursor-pointer flex items-center gap-2 ${examTypeFilter !== 'all' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+                                >
+                                    {examTypeLabel}
+                                    <ChevronDown size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 transition-transform ${isExamTypeFilterOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isExamTypeFilterOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-[60]" onClick={() => setIsExamTypeFilterOpen(false)} />
+                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <button
+                                                onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
+                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                            >
+                                                All Types {examTypeFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                            </button>
+                                            {examTypes.map(et => (
+                                                <button
+                                                    key={et.id}
+                                                    onClick={() => { setExamTypeFilter(et.id); setIsExamTypeFilterOpen(false); }}
+                                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${String(examTypeFilter) === String(et.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                >
+                                                    {et.name} {String(examTypeFilter) === String(et.id) && <Check size={14} strokeWidth={3} />}
                                                 </button>
                                             ))}
                                         </div>
