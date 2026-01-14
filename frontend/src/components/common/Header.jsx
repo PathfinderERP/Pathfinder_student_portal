@@ -4,7 +4,7 @@ import { Menu, Sun, Moon, LogOut } from 'lucide-react';
 const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, toggleTheme, user, logout, actions }) => {
     return (
         <header className={`h-20 flex items-center justify-between px-8 border-b transition-colors duration-300
-            ${isDarkMode ? 'bg-[#0B0E14] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40'}`}>
+            ${isDarkMode ? 'bg-[#0B0E14] border-white/5' : 'bg-white border-slate-200/40'}`}>
 
             <div className="flex items-center gap-4 lg:gap-6">
                 <button

@@ -4,7 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import SystemDashboard from './pages/system/SystemDashboard';
+import SystemDashboard from './system/SystemDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
 import ParentDashboard from './pages/parent/ParentDashboard';
 import PrivateRoute from './components/PrivateRoute';

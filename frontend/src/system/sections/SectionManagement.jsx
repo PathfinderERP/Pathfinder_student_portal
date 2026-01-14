@@ -10,8 +10,8 @@ import {
     Trash2,
     RefreshCw
 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
-import { useTheme } from '../../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const SectionManagement = () => {
     const { getApiUrl, token } = useAuth();
@@ -128,7 +128,7 @@ const SectionManagement = () => {
     return (
         <div className="p-1 animate-fade-in">
             {/* Header Area */}
-            <div className={`flex items-center justify-between mb-8 p-6 rounded-2xl ${isDarkMode ? 'bg-[#10141D] border border-white/5' : 'bg-white shadow-sm border border-slate-100'}`}>
+            <div className={`flex items-center justify-between mb-8 p-6 rounded-2xl ${isDarkMode ? 'bg-[#10141D] border border-white/5' : 'bg-slate-50 shadow-sm border border-slate-100'}`}>
                 <h1 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                     Package <span className="text-orange-500">List</span>
                 </h1>

@@ -10,7 +10,7 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }
     const [isSidebarOpen, setSidebarOpen] = useState(true);
 
     return (
-        <div className={`flex h-screen font-sans overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0E14] text-white' : 'bg-slate-50 text-slate-800'}`}>
+        <div className={`flex h-screen font-sans overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0E14] text-white' : 'bg-white text-slate-800'}`}>
             <Sidebar
                 items={sidebarItems}
                 user={user}

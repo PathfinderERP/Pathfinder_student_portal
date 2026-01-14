@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, User, MapPin, Phone, Mail, BookOpen, Calendar, DollarSign, Activity, FileText, Layers, Award, Clock } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 
 const StudentDetailView = ({ student, onClose }) => {
     const { isDarkMode } = useTheme();

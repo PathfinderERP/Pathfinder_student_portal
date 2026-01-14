@@ -4,6 +4,34 @@ import { LogOut, ChevronsLeft, ChevronDown } from 'lucide-react';
 const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
     const [expandedItems, setExpandedItems] = useState({});
 
+    React.useEffect(() => {
+        const newExpanded = { ...expandedItems };
+        items.forEach(item => {
+            if (item.active && item.subItems) {
+                newExpanded[item.label] = true;
+            }
+            if (item.subItems) {
+                item.subItems.forEach(subItem => {
+                    if (subItem.active) {
+                        newExpanded[item.label] = true;
+                        if (subItem.subItems) {
+                            newExpanded[subItem.label] = true;
+                        }
+                    }
+                    if (subItem.subItems) {
+                        subItem.subItems.forEach(nested => {
+                            if (nested.active) {
+                                newExpanded[item.label] = true;
+                                newExpanded[subItem.label] = true;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+        setExpandedItems(newExpanded);
+    }, [items]);
+
     const toggleExpand = (label) => {
         setExpandedItems(prev => ({
             ...prev,
@@ -87,19 +115,52 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                 {/* Sub Items */}
                                 {isOpen && hasSubItems && isExpanded && (
                                     <div className="ml-9 space-y-1 border-l border-orange-500/20 pl-4 py-1">
-                                        {item.subItems.map((subItem, subIndex) => (
-                                            <button
-                                                key={subIndex}
-                                                onClick={() => subItem.onClick && subItem.onClick()}
-                                                className={`w-full flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200
-                                                ${subItem.active
-                                                        ? (isDarkMode ? "text-orange-500" : "text-orange-600")
-                                                        : (isDarkMode ? "text-slate-500 hover:text-white" : "text-gray-500 hover:text-gray-900")
-                                                    }`}
-                                            >
-                                                {subItem.label}
-                                            </button>
-                                        ))}
+                                        {item.subItems.map((subItem, subIndex) => {
+                                            const hasNestedSubs = subItem.subItems && subItem.subItems.length > 0;
+                                            const isNestedExpanded = expandedItems[subItem.label];
+
+                                            return (
+                                                <div key={subIndex} className="space-y-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (hasNestedSubs) toggleExpand(subItem.label);
+                                                            if (subItem.onClick) subItem.onClick();
+                                                        }}
+                                                        className={`w-full flex items-center justify-between py-2 text-sm font-medium rounded-lg transition-all duration-200
+                                                        ${subItem.active
+                                                                ? (isDarkMode ? "text-orange-500" : "text-orange-600")
+                                                                : (isDarkMode ? "text-slate-500 hover:text-white" : "text-gray-500 hover:text-gray-900")
+                                                            }`}
+                                                    >
+                                                        <span>{subItem.label}</span>
+                                                        {hasNestedSubs && (
+                                                            <ChevronDown
+                                                                size={14}
+                                                                className={`transition-transform duration-200 ${isNestedExpanded ? 'rotate-180' : ''}`}
+                                                            />
+                                                        )}
+                                                    </button>
+
+                                                    {hasNestedSubs && isNestedExpanded && (
+                                                        <div className="ml-4 space-y-1 border-l border-orange-500/10 pl-3 py-1">
+                                                            {subItem.subItems.map((nestedItem, nestedIndex) => (
+                                                                <button
+                                                                    key={nestedIndex}
+                                                                    onClick={() => nestedItem.onClick && nestedItem.onClick()}
+                                                                    className={`w-full flex items-center py-1.5 text-xs font-medium rounded-md transition-all duration-200
+                                                                    ${nestedItem.active
+                                                                            ? (isDarkMode ? "text-orange-400" : "text-orange-500")
+                                                                            : (isDarkMode ? "text-slate-600 hover:text-slate-300" : "text-gray-400 hover:text-gray-700")
+                                                                        }`}
+                                                                >
+                                                                    {nestedItem.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
