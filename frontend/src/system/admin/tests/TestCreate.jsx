@@ -12,6 +12,7 @@ import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import ImageResize from 'quill-image-resize-module-react';
 import { ImageDrop } from 'quill-image-drop-module';
+import SectionManagement from './sections/SectionManagement';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -112,6 +113,9 @@ const TestCreate = () => {
     const [pastFormulas, setPastFormulas] = useState([]);
     const [modalMode, setModalMode] = useState('create');
     const [selectedItem, setSelectedItem] = useState(null);
+
+    const [activeView, setActiveView] = useState('test-list'); // 'test-list', 'section-management'
+    const [managementTest, setManagementTest] = useState(null);
 
     // Toolbar Alert Logic
     useEffect(() => {
@@ -514,9 +518,15 @@ const TestCreate = () => {
                                             </button>
                                         </div>
                                     </td>
-                                    <td className="py-5 px-4">
+                                    <td className="py-5 px-4 text-center">
                                         <div className="flex justify-center">
-                                            <button className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30">
+                                            <button
+                                                onClick={() => {
+                                                    setManagementTest(item);
+                                                    setActiveView('section-management');
+                                                }}
+                                                className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+                                            >
                                                 Manage
                                             </button>
                                         </div>
@@ -642,6 +652,57 @@ const TestCreate = () => {
 
                     <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
                         <div className="space-y-6">
+                            {/* Relational Selects */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
+                                    <select
+                                        value={formValues.session}
+                                        onChange={e => setFormValues({ ...formValues, session: e.target.value, class_level: '', target_exam: '', exam_type: '', name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                    >
+                                        <option value="">Select Session</option>
+                                        {availableSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                    <select
+                                        disabled={!formValues.session}
+                                        value={formValues.class_level}
+                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, target_exam: '', exam_type: '', name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                    >
+                                        <option value="">Select Class</option>
+                                        {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                    <select
+                                        disabled={!formValues.class_level}
+                                        value={formValues.target_exam}
+                                        onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                    >
+                                        <option value="">Select Target</option>
+                                        {availableTargetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                    <select
+                                        disabled={!formValues.target_exam}
+                                        value={formValues.exam_type}
+                                        onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
+                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                    >
+                                        <option value="">Select Type</option>
+                                        {availableExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
                             {/* Title & Code */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-1">
@@ -717,57 +778,6 @@ const TestCreate = () => {
                                         <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.option_type_numeric ? 'right-1' : 'left-1'}`} />
                                     </button>
                                     <span className="text-sm font-bold opacity-60">Option type (1,2,3,4)</span>
-                                </div>
-                            </div>
-
-                            {/* Relational Selects */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
-                                    <select
-                                        value={formValues.session}
-                                        onChange={e => setFormValues({ ...formValues, session: e.target.value, class_level: '', target_exam: '', exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
-                                    >
-                                        <option value="">Select Session</option>
-                                        {availableSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                    <select
-                                        disabled={!formValues.session}
-                                        value={formValues.class_level}
-                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, target_exam: '', exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
-                                    >
-                                        <option value="">Select Class</option>
-                                        {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
-                                    <select
-                                        disabled={!formValues.class_level}
-                                        value={formValues.target_exam}
-                                        onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
-                                    >
-                                        <option value="">Select Target</option>
-                                        {availableTargetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                                    <select
-                                        disabled={!formValues.target_exam}
-                                        value={formValues.exam_type}
-                                        onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border font-bold text-[10px] uppercase outline-none appearance-none ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200'}`}
-                                    >
-                                        <option value="">Select Type</option>
-                                        {availableExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
-                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -1127,6 +1137,18 @@ const TestCreate = () => {
             </div>
         );
     };
+
+    if (activeView === 'section-management' && managementTest) {
+        return (
+            <SectionManagement
+                test={managementTest}
+                onBack={() => {
+                    setActiveView('test-list');
+                    setManagementTest(null);
+                }}
+            />
+        );
+    }
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
