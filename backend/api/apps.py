@@ -14,6 +14,6 @@ class ApiConfig(AppConfig):
             try:
                 db_conn = connections['default']
                 db_conn.cursor()
-                print("\n✅ \033[92mSuccessfully connected to MongoDB Atlas!\033[0m\n")
+                print("\n[OK] Successfully connected to MongoDB Atlas!\n")
             except Exception as e:
-                print(f"\n❌ \033[91mDatabase connection error: {e}\033[0m\n")
+                print(f"\n[ERROR] Database connection error: {e}\n")

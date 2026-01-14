@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     
     # Local
     'api',
+    'sections',
+    'centres',
 ]
 
 MIDDLEWARE = [

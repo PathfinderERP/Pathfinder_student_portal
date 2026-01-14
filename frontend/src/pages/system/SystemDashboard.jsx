@@ -37,6 +37,7 @@ const permissionTabs = [
 ];
 
 import StudentDetailView from './StudentDetailView';
+import SectionManagement from './sections/SectionManagement';
 
 const ERPStudentManagement = ({ studentsData, isERPLoading }) => {
     const { isDarkMode } = useTheme();
@@ -1457,6 +1458,8 @@ const SystemDashboard = () => {
                 );
             case 'Admin Student':
                 return <ERPStudentManagement studentsData={erpStudents} isERPLoading={isERPLoading} />;
+            case 'Section Management':
+                return <SectionManagement />;
             case 'Profile':
                 return (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
