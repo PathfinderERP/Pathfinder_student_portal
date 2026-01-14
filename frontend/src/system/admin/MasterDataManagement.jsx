@@ -84,6 +84,40 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
         return examTypes.filter(et => String(et.target_exam) === String(formValues.target_exam));
     }, [examTypes, formValues.target_exam]);
 
+    // Cascading Filter Options for "Exam Details" subtab
+    const availableSessionsForFilter = useMemo(() => {
+        if (activeSubTab !== 'Exam Details') return sessions;
+        const sessionIds = [...new Set(data.map(d => String(d.session)))];
+        return sessions.filter(s => sessionIds.includes(String(s.id)));
+    }, [sessions, data, activeSubTab]);
+
+    const availableClassesForFilter = useMemo(() => {
+        if (activeSubTab !== 'Exam Details') return classes;
+        const classIds = [...new Set(data
+            .filter(d => (sessionFilter === 'all' || String(d.session) === String(sessionFilter)))
+            .map(d => String(d.class_level)))];
+        return classes.filter(c => classIds.includes(String(c.id)));
+    }, [classes, data, activeSubTab, sessionFilter]);
+
+    const availableTargetsForFilter = useMemo(() => {
+        if (activeSubTab !== 'Exam Details') return targetExams;
+        const targetIds = [...new Set(data
+            .filter(d => (sessionFilter === 'all' || String(d.session) === String(sessionFilter)) &&
+                (classFilter === 'all' || String(d.class_level) === String(classFilter)))
+            .map(d => String(d.target_exam)))];
+        return targetExams.filter(t => targetIds.includes(String(t.id)));
+    }, [targetExams, data, activeSubTab, sessionFilter, classFilter]);
+
+    const availableTypesForFilter = useMemo(() => {
+        if (activeSubTab !== 'Exam Details') return examTypes;
+        const typeIds = [...new Set(data
+            .filter(d => (sessionFilter === 'all' || String(d.session) === String(sessionFilter)) &&
+                (classFilter === 'all' || String(d.class_level) === String(classFilter)) &&
+                (targetFilter === 'all' || String(d.target_exam) === String(targetFilter)))
+            .map(d => String(d.exam_type)))];
+        return examTypes.filter(et => typeIds.includes(String(et.id)));
+    }, [examTypes, data, activeSubTab, sessionFilter, classFilter, targetFilter]);
+
 
 
     const currentTabConfig = useMemo(() => subTabs.find(t => t.id === activeSubTab), [activeSubTab]);
@@ -327,15 +361,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                         <div className="fixed inset-0 z-[60]" onClick={() => setIsSessionFilterOpen(false)} />
                                         <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
-                                                onClick={() => { setSessionFilter('all'); setIsSessionFilterOpen(false); }}
+                                                onClick={() => { setSessionFilter('all'); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${sessionFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                             >
                                                 All Sessions {sessionFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                             </button>
-                                            {sessions.map(s => (
+                                            {availableSessionsForFilter.map(s => (
                                                 <button
                                                     key={s.id}
-                                                    onClick={() => { setSessionFilter(s.id); setIsSessionFilterOpen(false); }}
+                                                    onClick={() => { setSessionFilter(s.id); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); }}
                                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${String(sessionFilter) === String(s.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                 >
                                                     {s.name} {String(sessionFilter) === String(s.id) && <Check size={14} strokeWidth={3} />}
@@ -360,15 +394,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                         <div className="fixed inset-0 z-[60]" onClick={() => setIsClassFilterOpen(false)} />
                                         <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
-                                                onClick={() => { setClassFilter('all'); setIsClassFilterOpen(false); }}
+                                                onClick={() => { setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                             >
                                                 All Classes {classFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                             </button>
-                                            {classes.map(c => (
+                                            {availableClassesForFilter.map(c => (
                                                 <button
                                                     key={c.id}
-                                                    onClick={() => { setClassFilter(c.id); setIsClassFilterOpen(false); }}
+                                                    onClick={() => { setClassFilter(c.id); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); }}
                                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${String(classFilter) === String(c.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                 >
                                                     {c.name} {String(classFilter) === String(c.id) && <Check size={14} strokeWidth={3} />}
@@ -393,15 +427,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                         <div className="fixed inset-0 z-[60]" onClick={() => setIsTargetFilterOpen(false)} />
                                         <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
-                                                onClick={() => { setTargetFilter('all'); setIsTargetFilterOpen(false); }}
+                                                onClick={() => { setTargetFilter('all'); setExamTypeFilter('all'); setIsTargetFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                             >
                                                 All Targets {targetFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                             </button>
-                                            {targetExams.map(t => (
+                                            {availableTargetsForFilter.map(t => (
                                                 <button
                                                     key={t.id}
-                                                    onClick={() => { setTargetFilter(t.id); setIsTargetFilterOpen(false); }}
+                                                    onClick={() => { setTargetFilter(t.id); setExamTypeFilter('all'); setIsTargetFilterOpen(false); }}
                                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${String(targetFilter) === String(t.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                 >
                                                     {t.name} {String(targetFilter) === String(t.id) && <Check size={14} strokeWidth={3} />}
@@ -431,7 +465,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                             >
                                                 All Types {examTypeFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                             </button>
-                                            {examTypes.map(et => (
+                                            {availableTypesForFilter.map(et => (
                                                 <button
                                                     key={et.id}
                                                     onClick={() => { setExamTypeFilter(et.id); setIsExamTypeFilterOpen(false); }}
