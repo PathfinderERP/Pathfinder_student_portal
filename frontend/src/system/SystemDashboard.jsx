@@ -13,6 +13,7 @@ import { useTheme } from '../context/ThemeContext';
 // Components
 import DashboardOverview from './dashboard/DashboardOverview';
 import StudentRegistry from './admin/StudentRegistry';
+import CentreRegistry from './admin/CentreRegistry';
 import SectionManagement from './sections/SectionManagement';
 import CreateUserPage from './admin/CreateUserPage';
 import ProfilePage from './profile/ProfilePage';
@@ -47,6 +48,7 @@ const SystemDashboard = () => {
     const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
     const [loginHistory, setLoginHistory] = useState([]);
     const [erpStudents, setErpStudents] = useState([]);
+    const [erpCentres, setErpCentres] = useState([]);
     const [isERPLoading, setIsERPLoading] = useState(false);
     const [masterSubTab, setMasterSubTab] = useState('Session');
 
@@ -201,7 +203,7 @@ const SystemDashboard = () => {
 
         try {
             const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-            const erpIdentifier = (user?.email && user.email.includes('@')) ? user.email : "atanu@gmail.com";
+            const erpIdentifier = (user?.email && user.email.includes('@')) ? user.email : (import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com");
 
             let loginRes;
             try {
@@ -211,8 +213,8 @@ const SystemDashboard = () => {
                 });
             } catch (err) {
                 loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: "atanu@gmail.com",
-                    password: "000000"
+                    email: import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com",
+                    password: import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000"
                 });
             }
 
@@ -222,6 +224,13 @@ const SystemDashboard = () => {
 
             const erpData = admissionRes.data?.student?.studentsDetails || admissionRes.data?.data || (Array.isArray(admissionRes.data) ? admissionRes.data : []);
             setErpStudents(erpData);
+
+            // Fetch Centres
+            const centreRes = await axios.get(`${erpUrl}/api/centre`, {
+                headers: { 'Authorization': `Bearer ${loginRes.data.token}` }
+            });
+            const centreData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
+            setErpCentres(centreData);
         } catch (err) {
             console.error("ERP Sync Failed:", err.message);
         } finally {
@@ -326,6 +335,8 @@ const SystemDashboard = () => {
                 );
             case 'Admin Student':
                 return <StudentRegistry studentsData={erpStudents} isERPLoading={isERPLoading} />;
+            case 'Centre Management':
+                return <CentreRegistry centresData={erpCentres} isERPLoading={isERPLoading} />;
             case 'Admin Master Data':
                 return <MasterDataManagement activeSubTab={masterSubTab} setActiveSubTab={setMasterSubTab} />;
             case 'Admin Section Management':

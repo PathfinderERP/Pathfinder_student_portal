@@ -26,8 +26,8 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
             setIsLoading(true);
             try {
                 const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-                const erpIdentifier = "atanu@gmail.com";
-                const erpPassword = "000000";
+                const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
+                const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
 
                 const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
                     email: erpIdentifier,
