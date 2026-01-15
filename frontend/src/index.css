@@ -31,3 +31,12 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.5);
 }
+
+@keyframes progress-shrink {
+    from { width: 100%; }
+    to { width: 0%; }
+}
+
+.animate-progress-shrink {
+    animation: progress-shrink linear forwards;
+}

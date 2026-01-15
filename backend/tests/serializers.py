@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Test
 from master_data.serializers import SessionSerializer, ExamTypeSerializer, ClassLevelSerializer, TargetExamSerializer
 from sections.models import Section
+from centres.models import Centre
 from bson import ObjectId
 
 class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
@@ -26,6 +27,13 @@ class TestSerializer(serializers.ModelSerializer):
     # Explicitly define allotted_sections to handle M2M with ObjectId pk
     allotted_sections = ObjectIdRelatedField(
         queryset=Section.objects.all(),
+        many=True,
+        required=False
+    )
+    
+    # Explicitly define centres to handle M2M with ObjectId pk
+    centres = ObjectIdRelatedField(
+        queryset=Centre.objects.all(),
         many=True,
         required=False
     )

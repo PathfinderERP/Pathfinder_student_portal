@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown } from 'lucide-react';
+import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -24,11 +24,21 @@ const TestAllotment = () => {
     const [availableCentres, setAvailableCentres] = useState([]);
     const [selectedCentreIds, setSelectedCentreIds] = useState([]);
     const [isActionLoading, setIsActionLoading] = useState(false);
+    const [centreSearchTerm, setCentreSearchTerm] = useState('');
 
     // Section Allotment Modal State
     const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
     const [availableSections, setAvailableSections] = useState([]);
     const [selectedSectionIds, setSelectedSectionIds] = useState([]);
+    const [sectionSearchTerm, setSectionSearchTerm] = useState('');
+
+    // Custom Alert State
+    const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
+
+    const triggerAlert = (message, type = 'success') => {
+        setAlert({ show: true, message, type });
+        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+    };
 
     const getAuthConfig = useCallback(() => {
         const activeToken = token || localStorage.getItem('auth_token');
@@ -84,33 +94,96 @@ const TestAllotment = () => {
 
     const handleEditCentres = async (test) => {
         setSelectedTest(test);
-        setSelectedCentreIds(test.centres || []);
         setIsActionLoading(true);
 
         try {
             const apiUrl = getApiUrl();
-            const centresRes = await axios.get(`${apiUrl}/api/centres/`, getAuthConfig());
-            setAvailableCentres(centresRes.data);
+            const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
+            const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
+            const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
+
+            // Concurrent fetch: ERP Centres, Local Centres, and ERP Token
+            const [loginRes, localCentresRes] = await Promise.all([
+                axios.post(`${erpUrl}/api/superAdmin/login`, { email: erpIdentifier, password: erpPassword }),
+                axios.get(`${apiUrl}/api/centres/`, getAuthConfig())
+            ]);
+
+            const erpToken = loginRes.data.token;
+            const erpCentresRes = await axios.get(`${erpUrl}/api/centre`, {
+                headers: { 'Authorization': `Bearer ${erpToken}` }
+            });
+
+            const erpData = erpCentresRes.data?.data || (Array.isArray(erpCentresRes.data) ? erpCentresRes.data : []);
+            const localData = localCentresRes.data;
+
+            // Map ERP centres to available list
+            setAvailableCentres(erpData);
+            setLocalCentres(localData); // We need this in state to check for sync during save
+
+            // Map the test's existing allotted local IDs back to ERP codes to set initial selection
+            // We'll store the logic for matching here
+            const alreadyAllottedCodes = localData
+                .filter(lc => test.centres?.includes(lc.id))
+                .map(lc => lc.code);
+
+            // Actually, let's keep selectedCentreIds as ERP codes for simplicity during UI selection
+            // and map them back to local IDs only upon saving.
+            setSelectedCentreIds(alreadyAllottedCodes);
+
             setIsModalOpen(true);
         } catch (err) {
-            alert('Failed to load centres');
+            console.error("❌ Allotment Sync Error:", err);
+            alert('Failed to load ERP centre registry: ' + err.message);
         } finally {
             setIsActionLoading(false);
         }
     };
 
+    // State for local centres to avoid extra fetches during save
+    const [localCentres, setLocalCentres] = useState([]);
+
     const handleSaveAllotment = async () => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            const finalLocalIds = [];
+
+            // 1. Ensure all selected ERP centres exist in local DB
+            for (const erpCode of selectedCentreIds) {
+                let local = localCentres.find(lc => lc.code === erpCode);
+
+                if (!local) {
+                    // Find the erp detail to create it
+                    const erpDetail = availableCentres.find(c => c.enterCode === erpCode);
+                    if (erpDetail) {
+                        try {
+                            const createRes = await axios.post(`${apiUrl}/api/centres/`, {
+                                code: erpDetail.enterCode,
+                                name: erpDetail.centreName,
+                                location: erpDetail.state || ""
+                            }, getAuthConfig());
+                            local = createRes.data;
+                        } catch (e) {
+                            console.error(`Failed to sync centre ${erpCode}:`, e);
+                        }
+                    }
+                }
+
+                if (local) finalLocalIds.push(local.id);
+            }
+
+            // 2. Patch the test with final local IDs
             await axios.patch(`${apiUrl}/api/tests/${selectedTest.id}/`,
-                { centres: selectedCentreIds },
+                { centres: finalLocalIds },
                 getAuthConfig()
             );
+
             setIsModalOpen(false);
             fetchData();
+            triggerAlert('Centre allotment updated successfully!', 'success');
         } catch (err) {
-            alert('Failed to update allotment');
+            console.error(err);
+            triggerAlert(err.response?.data?.message || 'Failed to update allotment', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -125,8 +198,9 @@ const TestAllotment = () => {
                 getAuthConfig()
             );
             fetchData();
+            triggerAlert('All allotments removed successfully.', 'success');
         } catch (err) {
-            alert('Failed to remove allotment');
+            triggerAlert('Failed to remove allotment', 'error');
         }
     };
 
@@ -144,7 +218,7 @@ const TestAllotment = () => {
             setIsSectionModalOpen(true);
         } catch (err) {
             console.error(err);
-            alert('Failed to load sections');
+            triggerAlert('Failed to load sections', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -160,8 +234,9 @@ const TestAllotment = () => {
             );
             setIsSectionModalOpen(false);
             fetchData();
+            triggerAlert('Section allotment updated!', 'success');
         } catch (err) {
-            alert('Failed to update section allotment');
+            triggerAlert('Failed to update section allotment', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -317,65 +392,146 @@ const TestAllotment = () => {
                 </div>
             </div>
 
-            {/* Centre Allotment Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                    <div className={`relative w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                        <div className="bg-[#0284C7] p-6 flex justify-between items-center text-white">
+                    <div className={`relative w-full max-w-lg rounded-3xl shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                        <div className="bg-emerald-600 p-6 flex justify-between items-center text-white font-black">
                             <div>
-                                <h3 className="text-lg font-black uppercase tracking-tight">Allot Centres</h3>
-                                <p className="text-[10px] font-medium opacity-80 mt-1">{selectedTest?.name}</p>
+                                <h3 className="text-lg uppercase tracking-tight">Centres Allotment</h3>
+                                <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest">{selectedTest?.name}</p>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-all opacity-80 hover:opacity-100">
+                            <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-all text-white/90 hover:text-white">
                                 <X size={24} strokeWidth={3} />
                             </button>
                         </div>
 
-                        <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {availableCentres.map(centre => {
-                                    const isSelected = selectedCentreIds.includes(centre.id);
-                                    return (
-                                        <div
-                                            key={centre.id}
-                                            onClick={() => {
-                                                if (isSelected) setSelectedCentreIds(prev => prev.filter(id => id !== centre.id));
-                                                else setSelectedCentreIds(prev => [...prev, centre.id]);
-                                            }}
-                                            className={`cursor-pointer p-4 rounded-xl border flex items-center justify-between transition-all group active:scale-95 ${isSelected
-                                                ? 'bg-blue-500/10 border-blue-500 text-blue-500'
-                                                : isDarkMode ? 'bg-black/20 border-white/5 hover:border-white/20' : 'bg-slate-50 border-slate-200 hover:border-blue-300'}`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
-                                                    <MapPin size={14} />
-                                                </div>
-                                                <div className="text-xs font-bold uppercase truncate max-w-[150px]">
-                                                    {centre.name}
-                                                </div>
+                        <div className={`p-0 max-h-[50vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
+                            <div className="p-6 space-y-5">
+                                {/* Selected Centres Summary (Like the User ScreenShot) */}
+                                <div className="relative group">
+                                    <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
+                                        ERP Centre List
+                                    </label>
+                                    <div className={`w-full p-4 rounded-xl border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
+                                        {selectedCentreIds.length > 0 ? (
+                                            availableCentres
+                                                .filter(c => selectedCentreIds.includes(c.enterCode))
+                                                .map(c => (
+                                                    <div
+                                                        key={`sel-centre-${c.enterCode}`}
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                                                    >
+                                                        <span>{c.centreName}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedCentreIds(prev => prev.filter(code => code !== c.enterCode));
+                                                            }}
+                                                            className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
+                                                        >
+                                                            <X size={12} strokeWidth={4} />
+                                                        </button>
+                                                    </div>
+                                                ))
+                                        ) : (
+                                            <div className="flex items-center h-full px-1">
+                                                <span className="text-slate-400 font-bold italic text-xs opacity-50">No Centres Selected...</span>
                                             </div>
-                                            {isSelected && <Check size={16} strokeWidth={3} />}
-                                        </div>
-                                    );
-                                })}
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className={`h-px my-2 ${isDarkMode ? 'bg-white/5' : 'bg-slate-200/60'}`} />
+
+                                {/* Modal Search Option */}
+                                <div className="relative group">
+                                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search centres by name or code..."
+                                        value={centreSearchTerm}
+                                        onChange={(e) => setCentreSearchTerm(e.target.value)}
+                                        className={`w-full pl-11 pr-4 py-3 rounded-2xl border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                    />
+                                    {centreSearchTerm && (
+                                        <button
+                                            onClick={() => setCentreSearchTerm('')}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    {[...availableCentres]
+                                        .filter(c =>
+                                            c.centreName?.toLowerCase().includes(centreSearchTerm.toLowerCase()) ||
+                                            c.enterCode?.toLowerCase().includes(centreSearchTerm.toLowerCase())
+                                        )
+                                        .sort((a, b) => {
+                                            const aSel = selectedCentreIds.includes(a.enterCode);
+                                            const bSel = selectedCentreIds.includes(b.enterCode);
+                                            if (aSel && !bSel) return -1;
+                                            if (!aSel && bSel) return 1;
+                                            return (a.centreName || "").localeCompare(b.centreName || "");
+                                        })
+                                        .map(centre => {
+                                            const isSelected = selectedCentreIds.includes(centre.enterCode);
+                                            return (
+                                                <div
+                                                    key={centre.enterCode || centre._id}
+                                                    onClick={() => {
+                                                        if (isSelected) setSelectedCentreIds(prev => prev.filter(code => code !== centre.enterCode));
+                                                        else setSelectedCentreIds(prev => [...prev, centre.enterCode]);
+                                                    }}
+                                                    className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer border transition-all active:scale-[0.98] ${isSelected
+                                                        ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
+                                                        : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
+                                                >
+                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${isSelected
+                                                        ? 'bg-blue-600 border-blue-600 scale-110'
+                                                        : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
+                                                        {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
+                                                    </div>
+                                                    <div className="flex flex-col flex-1 min-w-0">
+                                                        <span className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
+                                                            {centre.centreName}
+                                                        </span>
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{centre.enterCode}</span>
+                                                            <div className="flex items-center gap-1 opacity-40">
+                                                                <Mail size={10} />
+                                                                <span className="text-[9px] font-bold lowercase">{centre.email || 'N/A'}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 opacity-40">
+                                                                <Phone size={10} />
+                                                                <span className="text-[9px] font-bold">{centre.phoneNumber || 'N/A'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
                             </div>
                         </div>
 
-                        <div className={`p-6 border-t flex justify-end gap-3 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                        <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}
+                                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSaveAllotment}
                                 disabled={isActionLoading}
-                                className="px-8 py-3 bg-[#0284C7] hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
+                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
                             >
-                                {isActionLoading && <Loader2 size={14} className="animate-spin" />}
-                                Save Allotment
+                                {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Channels'}
                             </button>
                         </div>
                     </div>
@@ -386,28 +542,31 @@ const TestAllotment = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSectionModalOpen(false)} />
                     <div className={`relative w-full max-w-lg rounded-3xl shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                        <div className="bg-orange-500 p-6 flex justify-between items-center text-white">
-                            <h3 className="text-lg font-black uppercase tracking-tight">Add To Sections</h3>
+                        <div className="bg-orange-600 p-6 flex justify-between items-center text-white font-black">
+                            <div>
+                                <h3 className="text-lg uppercase tracking-tight">Add to Sections</h3>
+                                <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest">{selectedTest?.name}</p>
+                            </div>
                             <button onClick={() => setIsSectionModalOpen(false)} className="hover:rotate-90 transition-all text-white/90 hover:text-white">
                                 <X size={24} strokeWidth={3} />
                             </button>
                         </div>
 
-                        <div className="p-0 max-h-[50vh] overflow-y-auto custom-scrollbar bg-slate-50">
-                            <div className="p-6 space-y-4">
-                                {/* Selected Packages Summary */}
+                        <div className={`p-0 max-h-[50vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
+                            <div className="p-6 space-y-5">
+                                {/* Selected Packages Summary (Legend Style) */}
                                 <div className="relative group">
-                                    <label className="absolute -top-2 left-3 bg-slate-50 px-1 text-[10px] font-bold text-blue-500 uppercase tracking-widest z-10 transition-all">
+                                    <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
                                         Package List
                                     </label>
-                                    <div className="w-full p-3 rounded-xl border border-blue-500 bg-white min-h-[50px] shadow-sm flex flex-wrap gap-2">
+                                    <div className={`w-full p-4 rounded-xl border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
                                         {selectedSectionIds.length > 0 ? (
                                             availableSections
                                                 .filter(s => selectedSectionIds.includes(s.id))
                                                 .map(s => (
                                                     <div
-                                                        key={`selected-${s.id}`}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200"
+                                                        key={`sel-sec-${s.id}`}
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
                                                     >
                                                         <span>{s.code || s.name}</span>
                                                         <button
@@ -424,64 +583,121 @@ const TestAllotment = () => {
                                                 ))
                                         ) : (
                                             <div className="flex items-center h-full px-1">
-                                                <span className="text-slate-400 font-normal italic text-xs">No packages selected...</span>
+                                                <span className="text-slate-400 font-bold italic text-xs opacity-50">No Packages Selected...</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="h-px bg-slate-100 my-2" />
+                                <div className={`h-px my-2 ${isDarkMode ? 'bg-white/5' : 'bg-slate-200/60'}`} />
 
-                                {availableSections.length === 0 ? (
-                                    <div className="text-center py-8 text-slate-400 text-xs font-bold">No packages found</div>
-                                ) : (
-                                    [...availableSections]
-                                        .sort((a, b) => {
-                                            const aSelected = selectedSectionIds.includes(a.id);
-                                            const bSelected = selectedSectionIds.includes(b.id);
-                                            if (aSelected && !bSelected) return -1;
-                                            if (!aSelected && bSelected) return 1;
-                                            return 0;
-                                        })
-                                        .map(section => {
-                                            const isSelected = selectedSectionIds.includes(section.id);
-                                            return (
-                                                <div
-                                                    key={section.id}
-                                                    onClick={() => {
-                                                        if (isSelected) setSelectedSectionIds(prev => prev.filter(id => id !== section.id));
-                                                        else setSelectedSectionIds(prev => [...prev, section.id]);
-                                                    }}
-                                                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer border transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white border-transparent hover:border-slate-200'}`}
-                                                >
-                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-300 bg-white'}`}>
-                                                        {isSelected && <Check size={12} className="text-white" strokeWidth={4} />}
+                                {/* Section Modal Search */}
+                                <div className="relative group">
+                                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search sections by name or code..."
+                                        value={sectionSearchTerm}
+                                        onChange={(e) => setSectionSearchTerm(e.target.value)}
+                                        className={`w-full pl-11 pr-4 py-3 rounded-2xl border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                    />
+                                    {sectionSearchTerm && (
+                                        <button
+                                            onClick={() => setSectionSearchTerm('')}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    {availableSections.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">No packages found</div>
+                                    ) : (
+                                        [...availableSections]
+                                            .filter(s =>
+                                                s.name?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
+                                                s.code?.toLowerCase().includes(sectionSearchTerm.toLowerCase())
+                                            )
+                                            .sort((a, b) => {
+                                                const aSel = selectedSectionIds.includes(a.id);
+                                                const bSel = selectedSectionIds.includes(b.id);
+                                                if (aSel && !bSel) return -1;
+                                                if (!aSel && bSel) return 1;
+                                                return (a.name || "").localeCompare(b.name || "");
+                                            })
+                                            .map(section => {
+                                                const isSelected = selectedSectionIds.includes(section.id);
+                                                return (
+                                                    <div
+                                                        key={section.id}
+                                                        onClick={() => {
+                                                            if (isSelected) setSelectedSectionIds(prev => prev.filter(id => id !== section.id));
+                                                            else setSelectedSectionIds(prev => [...prev, section.id]);
+                                                        }}
+                                                        className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer border transition-all active:scale-[0.98] ${isSelected
+                                                            ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
+                                                            : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
+                                                    >
+                                                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${isSelected
+                                                            ? 'bg-blue-600 border-blue-600 scale-110'
+                                                            : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
+                                                            {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-sm font-black uppercase tracking-tight ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
+                                                                {section.name}
+                                                            </span>
+                                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{section.code || 'NO CODE'}</span>
+                                                        </div>
                                                     </div>
-                                                    <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>
-                                                        {section.code || section.name}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })
-                                )}
+                                                );
+                                            })
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <div className={`p-4 border-t flex justify-end gap-3 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
+                        <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
                             <button
                                 onClick={() => setIsSectionModalOpen(false)}
-                                className="px-4 py-2 rounded-lg text-xs font-black text-slate-500 hover:bg-slate-100 uppercase tracking-widest"
+                                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSaveSectionAllotment}
                                 disabled={isActionLoading}
-                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all"
+                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
                             >
-                                {isActionLoading ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
+                                {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Premium Custom Alert */}
+            {alert.show && (
+                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-10 duration-500">
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success'
+                        ? 'bg-emerald-500/90 border-emerald-400 text-white'
+                        : 'bg-red-500/90 border-red-400 text-white'
+                        }`}>
+                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                            {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-0.5">Notification</p>
+                            <p className="text-sm font-bold tracking-tight">{alert.message}</p>
+                        </div>
+                        <button onClick={() => setAlert(prev => ({ ...prev, show: false }))} className="ml-4 opacity-50 hover:opacity-100 transition-opacity">
+                            <X size={18} strokeWidth={3} />
+                        </button>
+                    </div>
+                    {/* Auto-discard progress bar */}
+                    <div className="absolute bottom-0 left-4 right-4 h-1 bg-white/30 rounded-full overflow-hidden">
+                        <div className="h-full bg-white animate-progress-shrink" style={{ animationDuration: '3000ms' }} />
                     </div>
                 </div>
             )}
