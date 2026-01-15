@@ -557,7 +557,7 @@ const TestAllotment = () => {
                                 {/* Selected Packages Summary (Legend Style) */}
                                 <div className="relative group">
                                     <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
-                                        Package List
+                                        Section List
                                     </label>
                                     <div className={`w-full p-4 rounded-xl border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
                                         {selectedSectionIds.length > 0 ? (
@@ -568,7 +568,7 @@ const TestAllotment = () => {
                                                         key={`sel-sec-${s.id}`}
                                                         className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
                                                     >
-                                                        <span>{s.code || s.name}</span>
+                                                        <span>{s.name}</span>
                                                         <button
                                                             type="button"
                                                             onClick={(e) => {
@@ -583,7 +583,7 @@ const TestAllotment = () => {
                                                 ))
                                         ) : (
                                             <div className="flex items-center h-full px-1">
-                                                <span className="text-slate-400 font-bold italic text-xs opacity-50">No Packages Selected...</span>
+                                                <span className="text-slate-400 font-bold italic text-xs opacity-50">No Sections Selected...</span>
                                             </div>
                                         )}
                                     </div>
@@ -613,11 +613,12 @@ const TestAllotment = () => {
 
                                 <div className="space-y-2">
                                     {availableSections.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">No packages found</div>
+                                        <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">No sections found</div>
                                     ) : (
                                         [...availableSections]
                                             .filter(s =>
                                                 s.name?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
+                                                s.subject_code?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
                                                 s.code?.toLowerCase().includes(sectionSearchTerm.toLowerCase())
                                             )
                                             .sort((a, b) => {
@@ -649,7 +650,7 @@ const TestAllotment = () => {
                                                             <span className={`text-sm font-black uppercase tracking-tight ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
                                                                 {section.name}
                                                             </span>
-                                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{section.code || 'NO CODE'}</span>
+                                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{section.subject_code || section.code || 'NO CODE'}</span>
                                                         </div>
                                                     </div>
                                                 );

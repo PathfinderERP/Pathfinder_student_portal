@@ -14,7 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import DashboardOverview from './dashboard/DashboardOverview';
 import StudentRegistry from './admin/StudentRegistry';
 import CentreRegistry from './admin/CentreRegistry';
-import SectionManagement from './sections/SectionManagement';
+import SectionRegistry from './sections/SectionRegistry';
 import CreateUserPage from './admin/CreateUserPage';
 import ProfilePage from './profile/ProfilePage';
 import SettingsPage from './settings/SettingsPage';
@@ -340,7 +340,7 @@ const SystemDashboard = () => {
             case 'Admin Master Data':
                 return <MasterDataManagement activeSubTab={masterSubTab} setActiveSubTab={setMasterSubTab} />;
             case 'Admin Section Management':
-                return <SectionManagement />;
+                return <SectionRegistry />;
             case 'Test Create':
                 return <TestCreate />;
             case 'Test Allotment':

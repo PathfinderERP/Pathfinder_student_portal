@@ -8,15 +8,16 @@ import {
     X,
     Eye,
     Trash2,
+    LayoutDashboard,
     RefreshCw,
-    FileText,
-    LayoutDashboard
+    ShieldCheck,
+    BellRing
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import AllocatedTestsDetails from './AllocatedTestsDetails';
 
-const SectionManagement = () => {
+const SectionRegistry = () => {
     const { getApiUrl, token } = useAuth();
     const { isDarkMode } = useTheme();
     const [sections, setSections] = useState([]);
@@ -29,9 +30,17 @@ const SectionManagement = () => {
     const [modalMode, setModalMode] = useState('add'); // 'add', 'edit', 'view'
     const [editingSection, setEditingSection] = useState(null);
     const [formData, setFormData] = useState({
-        code: '',
+        subject_code: '',
         name: ''
     });
+
+    // Custom Alert State
+    const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
+
+    const triggerAlert = (message, type = 'success') => {
+        setAlert({ show: true, message, type });
+        setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+    };
 
     // View State
     const [view, setView] = useState('list'); // 'list' or 'details'
@@ -65,7 +74,7 @@ const SectionManagement = () => {
     const handleAddClick = () => {
         setModalMode('add');
         setEditingSection(null);
-        setFormData({ code: '', name: '' });
+        setFormData({ subject_code: '', name: '' });
         setShowModal(true);
     };
 
@@ -73,8 +82,8 @@ const SectionManagement = () => {
         setModalMode('edit');
         setEditingSection(section);
         setFormData({
-            code: section.code,
-            name: section.name
+            subject_code: section.subject_code || section.code || '',
+            name: section.name || ''
         });
         setShowModal(true);
     };
@@ -102,12 +111,12 @@ const SectionManagement = () => {
         e.preventDefault();
         setIsActionLoading(true);
         try {
-            const apiUrl = getApiUrl();
+            const apiUrl = getApiUrl().replace(/\/$/, '');
             const authToken = token || localStorage.getItem('auth_token');
             const url = modalMode === 'edit'
                 ? `${apiUrl}/api/sections/${editingSection.id}/`
                 : `${apiUrl}/api/sections/`;
-            const method = modalMode === 'edit' ? 'put' : 'post';
+            const method = modalMode === 'edit' ? 'patch' : 'post';
 
             const response = await axios[method](url, formData, {
                 headers: { Authorization: `Bearer ${authToken}` }
@@ -119,9 +128,12 @@ const SectionManagement = () => {
                 setSections([response.data, ...sections]);
             }
             setShowModal(false);
+            await fetchSections();
+            triggerAlert(`Section ${modalMode === 'edit' ? 'updated' : 'added'} successfully!`, 'success');
         } catch (err) {
             console.error('Error saving section:', err);
-            alert(err.response?.data?.code?.[0] || 'Failed to save section. Code must be unique.');
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.response?.data?.code?.[0] || 'Failed to save section.';
+            triggerAlert(errorMsg, 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -151,7 +163,7 @@ const SectionManagement = () => {
             {/* Header Area */}
             <div className={`flex items-center justify-between mb-8 p-6 rounded-2xl ${isDarkMode ? 'bg-[#10141D] border border-white/5' : 'bg-slate-50 shadow-sm border border-slate-100'}`}>
                 <h1 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                    Package <span className="text-orange-500">List</span>
+                    Section <span className="text-orange-500">List</span>
                 </h1>
 
                 <div className="flex items-center gap-4 flex-1 max-w-2xl ml-8">
@@ -210,7 +222,7 @@ const SectionManagement = () => {
                                     <td className="py-5 px-8 text-sm font-bold opacity-50">{index + 1}</td>
                                     <td className="py-5 px-8">
                                         <span className={`font-black text-sm tracking-tight ${isDarkMode ? 'text-white/90' : 'text-slate-700'}`}>
-                                            {section.code}
+                                            {section.subject_code || section.code}
                                         </span>
                                     </td>
                                     <td className="py-5 px-8 text-center">
@@ -265,57 +277,56 @@ const SectionManagement = () => {
                         onClick={() => !isActionLoading && setShowModal(false)}
                     />
 
-                    <div className={`relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-scale-up ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
+                    <div className={`relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-scale-up ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
                         {/* Modal Header */}
-                        <div className="bg-orange-500 px-10 py-6 flex items-center justify-between">
-                            <h2 className="text-white text-xl font-black uppercase tracking-tight">Section Detail</h2>
+                        <div className="bg-orange-500 p-6 flex items-center justify-between">
+                            <h2 className="text-white text-lg font-black uppercase tracking-tight">Section Detail</h2>
                             <button
                                 onClick={() => setShowModal(false)}
                                 className="text-white/80 hover:text-white transition-colors"
                                 disabled={isActionLoading}
                             >
-                                <X size={24} strokeWidth={3} />
+                                <X size={22} strokeWidth={3} />
                             </button>
                         </div>
 
                         {/* Modal Body */}
-                        <form onSubmit={handleSubmit} className="p-10 space-y-10">
-                            <div className="space-y-2">
-                                <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            <div className="space-y-1">
+                                <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 border-b pb-1 ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-200'} inline-block`}>
                                     Enter Section Details
                                 </p>
-                                <div className="h-0.5 w-12 bg-orange-500/30 rounded-full" />
-                            </div>
 
-                            <div className="space-y-8">
-                                <div className="space-y-2">
-                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Code *</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        className={`w-full bg-transparent border-b-2 py-4 font-bold text-lg outline-none transition-all
-                                            ${isDarkMode
-                                                ? 'border-white/10 text-white focus:border-orange-500'
-                                                : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
-                                        value={formData.code}
-                                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                        placeholder="Enter Section Code"
-                                    />
-                                </div>
+                                <div className="space-y-6">
+                                    <div className="space-y-1">
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Code *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            className={`w-full bg-transparent border-b-2 py-3 font-bold text-sm outline-none transition-all
+                                                ${isDarkMode
+                                                    ? 'border-white/10 text-white focus:border-orange-500'
+                                                    : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
+                                            value={formData.subject_code || ''}
+                                            onChange={(e) => setFormData({ ...formData, subject_code: e.target.value })}
+                                            placeholder="Enter Code"
+                                        />
+                                    </div>
 
-                                <div className="space-y-2">
-                                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Name *</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        className={`w-full bg-transparent border-b-2 py-4 font-bold text-lg outline-none transition-all
-                                            ${isDarkMode
-                                                ? 'border-white/10 text-white focus:border-orange-500'
-                                                : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        placeholder="Enter Section Name"
-                                    />
+                                    <div className="space-y-1">
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Name *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            className={`w-full bg-transparent border-b-2 py-3 font-bold text-sm outline-none transition-all
+                                                ${isDarkMode
+                                                    ? 'border-white/10 text-white focus:border-orange-500'
+                                                    : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
+                                            value={formData.name || ''}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="Enter Name"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -323,12 +334,37 @@ const SectionManagement = () => {
                                 <button
                                     type="submit"
                                     disabled={isActionLoading}
-                                    className="px-12 py-4 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-900/20 active:scale-95 disabled:opacity-50"
+                                    className="px-8 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-emerald-900/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    {isActionLoading ? 'Saving...' : modalMode === 'edit' ? 'Update' : 'Add'}
+                                    {isActionLoading ? <RefreshCw size={12} className="animate-spin" /> : (modalMode === 'edit' ? 'Update' : 'Add')}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Premium Custom Alert */}
+            {alert.show && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success'
+                        ? 'bg-emerald-500/90 border-emerald-400 text-white'
+                        : 'bg-red-500/90 border-red-400 text-white'
+                        }`}>
+                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                            {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-0.5">Notification</p>
+                            <p className="text-sm font-bold tracking-tight">{alert.message}</p>
+                        </div>
+                        <button onClick={() => setAlert(prev => ({ ...prev, show: false }))} className="ml-4 opacity-50 hover:opacity-100 transition-opacity">
+                            <X size={18} strokeWidth={3} />
+                        </button>
+                    </div>
+                    {/* Auto-discard progress bar */}
+                    <div className="absolute bottom-0 left-4 right-4 h-1 bg-white/30 rounded-full overflow-hidden">
+                        <div className="h-full bg-white animate-progress-shrink" style={{ animationDuration: '3000ms' }} />
                     </div>
                 </div>
             )}
@@ -336,4 +372,4 @@ const SectionManagement = () => {
     );
 };
 
-export default SectionManagement;
+export default SectionRegistry;

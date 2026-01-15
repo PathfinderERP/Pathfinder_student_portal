@@ -12,7 +12,7 @@ import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import ImageResize from 'quill-image-resize-module-react';
 import { ImageDrop } from 'quill-image-drop-module';
-import SectionManagement from './sections/SectionManagement';
+import TestSectionManager from './sections/TestSectionManager';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -1142,7 +1142,7 @@ const TestCreate = () => {
 
     if (activeView === 'section-management' && managementTest) {
         return (
-            <SectionManagement
+            <TestSectionManager
                 test={managementTest}
                 onBack={() => {
                     setActiveView('test-list');
