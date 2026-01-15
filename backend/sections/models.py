@@ -26,4 +26,5 @@ class Section(models.Model):
         ordering = ['priority', 'created_at']
 
     def __str__(self):
-        return f"{self.name} - {self.test.name}"
+        test_name = self.test.name if self.test else "No Test"
+        return f"{self.name} - {test_name}"

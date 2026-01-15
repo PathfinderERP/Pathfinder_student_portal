@@ -250,7 +250,6 @@ const SystemDashboard = () => {
     const sidebarItems = useMemo(() => [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', active: activeTab === 'Dashboard', onClick: () => setActiveTab('Dashboard') },
         { id: 'centre_mgmt', icon: MapPin, label: 'Centre Management', active: activeTab === 'Centre Management', onClick: () => setActiveTab('Centre Management') },
-        { id: 'section_mgmt', icon: Layers, label: 'Section Management', active: activeTab === 'Section Management', onClick: () => setActiveTab('Section Management') },
         {
             id: 'test_mgmt', icon: FileText, label: 'Test Management', active: activeTab.startsWith('Test'),
             subItems: [
@@ -270,9 +269,10 @@ const SystemDashboard = () => {
                 {
                     id: 'admin_master_data',
                     label: 'Master Data',
-                    active: activeTab === 'Admin Master Data',
+                    active: activeTab === 'Admin Master Data' || activeTab === 'Admin Section Management',
                     onClick: () => setActiveTab('Admin Master Data'),
                     subItems: [
+                        { label: 'Section Management', active: activeTab === 'Admin Section Management', onClick: () => setActiveTab('Admin Section Management') },
                         { label: 'Session', active: activeTab === 'Admin Master Data' && masterSubTab === 'Session', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Session'); } },
                         { label: 'Class', active: activeTab === 'Admin Master Data' && masterSubTab === 'Class', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Class'); } },
                         { label: 'Target Exam', active: activeTab === 'Admin Master Data' && masterSubTab === 'Target Exam', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Target Exam'); } },
@@ -328,7 +328,7 @@ const SystemDashboard = () => {
                 return <StudentRegistry studentsData={erpStudents} isERPLoading={isERPLoading} />;
             case 'Admin Master Data':
                 return <MasterDataManagement activeSubTab={masterSubTab} setActiveSubTab={setMasterSubTab} />;
-            case 'Section Management':
+            case 'Admin Section Management':
                 return <SectionManagement />;
             case 'Test Create':
                 return <TestCreate />;

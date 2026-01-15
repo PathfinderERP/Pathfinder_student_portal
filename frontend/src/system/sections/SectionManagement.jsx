@@ -8,10 +8,13 @@ import {
     X,
     Eye,
     Trash2,
-    RefreshCw
+    RefreshCw,
+    FileText,
+    LayoutDashboard
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import AllocatedTestsDetails from './AllocatedTestsDetails';
 
 const SectionManagement = () => {
     const { getApiUrl, token } = useAuth();
@@ -29,6 +32,10 @@ const SectionManagement = () => {
         code: '',
         name: ''
     });
+
+    // View State
+    const [view, setView] = useState('list'); // 'list' or 'details'
+    const [selectedSectionForTests, setSelectedSectionForTests] = useState(null);
 
     const fetchSections = useCallback(async () => {
         setIsLoading(true);
@@ -120,10 +127,24 @@ const SectionManagement = () => {
         }
     };
 
+    const handleShowTests = (section) => {
+        setSelectedSectionForTests(section);
+        setView('details');
+    };
+
     const filteredSections = sections.filter(s =>
         s.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (view === 'details' && selectedSectionForTests) {
+        return (
+            <AllocatedTestsDetails
+                section={selectedSectionForTests}
+                onBack={() => setView('list')}
+            />
+        );
+    }
 
     return (
         <div className="p-1 animate-fade-in">
@@ -198,7 +219,9 @@ const SectionManagement = () => {
                                         </span>
                                     </td>
                                     <td className="py-5 px-8 text-center">
-                                        <button className="text-blue-500 hover:text-blue-600 font-bold text-sm transition-colors hover:underline decoration-2 underline-offset-4">
+                                        <button
+                                            onClick={() => handleShowTests(section)}
+                                            className="text-blue-500 hover:text-blue-600 font-bold text-sm transition-colors hover:underline decoration-2 underline-offset-4">
                                             Show All Tests
                                         </button>
                                     </td>

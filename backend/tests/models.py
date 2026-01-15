@@ -1,5 +1,6 @@
 from django.db import models
 from master_data.models import Session, ExamType, ClassLevel, TargetExam
+from centres.models import Centre
 
 class Test(models.Model):
     name = models.CharField(max_length=255)
@@ -10,6 +11,10 @@ class Test(models.Model):
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, related_name='tests')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, related_name='tests')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, related_name='tests')
+    
+    # Allotment
+    centres = models.ManyToManyField(Centre, related_name='tests', blank=True)
+    allotted_sections = models.ManyToManyField('sections.Section', related_name='allotted_tests', blank=True)
     
     duration = models.IntegerField(default=180, help_text="Duration in minutes")
     total_marks = models.IntegerField(default=0)

@@ -505,15 +505,17 @@ const TestCreate = () => {
                                         <div className="flex justify-center">
                                             <button
                                                 onClick={() => handleToggleStatus(item)}
-                                                className={`transition-all hover:scale-110 active:scale-95 ${item.is_completed ? 'text-emerald-500' : 'text-slate-400'}`}
+                                                className="relative transition-all active:scale-95 group"
                                             >
-                                                {item.is_completed ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                                                <div className={`w-11 h-6 rounded-full transition-all duration-500 ${Boolean(item.is_completed) ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-200'}`}>
+                                                    <div className={`absolute top-1 left-1 bg-white h-4 w-4 rounded-full shadow-sm transition-transform duration-500 ${Boolean(item.is_completed) ? 'translate-x-5' : 'translate-x-0'}`} />
+                                                </div>
                                             </button>
                                         </div>
                                     </td>
                                     <td className="py-5 px-4">
                                         <div className="flex justify-center">
-                                            <button className={`px-4 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-500 hover:text-white hover:border-orange-500 ${isDarkMode ? 'border-white/10 text-white' : 'border-slate-200 text-slate-600'}`}>
+                                            <button className="px-4 py-1.5 rounded-md bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30">
                                                 QuestionPaper
                                             </button>
                                         </div>
@@ -525,7 +527,7 @@ const TestCreate = () => {
                                                     setManagementTest(item);
                                                     setActiveView('section-management');
                                                 }}
-                                                className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+                                                className="px-4 py-1.5 rounded-md bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30"
                                             >
                                                 Manage
                                             </button>
@@ -533,7 +535,7 @@ const TestCreate = () => {
                                     </td>
                                     <td className="py-5 px-4">
                                         <div className="flex justify-center">
-                                            <button className="px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30">
+                                            <button className="px-4 py-1.5 rounded-md bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30">
                                                 Manage
                                             </button>
                                         </div>
