@@ -6,4 +6,4 @@ class CentreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Centre
-        fields = ['id', 'code', 'name', 'location', 'created_at', 'updated_at']
+        fields = ['id', 'code', 'name', 'location', 'email', 'phone_number', 'created_at', 'updated_at']

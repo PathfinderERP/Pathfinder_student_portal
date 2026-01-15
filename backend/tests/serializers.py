@@ -1,8 +1,9 @@
 from rest_framework import serializers
-from .models import Test
+from .models import Test, TestCentreAllotment
 from master_data.serializers import SessionSerializer, ExamTypeSerializer, ClassLevelSerializer, TargetExamSerializer
 from sections.models import Section
 from centres.models import Centre
+from centres.serializers import CentreSerializer
 from bson import ObjectId
 
 class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
@@ -16,6 +17,28 @@ class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
 
     def to_representation(self, value):
         return str(value.pk)
+
+class TestCentreAllotmentSerializer(serializers.ModelSerializer):
+    centre_details = CentreSerializer(source='centre', read_only=True)
+    test_name = serializers.ReadOnlyField(source='test.name')
+    # Explicitly handle ObjectId fields
+    id = serializers.SerializerMethodField()
+    test = serializers.SerializerMethodField()
+    centre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TestCentreAllotment
+        fields = ['id', 'test', 'centre', 'test_name', 'centre_details', 'start_time', 'end_time', 'is_active', 'access_code', 'created_at', 'updated_at']
+    
+    def get_id(self, obj):
+        return obj.id
+    
+    def get_test(self, obj):
+        return str(obj.test.pk) if obj.test else None
+    
+    def get_centre(self, obj):
+        return str(obj.centre.pk) if obj.centre else None
+
 
 class TestSerializer(serializers.ModelSerializer):
     # For GET requests, we might want nested details

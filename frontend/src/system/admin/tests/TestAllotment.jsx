@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
+import CentreAllotmentDetails from './CentreAllotmentDetails';
 
 const TestAllotment = () => {
     const { isDarkMode } = useTheme();
@@ -34,6 +35,10 @@ const TestAllotment = () => {
 
     // Custom Alert State
     const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
+
+    // View State for Centre Details Page
+    const [view, setView] = useState('list'); // 'list' or 'details'
+    const [selectedTestForDetails, setSelectedTestForDetails] = useState(null);
 
     const triggerAlert = (message, type = 'success') => {
         setAlert({ show: true, message, type });
@@ -160,7 +165,9 @@ const TestAllotment = () => {
                             const createRes = await axios.post(`${apiUrl}/api/centres/`, {
                                 code: erpDetail.enterCode,
                                 name: erpDetail.centreName,
-                                location: erpDetail.state || ""
+                                location: erpDetail.state || "",
+                                email: erpDetail.email,
+                                phone_number: erpDetail.phoneNumber
                             }, getAuthConfig());
                             local = createRes.data;
                         } catch (e) {
@@ -256,6 +263,11 @@ const TestAllotment = () => {
             return matchesSearch && matchesSession && matchesStatus;
         });
     }, [tests, searchTerm, filterSession, filterStatus]);
+
+    // Show Centre Details Page if view is 'details'
+    if (view === 'details' && selectedTestForDetails) {
+        return <CentreAllotmentDetails test={selectedTestForDetails} onBack={() => { setView('list'); fetchData(); }} />;
+    }
 
     return (
         <div className={`p-8 animate-in fade-in duration-500`}>
@@ -365,9 +377,14 @@ const TestAllotment = () => {
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
-                                        <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-md border text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-blue-500/30 text-blue-400 bg-blue-500/5' : 'border-blue-200 text-blue-600 bg-blue-50'}`}>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedTestForDetails(test);
+                                                setView('details');
+                                            }}
+                                            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-md border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100'}`}>
                                             {test.centres_count || 0} Centres
-                                        </div>
+                                        </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button

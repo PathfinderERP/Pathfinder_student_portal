@@ -29,3 +29,20 @@ class Test(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+class TestCentreAllotment(models.Model):
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='centre_allotments')
+    centre = models.ForeignKey(Centre, on_delete=models.CASCADE, related_name='test_allotments')
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    access_code = models.CharField(max_length=6, blank=True, null=True, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('test', 'centre')
+        ordering = ['centre__name']
+
+    def __str__(self):
+        return f"{self.test.name} - {self.centre.name}"
