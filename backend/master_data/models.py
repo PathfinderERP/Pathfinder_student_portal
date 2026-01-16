@@ -99,3 +99,22 @@ class ExamDetail(models.Model):
 
     def __str__(self):
         return f"{self.exam_type.name} - {self.class_level.name} ({self.session.name})"
+
+class Subject(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, unique=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            # Generate a short 3-letter code from the name
+            # e.g., BIOLOGY -> BIO, MATHEMATICS -> MAT
+            base_short = re.sub(r'[^a-zA-Z]', '', self.name).upper()[:3]
+            self.code = generate_unique_code(Subject, base_short)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name

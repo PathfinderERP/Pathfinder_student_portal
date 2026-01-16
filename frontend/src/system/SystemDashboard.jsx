@@ -284,6 +284,7 @@ const SystemDashboard = () => {
                     onClick: () => setActiveTab('Admin Master Data'),
                     subItems: [
                         { label: 'Section Management', active: activeTab === 'Admin Section Management', onClick: () => setActiveTab('Admin Section Management') },
+                        { label: 'Subject', active: activeTab === 'Admin Master Data' && masterSubTab === 'Subject', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Subject'); } },
                         { label: 'Session', active: activeTab === 'Admin Master Data' && masterSubTab === 'Session', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Session'); } },
                         { label: 'Class', active: activeTab === 'Admin Master Data' && masterSubTab === 'Class', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Class'); } },
                         { label: 'Target Exam', active: activeTab === 'Admin Master Data' && masterSubTab === 'Target Exam', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Target Exam'); } },

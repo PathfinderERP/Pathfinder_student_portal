@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,4 +30,9 @@ class ExamDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExamDetail
+        fields = '__all__'
+
+class SubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
         fields = '__all__'

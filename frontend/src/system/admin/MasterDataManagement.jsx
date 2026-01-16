@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
-    Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock
+    Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
 const subTabs = [
+    { id: 'Subject', icon: BookOpen, label: 'Subject', endpoint: 'subjects' },
     { id: 'Session', icon: Calendar, label: 'Session', endpoint: 'sessions' },
     { id: 'Class', icon: GraduationCap, label: 'Class', endpoint: 'classes' },
     { id: 'Target Exam', icon: Target, label: 'Target Exam', endpoint: 'target-exams' },
@@ -358,8 +359,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                 </button>
                                 {isSessionFilterOpen && (
                                     <>
-                                        <div className="fixed inset-0 z-[60]" onClick={() => setIsSessionFilterOpen(false)} />
-                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        <div className="fixed inset-0 z-[140]" onClick={() => setIsSessionFilterOpen(false)} />
+                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
                                                 onClick={() => { setSessionFilter('all'); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${sessionFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -391,8 +392,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                 </button>
                                 {isClassFilterOpen && (
                                     <>
-                                        <div className="fixed inset-0 z-[60]" onClick={() => setIsClassFilterOpen(false)} />
-                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        <div className="fixed inset-0 z-[140]" onClick={() => setIsClassFilterOpen(false)} />
+                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
                                                 onClick={() => { setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -424,8 +425,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                 </button>
                                 {isTargetFilterOpen && (
                                     <>
-                                        <div className="fixed inset-0 z-[60]" onClick={() => setIsTargetFilterOpen(false)} />
-                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        <div className="fixed inset-0 z-[140]" onClick={() => setIsTargetFilterOpen(false)} />
+                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
                                                 onClick={() => { setTargetFilter('all'); setExamTypeFilter('all'); setIsTargetFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -457,8 +458,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                 </button>
                                 {isExamTypeFilterOpen && (
                                     <>
-                                        <div className="fixed inset-0 z-[60]" onClick={() => setIsExamTypeFilterOpen(false)} />
-                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        <div className="fixed inset-0 z-[140]" onClick={() => setIsExamTypeFilterOpen(false)} />
+                                        <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-3 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                             <button
                                                 onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
                                                 className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -496,8 +497,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
 
                         {isFilterOpen && (
                             <>
-                                <div className="fixed inset-0 z-[60]" onClick={() => setIsFilterOpen(false)} />
-                                <div className={`absolute right-0 top-full mt-3 w-56 z-[70] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'
+                                <div className="fixed inset-0 z-[140]" onClick={() => setIsFilterOpen(false)} />
+                                <div className={`absolute right-0 top-full mt-3 w-56 z-[150] p-2 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'
                                     }`}>
                                     {[
                                         { id: 'all', label: 'All Status' },
@@ -621,7 +622,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                                         }`}>
                                                         {activeSubTab.charAt(0)}
                                                     </div>
-                                                    <span className="font-bold text-sm">{item.name}</span>
+                                                    <span className={`font-bold text-sm ${activeSubTab === 'Subject' ? 'uppercase' : ''}`}>{item.name}</span>
                                                 </div>
                                             </td>
                                             {activeSubTab === 'Exam Type' && (
@@ -693,9 +694,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
     const renderModal = () => {
         if (!isModalOpen) return null;
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isActionLoading && setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-2xl rounded-[2.5rem] border shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+                <div className={`relative w-full max-w-2xl rounded-[2.5rem] border shadow-2xl animate-in zoom-in duration-300 z-[1001] ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
                     <form onSubmit={handleSubmit} className="p-7 space-y-5">
                         <div className="flex justify-between items-center">
                             <div>
@@ -802,8 +803,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
                                             required
                                             type="text"
                                             value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            placeholder="e.g. JEE Mock"
+                                            onChange={e => {
+                                                const val = activeSubTab === 'Subject' ? e.target.value.toUpperCase() : e.target.value;
+                                                setFormValues({ ...formValues, name: val });
+                                            }}
+                                            placeholder={activeSubTab === 'Subject' ? "e.g. Mathematics, Physics" : "e.g. JEE Mock"}
                                             className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                         />
                                     </div>
