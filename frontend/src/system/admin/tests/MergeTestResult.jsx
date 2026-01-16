@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileSearch, Search, RefreshCw, Users, FileText } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, Merge, Plus, X } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const TestResponses = () => {
+const MergeTestResult = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
-    const navigate = useNavigate();
     const [tests, setTests] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedTests, setSelectedTests] = useState([]);
 
     const fetchTests = async () => {
         setIsLoading(true);
@@ -65,13 +64,26 @@ const TestResponses = () => {
         tableContainerRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    const handleViewCentres = (testId) => {
-        navigate(`/admin/tests/${testId}/centres`);
+    const handleSelectTest = (testId) => {
+        setSelectedTests(prev => {
+            if (prev.includes(testId)) {
+                return prev.filter(id => id !== testId);
+            }
+            return [...prev, testId];
+        });
     };
 
-    const handleGenerateResult = (testId) => {
-        // TODO: Implement result generation
-        console.log('Generate result for test:', testId);
+    const handleMergeResults = () => {
+        if (selectedTests.length < 2) {
+            alert('Please select at least 2 tests to merge');
+            return;
+        }
+        // TODO: Implement merge logic
+        console.log('Merging tests:', selectedTests);
+    };
+
+    const handleClearSelection = () => {
+        setSelectedTests([]);
     };
 
     return (
@@ -81,10 +93,10 @@ const TestResponses = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                            Test <span className="text-orange-500">Result List</span>
+                            Merge <span className="text-orange-500">Test Result</span>
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            View test centres and generate results for students
+                            Select multiple tests to merge their results into a combined report
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -106,6 +118,31 @@ const TestResponses = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* Selection Summary */}
+                {selectedTests.length > 0 && (
+                    <div className={`mt-6 p-4 rounded-xl border ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-200'}`}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className={`px-3 py-1.5 rounded-lg ${isDarkMode ? 'bg-orange-500/20' : 'bg-orange-100'}`}>
+                                    <span className="text-orange-500 font-black text-sm">{selectedTests.length} Tests Selected</span>
+                                </div>
+                                <button
+                                    onClick={handleClearSelection}
+                                    className={`text-xs font-bold flex items-center gap-1 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                                >
+                                    <X size={14} /> Clear
+                                </button>
+                            </div>
+                            <button
+                                onClick={handleMergeResults}
+                                className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20 active:scale-95 flex items-center gap-1.5"
+                            >
+                                <Merge size={13} /> Merge Results
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Table */}
@@ -121,12 +158,25 @@ const TestResponses = () => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                <th className="py-5 px-6 w-12">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedTests.length === filteredTests.length && filteredTests.length > 0}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedTests(filteredTests.map(t => t.id));
+                                            } else {
+                                                setSelectedTests([]);
+                                            }
+                                        }}
+                                        className="w-4 h-4 rounded accent-orange-500"
+                                    />
+                                </th>
                                 <th className="py-5 px-6">#</th>
                                 <th className="py-5 px-6">Test Name</th>
                                 <th className="py-5 px-6">Test Code</th>
                                 <th className="py-5 px-6 text-center">No Of Student Attempted</th>
-                                <th className="py-5 px-6 text-center">Centre</th>
-                                <th className="py-5 px-6 text-center">Generate Result</th>
+                                <th className="py-5 px-6 text-center">Session</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
@@ -148,7 +198,23 @@ const TestResponses = () => {
                                     </td>
                                 </tr>
                             ) : filteredTests.map((test, index) => (
-                                <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
+                                <tr
+                                    key={test.id}
+                                    className={`group transition-all cursor-pointer ${selectedTests.includes(test.id)
+                                        ? (isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50')
+                                        : (isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30')
+                                        }`}
+                                    onClick={() => handleSelectTest(test.id)}
+                                >
+                                    <td className="py-5 px-6">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedTests.includes(test.id)}
+                                            onChange={() => handleSelectTest(test.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="w-4 h-4 rounded accent-orange-500"
+                                        />
+                                    </td>
                                     <td className="py-5 px-6 text-xs font-black opacity-30">{index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex items-center gap-2 whitespace-nowrap">
@@ -168,20 +234,9 @@ const TestResponses = () => {
                                         </div>
                                     </td>
                                     <td className="py-5 px-6 text-center">
-                                        <button
-                                            onClick={() => handleViewCentres(test.id)}
-                                            className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-                                        >
-                                            Centres
-                                        </button>
-                                    </td>
-                                    <td className="py-5 px-6 text-center">
-                                        <button
-                                            onClick={() => handleGenerateResult(test.id)}
-                                            className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
-                                        >
-                                            <FileText size={11} /> Generate Result
-                                        </button>
+                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                            {test.session_details?.name || 'N/A'}
+                                        </span>
                                     </td>
                                 </tr>
                             ))}
@@ -193,5 +248,4 @@ const TestResponses = () => {
     );
 };
 
-export default TestResponses;
-
+export default MergeTestResult;

@@ -91,7 +91,7 @@ const TestAllotment = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [getApiUrl, getAuthConfig, filterSession]); // Note: filterSession dep might suffice, but logic is inside.
+    }, [getApiUrl, getAuthConfig]); // Removed filterSession from here
 
     useEffect(() => {
         fetchData();

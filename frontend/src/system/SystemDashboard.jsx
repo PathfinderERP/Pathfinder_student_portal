@@ -24,6 +24,7 @@ import MasterDataManagement from './admin/MasterDataManagement';
 import TestCreate from './admin/tests/TestCreate';
 import TestAllotment from './admin/tests/TestAllotment';
 import TestResponses from './admin/tests/TestResponses';
+import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
 
 // Modals
@@ -265,6 +266,7 @@ const SystemDashboard = () => {
                 { id: 'test_create', label: 'Test Create', active: activeTab === 'Test Create', onClick: () => setActiveTab('Test Create') },
                 { id: 'test_allotment', label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
                 { id: 'test_responses', label: 'Test Responses', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
+                { id: 'merge_test_result', label: 'Merge Test Result', active: activeTab === 'Merge Test Result', onClick: () => setActiveTab('Merge Test Result') },
                 { id: 'test_result', label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') }
             ].filter(sub => hasPermission('test_mgmt', sub.id))
         },
@@ -347,6 +349,8 @@ const SystemDashboard = () => {
                 return <TestAllotment />;
             case 'Test Responses':
                 return <TestResponses />;
+            case 'Merge Test Result':
+                return <MergeTestResult />;
             case 'Test Result':
                 return <TestResult />;
             case 'Profile':
