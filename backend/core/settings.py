@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'centres',
     'master_data',
     'tests',
+    'questions',
 ]
 
 MIDDLEWARE = [
