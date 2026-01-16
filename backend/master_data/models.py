@@ -118,3 +118,23 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
+
+class Topic(models.Model):
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='topics')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='topics')
+    name = models.CharField(max_length=255, help_text="Topic Name")
+    sub_topic = models.CharField(max_length=255, blank=True, null=True, help_text="Sub-topic (Optional)")
+    code = models.CharField(max_length=100, unique=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            # Generate a short code from topic name
+            base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
+            self.code = generate_unique_code(Topic, base_short)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.subject.name})"

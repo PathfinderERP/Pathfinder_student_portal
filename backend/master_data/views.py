@@ -1,6 +1,6 @@
 from rest_framework import viewsets
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -25,3 +25,7 @@ class ExamDetailViewSet(viewsets.ModelViewSet):
 class SubjectViewSet(viewsets.ModelViewSet):
     queryset = Subject.objects.all().order_by('-created_at')
     serializer_class = SubjectSerializer
+
+class TopicViewSet(viewsets.ModelViewSet):
+    queryset = Topic.objects.all().order_by('-created_at')
+    serializer_class = TopicSerializer

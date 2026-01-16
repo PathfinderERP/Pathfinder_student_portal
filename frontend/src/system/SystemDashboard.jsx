@@ -26,6 +26,7 @@ import TestAllotment from './admin/tests/TestAllotment';
 import TestResponses from './admin/tests/TestResponses';
 import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
+import QuestionBank from './admin/QuestionBank';
 
 // Modals
 import EditUserModal from './modals/EditUserModal';
@@ -280,13 +281,14 @@ const SystemDashboard = () => {
                 {
                     id: 'admin_master_data',
                     label: 'Master Data',
-                    active: activeTab === 'Admin Master Data' || activeTab === 'Admin Section Management',
+                    active: activeTab === 'Admin Master Data',
                     onClick: () => setActiveTab('Admin Master Data'),
                     subItems: [
-                        { label: 'Section Management', active: activeTab === 'Admin Section Management', onClick: () => setActiveTab('Admin Section Management') },
+                        { label: 'Section Management', active: activeTab === 'Admin Master Data' && masterSubTab === 'Section Management', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Section Management'); } },
                         { label: 'Subject', active: activeTab === 'Admin Master Data' && masterSubTab === 'Subject', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Subject'); } },
-                        { label: 'Session', active: activeTab === 'Admin Master Data' && masterSubTab === 'Session', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Session'); } },
                         { label: 'Class', active: activeTab === 'Admin Master Data' && masterSubTab === 'Class', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Class'); } },
+                        { label: 'Topic', active: activeTab === 'Admin Master Data' && masterSubTab === 'Topic', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Topic'); } },
+                        { label: 'Session', active: activeTab === 'Admin Master Data' && masterSubTab === 'Session', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Session'); } },
                         { label: 'Target Exam', active: activeTab === 'Admin Master Data' && masterSubTab === 'Target Exam', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Target Exam'); } },
                         { label: 'Exam Type', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Type', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Type'); } },
                         { label: 'Exam Details', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Details', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Details'); } },
@@ -342,8 +344,8 @@ const SystemDashboard = () => {
                 return <CentreRegistry centresData={erpCentres} isERPLoading={isERPLoading} />;
             case 'Admin Master Data':
                 return <MasterDataManagement activeSubTab={masterSubTab} setActiveSubTab={setMasterSubTab} />;
-            case 'Admin Section Management':
-                return <SectionRegistry />;
+            case 'Question Bank':
+                return <QuestionBank />;
             case 'Test Create':
                 return <TestCreate />;
             case 'Test Allotment':
