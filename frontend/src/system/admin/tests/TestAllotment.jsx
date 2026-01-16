@@ -148,36 +148,85 @@ const TestAllotment = () => {
     const [localCentres, setLocalCentres] = useState([]);
 
     const handleSaveAllotment = async () => {
+        console.log("👉 handleSaveAllotment START");
+        console.log("Selected IDs:", selectedCentreIds);
+        console.log("Available ERP Centres:", availableCentres.length);
+        console.log("Local Centres:", localCentres.length);
+
+        if (selectedCentreIds.length === 0) {
+            triggerAlert("No centres selected to save.", "warning");
+            return;
+        }
+
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
             const finalLocalIds = [];
+            let updateCount = 0;
 
-            // 1. Ensure all selected ERP centres exist in local DB
+            // 1. Ensure all selected ERP centres exist in local DB and update contact info
             for (const erpCode of selectedCentreIds) {
-                let local = localCentres.find(lc => lc.code === erpCode);
+                // Find local centre. PRIORITIZE one that is already allotted to this test to avoid duplicates issue.
+                const allottedCentreIds = selectedTest?.centres || [];
+                let local = localCentres.find(lc =>
+                    lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase() &&
+                    allottedCentreIds.includes(lc.id)
+                );
+
+                // If not found in allotted, find ANY matching local centre
+                if (!local) {
+                    local = localCentres.find(lc => lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase());
+                }
+
+                // Find ERP detail (case-insensitive safely)
+                const erpDetail = availableCentres.find(c => c.enterCode?.toString().toLowerCase() === erpCode?.toString().toLowerCase());
+
+                if (!erpDetail) {
+                    console.warn(`[WARN] Skipping ${erpCode}: No ERP data found.`);
+                    continue;
+                }
 
                 if (!local) {
-                    // Find the erp detail to create it
-                    const erpDetail = availableCentres.find(c => c.enterCode === erpCode);
-                    if (erpDetail) {
-                        try {
-                            const createRes = await axios.post(`${apiUrl}/api/centres/`, {
-                                code: erpDetail.enterCode,
-                                name: erpDetail.centreName,
-                                location: erpDetail.state || "",
-                                email: erpDetail.email,
-                                phone_number: erpDetail.phoneNumber
-                            }, getAuthConfig());
-                            local = createRes.data;
-                        } catch (e) {
-                            console.error(`Failed to sync centre ${erpCode}:`, e);
-                        }
+                    // Create new centre
+                    try {
+                        const createPayload = {
+                            code: erpDetail.enterCode,
+                            name: (erpDetail.centreName || "").substring(0, 254),
+                            // location: (erpDetail.state || "").substring(0, 254), // Excluded due to Djongo bug
+                            email: (erpDetail.email || erpDetail.contactEmail || "").substring(0, 254),
+                            phone_number: (erpDetail.phoneNumber || erpDetail.phone || erpDetail.mobile || "").substring(0, 20)
+                        };
+                        console.log(`[ACTION] Creating Centre ${erpCode}`, createPayload);
+                        const createRes = await axios.post(`${apiUrl}/api/centres/`, createPayload, getAuthConfig());
+                        local = createRes.data;
+                        updateCount++;
+                    } catch (e) {
+                        console.error(`[ERROR] Create failed for ${erpCode}:`, e);
+                        triggerAlert(`Failed to create ${erpCode}`, 'error');
+                    }
+                } else {
+                    // Update existing centre
+                    // NOTE: Excludng 'location' and 'name' from update to avoid Djongo SQLDecodeError: Keyword: Unsupported: location
+                    // We primarily need to sync email and phone.
+                    const updatePayload = {
+                        email: (erpDetail.email || erpDetail.contactEmail || "").substring(0, 254),
+                        phone_number: (erpDetail.phoneNumber || erpDetail.phone || erpDetail.mobile || "").substring(0, 20)
+                    };
+
+                    try {
+                        console.log(`[ACTION] Updating Centre ${erpCode} (ID: ${local.id})`, updatePayload);
+                        const updateRes = await axios.patch(`${apiUrl}/api/centres/${local.id}/`, updatePayload, getAuthConfig());
+                        local = updateRes.data;
+                        updateCount++;
+                    } catch (e) {
+                        console.error(`[ERROR] Update failed for ${erpCode}:`, e);
                     }
                 }
 
                 if (local) finalLocalIds.push(local.id);
             }
+
+            console.log(`✅ Processed ${updateCount} centre updates/creations.`);
 
             // 2. Patch the test with final local IDs
             await axios.patch(`${apiUrl}/api/tests/${selectedTest.id}/`,
@@ -187,12 +236,13 @@ const TestAllotment = () => {
 
             setIsModalOpen(false);
             fetchData();
-            triggerAlert('Centre allotment updated successfully!', 'success');
+            triggerAlert(`Allotment updated! Synced ${updateCount} centres.`, 'success');
         } catch (err) {
-            console.error(err);
+            console.error("❌ MAIN SAVE ERROR:", err);
             triggerAlert(err.response?.data?.message || 'Failed to update allotment', 'error');
         } finally {
             setIsActionLoading(false);
+            console.log("👉 handleSaveAllotment END");
         }
     };
 
@@ -489,10 +539,6 @@ const TestAllotment = () => {
                                             c.enterCode?.toLowerCase().includes(centreSearchTerm.toLowerCase())
                                         )
                                         .sort((a, b) => {
-                                            const aSel = selectedCentreIds.includes(a.enterCode);
-                                            const bSel = selectedCentreIds.includes(b.enterCode);
-                                            if (aSel && !bSel) return -1;
-                                            if (!aSel && bSel) return 1;
                                             return (a.centreName || "").localeCompare(b.centreName || "");
                                         })
                                         .map(centre => {

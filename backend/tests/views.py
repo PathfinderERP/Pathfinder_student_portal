@@ -20,7 +20,17 @@ class TestViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = serializer.save()
-        # Auto-create allotment records for new centres
+        
+        # Get current allowed centres IDs as a list to avoid SQL subqueries that confuse Djongo
+        # Use '_id' explicitly as 'id' is not a concrete field in this Mongo model
+        current_centre_ids = list(instance.centres.values_list('_id', flat=True))
+        
+        # Delete allotments for centres that are no longer in the list
+        # Using explicit ID list avoids complex subquery generation
+        test_allotments = TestCentreAllotment.objects.filter(test=instance)
+        test_allotments.exclude(centre__pk__in=current_centre_ids).delete()
+
+        # Auto-create allotment records for new/existing selected centres
         for centre in instance.centres.all():
             TestCentreAllotment.objects.get_or_create(test=instance, centre=centre)
 
