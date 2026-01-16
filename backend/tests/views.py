@@ -55,6 +55,19 @@ class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def generate_code(self, request, pk=None):
         allotment = self.get_object()
+        
+        # Archive current code if exists
+        if allotment.access_code:
+            from django.utils import timezone
+            history = allotment.code_history or []
+            if history is None: history = [] # Handle legacy nulls
+            
+            history.append({
+                'code': allotment.access_code,
+                'generated_at': timezone.now().isoformat()
+            })
+            allotment.code_history = history
+
         # Generate unique 6-digit code
         while True:
             code = ''.join(random.choices(string.digits, k=6))
@@ -62,7 +75,7 @@ class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
                 break
         allotment.access_code = code
         allotment.save()
-        return Response({'code': code})
+        return Response({'code': code, 'history': allotment.code_history})
 
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):

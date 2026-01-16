@@ -59,7 +59,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             const res = await axios.post(`${apiUrl}/api/tests/allotments/${id}/generate_code/`, {}, getAuthConfig());
-            setAllotments(allotments.map(a => a.id === id ? { ...a, access_code: res.data.code } : a));
+            setAllotments(allotments.map(a => a.id === id ? { ...a, access_code: res.data.code, code_history: res.data.history } : a));
             triggerAlert('Access code generated successfully!', 'success');
         } catch (err) {
             triggerAlert('Failed to generate code', 'error');
@@ -107,12 +107,23 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.patch(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/`, editForm, getAuthConfig());
-            setAllotments(allotments.map(a => a.id === selectedAllotment.id ? res.data : a));
+            // 1. Update Schedule
+            const scheduleRes = await axios.patch(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/`, editForm, getAuthConfig());
+
+            // 2. Auto-Regenerate Code
+            const codeRes = await axios.post(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/generate_code/`, {}, getAuthConfig());
+
+            // 3. Update State
+            setAllotments(allotments.map(a => a.id === selectedAllotment.id ? {
+                ...scheduleRes.data,
+                access_code: codeRes.data.code,
+                code_history: codeRes.data.history
+            } : a));
+
             setIsEditModalOpen(false);
-            triggerAlert('Schedule updated successfully!', 'success');
+            triggerAlert('Schedule updated & Access Code regenerated automatically!', 'success');
         } catch (err) {
-            triggerAlert('Failed to update schedule', 'error');
+            triggerAlert('Failed to update schedule or regenerate code', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -133,6 +144,34 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             minute: '2-digit',
             hour12: false
         }).replace(',', '');
+    };
+
+    // Drag to Scroll Logic
+    const tableContainerRef = React.useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    const handleMouseDown = (e) => {
+        setIsDragging(true);
+        setStartX(e.pageX - tableContainerRef.current.offsetLeft);
+        setScrollLeft(tableContainerRef.current.scrollLeft);
+    };
+
+    const handleMouseLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.pageX - tableContainerRef.current.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll-fast multiplier
+        tableContainerRef.current.scrollLeft = scrollLeft - walk;
     };
 
     return (
@@ -179,7 +218,14 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
 
             {/* Table Area */}
             <div className={`rounded-3xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
-                <div className="overflow-x-auto overflow-y-visible">
+                <div
+                    ref={tableContainerRef}
+                    className={`overflow-x-auto overflow-y-visible cursor-grab ${isDragging ? 'cursor-grabbing select-none' : ''}`}
+                    onMouseDown={handleMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                >
                     <table className="w-full text-left">
                         <thead>
                             <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
@@ -253,9 +299,43 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         {allotment.access_code ? (
-                                            <span className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-bold font-mono tracking-widest border border-blue-500/20">
-                                                {allotment.access_code}
-                                            </span>
+                                            <div className="flex items-center gap-2 justify-center">
+                                                <div className="relative group/history inline-block">
+                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-bold font-mono tracking-widest border border-blue-500/20 cursor-pointer">
+                                                        {allotment.access_code}
+                                                    </span>
+                                                    {/* History Tooltip */}
+                                                    {allotment.code_history?.length > 0 && (
+                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-xl shadow-2xl overflow-hidden border transition-all z-[999] pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                            {/* Tooltip Header */}
+                                                            <div className={`p-3 border-b flex items-center justify-between ${isDarkMode ? 'bg-orange-500/10 border-white/5' : 'bg-orange-50 border-orange-100'}`}>
+                                                                <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>History</span>
+                                                                <span className={`text-[9px] font-bold ${isDarkMode ? 'opacity-40 text-orange-200' : 'opacity-60 text-orange-400'}`}>{allotment.code_history.length} Codes</span>
+                                                            </div>
+                                                            {/* Tooltip Body */}
+                                                            <div className="max-h-[140px] overflow-y-auto custom-scrollbar p-1">
+                                                                {allotment.code_history.slice().reverse().map((h, i) => (
+                                                                    <div key={i} className={`flex justify-between items-center p-2 mb-1 rounded-lg text-xs font-mono transition-colors last:mb-0 ${isDarkMode ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-50 text-slate-600'}`}>
+                                                                        <span className="font-bold line-through decoration-red-500/40 opacity-70">{h.code}</span>
+                                                                        <span className="text-[9px] opacity-40 font-sans font-bold uppercase tracking-wider whitespace-nowrap">
+                                                                            {new Date(h.generated_at).toLocaleString(undefined, {
+                                                                                month: 'short',
+                                                                                day: 'numeric',
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit',
+                                                                                hour12: false
+                                                                            })}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            {/* Arrow (Pointing Up) */}
+                                                            <div className={`absolute top-[-5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 border-t border-l ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Removed Manual Button */}
+                                            </div>
                                         ) : (
                                             <button
                                                 onClick={() => handleGenerateCode(allotment.id)}

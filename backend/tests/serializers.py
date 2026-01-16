@@ -28,7 +28,7 @@ class TestCentreAllotmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TestCentreAllotment
-        fields = ['id', 'test', 'centre', 'test_name', 'centre_details', 'start_time', 'end_time', 'is_active', 'access_code', 'created_at', 'updated_at']
+        fields = ['id', 'test', 'centre', 'test_name', 'centre_details', 'start_time', 'end_time', 'is_active', 'access_code', 'code_history', 'created_at', 'updated_at']
     
     def get_id(self, obj):
         return obj.id
