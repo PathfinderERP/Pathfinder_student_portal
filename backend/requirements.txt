@@ -19,6 +19,7 @@ pymongo==3.12.3
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytz==2025.2
+requests==2.32.3
 # Sqlparse 0.2.4 is strictly required by Djongo
 sqlparse==0.2.4
 s3transfer==0.16.0
