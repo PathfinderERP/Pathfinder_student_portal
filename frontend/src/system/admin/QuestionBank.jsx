@@ -117,6 +117,7 @@ const QuestionBank = () => {
     };
 
     // Manual Entry Form States
+    const [formKey, setFormKey] = useState(0);
     const [form, setForm] = useState({
         classId: '',
         subjectId: '',
@@ -138,6 +139,31 @@ const QuestionBank = () => {
         answerFrom: '',
         answerTo: ''
     });
+
+    const resetForm = () => {
+        setFormKey(prev => prev + 1);
+        setForm({
+            classId: '',
+            subjectId: '',
+            topicId: '',
+            examTypeId: '',
+            targetExamId: '',
+            type: 'SINGLE_CHOICE',
+            level: '1',
+            question: '',
+            options: [
+                { id: 1, content: '', isCorrect: false },
+                { id: 2, content: '', isCorrect: false },
+                { id: 3, content: '', isCorrect: false },
+                { id: 4, content: '', isCorrect: false }
+            ],
+            solution: '',
+            hasCalculator: false,
+            useNumericOptions: false,
+            answerFrom: '',
+            answerTo: ''
+        });
+    };
 
     // Math Modal State
     const [showMathTools, setShowMathTools] = useState(false);
@@ -497,7 +523,7 @@ const QuestionBank = () => {
                 </div>
 
                 <div className="space-y-8">
-                    <div onClick={() => setView('manual')} className={`p-8 rounded-[2.5rem] border shadow-xl group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                    <div onClick={() => { resetForm(); setView('manual'); }} className={`p-8 rounded-[2.5rem] border shadow-xl group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                         <div className="w-14 h-14 bg-blue-500 rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center mb-6 text-white"><Plus size={28} strokeWidth={3} /></div>
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">Manual Entry</h3>
                         <p className="text-sm font-medium opacity-60 mb-8 leading-relaxed">Create complex questions manually with equations and multi-format options.</p>
@@ -642,14 +668,7 @@ const QuestionBank = () => {
             await axios.post(`${apiUrl}/api/questions/`, payload, config);
 
             alert("Question added to bank successfully!");
-            setForm({
-                ...form,
-                question: '',
-                solution: '',
-                options: form.options.map(o => ({ ...o, content: '', isCorrect: false })),
-                answerFrom: '',
-                answerTo: ''
-            });
+            resetForm();
 
         } catch (error) {
             console.error("Submission Error", error);
@@ -753,7 +772,7 @@ const QuestionBank = () => {
                 </button>
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => setView('manual')}
+                        onClick={() => { resetForm(); setView('manual'); }}
                         className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
                     >
                         <Plus size={16} strokeWidth={3} />
@@ -1027,6 +1046,15 @@ const QuestionBank = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         <button
+                            onClick={() => { if (confirm("Clear all fields? This will lose current progress.")) resetForm(); }}
+                            title="Clear All Fields"
+                            className={`p-3 rounded-2xl border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 italic'}`}>
+                            <div className="flex items-center gap-2">
+                                <Eraser size={20} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Clear Form</span>
+                            </div>
+                        </button>
+                        <button
                             onClick={handleLoadDraft}
                             title="Load Saved Draft"
                             className={`p-3 rounded-2xl border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
@@ -1147,6 +1175,7 @@ const QuestionBank = () => {
                         </div>
                         <div className={`rich-editor-wrapper rounded-3xl border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
                             <ReactQuill
+                                key={`question-${formKey}`}
                                 theme="snow"
                                 modules={quillModules}
                                 formats={quillFormats}
@@ -1215,6 +1244,7 @@ const QuestionBank = () => {
                                     </div>
                                     <div className={`rich-editor-wrapper rounded-[2rem] border transition-all overflow-hidden ${opt.isCorrect ? 'border-emerald-500/40 bg-emerald-500/[0.02]' : isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
                                         <ReactQuill
+                                            key={`opt-${index}-${formKey}`}
                                             theme="snow"
                                             modules={quillModules}
                                             formats={quillFormats}
@@ -1237,6 +1267,7 @@ const QuestionBank = () => {
                         <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
                         <div className={`rich-editor-wrapper rounded-3xl border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
                             <ReactQuill
+                                key={`solution-${formKey}`}
                                 theme="snow"
                                 modules={quillModules}
                                 formats={quillFormats}
