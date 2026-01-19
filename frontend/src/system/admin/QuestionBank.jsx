@@ -9,7 +9,7 @@ import {
     Type, Hash, Zap, Trash2, Save, ChevronLeft, ChevronDown, Check,
     Strikethrough, Quote, Code, Subscript, Superscript,
     AlignLeft, AlignCenter, AlignRight, Link, Sigma,
-    Palette, Droplets, Eraser, Clock, Logs
+    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -21,8 +21,13 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
 window.katex = katex;
-Quill.register('modules/imageResize', ImageResize);
-Quill.register('modules/imageDrop', ImageDrop);
+
+if (!Quill.imports['modules/imageResize']) {
+    Quill.register('modules/imageResize', ImageResize);
+}
+if (!Quill.imports['modules/imageDrop']) {
+    Quill.register('modules/imageDrop', ImageDrop);
+}
 
 // Math Preview Component for LaTeX
 const MathPreview = ({ tex, isDarkMode }) => {
@@ -42,7 +47,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
 const QuestionBank = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
-    const [view, setView] = useState('overview'); // 'overview', 'manual'
+    const [view, setView] = useState('overview'); // 'overview', 'manual', 'repository', 'bulk'
     const [selectedQuestion, setSelectedQuestion] = useState(null);
 
     // Master Data States
@@ -72,6 +77,17 @@ const QuestionBank = () => {
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const [jumpToPage, setJumpToPage] = useState('');
+
+    // Media Library State
+    const [images, setImages] = useState([]);
+    const [isLoadingImages, setIsLoadingImages] = useState(false);
+    const [imageFilters, setImageFilters] = useState({
+        classId: '',
+        subjectId: '',
+        topicId: ''
+    });
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const mediaInputRef = useRef(null);
 
     // Filtered Questions Logic
     const filteredQuestions = useMemo(() => {
@@ -119,6 +135,7 @@ const QuestionBank = () => {
     // Manual Entry Form States
     const [formKey, setFormKey] = useState(0);
     const [form, setForm] = useState({
+        id: null,
         classId: '',
         subjectId: '',
         topicId: '',
@@ -137,12 +154,15 @@ const QuestionBank = () => {
         hasCalculator: false,
         useNumericOptions: false,
         answerFrom: '',
-        answerTo: ''
+        answerTo: '',
+        image_1: '',
+        image_2: ''
     });
 
     const resetForm = () => {
         setFormKey(prev => prev + 1);
         setForm({
+            id: null,
             classId: '',
             subjectId: '',
             topicId: '',
@@ -161,7 +181,9 @@ const QuestionBank = () => {
             hasCalculator: false,
             useNumericOptions: false,
             answerFrom: '',
-            answerTo: ''
+            answerTo: '',
+            image_1: '',
+            image_2: ''
         });
     };
 
@@ -221,6 +243,70 @@ const QuestionBank = () => {
         }
     }, [getApiUrl, getAuthConfig]);
 
+    // Fetch Images
+    const fetchImages = useCallback(async () => {
+        const config = getAuthConfig();
+        if (!config) return;
+
+        setIsLoadingImages(true);
+        try {
+            const apiUrl = getApiUrl();
+            const params = new URLSearchParams();
+            if (imageFilters.classId) params.append('class_level', imageFilters.classId);
+            if (imageFilters.subjectId) params.append('subject', imageFilters.subjectId);
+            if (imageFilters.topicId) params.append('topic', imageFilters.topicId);
+
+            const res = await axios.get(`${apiUrl}/api/questions/images/?${params.toString()}`, config);
+            setImages(res.data);
+        } catch (err) {
+            console.error("Failed to fetch images", err);
+        } finally {
+            setIsLoadingImages(false);
+        }
+    }, [getApiUrl, getAuthConfig, imageFilters]);
+
+    const handleImageUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        const config = getAuthConfig();
+        if (!config) return;
+
+        setIsUploadingImage(true);
+        const apiUrl = getApiUrl();
+
+        try {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('image', file);
+                if (imageFilters.classId) formData.append('class_level', imageFilters.classId);
+                if (imageFilters.subjectId) formData.append('subject', imageFilters.subjectId);
+                if (imageFilters.topicId) formData.append('topic', imageFilters.topicId);
+
+                await axios.post(`${apiUrl}/api/questions/images/`, formData, {
+                    headers: {
+                        ...config.headers,
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            }
+            fetchImages();
+            alert(`Successfully uploaded ${files.length} images`);
+        } catch (err) {
+            console.error("Image upload failed", err);
+            alert("Failed to upload some images");
+        } finally {
+            setIsUploadingImage(false);
+            if (mediaInputRef.current) mediaInputRef.current.value = '';
+        }
+    };
+
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Image Link Copied to Clipboard!");
+        });
+    };
+
     // Stats State
     const [stats, setStats] = useState({
         total: 0,
@@ -244,6 +330,30 @@ const QuestionBank = () => {
         fetchMasterData();
         fetchStats();
     }, [fetchMasterData, fetchStats]);
+
+    useEffect(() => {
+        if (view === 'media') {
+            fetchImages();
+        }
+    }, [view, fetchImages]);
+
+    // Media Cascading Filters
+    const filteredSubjectsForMedia = useMemo(() => {
+        if (!imageFilters.classId) return subjects;
+        const subjectIds = [...new Set(topics
+            .filter(t => String(t.class_level) === String(imageFilters.classId))
+            .map(t => String(t.subject))
+        )];
+        return subjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [subjects, topics, imageFilters.classId]);
+
+    const filteredTopicsForMedia = useMemo(() => {
+        return topics.filter(t => {
+            const matchesClass = !imageFilters.classId || String(t.class_level) === String(imageFilters.classId);
+            const matchesSubject = !imageFilters.subjectId || String(t.subject) === String(imageFilters.subjectId);
+            return matchesClass && matchesSubject;
+        });
+    }, [topics, imageFilters.classId, imageFilters.subjectId]);
 
     // Cascading Filter: Filter subjects based on selected class
     const filteredSubjects = useMemo(() => {
@@ -405,22 +515,98 @@ const QuestionBank = () => {
         if (file) setSelectedFile(file);
     };
 
-    const handleUpload = () => {
+    const handleUpload = async () => {
         if (!selectedFile) return;
+
+        const config = getAuthConfig();
+        if (!config) return;
+
         setIsUploading(true);
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 10;
-            setUploadProgress(progress);
-            if (progress >= 100) {
-                clearInterval(interval);
-                setTimeout(() => {
-                    setIsUploading(false);
-                    setUploadProgress(0);
-                    setSelectedFile(null);
-                }, 500);
-            }
-        }, 200);
+        setUploadProgress(10);
+
+        try {
+            const apiUrl = getApiUrl();
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            const response = await axios.post(`${apiUrl}/api/questions/bulk-upload/`, formData, {
+                headers: {
+                    'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}`
+                },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(Math.max(10, percentCompleted));
+                }
+            });
+
+            setUploadProgress(100);
+
+            setTimeout(() => {
+                setIsUploading(false);
+                setUploadProgress(0);
+                setSelectedFile(null);
+
+                const { message, errors } = response.data;
+                if (errors && errors.length > 0) {
+                    alert(`${message}\n\nErrors encountered:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...and more' : ''}`);
+                } else {
+                    alert(message || "Bulk Question Import Successful!");
+                }
+
+                fetchQuestions(); // Refresh the list
+                setView('repository'); // Take user to repository to see results
+            }, 800);
+
+        } catch (err) {
+            console.error("Bulk upload failed", err);
+            alert("Failed to import questions: " + (err.response?.data?.error || err.message));
+            setIsUploading(false);
+            setUploadProgress(0);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const headers = [
+            "SL NO (*)", "Class", "Subject (*)", "Topic (*)", "Exam Type", "Target Exam",
+            "Question Type (*)", "Level (*)", "Calculator(yes/no)", "Numeric(yes/no)",
+            "Question (*)", "Question Image (1st) (*)", "Question Image (2nd)",
+            "Answer 1 (*)", "Answer 2 (*)", "Answer 3 (*)", "Answer 4 (*)", "Correct Answer (*)"
+        ];
+
+        const dummyData = [
+            [
+                "1", "Class 10", "Physics", "Optics", "WB Board", "NEET",
+                "SINGLE_CHOICE", "1", "No", "No",
+                "What is the speed of light in vacuum?",
+                "https://your-portal.com/media/questions/physics_01.png",
+                "",
+                "3x10^8 m/s", "2x10^8 m/s", "1x10^8 m/s", "4x10^8 m/s", "A"
+            ],
+            [
+                "2", "Class 12", "Mathematics", "Calculus", "JEE Main", "JEE Advanced",
+                "NUMERICAL", "3", "Yes", "Yes",
+                "Find the derivative of sin(x) at x=0.",
+                "https://your-portal.com/media/questions/math_diagram.png",
+                "https://your-portal.com/media/questions/formula_sheet.png",
+                "1", "", "", "", "1"
+            ]
+        ];
+
+        // Format as CSV
+        const csvContent = [
+            headers.join(","),
+            ...dummyData.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "QuestionBank_Template.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const renderOverview = () => (
@@ -490,34 +676,22 @@ const QuestionBank = () => {
                         </div>
 
                         <div
-                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                            onDragLeave={() => setIsDragging(false)}
-                            onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) setSelectedFile(f); }}
-                            className={`flex-1 min-h-[300px] rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center p-8 text-center relative
-                                ${isDragging ? 'border-orange-500 bg-orange-500/5' : isDarkMode ? 'border-white/10 hover:border-white/20' : 'border-slate-200 hover:border-slate-300'}`}
+                            onClick={() => setView('bulk')}
+                            className={`flex-1 min-h-[300px] rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center p-8 text-center relative cursor-pointer
+                                ${isDarkMode ? 'border-white/10 hover:border-orange-500/50 hover:bg-orange-500/5' : 'border-slate-200 hover:border-orange-500/30 hover:bg-slate-50'}`}
                         >
-                            {!selectedFile ? (
-                                <>
-                                    <CloudUpload size={48} className="text-orange-500 mb-6" />
-                                    <h4 className="text-lg font-black uppercase tracking-tight mb-2">Drop your file here</h4>
-                                    <button onClick={() => fileInputRef.current?.click()} className="px-8 py-3.5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/30 active:scale-95 flex items-center gap-3">
-                                        <FileSpreadsheet size={18} />
-                                        <span>Browse Files</span>
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="w-full max-w-sm">
-                                    <div className={`p-6 rounded-3xl border flex items-center gap-4 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-xl'}`}>
-                                        <FileSpreadsheet className="text-emerald-500" size={32} />
-                                        <div className="flex-1 text-left"><p className="font-black text-sm truncate">{selectedFile.name}</p></div>
-                                        <button onClick={() => setSelectedFile(null)}><X size={20} /></button>
-                                    </div>
-                                    <button onClick={handleUpload} className="w-full mt-6 py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 flex items-center justify-center gap-3">
-                                        <Upload size={18} /> <span>Begin Upload</span>
-                                    </button>
-                                </div>
-                            )}
-                            <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".xlsx, .xls, .csv" className="hidden" />
+                            <CloudUpload size={48} className="text-orange-500 mb-6 animate-bounce" />
+                            <h4 className="text-lg font-black uppercase tracking-tight mb-2">Bulk Import Questions</h4>
+                            <p className="text-xs font-medium opacity-50 mb-8 max-w-[280px]">Upload your Excel or CSV files with our standardized format.</p>
+
+                            <button className="px-8 py-3.5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/30 active:scale-95 flex items-center gap-3">
+                                <FileSpreadsheet size={18} />
+                                <span>Get Started</span>
+                            </button>
+
+                            <div className="mt-6 flex items-center gap-2 text-orange-500 font-black uppercase tracking-widest text-[10px] opacity-70">
+                                View Instructions & Format <ChevronRight size={14} strokeWidth={4} />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -540,6 +714,17 @@ const QuestionBank = () => {
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">Question Bank</h3>
                         <p className="text-sm font-medium opacity-60 mb-8 leading-relaxed">Explore historical question bank. Filter by tags or level.</p>
                         <div className="flex items-center gap-2 text-emerald-500 font-black uppercase tracking-widest text-[10px]">Browse All <ChevronRight size={14} strokeWidth={4} /></div>
+                    </div>
+                    <div
+                        onClick={() => {
+                            setView('media');
+                        }}
+                        className={`p-8 rounded-[2.5rem] border shadow-xl relative group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}
+                    >
+                        <div className="w-14 h-14 bg-purple-500 rounded-2xl shadow-lg flex items-center justify-center mb-6 text-white"><ImageIcon size={28} /></div>
+                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">Media Master</h3>
+                        <p className="text-sm font-medium opacity-60 mb-8 leading-relaxed">Upload and manage question images. Copy links for Excel.</p>
+                        <div className="flex items-center gap-2 text-purple-500 font-black uppercase tracking-widest text-[10px]">Manage Media <ChevronRight size={14} strokeWidth={4} /></div>
                     </div>
                 </div>
             </div>
@@ -663,12 +848,23 @@ const QuestionBank = () => {
                 use_numeric_options: form.useNumericOptions,
                 answer_from: form.answerFrom || null,
                 answer_to: form.answerTo || null,
+                image_1: form.image_1,
+                image_2: form.image_2,
             };
 
-            await axios.post(`${apiUrl}/api/questions/`, payload, config);
+            if (form.id) {
+                await axios.patch(`${apiUrl}/api/questions/${form.id}/`, payload, config);
+                alert("Question updated successfully!");
+            } else {
+                await axios.post(`${apiUrl}/api/questions/`, payload, config);
+                alert("Question added to bank successfully!");
+            }
 
-            alert("Question added to bank successfully!");
             resetForm();
+            if (view === 'manual' && form.id) {
+                fetchQuestions();
+                setView('repository');
+            }
 
         } catch (error) {
             console.error("Submission Error", error);
@@ -757,6 +953,35 @@ const QuestionBank = () => {
             </div>
         </div>
     );
+
+    const handleMarkAsWrong = async (questionId) => {
+        if (!confirm("Are you sure you want to change the 'Wrong' status of this question?")) return;
+        try {
+            const config = getAuthConfig();
+            const apiUrl = getApiUrl();
+            await axios.post(`${apiUrl}/api/questions/${questionId}/mark_wrong/`, {}, config);
+            fetchQuestions(); // Refresh list
+        } catch (error) {
+            console.error("Failed to update status", error);
+            alert("Failed to update status");
+        }
+    };
+
+    const handleDeleteQuestion = async (questionId) => {
+        if (!confirm("Are you sure you want to permanently DELETE this question? This cannot be undone.")) return;
+        try {
+            const config = getAuthConfig();
+            const apiUrl = getApiUrl();
+            await axios.delete(`${apiUrl}/api/questions/${questionId}/`, config);
+            fetchQuestions(); // Refresh list
+            if (selectedQuestion && (selectedQuestion.id === questionId || selectedQuestion._id === questionId)) {
+                setSelectedQuestion(null);
+            }
+        } catch (error) {
+            console.error("Failed to delete", error);
+            alert("Failed to delete question");
+        }
+    };
 
     const renderRepository = () => (
         <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
@@ -892,7 +1117,8 @@ const QuestionBank = () => {
                                     className={`p-6 rounded-3xl border transition-all cursor-pointer group ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50'} ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'ring-2 ring-emerald-500/50' : ''}`}
                                 >
                                     <div className="flex items-start gap-4">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600 shadow-sm'}`}>
+                                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600 shadow-sm'}`}>
+                                            <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
                                             <div className="text-xs font-black">{q.level}</div>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -905,11 +1131,52 @@ const QuestionBank = () => {
                                                         {subjects.find(s => s.id === q.subject)?.name || 'Subject'}
                                                     </span>
                                                 )}
+                                                {q.created_at && (
+                                                    <div className="flex items-center gap-1.5 ml-auto text-[9px] font-bold opacity-30 uppercase tracking-widest">
+                                                        <Clock size={10} />
+                                                        {new Date(q.created_at).toLocaleString('en-IN', {
+                                                            day: '2-digit',
+                                                            month: 'short',
+                                                            year: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </div>
+                                                )}
+                                                {q.is_wrong && (
+                                                    <div className="ml-auto px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-md animate-pulse">
+                                                        Wrong Pattern
+                                                    </div>
+                                                )}
                                             </div>
                                             <div
-                                                className="text-sm font-medium line-clamp-2 prose dark:prose-invert max-w-none"
+                                                className={`text-sm font-medium prose dark:prose-invert max-w-none ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? '' : 'line-clamp-2'}`}
                                                 dangerouslySetInnerHTML={{ __html: q.question || q.content }}
                                             />
+                                            {(q.image_1 || q.image_2) && (
+                                                <div className="flex flex-wrap gap-4 mt-4">
+                                                    {q.image_1 && (
+                                                        <div className="relative group/img max-w-[180px] rounded-xl overflow-hidden border border-slate-200/50 bg-white">
+                                                            <img src={q.image_1} alt="Question Diagram 1" className="max-h-32 w-full object-contain p-2" />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <button onClick={(e) => { e.stopPropagation(); window.open(q.image_1, '_blank'); }} className="p-1.5 bg-white rounded-full text-black shadow-lg transform translate-y-2 group-hover/img:translate-y-0 transition-transform">
+                                                                    <Plus size={12} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {q.image_2 && (
+                                                        <div className="relative group/img max-w-[180px] rounded-xl overflow-hidden border border-slate-200/50 bg-white">
+                                                            <img src={q.image_2} alt="Question Diagram 2" className="max-h-32 w-full object-contain p-2" />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <button onClick={(e) => { e.stopPropagation(); window.open(q.image_2, '_blank'); }} className="p-1.5 bg-white rounded-full text-black shadow-lg transform translate-y-2 group-hover/img:translate-y-0 transition-transform">
+                                                                    <Plus size={12} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <ChevronRight className={`transition-transform duration-300 text-emerald-500 ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'rotate-90' : 'opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0'}`} />
                                     </div>
@@ -957,7 +1224,30 @@ const QuestionBank = () => {
                                                 </div>
                                             )}
 
-                                            <div className="flex justify-end pt-4 border-t border-dashed border-slate-200/20">
+                                            <div className="flex justify-end pt-4 border-t border-dashed border-slate-200/20 gap-3">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteQuestion(q.id || q._id);
+                                                    }}
+                                                    className="px-6 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center gap-2"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleMarkAsWrong(q.id || q._id);
+                                                    }}
+                                                    className={`px-6 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
+                                                        ${q.is_wrong
+                                                            ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
+                                                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'}`}
+                                                >
+                                                    <AlertCircle size={14} />
+                                                    {q.is_wrong ? 'Unmark Wrong' : 'Mark as Wrong'}
+                                                </button>
                                                 <button
                                                     onClick={() => {
                                                         // Ensure options are properly mapped
@@ -969,6 +1259,7 @@ const QuestionBank = () => {
 
                                                         setForm({
                                                             ...form,
+                                                            id: q.id || q._id,
                                                             question: q.question || q.content,
                                                             solution: q.solution,
                                                             type: q.type,
@@ -982,7 +1273,9 @@ const QuestionBank = () => {
                                                             hasCalculator: q.has_calculator || false,
                                                             useNumericOptions: q.use_numeric_options || false,
                                                             answerFrom: q.answer_from || '',
-                                                            answerTo: q.answer_to || ''
+                                                            answerTo: q.answer_to || '',
+                                                            image_1: q.image_1 || '',
+                                                            image_2: q.image_2 || ''
                                                         });
                                                         setView('manual');
                                                     }}
@@ -1000,7 +1293,7 @@ const QuestionBank = () => {
                     </>
                 )}
             </div>
-        </div>
+        </div >
     );
 
 
@@ -1039,7 +1332,7 @@ const QuestionBank = () => {
                 {/* Decorative title */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-dashed border-slate-200/50 pb-8">
                     <div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight">Manual <span className="text-orange-500">Question</span> Entry</h2>
+                        <h2 className="text-3xl font-black uppercase tracking-tight">{form.id ? 'Edit' : 'Manual'} <span className="text-orange-500">Question</span> {form.id ? 'Mode' : 'Entry'}</h2>
                         <p className={`text-[11px] font-bold uppercase tracking-widest mt-1 opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             Structure your question with precision systems
                         </p>
@@ -1165,24 +1458,50 @@ const QuestionBank = () => {
                     </div>
 
                     {/* Question Content */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs font-black uppercase tracking-[0.2em]">Enter Question Content</label>
-                            <div className="flex gap-1">
-                                <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {form.question.length}</span>
-                                <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase bg-blue-500/10 text-blue-500`}>Draft Saved</span>
+                    <div className="space-y-6">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-black uppercase tracking-[0.2em]">Enter Question Content</label>
+                                <div className="flex gap-1">
+                                    <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {form.question.length}</span>
+                                    <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase bg-blue-500/10 text-blue-500`}>Draft Saved</span>
+                                </div>
+                            </div>
+                            <div className={`rich-editor-wrapper rounded-3xl border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
+                                <ReactQuill
+                                    key={`question-${formKey}`}
+                                    theme="snow"
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    value={form.question}
+                                    onChange={(val) => setForm({ ...form, question: val })}
+                                    placeholder="Enter Question content here..."
+                                />
                             </div>
                         </div>
-                        <div className={`rich-editor-wrapper rounded-3xl border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
-                            <ReactQuill
-                                key={`question-${formKey}`}
-                                theme="snow"
-                                modules={quillModules}
-                                formats={quillFormats}
-                                value={form.question}
-                                onChange={(val) => setForm({ ...form, question: val })}
-                                placeholder="Enter Question content here..."
-                            />
+
+                        {/* Direct Image Links */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
+                                <input
+                                    type="text"
+                                    placeholder="https://example.com/image1.png"
+                                    value={form.image_1 || ''}
+                                    onChange={(e) => setForm({ ...form, image_1: e.target.value })}
+                                    className={`w-full px-6 py-4 rounded-2xl border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
+                                <input
+                                    type="text"
+                                    placeholder="https://example.com/image2.png"
+                                    value={form.image_2 || ''}
+                                    onChange={(e) => setForm({ ...form, image_2: e.target.value })}
+                                    className={`w-full px-6 py-4 rounded-2xl border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -1290,12 +1609,12 @@ const QuestionBank = () => {
                             {isSubmitting ? (
                                 <>
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Saving...
+                                    {form.id ? 'Updating...' : 'Saving...'}
                                 </>
                             ) : (
                                 <>
-                                    <Plus size={20} strokeWidth={4} />
-                                    Add to Question Bank
+                                    <Save size={20} />
+                                    {form.id ? 'Update Question' : 'Save To Bank'}
                                 </>
                             )}
                         </button>
@@ -1306,14 +1625,327 @@ const QuestionBank = () => {
         </div>
     );
 
+    const renderMediaLibrary = () => (
+        <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={() => setView('overview')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                        ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                >
+                    <ArrowLeft size={16} />
+                    Back to Overview
+                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => mediaInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="px-8 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 flex items-center gap-3 disabled:opacity-50"
+                    >
+                        {isUploadingImage ? <Loader2 className="animate-spin" size={18} /> : <ImageIcon size={18} />}
+                        <span>{isUploadingImage ? 'Uploading...' : 'Upload To Gallery'}</span>
+                    </button>
+                    <input
+                        type="file"
+                        ref={mediaInputRef}
+                        onChange={handleImageUpload}
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                    />
+                </div>
+            </div>
+
+            {/* Filter & Info Card */}
+            <div className={`p-8 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                    <div className="max-w-md">
+                        <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-2">
+                            <Layers className="text-blue-500" size={24} /> Image Master
+                        </h3>
+                        <p className="text-xs font-medium opacity-50 leading-relaxed">
+                            Upload your question images here first to get persistent links. Tag them with Subject/Topic to keep your library organized.
+                        </p>
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <CustomSelect
+                            label="Filter Class"
+                            value={imageFilters.classId}
+                            options={classes}
+                            placeholder="All Classes"
+                            onChange={(val) => setImageFilters(prev => ({ ...prev, classId: val, subjectId: '', topicId: '' }))}
+                        />
+                        <CustomSelect
+                            label="Filter Subject"
+                            value={imageFilters.subjectId}
+                            options={filteredSubjectsForMedia}
+                            placeholder="All Subjects"
+                            onChange={(val) => setImageFilters(prev => ({ ...prev, subjectId: val, topicId: '' }))}
+                        />
+                        <CustomSelect
+                            label="Filter Topic"
+                            value={imageFilters.topicId}
+                            options={filteredTopicsForMedia}
+                            placeholder="All Topics"
+                            onChange={(val) => setImageFilters(prev => ({ ...prev, topicId: val }))}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Gallery Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {isLoadingImages ? (
+                    Array(10).fill(0).map((_, i) => (
+                        <div key={i} className={`aspect-square rounded-[2rem] animate-pulse ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                    ))
+                ) : images.length > 0 ? images.map((img) => (
+                    <div key={img._id || img.id} className={`group relative p-3 rounded-[2rem] border transition-all hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100 shadow-sm'}`}>
+                        <div className="aspect-square w-full rounded-2xl overflow-hidden bg-slate-900 border border-white/5 relative">
+                            <img
+                                src={img.image}
+                                alt="Gallery item"
+                                className="w-full h-full object-contain"
+                            />
+                            {/* Actions Overlay */}
+                            <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4 p-6 scale-95 group-hover:scale-100">
+                                <button
+                                    onClick={() => copyToClipboard(img.image)}
+                                    className="w-full py-3 bg-white text-black rounded-xl font-black uppercase tracking-widest text-[9px] shadow-xl hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Copy size={14} />
+                                    <span>Copy Excel Link</span>
+                                </button>
+                                <button
+                                    onClick={() => window.open(img.image, '_blank')}
+                                    className="w-full py-3 bg-white/10 text-white rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-white/20 transition-all flex items-center justify-center gap-2 border border-white/10"
+                                >
+                                    <Search size={14} />
+                                    <span>Full View</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div className="mt-3 px-1 flex items-center justify-between">
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-blue-500 mb-0.5 truncate">
+                                    {subjects.find(s => String(s.id) === String(img.subject))?.name || 'General'}
+                                </p>
+                                <p className="text-[8px] font-bold opacity-30 uppercase tracking-widest truncate">
+                                    {topics.find(t => String(t.id) === String(img.topic))?.name || 'No Topic'}
+                                </p>
+                            </div>
+                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                                <CheckCircle size={12} />
+                            </div>
+                        </div>
+                    </div>
+                )) : (
+                    <div className="col-span-full py-32 text-center">
+                        <div className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
+                            <ImageIcon size={40} className="opacity-20" />
+                        </div>
+                        <h4 className="text-lg font-black uppercase tracking-tight mb-2 opacity-60">Your gallery is empty</h4>
+                        <p className="text-xs font-medium opacity-40 max-w-[280px] mx-auto leading-relaxed">
+                            Upload images to this subject/class to see them here. You can copy their links directly into your question import templates.
+                        </p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    const renderBulkUpload = () => (
+        <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={() => setView('overview')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                        ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                >
+                    <ArrowLeft size={16} />
+                    Back to Overview
+                </button>
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-200/20">
+                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-ping" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Bulk Import Mode</span>
+                </div>
+            </div>
+
+            {/* Instruction Card */}
+            <div className={`p-10 rounded-[3rem] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className="mb-10 border-b border-dashed border-slate-200/50 pb-8 flex items-start justify-between">
+                    <div>
+                        <h2 className="text-3xl font-black uppercase tracking-tight">Bulk Question <span className="text-blue-500">Import</span></h2>
+                        <p className={`text-[11px] font-bold uppercase tracking-widest mt-1 opacity-50 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Follow the structure below to import questions via Excel (.xlsx) or CSV
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setView('repository')}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                                ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                        >
+                            <Database size={16} />
+                            View Bank
+                        </button>
+                        <button
+                            onClick={() => setView('manual')}
+                            className="px-6 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
+                        >
+                            <Plus size={16} />
+                            Add Manually
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div className="space-y-6">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-500 flex items-center gap-2">
+                            <AlertCircle size={16} /> Column Specifications
+                        </h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {[
+                                { col: '1', title: 'SL NO', req: true },
+                                { col: '2', title: 'Class', req: false },
+                                { col: '3', title: 'Subject', req: true },
+                                { col: '4', title: 'Topic', req: true },
+                                { col: '5', title: 'Exam Type', req: false },
+                                { col: '6', title: 'Target Exam', req: false },
+                                { col: '7', title: 'Question Type', req: true, hint: '(SINGLE_CHOICE, MULTI_CHOICE, NUMERICAL, etc)' },
+                                { col: '8', title: 'Level', req: true, hint: '(1 to 5)' },
+                                { col: '9', title: 'Calculator(yes/no)', req: false },
+                                { col: '10', title: 'Numeric(yes/no)', req: false },
+                                { col: '11', title: 'Question', req: true, hint: '(HTML/Text supported)' },
+                                { col: '12', title: 'Question Image (1st)', req: true, hint: '(Link from your system or public URL)' },
+                                { col: '13', title: 'Question Image (2nd)', req: false },
+                                { col: '14', title: 'Answer 1', req: true },
+                                { col: '15', title: 'Answer 2', req: true },
+                                { col: '16', title: 'Answer 3', req: true },
+                                { col: '17', title: 'Answer 4', req: true },
+                                { col: '18', title: 'Correct Answer', req: true, hint: '(A, B, C, D or Numerical value)' },
+                            ].map((item) => (
+                                <div key={item.col} className={`p-4 rounded-2xl flex items-center justify-between border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                    <div className="flex items-center gap-4">
+                                        <span className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center text-[10px] font-black">{item.col}</span>
+                                        <div>
+                                            <p className="text-xs font-bold">{item.title} {item.req && <span className="text-red-500">*</span>}</p>
+                                            {item.hint && <p className="text-[9px] opacity-40 uppercase tracking-widest font-bold mt-0.5">{item.hint}</p>}
+                                        </div>
+                                    </div>
+                                    {item.req ? (
+                                        <CheckCircle size={14} className="text-blue-500" />
+                                    ) : (
+                                        <span className="text-[10px] font-black opacity-20 italic">Optional</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="space-y-6">
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 flex items-center gap-2">
+                                <FileSpreadsheet size={16} /> Data Example
+                            </h3>
+                            <div className={`overflow-hidden rounded-3xl border ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                                <table className="w-full text-left text-[10px]">
+                                    <thead className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                        <tr className="border-b border-slate-200/50">
+                                            <th className="p-4 font-black">Col</th>
+                                            <th className="p-4 font-black">Sample Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200/20 font-medium">
+                                        <tr><td className="p-4 opacity-40">3. Subject</td><td className="p-4 font-bold">Physics</td></tr>
+                                        <tr><td className="p-4 opacity-40">7. Type</td><td className="p-4 font-bold text-blue-500 uppercase">SINGLE_CHOICE</td></tr>
+                                        <tr><td className="p-4 opacity-40">11. Question</td><td className="p-4 italic">"What is the value of G?"</td></tr>
+                                        <tr><td className="p-4 opacity-40">18. Correct</td><td className="p-4 font-black text-emerald-500">A</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="bg-orange-500/5 border-2 border-dashed border-orange-500/20 p-8 rounded-3xl space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-orange-500 rounded-lg text-white"><CloudUpload size={20} /></div>
+                                <h4 className="text-sm font-black uppercase tracking-tight">Ready to Upload?</h4>
+                            </div>
+                            <p className="text-xs opacity-60 leading-relaxed font-medium">
+                                Ensure your file matches the column order specified. Images should be uploaded to the server first or provided as valid URLs.
+                            </p>
+                            <div className="pt-4 flex items-center gap-4">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="px-6 py-3 bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 transition-all flex items-center gap-2"
+                                >
+                                    <FileSpreadsheet size={14} />
+                                    Select File
+                                </button>
+                                <button
+                                    onClick={handleDownloadTemplate}
+                                    className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 border 
+                                        ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                                >
+                                    <Download size={14} />
+                                    Get Example Template
+                                </button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileSelect}
+                                    accept=".xlsx, .xls, .csv"
+                                    className="hidden"
+                                />
+                            </div>
+                        </div>
+
+                        {selectedFile && (
+                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                <div className={`p-6 rounded-[2rem] border flex items-center gap-4 shadow-xl ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
+                                        <FileSpreadsheet size={24} />
+                                    </div>
+                                    <div className="flex-1 overflow-hidden text-left">
+                                        <p className="font-black text-xs uppercase tracking-widest text-emerald-500 mb-1">File Loaded</p>
+                                        <p className="font-black text-sm truncate">{selectedFile.name}</p>
+                                        <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{(selectedFile.size / 1024).toFixed(2)} KB</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedFile(null)}
+                                        className="p-3 hover:bg-red-500/10 hover:text-red-500 rounded-xl transition-all"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={handleUpload}
+                                    className="w-full mt-4 py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-500/30 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <Upload size={18} strokeWidth={3} />
+                                    <span>Proceed with Bulk Import</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+
     return (
         <div className="min-h-screen">
             {view === 'overview' && renderOverview()}
             {view === 'manual' && renderManualEntry()}
             {view === 'repository' && renderRepository()}
+            {view === 'bulk' && renderBulkUpload()}
+            {view === 'media' && renderMediaLibrary()}
             {renderMathModal()}
 
-            <style jsx>{`
+            <style>{`
                 @keyframes shimmer {
                     from { transform: translateX(-100%); }
                     to { transform: translateX(100%); }

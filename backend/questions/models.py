@@ -28,6 +28,8 @@ class Question(models.Model):
     
     # Content
     content = models.TextField(help_text="Rich text content")
+    image_1 = models.TextField(blank=True, null=True, help_text="Primary image URL")
+    image_2 = models.TextField(blank=True, null=True, help_text="Secondary image URL")
     solution = models.TextField(blank=True, null=True, help_text="Rich text solution")
     
     # Options (Stored as JSON for flexibility in MongoDB)
@@ -41,6 +43,7 @@ class Question(models.Model):
     # Settings
     has_calculator = models.BooleanField(default=False)
     use_numeric_options = models.BooleanField(default=False)
+    is_wrong = models.BooleanField(default=False)
     
     # Tracking
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,3 +54,19 @@ class Question(models.Model):
 
     def __str__(self):
         return f"{self.type} - {self.subject.name if self.subject else 'No Subject'}"
+
+class QuestionImage(models.Model):
+    _id = djongo_models.ObjectIdField(primary_key=True)
+    image = models.ImageField(upload_to='question_images/')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True)
+    topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, blank=True)
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True)
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Image - {self.subject.name if self.subject else 'Global'} - {self.created_at}"
