@@ -1472,6 +1472,28 @@ const QuestionBank = ({ onNavigate }) => {
                             </div>
                         </div>
 
+                        {/* LIVE IMAGE PREVIEW */}
+                        {(form.image_1 || form.image_2) && (
+                            <div className="flex flex-wrap gap-4 pt-2">
+                                {form.image_1 && (
+                                    <div className={`relative group max-w-[240px] rounded-2xl overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                        <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
+                                            <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 1</span>
+                                        </div>
+                                        <img src={form.image_1} alt="Preview 1" className="w-full h-auto max-h-40 object-contain p-4" />
+                                    </div>
+                                )}
+                                {form.image_2 && (
+                                    <div className={`relative group max-w-[240px] rounded-2xl overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                        <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
+                                            <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 2</span>
+                                        </div>
+                                        <img src={form.image_2} alt="Preview 2" className="w-full h-auto max-h-40 object-contain p-4" />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Direct Image Links */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -1614,7 +1636,7 @@ const QuestionBank = ({ onNavigate }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 
     const renderMediaLibrary = () => (
