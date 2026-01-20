@@ -36,7 +36,10 @@ const TestQuestionManager = ({ test, onBack }) => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/tests/${test.id}/sections/`, getAuthConfig());
+            const activeToken = token || localStorage.getItem('auth_token');
+            const response = await axios.get(`${apiUrl}/api/tests/${test.id}/sections/`, {
+                headers: { 'Authorization': `Bearer ${activeToken}` }
+            });
             setSections(response.data);
             if (response.data.length > 0 && !activeSectionId) {
                 setActiveSectionId(response.data[0].id);
@@ -53,7 +56,10 @@ const TestQuestionManager = ({ test, onBack }) => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/sections/${activeSectionId}/questions/`, getAuthConfig());
+            const activeToken = token || localStorage.getItem('auth_token');
+            const response = await axios.get(`${apiUrl}/api/sections/${activeSectionId}/questions/`, {
+                headers: { 'Authorization': `Bearer ${activeToken}` }
+            });
             setQuestions(response.data);
         } catch (err) {
             console.error('Failed to fetch questions:', err);
@@ -75,9 +81,10 @@ const TestQuestionManager = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            const activeToken = token || localStorage.getItem('auth_token');
             await axios.post(`${apiUrl}/api/sections/${activeSectionId}/remove_questions/`,
                 { question_ids: [qid] },
-                getAuthConfig()
+                { headers: { 'Authorization': `Bearer ${activeToken}` } }
             );
             fetchSectionQuestions();
         } catch (err) {
@@ -91,9 +98,10 @@ const TestQuestionManager = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            const activeToken = token || localStorage.getItem('auth_token');
             await axios.post(`${apiUrl}/api/sections/${activeSectionId}/assign_questions/`,
                 { question_ids: questionIds },
-                getAuthConfig()
+                { headers: { 'Authorization': `Bearer ${activeToken}` } }
             );
             fetchSectionQuestions();
             setActiveView('list');
@@ -122,9 +130,10 @@ const TestQuestionManager = ({ test, onBack }) => {
         // Save order to backend
         try {
             const apiUrl = getApiUrl();
+            const activeToken = token || localStorage.getItem('auth_token');
             await axios.post(`${apiUrl}/api/sections/${activeSectionId}/reorder_questions/`,
                 { ordered_ids: newQuestions.map(q => q.id || q._id) },
-                getAuthConfig()
+                { headers: { 'Authorization': `Bearer ${activeToken}` } }
             );
         } catch (err) {
             console.error('Failed to save question order:', err);
@@ -139,9 +148,10 @@ const TestQuestionManager = ({ test, onBack }) => {
 
         try {
             const apiUrl = getApiUrl();
+            const activeToken = token || localStorage.getItem('auth_token');
             await axios.post(`${apiUrl}/api/sections/${activeSectionId}/reorder_questions/`,
                 { ordered_ids: shuffled.map(q => q.id || q._id) },
-                getAuthConfig()
+                { headers: { 'Authorization': `Bearer ${activeToken}` } }
             );
         } catch (err) {
             console.error('Failed to save shuffled order:', err);
