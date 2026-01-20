@@ -245,7 +245,8 @@ const TestCreate = () => {
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (force = false) => {
+        if (!force && data.length > 0) return;
         setIsLoading(true);
         setError(null);
         try {
@@ -274,7 +275,7 @@ const TestCreate = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [getApiUrl, getAuthConfig]);
+    }, [getApiUrl, getAuthConfig, data.length]);
 
     useEffect(() => {
         fetchData();
@@ -326,7 +327,7 @@ const TestCreate = () => {
         try {
             const apiUrl = getApiUrl();
             await axios.delete(`${apiUrl}/api/tests/${id}/`, getAuthConfig());
-            fetchData();
+            fetchData(true);
         } catch (err) {
             alert('Failed to delete test');
         } finally {
@@ -342,7 +343,7 @@ const TestCreate = () => {
                 { is_completed: !item.is_completed },
                 getAuthConfig()
             );
-            fetchData();
+            fetchData(true);
         } catch (err) {
             alert('Failed to update status');
         } finally {
@@ -361,7 +362,7 @@ const TestCreate = () => {
                 await axios.patch(`${apiUrl}/api/tests/${selectedItem.id}/`, formValues, getAuthConfig());
             }
             setIsModalOpen(false);
-            fetchData();
+            fetchData(true);
         } catch (err) {
             alert(`Failed to ${modalMode} test: ` + (err.response?.data?.code || err.message));
         } finally {

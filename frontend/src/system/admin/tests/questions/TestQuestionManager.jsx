@@ -417,6 +417,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                     <QuestionBank
                         isSelectionMode={true}
                         onAssignQuestions={handleAssignQuestions}
+                        alreadySelectedIds={questions.map(q => q.id || q._id)}
                     />
                 </div>
             </div>

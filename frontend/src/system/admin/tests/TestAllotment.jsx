@@ -58,7 +58,8 @@ const TestAllotment = () => {
         return sessions.filter(s => availableSessionIds.has(s.id));
     }, [sessions, availableSessionIds]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (force = false) => {
+        if (!force && tests.length > 0) return;
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
@@ -91,7 +92,7 @@ const TestAllotment = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [getApiUrl, getAuthConfig]); // Removed filterSession from here
+    }, [getApiUrl, getAuthConfig, tests.length]); // Removed filterSession from here
 
     useEffect(() => {
         fetchData();
@@ -235,7 +236,7 @@ const TestAllotment = () => {
             );
 
             setIsModalOpen(false);
-            fetchData();
+            fetchData(true);
             triggerAlert(`Allotment updated! Synced ${updateCount} centres.`, 'success');
         } catch (err) {
             console.error("❌ MAIN SAVE ERROR:", err);
@@ -254,7 +255,7 @@ const TestAllotment = () => {
                 { centres: [] },
                 getAuthConfig()
             );
-            fetchData();
+            fetchData(true);
             triggerAlert('All allotments removed successfully.', 'success');
         } catch (err) {
             triggerAlert('Failed to remove allotment', 'error');
@@ -290,7 +291,7 @@ const TestAllotment = () => {
                 getAuthConfig()
             );
             setIsSectionModalOpen(false);
-            fetchData();
+            fetchData(true);
             triggerAlert('Section allotment updated!', 'success');
         } catch (err) {
             triggerAlert('Failed to update section allotment', 'error');

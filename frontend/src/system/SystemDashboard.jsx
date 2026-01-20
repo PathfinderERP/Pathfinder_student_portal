@@ -303,15 +303,23 @@ const SystemDashboard = () => {
         { id: 'profile', icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
     ].filter(item => ['dashboard', 'profile'].includes(item.id) || hasPermission(item.id)), [activeTab, masterSubTab, user?.permissions]);
 
-    const renderContent = () => {
-        switch (activeTab) {
+    const [visitedTabs, setVisitedTabs] = useState(['Dashboard']);
+
+    useEffect(() => {
+        if (!visitedTabs.includes(activeTab)) {
+            setVisitedTabs(prev => [...prev, activeTab]);
+        }
+    }, [activeTab, visitedTabs]);
+
+    const renderPage = (tabName) => {
+        switch (tabName) {
             case 'Dashboard':
                 return <DashboardOverview isDarkMode={isDarkMode} syncERP={syncERP} isERPLoading={isERPLoading} erpStudentsCount={erpStudents.length} setActiveTab={setActiveTab} />;
             case 'Create User':
                 return isSuperAdmin ? <CreateUserPage onBack={() => setActiveTab('Admin System')} /> : null;
             case 'Admin System':
             case 'Admin Parent':
-                const tabTitle = activeTab.split(' ')[1];
+                const tabTitle = tabName.split(' ')[1];
                 return (
                     <div className="space-y-8">
                         <div className={`p-10 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-100 border-slate-200 shadow-slate-200/50'}`}>
@@ -320,7 +328,7 @@ const SystemDashboard = () => {
                                     <h2 className="text-3xl font-black tracking-tight mb-2 uppercase"><span className="text-orange-500">{tabTitle}</span> Management</h2>
                                     <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage {tabTitle.toLowerCase()} level access and configurations.</p>
                                 </div>
-                                {activeTab === 'Admin System' && (
+                                {tabName === 'Admin System' && (
                                     <button onClick={() => setActiveTab('Create User')} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
                                         <Plus size={20} strokeWidth={3} />
                                         <span>Add New User</span>
@@ -396,10 +404,40 @@ const SystemDashboard = () => {
                             <div className="text-orange-500"><Plus size={48} /></div>
                         </div>
                         <h2 className="text-3xl font-black uppercase tracking-tight mb-2">UNDER <span className="text-orange-500">DEVELOPMENT</span></h2>
-                        <p className={`text-sm font-medium opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>We are working hard to bring the {activeTab} view to life very soon.</p>
+                        <p className={`text-sm font-medium opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>We are working hard to bring the {tabName} view to life very soon.</p>
                     </div>
                 );
         }
+    };
+
+    const renderContent = () => {
+        // Essential tabs that should always stay mounted once visited
+        // Essential tabs that should always stay mounted once visited
+        const persistentTabs = [
+            'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
+            'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
+            'Merge Test Result', 'Test Result', 'Profile', 'Settings'
+        ];
+
+        return (
+            <div className="relative min-h-screen">
+                {visitedTabs.map(tab => {
+                    const isPersistent = persistentTabs.includes(tab);
+                    const isActive = activeTab === tab;
+
+                    if (!isActive && !isPersistent) return null;
+
+                    return (
+                        <div
+                            key={tab}
+                            className={`${isActive ? 'block' : 'hidden'} transition-all`}
+                        >
+                            {renderPage(tab)}
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
 
     return (

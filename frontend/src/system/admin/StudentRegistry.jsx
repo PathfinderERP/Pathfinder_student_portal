@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     Database, AlertCircle, MapPin, Mail, Power, Clock
@@ -15,6 +15,42 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
     const [error, setError] = useState(null);
     const [selectedStudent, setSelectedStudent] = useState(null);
 
+    const loadERPData = useCallback(async (force = false) => {
+        if (!force && students.length > 0) return;
+        setIsLoading(true);
+        try {
+            const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
+            const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
+            const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
+
+            const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                email: erpIdentifier,
+                password: erpPassword
+            });
+
+            const erpToken = loginRes.data.token;
+            const admissionRes = await axios.get(`${erpUrl}/api/admission`, {
+                headers: { 'Authorization': `Bearer ${erpToken}` }
+            });
+
+            let erpData = [];
+            if (Array.isArray(admissionRes.data)) {
+                erpData = admissionRes.data;
+            } else if (admissionRes.data?.student?.studentsDetails) {
+                erpData = admissionRes.data.student.studentsDetails;
+            } else if (admissionRes.data?.data) {
+                erpData = admissionRes.data.data;
+            }
+
+            setStudents(erpData);
+        } catch (err) {
+            console.error("❌ ERP Sync Massive Failure:", err);
+            setError(`Sync Failed: ${err.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [students.length]);
+
     useEffect(() => {
         if (studentsData && studentsData.length > 0) {
             setStudents(studentsData);
@@ -22,43 +58,8 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
             return;
         }
 
-        const loadERPData = async () => {
-            setIsLoading(true);
-            try {
-                const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-                const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
-                const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
-
-                const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: erpIdentifier,
-                    password: erpPassword
-                });
-
-                const token = loginRes.data.token;
-                const admissionRes = await axios.get(`${erpUrl}/api/admission`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                let erpData = [];
-                if (Array.isArray(admissionRes.data)) {
-                    erpData = admissionRes.data;
-                } else if (admissionRes.data?.student?.studentsDetails) {
-                    erpData = admissionRes.data.student.studentsDetails;
-                } else if (admissionRes.data?.data) {
-                    erpData = admissionRes.data.data;
-                }
-
-                setStudents(erpData);
-            } catch (err) {
-                console.error("❌ ERP Sync Massive Failure:", err);
-                setError(`Sync Failed: ${err.message}`);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         loadERPData();
-    }, [studentsData, portalUser?.email]);
+    }, [studentsData, portalUser?.email, loadERPData]);
 
     if (isLoading) return (
         <div className="flex flex-col items-center justify-center py-24 space-y-6">

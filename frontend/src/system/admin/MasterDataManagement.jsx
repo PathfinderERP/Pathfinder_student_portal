@@ -112,6 +112,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         is_active: true
     });
 
+    const lastFetchedTab = useRef(null);
+
     const sessionLabel = useMemo(() => {
         if (sessionFilter === 'all') return 'Sessions';
         return sessions.find(s => String(s.id) === String(sessionFilter))?.name || 'Sessions';
@@ -208,8 +210,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         return { headers: { 'Authorization': `Bearer ${activeToken}` } };
     }, [token]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (force = false) => {
         if (!currentTabConfig || activeSubTab === 'Section Management') return;
+
+        // Only skip if not forced AND we have data AND we're still on the same subtab
+        if (!force && data.length > 0 && lastFetchedTab.current === activeSubTab) return;
 
         const config = getAuthConfig();
         if (!config) return; // Wait for token
@@ -221,6 +226,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             const endpoint = activeSubTab === 'Image' ? 'questions/images' : `master-data/${currentTabConfig.endpoint}`;
             const response = await axios.get(`${apiUrl}/api/${endpoint}/`, config);
             setData(response.data);
+            lastFetchedTab.current = activeSubTab;
 
             if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Image') {
                 const requests = [
@@ -249,7 +255,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [currentTabConfig, getApiUrl, getAuthConfig, activeSubTab]);
+    }, [currentTabConfig, getApiUrl, getAuthConfig, activeSubTab, data.length]);
 
     // Fetch CSRF token on mount
     useEffect(() => {
@@ -337,7 +343,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                     }
                 });
             }
-            fetchData();
+            fetchData(true);
             setIsModalOpen(false);
             setSelectedFiles([]);
             setPreviews([]);
@@ -452,7 +458,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 : `master-data/${currentTabConfig.endpoint}/${id}`;
 
             await axios.delete(`${apiUrl}/api/${endpoint}/`, config);
-            await fetchData();
+            await fetchData(true);
             alert('Item deleted successfully!');
         } catch (err) {
             console.error('Delete failed:', err);
@@ -470,7 +476,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 { is_active: !item.is_active },
                 getAuthConfig()
             );
-            fetchData();
+            fetchData(true);
         } catch (err) {
             alert('Failed to toggle status');
         } finally {
@@ -496,7 +502,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 await axios.patch(`${apiUrl}/api/${endpoint}/`, formValues, getAuthConfig());
             }
             setIsModalOpen(false);
-            fetchData();
+            fetchData(true);
         } catch (err) {
             alert(`Failed to ${modalMode} item: ` + (err.response?.data?.code || err.message));
         } finally {

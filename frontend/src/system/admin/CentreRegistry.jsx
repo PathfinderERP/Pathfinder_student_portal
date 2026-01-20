@@ -133,49 +133,50 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     const [view, setView] = useState('list');
     const [selectedCentreForTests, setSelectedCentreForTests] = useState(null);
 
-    useEffect(() => {
-        const loadData = async () => {
-            setIsLoading(true);
-            try {
-                const apiUrl = getApiUrl();
-                const authToken = token || localStorage.getItem('auth_token');
+    const loadData = useCallback(async (force = false) => {
+        if (!force && centres.length > 0 && localCentres.length > 0) return;
+        setIsLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const authToken = token || localStorage.getItem('auth_token');
 
-                let erpData = centresData;
-                if (!erpData || erpData.length === 0) {
-                    const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-                    const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
-                    const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
+            let erpData = centresData;
+            if (!erpData || erpData.length === 0) {
+                const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
+                const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
+                const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
 
-                    const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                        email: erpIdentifier,
-                        password: erpPassword
-                    });
+                const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
+                    email: erpIdentifier,
+                    password: erpPassword
+                });
 
-                    const erpToken = loginRes.data.token;
-                    const centreRes = await axios.get(`${erpUrl}/api/centre`, {
-                        headers: { 'Authorization': `Bearer ${erpToken}` }
-                    });
-                    erpData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
-                }
-                setCentres(erpData);
-
-                const [localRes, testsRes] = await Promise.all([
-                    axios.get(`${apiUrl}/api/centres/`, { headers: { Authorization: `Bearer ${authToken}` } }),
-                    axios.get(`${apiUrl}/api/tests/`, { headers: { Authorization: `Bearer ${authToken}` } })
-                ]);
-                setLocalCentres(localRes.data);
-                setTests(testsRes.data);
-
-            } catch (err) {
-                console.error("❌ Data Sync Failure:", err);
-                setError(`Sync Failed: ${err.message}`);
-            } finally {
-                setIsLoading(false);
+                const erpToken = loginRes.data.token;
+                const centreRes = await axios.get(`${erpUrl}/api/centre`, {
+                    headers: { 'Authorization': `Bearer ${erpToken}` }
+                });
+                erpData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
             }
-        };
+            setCentres(erpData);
 
+            const [localRes, testsRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/centres/`, { headers: { Authorization: `Bearer ${authToken}` } }),
+                axios.get(`${apiUrl}/api/tests/`, { headers: { Authorization: `Bearer ${authToken}` } })
+            ]);
+            setLocalCentres(localRes.data);
+            setTests(testsRes.data);
+
+        } catch (err) {
+            console.error("❌ Data Sync Failure:", err);
+            setError(`Sync Failed: ${err.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [centresData, getApiUrl, token, centres.length, localCentres.length]);
+
+    useEffect(() => {
         loadData();
-    }, [centresData, getApiUrl, token]);
+    }, [loadData]);
 
     const uniqueStates = [...new Set(centres.map(c => c.state).filter(Boolean))].sort();
 

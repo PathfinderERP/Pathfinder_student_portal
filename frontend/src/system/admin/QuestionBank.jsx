@@ -44,7 +44,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
     return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
 };
 
-const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }) => {
+const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [] }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [view, setView] = useState('overview'); // 'overview', 'manual', 'repository', 'bulk'
@@ -221,9 +221,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
     }, [token]);
 
     // Fetch Master Data
-    const fetchMasterData = useCallback(async () => {
+    const fetchMasterData = useCallback(async (force = false) => {
+        if (!force && classes.length > 0) return;
         const config = getAuthConfig();
-        if (!config) return; // Don't fetch if no token is available
+        if (!config) return;
 
         setIsLoadingMaster(true);
         try {
@@ -245,27 +246,29 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
         } finally {
             setIsLoadingMaster(false);
         }
-    }, [getApiUrl, getAuthConfig]);
+    }, [getApiUrl, getAuthConfig, classes.length]);
 
     // Fetch Questions
-    const fetchQuestions = useCallback(async () => {
+    const fetchQuestions = useCallback(async (force = false) => {
+        if (!force && questions.length > 0) return;
         const config = getAuthConfig();
         if (!config) return;
 
         setIsLoadingQuestions(true);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/questions/`, config);
-            setQuestions(res.data);
+            const response = await axios.get(`${apiUrl}/api/questions/`, config);
+            setQuestions(response.data);
         } catch (err) {
             console.error("Failed to fetch questions", err);
         } finally {
             setIsLoadingQuestions(false);
         }
-    }, [getApiUrl, getAuthConfig]);
+    }, [getApiUrl, getAuthConfig, questions.length]);
 
     // Fetch Images
-    const fetchImages = useCallback(async () => {
+    const fetchImages = useCallback(async (force = false) => {
+        if (!force && images.length > 0) return;
         const config = getAuthConfig();
         if (!config) return;
 
@@ -284,7 +287,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
         } finally {
             setIsLoadingImages(false);
         }
-    }, [getApiUrl, getAuthConfig, imageFilters]);
+    }, [getApiUrl, getAuthConfig, imageFilters, images.length]);
 
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
@@ -311,7 +314,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
                     }
                 });
             }
-            fetchImages();
+            fetchImages(true);
             alert(`Successfully uploaded ${files.length} images`);
         } catch (err) {
             console.error("Image upload failed", err);
@@ -335,7 +338,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
         lastBatch: 'No data'
     });
 
-    const fetchStats = useCallback(async () => {
+    const fetchStats = useCallback(async (force = false) => {
+        if (!force && stats.total > 0) return;
         const config = getAuthConfig();
         if (!config) return;
         try {
@@ -345,7 +349,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
         } catch (err) {
             console.error("Failed to fetch stats", err);
         }
-    }, [getApiUrl, getAuthConfig]);
+    }, [getApiUrl, getAuthConfig, stats.total]);
 
     useEffect(() => {
         fetchMasterData();
@@ -577,7 +581,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
                     alert(message || "Bulk Question Import Successful!");
                 }
 
-                fetchQuestions(); // Refresh the list
+                fetchQuestions(true); // Refresh the list
                 setView('repository'); // Take user to repository to see results
             }, 800);
 
@@ -875,8 +879,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
 
             resetForm();
             if (view === 'manual' && form.id) {
-                fetchQuestions();
+                fetchQuestions(true);
                 setView('repository');
+            } else {
+                fetchQuestions(true);
             }
 
         } catch (error) {
@@ -973,7 +979,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
             await axios.post(`${apiUrl}/api/questions/${questionId}/mark_wrong/`, {}, config);
-            fetchQuestions(); // Refresh list
+            fetchQuestions(true); // Refresh list
         } catch (error) {
             console.error("Failed to update status", error);
             alert("Failed to update status");
@@ -986,7 +992,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
             await axios.delete(`${apiUrl}/api/questions/${questionId}/`, config);
-            fetchQuestions(); // Refresh list
+            fetchQuestions(true); // Refresh list
             if (selectedQuestion && (selectedQuestion.id === questionId || selectedQuestion._id === questionId)) {
                 setSelectedQuestion(null);
             }
@@ -1138,223 +1144,234 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }
                 ) : (
                     <>
                         {renderPagination()}
-                        <div className={`grid gap-6 mt-6 ${isSelectionMode ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
-                            {paginatedQuestions.map((q) => (
-                                <div
-                                    onClick={() => {
-                                        const currentId = q.id || q._id;
-                                        const selectedId = selectedQuestion?.id || selectedQuestion?._id;
-                                        setSelectedQuestion(selectedId === currentId ? null : q);
-                                    }}
-                                    key={q.id || q._id}
-                                    className={`relative rounded-3xl border transition-all cursor-pointer group flex flex-col overflow-hidden
-                                        ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50'} 
-                                        ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'ring-2 ring-emerald-500/50' : ''}
-                                        ${isSelectionMode ? 'h-[280px]' : 'p-6'}
-                                    `}
-                                >
-                                    <div className={`flex items-start gap-4 ${isSelectionMode ? 'p-4 flex-1 overflow-hidden' : ''}`}>
-                                        {isSelectionMode && (
-                                            <div
-                                                onClick={(e) => toggleQuestionSelection(q.id || q._id, e)}
-                                                className={`absolute top-4 right-4 z-10 w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all shrink-0 ${selectedIds.includes(q.id || q._id)
-                                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg'
-                                                    : 'bg-white/50 backdrop-blur-sm border-slate-300'
-                                                    }`}
-                                            >
-                                                {selectedIds.includes(q.id || q._id) && <Check size={16} strokeWidth={4} />}
+                        <div className="flex flex-col gap-4 mt-8">
+                            {paginatedQuestions.map((q) => {
+                                const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
+                                const qSubject = subjects.find(s => s.id === (q.subject?.id || q.subject));
+
+                                return (
+                                    <div
+                                        onClick={() => {
+                                            const currentId = q.id || q._id;
+                                            setSelectedQuestion(isSelected ? null : q);
+                                        }}
+                                        key={q.id || q._id}
+                                        className={`relative rounded-[2.5rem] border transition-all cursor-pointer group flex flex-col overflow-hidden p-6
+                                            ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50 shadow-sm'} 
+                                            ${isSelected ? 'ring-2 ring-emerald-500/50' : ''}
+                                        `}
+                                    >
+                                        <div className="flex flex-col lg:flex-row lg:items-center gap-8">
+                                            {/* Selection & Level */}
+                                            <div className="flex items-center gap-5 shrink-0">
+                                                {isSelectionMode && (
+                                                    alreadySelectedIds.includes(q.id || q._id) ? (
+                                                        <div className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center shrink-0 bg-slate-200/50 border-slate-300 text-slate-400 opacity-60`}>
+                                                            <CheckCircle size={24} strokeWidth={3} />
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={(e) => toggleQuestionSelection(q.id || q._id, e)}
+                                                            className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all shrink-0 ${selectedIds.includes(q.id || q._id)
+                                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl shadow-emerald-500/30'
+                                                                : 'bg-white/50 backdrop-blur-sm border-slate-300'
+                                                                }`}
+                                                        >
+                                                            {selectedIds.includes(q.id || q._id) && <Check size={24} strokeWidth={4} />}
+                                                        </div>
+                                                    )
+                                                )}
+                                                <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
+                                                    <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
+                                                    <div className="text-sm font-black">{q.difficulty_level || q.level}</div>
+                                                </div>
                                             </div>
-                                        )}
-                                        <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600 shadow-sm'}`}>
-                                            <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
-                                            <div className="text-xs font-black">{q.difficulty_level}</div>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                    {q.question_type && q.question_type.replace('_', ' ')}
-                                                </span>
-                                                {q.subject && (
-                                                    <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">
-                                                        {subjects.find(s => s.id === q.subject)?.name || 'Subject'}
+
+                                            {/* Primary Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex flex-wrap items-center gap-3 mb-3">
+                                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                        {q.question_type?.replace('_', ' ') || 'QUESTION'}
                                                     </span>
-                                                )}
-                                                {q.created_at && (
-                                                    <div className="flex items-center gap-1.5 ml-auto text-[9px] font-bold opacity-30 uppercase tracking-widest">
-                                                        <Clock size={10} />
-                                                        {new Date(q.created_at).toLocaleString('en-IN', {
-                                                            day: '2-digit',
-                                                            month: 'short',
-                                                            year: 'numeric',
-                                                            hour: '2-digit',
-                                                            minute: '2-digit'
-                                                        })}
-                                                    </div>
-                                                )}
-                                                {q.is_wrong && (
-                                                    <div className={`${isSelectionMode ? 'absolute top-0 left-0 px-2 py-0.5 rounded-br-lg' : 'ml-auto px-2 py-1 rounded-md'} bg-red-500 text-white text-[8px] font-black uppercase tracking-widest animate-pulse`}>
-                                                        {isSelectionMode ? 'WRONG' : 'Wrong Question'}
-                                                    </div>
-                                                )}
+                                                    {alreadySelectedIds.includes(q.id || q._id) && (
+                                                        <div className="px-3 py-1 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                                            <CheckCircle size={10} strokeWidth={3} />
+                                                            <span>IN TEST</span>
+                                                        </div>
+                                                    )}
+                                                    {qSubject && (
+                                                        <div className="px-3 py-1 rounded-xl bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
+                                                            {qSubject.name}
+                                                        </div>
+                                                    )}
+                                                    {q.is_wrong && (
+                                                        <div className="px-3 py-1 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                                                            <AlertCircle size={10} />
+                                                            <span>WRONG</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div
+                                                    className={`text-base font-bold tracking-tight prose dark:prose-invert max-w-none leading-relaxed italic ${isSelected ? '' : 'line-clamp-2'}`}
+                                                    dangerouslySetInnerHTML={{ __html: q.question || q.content }}
+                                                />
                                             </div>
-                                            <div
-                                                className={`text-sm font-medium prose dark:prose-invert max-w-none ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? '' : (isSelectionMode ? 'line-clamp-4' : 'line-clamp-2')}`}
-                                                dangerouslySetInnerHTML={{ __html: q.question || q.content }}
-                                            />
+
+                                            {/* Media Previews */}
                                             {(q.image_1 || q.image_2) && (
-                                                <div className="flex flex-wrap gap-4 mt-4">
+                                                <div className="flex items-center gap-3 shrink-0">
                                                     {q.image_1 && (
-                                                        <div className="relative group/img max-w-[180px] rounded-xl overflow-hidden border border-slate-200/50 bg-white">
-                                                            <img src={q.image_1} alt="Question Diagram 1" className="max-h-32 w-full object-contain p-2" />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <button onClick={(e) => { e.stopPropagation(); window.open(q.image_1, '_blank'); }} className="p-1.5 bg-white rounded-full text-black shadow-lg transform translate-y-2 group-hover/img:translate-y-0 transition-transform">
-                                                                    <Plus size={12} />
-                                                                </button>
-                                                            </div>
+                                                        <div className="w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
+                                                            <img src={q.image_1} alt="Q-Img-1" className="w-full h-full object-contain" />
                                                         </div>
                                                     )}
                                                     {q.image_2 && (
-                                                        <div className="relative group/img max-w-[180px] rounded-xl overflow-hidden border border-slate-200/50 bg-white">
-                                                            <img src={q.image_2} alt="Question Diagram 2" className="max-h-32 w-full object-contain p-2" />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <button onClick={(e) => { e.stopPropagation(); window.open(q.image_2, '_blank'); }} className="p-1.5 bg-white rounded-full text-black shadow-lg transform translate-y-2 group-hover/img:translate-y-0 transition-transform">
-                                                                    <Plus size={12} />
-                                                                </button>
-                                                            </div>
+                                                        <div className="w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
+                                                            <img src={q.image_2} alt="Q-Img-2" className="w-full h-full object-contain" />
                                                         </div>
                                                     )}
                                                 </div>
                                             )}
-                                        </div>
-                                        {!isSelectionMode && <ChevronRight className={`transition-transform duration-300 text-emerald-500 ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'rotate-90' : 'opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0'}`} />}
-                                    </div>
 
-                                    {isSelectionMode && (
-                                        <div className={`mt-auto p-3 border-t ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-white/50 border-slate-100'} flex justify-between items-center`}>
-                                            <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">
-                                                {q.subject ? (subjects.find(s => s.id === q.subject)?.name || 'Subject') : 'Question'}
-                                            </span>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const currentId = q.id || q._id;
-                                                    const selectedId = selectedQuestion?.id || selectedQuestion?._id;
-                                                    setSelectedQuestion(selectedId === currentId ? null : q);
-                                                }}
-                                                className="text-[9px] font-black text-emerald-500 uppercase px-3 py-1 bg-emerald-500/10 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"
-                                            >
-                                                {(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'Hide' : 'Brief'}
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Expanded details */}
-                                    {(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) && (
-                                        <div className="mt-8 pt-8 border-t border-dashed border-slate-200/20 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300 cursor-auto" onClick={(e) => e.stopPropagation()}>
-                                            {/* Options */}
-                                            <div className="space-y-3">
-                                                <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 block">Options</label>
-                                                {q.question_options && q.question_options.map((opt, idx) => (
-                                                    <div key={idx} className={`p-4 rounded-xl border flex items-start gap-4 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'}`}>
-                                                        <span className="font-bold opacity-50">{String.fromCharCode(97 + idx)}.</span>
-                                                        <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                            {/* Actions & Meta */}
+                                            <div className="flex flex-col items-end gap-3 shrink-0 lg:min-w-[170px] border-l border-dashed border-slate-200/20 pl-8">
+                                                {q.created_at && (
+                                                    <div className="flex items-center gap-2 text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
+                                                        <Clock size={12} />
+                                                        <span>{new Date(q.created_at).toLocaleDateString()}</span>
                                                     </div>
-                                                ))}
-                                            </div>
-
-                                            {/* Answer display */}
-                                            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                                <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm">
-                                                    <span>Answer :</span>
-                                                    {q.question_options?.filter(o => o.isCorrect).map((o, i) => (
-                                                        <span key={i} className="flex items-center gap-1">
-                                                            <span className="font-bold">{String.fromCharCode(97 + q.question_options.findIndex(opt => opt === o))}.</span>
-                                                            <div dangerouslySetInnerHTML={{ __html: o.content }} className="inline-block" />
-                                                            {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
-                                                        </span>
-                                                    ))}
+                                                )}
+                                                <div className="flex items-center gap-3">
+                                                    {!isSelectionMode && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id || q._id); }}
+                                                            className="p-3 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                                                        >
+                                                            <Trash2 size={20} />
+                                                        </button>
+                                                    )}
+                                                    <div className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                        <ChevronRight className={`transition-transform duration-500 ${isSelected ? 'rotate-90' : ''}`} size={24} />
+                                                    </div>
                                                 </div>
-                                            </div>
-
-                                            {/* Solution */}
-                                            {q.solution && (
-                                                <div>
-                                                    <details className="group">
-                                                        <summary className="flex items-center gap-2 cursor-pointer text-blue-500 font-bold text-sm select-none">
-                                                            <span>View Solution</span>
-                                                            <ChevronDown size={14} className="group-open:rotate-180 transition-transform" />
-                                                        </summary>
-                                                        <div className="mt-4 pt-4 border-t border-dashed border-slate-200/50 prose dark:prose-invert max-w-none text-sm"
-                                                            dangerouslySetInnerHTML={{ __html: q.solution }}
-                                                        />
-                                                    </details>
-                                                </div>
-                                            )}
-
-                                            <div className="flex justify-end pt-4 border-t border-dashed border-slate-200/20 gap-3">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteQuestion(q.id || q._id);
-                                                    }}
-                                                    className="px-6 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-red-500 hover:text-white transition-all active:scale-95 flex items-center gap-2"
-                                                >
-                                                    <Trash2 size={14} />
-                                                    Delete
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleMarkAsWrong(q.id || q._id);
-                                                    }}
-                                                    className={`px-6 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
-                                                        ${q.is_wrong
-                                                            ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
-                                                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'}`}
-                                                >
-                                                    <AlertCircle size={14} />
-                                                    {q.is_wrong ? 'Unmark Wrong' : 'Mark as Wrong'}
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        // Ensure options are properly mapped
-                                                        const formattedOptions = (q.question_options || []).map(opt => ({
-                                                            id: opt.id,
-                                                            content: opt.content,
-                                                            isCorrect: opt.isCorrect
-                                                        }));
-
-                                                        setForm({
-                                                            ...form,
-                                                            id: q.id || q._id,
-                                                            question: q.question || q.content,
-                                                            solution: q.solution,
-                                                            question_type: q.question_type || q.type, // Handle migration gracefully
-                                                            level: String(q.difficulty_level),
-                                                            classId: q.class_level,
-                                                            subjectId: q.subject?.id || q.subject,
-                                                            topicId: q.topic?.id || q.topic || '',
-                                                            examTypeId: q.exam_type?.id || q.exam_type || '',
-                                                            targetExamId: q.target_exam?.id || q.target_exam || '',
-                                                            options: formattedOptions.length > 0 ? formattedOptions : form.options,
-                                                            hasCalculator: q.has_calculator || false,
-                                                            useNumericOptions: q.use_numeric_options || false,
-                                                            answerFrom: q.answer_from || '',
-                                                            answerTo: q.answer_to || '',
-                                                            image_1: q.image_1 || '',
-                                                            image_2: q.image_2 || ''
-                                                        });
-                                                        setView('manual');
-                                                    }}
-                                                    className="px-6 py-2 bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-                                                >
-                                                    Edit Question
-                                                </button>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+
+                                        {/* Expanded details */}
+                                        {isSelected && (
+                                            <div className="mt-10 pt-10 border-t-2 border-dashed border-slate-200/20 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 cursor-auto" onClick={(e) => e.stopPropagation()}>
+                                                {/* Options */}
+                                                <div className="space-y-4">
+                                                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-2 block">Response Parameters</label>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {q.question_options && q.question_options.map((opt, idx) => {
+                                                            const isCorrect = opt.isCorrect;
+                                                            return (
+                                                                <div key={idx} className={`p-5 rounded-[1.5rem] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
+                                                                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
+                                                                    <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Answer display */}
+                                                <div className="p-6 rounded-[2rem] bg-emerald-500/10 border-2 border-dashed border-emerald-500/30 flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                                                            <CheckCircle size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Verified Key</p>
+                                                            <div className="flex items-center gap-3 text-emerald-500 font-black text-lg">
+                                                                {q.question_options?.filter(o => o.isCorrect).map((o, i) => (
+                                                                    <span key={i} className="flex items-center gap-1">
+                                                                        <span>Option {String.fromCharCode(65 + q.question_options.findIndex(opt => opt === o))}</span>
+                                                                        {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const formattedOptions = (q.question_options || []).map(opt => ({
+                                                                id: opt.id,
+                                                                content: opt.content,
+                                                                isCorrect: opt.isCorrect
+                                                            }));
+                                                            setForm({
+                                                                ...form,
+                                                                id: q.id || q._id,
+                                                                question: q.question || q.content,
+                                                                solution: q.solution,
+                                                                question_type: q.question_type || q.type,
+                                                                level: String(q.difficulty_level),
+                                                                classId: q.class_level,
+                                                                subjectId: q.subject?.id || q.subject,
+                                                                topicId: q.topic?.id || q.topic || '',
+                                                                examTypeId: q.exam_type?.id || q.exam_type || '',
+                                                                targetExamId: q.target_exam?.id || q.target_exam || '',
+                                                                options: formattedOptions.length > 0 ? formattedOptions : form.options,
+                                                                hasCalculator: q.has_calculator || false,
+                                                                useNumeric_options: q.use_numeric_options || false,
+                                                                answerFrom: q.answer_from || '',
+                                                                answerTo: q.answer_to || '',
+                                                                image_1: q.image_1 || '',
+                                                                image_2: q.image_2 || ''
+                                                            });
+                                                            setView('manual');
+                                                        }}
+                                                        className="px-8 py-3 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                                                    >
+                                                        Edit Content
+                                                    </button>
+                                                </div>
+
+                                                {/* Solution */}
+                                                {q.solution && (
+                                                    <div className={`p-8 rounded-[2rem] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
+                                                        <details className="group">
+                                                            <summary className="flex items-center gap-3 cursor-pointer text-blue-500 font-black text-[11px] uppercase tracking-widest select-none">
+                                                                <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
+                                                                    <HelpCircle size={16} />
+                                                                </div>
+                                                                <span>Explanatory Solution</span>
+                                                                <ChevronDown size={14} className="group-open:rotate-180 transition-transform ml-auto" />
+                                                            </summary>
+                                                            <div className="mt-6 pt-6 border-t border-dashed border-blue-200 prose dark:prose-invert max-w-none text-sm leading-relaxed"
+                                                                dangerouslySetInnerHTML={{ __html: q.solution }}
+                                                            />
+                                                        </details>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex justify-between items-center pt-6 border-t border-dashed border-slate-200/20">
+                                                    <div className="flex items-center gap-4 text-[10px] font-black opacity-30 uppercase tracking-widest">
+                                                        <span>ID: {q.id || q._id}</span>
+                                                        <span>•</span>
+                                                        <span>System: Pathfinder AI</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMarkAsWrong(q.id || q._id);
+                                                        }}
+                                                        className={`px-6 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
+                                                            ${q.is_wrong
+                                                                ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
+                                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'}`}
+                                                    >
+                                                        <AlertCircle size={14} />
+                                                        {q.is_wrong ? 'Unmark Wrong' : 'Mark as Wrong'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                         {renderPagination()}
                     </>
