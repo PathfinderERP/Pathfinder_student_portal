@@ -251,6 +251,31 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
     }, [currentTabConfig, getApiUrl, getAuthConfig, activeSubTab]);
 
+    // Fetch CSRF token on mount
+    useEffect(() => {
+        const fetchCSRFToken = async () => {
+            try {
+                const apiUrl = getApiUrl();
+                await axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig());
+
+                // Configure axios to always include CSRF token
+                const getCookie = (name) => {
+                    const value = `; ${document.cookie}`;
+                    const parts = value.split(`; ${name}=`);
+                    if (parts.length === 2) return parts.pop().split(';').shift();
+                };
+
+                const csrfToken = getCookie('csrftoken');
+                if (csrfToken) {
+                    axios.defaults.headers.common['X-CSRFToken'] = csrfToken;
+                }
+            } catch (err) {
+                console.error('Failed to fetch CSRF token:', err);
+            }
+        };
+        fetchCSRFToken();
+    }, [getApiUrl, getAuthConfig]);
+
     useEffect(() => {
         setSearchTerm('');
         setStatusFilter('all');
@@ -407,9 +432,30 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.delete(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/${id}/`, getAuthConfig());
-            fetchData();
+            const config = getAuthConfig();
+
+            // Get CSRF token from cookie
+            const getCookie = (name) => {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+            };
+
+            const csrfToken = getCookie('csrftoken');
+            if (csrfToken) {
+                config.headers['X-CSRFToken'] = csrfToken;
+            }
+
+            // Use correct endpoint based on active tab
+            const endpoint = activeSubTab === 'Image'
+                ? `questions/images/${id}`
+                : `master-data/${currentTabConfig.endpoint}/${id}`;
+
+            await axios.delete(`${apiUrl}/api/${endpoint}/`, config);
+            await fetchData();
+            alert('Item deleted successfully!');
         } catch (err) {
+            console.error('Delete failed:', err);
             alert('Failed to delete item');
         } finally {
             setIsActionLoading(false);

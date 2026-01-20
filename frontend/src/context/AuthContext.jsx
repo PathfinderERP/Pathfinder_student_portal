@@ -47,6 +47,9 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const initAuth = async () => {
+            // Enable credentials for CSRF cookies
+            axios.defaults.withCredentials = true;
+
             if (token) {
                 try {
                     const decoded = jwtDecode(token);

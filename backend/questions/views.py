@@ -2,6 +2,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from .models import Question, QuestionImage
 from .serializers import QuestionSerializer, QuestionImageSerializer
 from master_data.models import ClassLevel, Subject, Topic, ExamType, TargetExam
@@ -203,10 +205,30 @@ class QuestionViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class QuestionImageViewSet(viewsets.ModelViewSet):
     queryset = QuestionImage.objects.all()
     serializer_class = QuestionImageSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        """
+        Override get_object to explicitly handle ObjectId conversion for QuestionImage.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        pk = self.kwargs.get(lookup_url_kwarg)
+
+        if pk:
+            try:
+                if ObjectId.is_valid(pk):
+                    obj = queryset.get(pk=ObjectId(pk))
+                    self.check_object_permissions(self.request, obj)
+                    return obj
+            except (QuestionImage.DoesNotExist, Exception):
+                pass
+        
+        return super().get_object()
 
     def get_queryset(self):
         queryset = QuestionImage.objects.all()
