@@ -19,8 +19,12 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
 window.katex = katex;
-Quill.register('modules/imageResize', ImageResize);
-Quill.register('modules/imageDrop', ImageDrop);
+if (!Quill.imports['modules/imageResize']) {
+    Quill.register('modules/imageResize', ImageResize);
+}
+if (!Quill.imports['modules/imageDrop']) {
+    Quill.register('modules/imageDrop', ImageDrop);
+}
 
 
 
