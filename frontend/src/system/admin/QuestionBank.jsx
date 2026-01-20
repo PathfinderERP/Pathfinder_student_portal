@@ -44,11 +44,24 @@ const MathPreview = ({ tex, isDarkMode }) => {
     return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
 };
 
-const QuestionBank = ({ onNavigate }) => {
+const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [view, setView] = useState('overview'); // 'overview', 'manual', 'repository', 'bulk'
     const [selectedQuestion, setSelectedQuestion] = useState(null);
+
+    useEffect(() => {
+        if (isSelectionMode) {
+            setView('repository');
+        }
+    }, [isSelectionMode]);
+
+    const toggleQuestionSelection = (id, e) => {
+        e.stopPropagation();
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
 
     // Master Data States
     const [classes, setClasses] = useState([]);
@@ -61,6 +74,7 @@ const QuestionBank = ({ onNavigate }) => {
     // Repository State
     const [questions, setQuestions] = useState([]);
     const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
 
     // Repository Filter State
     // Repository Filter State
@@ -342,7 +356,10 @@ const QuestionBank = ({ onNavigate }) => {
         if (view === 'media') {
             fetchImages();
         }
-    }, [view, fetchImages]);
+        if (view === 'repository') {
+            fetchQuestions();
+        }
+    }, [view, fetchImages, fetchQuestions]);
 
     // Media Cascading Filters
     const filteredSubjectsForMedia = useMemo(() => {
@@ -983,27 +1000,36 @@ const QuestionBank = ({ onNavigate }) => {
         <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
             {/* Nav Header */}
             <div className="flex items-center justify-between">
-                <button
-                    onClick={() => setView('overview')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
-                        ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
-                >
-                    <ArrowLeft size={16} />
-                    Back to Overview
-                </button>
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => { resetForm(); setView('manual'); }}
-                        className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
-                    >
-                        <Plus size={16} strokeWidth={3} />
-                        Add Question
-                    </button>
-                    <div className="flex items-center gap-3 pl-4 border-l border-slate-200/20">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Repository Mode</span>
+                {!isSelectionMode ? (
+                    <>
+                        <button
+                            onClick={() => setView('overview')}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                                ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                        >
+                            <ArrowLeft size={16} />
+                            Back to Overview
+                        </button>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => { resetForm(); setView('manual'); }}
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
+                            >
+                                <Plus size={16} strokeWidth={3} />
+                                Add Question
+                            </button>
+                            <div className="flex items-center gap-3 pl-4 border-l border-slate-200/20">
+                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Repository Mode</span>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Question Selection Mode</span>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Questions Grid */}
@@ -1112,7 +1138,7 @@ const QuestionBank = ({ onNavigate }) => {
                 ) : (
                     <>
                         {renderPagination()}
-                        <div className="grid grid-cols-1 gap-4 mt-4">
+                        <div className={`grid gap-6 mt-6 ${isSelectionMode ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
                             {paginatedQuestions.map((q) => (
                                 <div
                                     onClick={() => {
@@ -1121,9 +1147,24 @@ const QuestionBank = ({ onNavigate }) => {
                                         setSelectedQuestion(selectedId === currentId ? null : q);
                                     }}
                                     key={q.id || q._id}
-                                    className={`p-6 rounded-3xl border transition-all cursor-pointer group ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50'} ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'ring-2 ring-emerald-500/50' : ''}`}
+                                    className={`relative rounded-3xl border transition-all cursor-pointer group flex flex-col overflow-hidden
+                                        ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50'} 
+                                        ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'ring-2 ring-emerald-500/50' : ''}
+                                        ${isSelectionMode ? 'h-[280px]' : 'p-6'}
+                                    `}
                                 >
-                                    <div className="flex items-start gap-4">
+                                    <div className={`flex items-start gap-4 ${isSelectionMode ? 'p-4 flex-1 overflow-hidden' : ''}`}>
+                                        {isSelectionMode && (
+                                            <div
+                                                onClick={(e) => toggleQuestionSelection(q.id || q._id, e)}
+                                                className={`absolute top-4 right-4 z-10 w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all shrink-0 ${selectedIds.includes(q.id || q._id)
+                                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg'
+                                                    : 'bg-white/50 backdrop-blur-sm border-slate-300'
+                                                    }`}
+                                            >
+                                                {selectedIds.includes(q.id || q._id) && <Check size={16} strokeWidth={4} />}
+                                            </div>
+                                        )}
                                         <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600 shadow-sm'}`}>
                                             <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
                                             <div className="text-xs font-black">{q.difficulty_level}</div>
@@ -1151,13 +1192,13 @@ const QuestionBank = ({ onNavigate }) => {
                                                     </div>
                                                 )}
                                                 {q.is_wrong && (
-                                                    <div className="ml-auto px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-md animate-pulse">
-                                                        Wrong Question
+                                                    <div className={`${isSelectionMode ? 'absolute top-0 left-0 px-2 py-0.5 rounded-br-lg' : 'ml-auto px-2 py-1 rounded-md'} bg-red-500 text-white text-[8px] font-black uppercase tracking-widest animate-pulse`}>
+                                                        {isSelectionMode ? 'WRONG' : 'Wrong Question'}
                                                     </div>
                                                 )}
                                             </div>
                                             <div
-                                                className={`text-sm font-medium prose dark:prose-invert max-w-none ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? '' : 'line-clamp-2'}`}
+                                                className={`text-sm font-medium prose dark:prose-invert max-w-none ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? '' : (isSelectionMode ? 'line-clamp-4' : 'line-clamp-2')}`}
                                                 dangerouslySetInnerHTML={{ __html: q.question || q.content }}
                                             />
                                             {(q.image_1 || q.image_2) && (
@@ -1185,8 +1226,27 @@ const QuestionBank = ({ onNavigate }) => {
                                                 </div>
                                             )}
                                         </div>
-                                        <ChevronRight className={`transition-transform duration-300 text-emerald-500 ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'rotate-90' : 'opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0'}`} />
+                                        {!isSelectionMode && <ChevronRight className={`transition-transform duration-300 text-emerald-500 ${(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'rotate-90' : 'opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0'}`} />}
                                     </div>
+
+                                    {isSelectionMode && (
+                                        <div className={`mt-auto p-3 border-t ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-white/50 border-slate-100'} flex justify-between items-center`}>
+                                            <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">
+                                                {q.subject ? (subjects.find(s => s.id === q.subject)?.name || 'Subject') : 'Question'}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const currentId = q.id || q._id;
+                                                    const selectedId = selectedQuestion?.id || selectedQuestion?._id;
+                                                    setSelectedQuestion(selectedId === currentId ? null : q);
+                                                }}
+                                                className="text-[9px] font-black text-emerald-500 uppercase px-3 py-1 bg-emerald-500/10 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"
+                                            >
+                                                {(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) ? 'Hide' : 'Brief'}
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {/* Expanded details */}
                                     {(selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id) && (
@@ -1298,6 +1358,19 @@ const QuestionBank = ({ onNavigate }) => {
                         </div>
                         {renderPagination()}
                     </>
+                )}
+                {isSelectionMode && selectedIds.length > 0 && (
+                    <div className="fixed bottom-10 right-10 z-[120] animate-in slide-in-from-bottom-5 duration-300">
+                        <button
+                            onClick={() => onAssignQuestions(selectedIds)}
+                            className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-2xl flex items-center gap-4 transition-all hover:scale-110 active:scale-95 border-4 border-white/20 backdrop-blur-sm"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                <Plus size={20} strokeWidth={3} />
+                            </div>
+                            Assign {selectedIds.length} Questions
+                        </button>
+                    </div>
                 )}
             </div>
         </div >

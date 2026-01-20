@@ -13,6 +13,8 @@ import 'react-quill-new/dist/quill.snow.css';
 import ImageResize from 'quill-image-resize-module-react';
 import { ImageDrop } from 'quill-image-drop-module';
 import TestSectionManager from './sections/TestSectionManager';
+import TestQuestionManager from './questions/TestQuestionManager';
+import QuestionPaperView from './questions/QuestionPaperView';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -515,8 +517,14 @@ const TestCreate = () => {
                                     </td>
                                     <td className="py-5 px-4">
                                         <div className="flex justify-center">
-                                            <button className="px-4 py-1.5 rounded-md bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30">
-                                                QuestionPaper
+                                            <button
+                                                onClick={() => {
+                                                    setManagementTest(item);
+                                                    setActiveView('question-paper');
+                                                }}
+                                                className="px-4 py-1.5 rounded-md bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30"
+                                            >
+                                                QUESTIONPAPER
                                             </button>
                                         </div>
                                     </td>
@@ -535,7 +543,13 @@ const TestCreate = () => {
                                     </td>
                                     <td className="py-5 px-4">
                                         <div className="flex justify-center">
-                                            <button className="px-4 py-1.5 rounded-md bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30">
+                                            <button
+                                                onClick={() => {
+                                                    setManagementTest(item);
+                                                    setActiveView('question-management');
+                                                }}
+                                                className="px-4 py-1.5 rounded-md bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30"
+                                            >
                                                 Manage
                                             </button>
                                         </div>
@@ -1143,6 +1157,30 @@ const TestCreate = () => {
     if (activeView === 'section-management' && managementTest) {
         return (
             <TestSectionManager
+                test={managementTest}
+                onBack={() => {
+                    setActiveView('test-list');
+                    setManagementTest(null);
+                }}
+            />
+        );
+    }
+
+    if (activeView === 'question-management' && managementTest) {
+        return (
+            <TestQuestionManager
+                test={managementTest}
+                onBack={() => {
+                    setActiveView('test-list');
+                    setManagementTest(null);
+                }}
+            />
+        );
+    }
+
+    if (activeView === 'question-paper' && managementTest) {
+        return (
+            <QuestionPaperView
                 test={managementTest}
                 onBack={() => {
                     setActiveView('test-list');

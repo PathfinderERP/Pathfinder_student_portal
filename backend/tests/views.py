@@ -5,6 +5,7 @@ from .models import Test, TestCentreAllotment
 from .serializers import TestSerializer, TestCentreAllotmentSerializer
 from sections.models import Section
 from sections.serializers import SectionSerializer
+from questions.serializers import QuestionSerializer
 import random
 import string
 
@@ -47,6 +48,27 @@ class TestViewSet(viewsets.ModelViewSet):
         allotments = test.centre_allotments.all()
         serializer = TestCentreAllotmentSerializer(allotments, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def question_paper(self, request, pk=None):
+        test = self.get_object()
+        # Order by priority
+        sections = test.allotted_sections.all().order_by('priority')
+        
+        sections_data = []
+        for section in sections:
+            section_dict = SectionSerializer(section).data
+            # Fetch detailed questions
+            questions = section.questions.all()
+            section_dict['questions_detail'] = QuestionSerializer(questions, many=True).data
+            sections_data.append(section_dict)
+            
+        return Response({
+            'test_name': test.name,
+            'test_code': test.code,
+            'duration': test.duration,
+            'sections': sections_data
+        })
 
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     queryset = TestCentreAllotment.objects.all()
