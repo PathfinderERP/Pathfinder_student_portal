@@ -23,7 +23,7 @@ class Question(models.Model):
         ('NUMERICAL', 'NUMERICAL'),
         ('PARAGRAPH', 'PARAGRAPH'),
     )
-    type = models.CharField(max_length=50, choices=QUESTION_TYPES, default='SINGLE_CHOICE')
+    question_type = models.CharField(max_length=50, choices=QUESTION_TYPES, default='SINGLE_CHOICE')
     level = models.CharField(max_length=10, default='1') # 1-5
     
     # Content
@@ -53,7 +53,7 @@ class Question(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.type} - {self.subject.name if self.subject else 'No Subject'}"
+        return f"{self.question_type} - {self.subject.name if self.subject else 'No Subject'}"
 
 class QuestionImage(models.Model):
     _id = djongo_models.ObjectIdField(primary_key=True)

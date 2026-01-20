@@ -187,18 +187,16 @@ if os.getenv('R2_ACCESS_KEY_ID'):
     
     # Public Domain for serving files
     # We strip https:// because boto3 adds it, and strip trailing slashes
-    # if os.getenv('R2_PUBLIC_DOMAIN'):
-    #     AWS_S3_CUSTOM_DOMAIN = os.getenv('R2_PUBLIC_DOMAIN').replace('https://', '').replace('http://', '').strip('/')
-    # else:
-    #     AWS_S3_CUSTOM_DOMAIN = None
-    AWS_S3_CUSTOM_DOMAIN = None # Force None to ensure we use signed URLs
+    if os.getenv('R2_PUBLIC_DOMAIN'):
+        AWS_S3_CUSTOM_DOMAIN = os.getenv('R2_PUBLIC_DOMAIN').replace('https://', '').replace('http://', '').strip('/')
+        AWS_QUERYSTRING_AUTH = False # Disable signing when using public domain
+    else:
+        AWS_S3_CUSTOM_DOMAIN = None
+        AWS_QUERYSTRING_AUTH = True # Fallback to signed URLs if no public domain
 
     AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_REGION_NAME = 'auto' 
     AWS_S3_FILE_OVERWRITE = False
-    
-    # Enable signatures to allow access to Private Buckets
-    AWS_QUERYSTRING_AUTH = True
 
     STORAGES = {
         "default": {

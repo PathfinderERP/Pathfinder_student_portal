@@ -44,7 +44,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
     return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
 };
 
-const QuestionBank = () => {
+const QuestionBank = ({ onNavigate }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [view, setView] = useState('overview'); // 'overview', 'manual', 'repository', 'bulk'
@@ -70,7 +70,8 @@ const QuestionBank = () => {
         topicId: '',
         examTypeId: '',
         targetExamId: '',
-        type: '',
+        targetExamId: '',
+        question_type: '',
         level: ''
     });
 
@@ -106,7 +107,7 @@ const QuestionBank = () => {
             const qTargetExam = q.target_exam?.id || q.target_exam;
             if (filters.targetExamId && String(qTargetExam) !== String(filters.targetExamId)) return false;
 
-            if (filters.type && q.type !== filters.type) return false;
+            if (filters.question_type && q.question_type !== filters.question_type) return false;
 
             if (filters.level && String(q.level) !== String(filters.level)) return false;
             return true;
@@ -141,7 +142,8 @@ const QuestionBank = () => {
         topicId: '',
         examTypeId: '',
         targetExamId: '',
-        type: 'SINGLE_CHOICE',
+        targetExamId: '',
+        question_type: 'SINGLE_CHOICE',
         level: '1',
         question: '',
         options: [
@@ -168,7 +170,8 @@ const QuestionBank = () => {
             topicId: '',
             examTypeId: '',
             targetExamId: '',
-            type: 'SINGLE_CHOICE',
+            targetExamId: '',
+            question_type: 'SINGLE_CHOICE',
             level: '1',
             question: '',
             options: [
@@ -429,7 +432,7 @@ const QuestionBank = () => {
     // Handle Option Toggle (Dynamic behavior for Single vs Multi Choice)
     const handleToggleOption = (id) => {
         setForm(prev => {
-            const isMulti = prev.type === 'MULTI_CHOICE';
+            const isMulti = prev.question_type === 'MULTI_CHOICE';
             return {
                 ...prev,
                 options: prev.options.map(opt => {
@@ -576,6 +579,7 @@ const QuestionBank = () => {
         const dummyData = [
             [
                 "1", "Class 10", "Physics", "Optics", "WB Board", "NEET",
+                "1", "Class 10", "Physics", "Optics", "WB Board", "NEET",
                 "SINGLE_CHOICE", "1", "No", "No",
                 "What is the speed of light in vacuum?",
                 "https://your-portal.com/media/questions/physics_01.png",
@@ -717,7 +721,11 @@ const QuestionBank = () => {
                     </div>
                     <div
                         onClick={() => {
-                            setView('media');
+                            if (onNavigate) {
+                                onNavigate('Admin Master Data', 'Image');
+                            } else {
+                                setView('media');
+                            }
                         }}
                         className={`p-8 rounded-[2.5rem] border shadow-xl relative group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}
                     >
@@ -807,7 +815,7 @@ const QuestionBank = () => {
 
     const handleSubmit = async () => {
         // Basic Validation
-        if (!form.question || (!form.options.some(o => o.isCorrect) && !['NUMERICAL', 'INTEGER_TYPE'].includes(form.type))) {
+        if (!form.question || (!form.options.some(o => o.isCorrect) && !['NUMERICAL', 'INTEGER_TYPE'].includes(form.question_type))) {
             alert("Please fill in the question and select at least one correct answer.");
             return;
         }
@@ -822,7 +830,7 @@ const QuestionBank = () => {
                 options: form.options,
                 solution: form.solution,
 
-                type: form.type,
+                question_type: form.question_type,
                 level: form.level,
 
                 classId: form.classId,
@@ -1061,7 +1069,7 @@ const QuestionBank = () => {
                         />
                         <CustomSelect
                             label="Q. Type"
-                            value={filters.type}
+                            value={filters.question_type}
                             options={[
                                 { value: '', label: 'All Types' },
                                 { value: 'SINGLE_CHOICE', label: 'Single Choice' },
@@ -1073,7 +1081,7 @@ const QuestionBank = () => {
                                 { value: 'PARAGRAPH', label: 'Paragraph' }
                             ]}
                             placeholder="All Types"
-                            onChange={(val) => setFilters({ ...filters, type: val })}
+                            onChange={(val) => setFilters({ ...filters, question_type: val })}
                         />
                         <CustomSelect
                             label="Difficulty"
@@ -1124,7 +1132,7 @@ const QuestionBank = () => {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-2">
                                                 <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                    {q.type.replace('_', ' ')}
+                                                    {q.question_type && q.question_type.replace('_', ' ')}
                                                 </span>
                                                 {q.subject && (
                                                     <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">
@@ -1262,7 +1270,7 @@ const QuestionBank = () => {
                                                             id: q.id || q._id,
                                                             question: q.question || q.content,
                                                             solution: q.solution,
-                                                            type: q.type,
+                                                            question_type: q.question_type || q.type, // Handle migration gracefully
                                                             level: String(q.level),
                                                             classId: q.class_level,
                                                             subjectId: q.subject?.id || q.subject,
@@ -1406,7 +1414,7 @@ const QuestionBank = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <CustomSelect
                             label="Question Type"
-                            value={form.type}
+                            value={form.question_type}
                             options={[
                                 { value: 'SINGLE_CHOICE', label: 'SINGLE_CHOICE' },
                                 { value: 'MULTI_CHOICE', label: 'MULTI_CHOICE' },
@@ -1418,7 +1426,7 @@ const QuestionBank = () => {
 
                             ]}
                             placeholder="Select Type"
-                            onChange={(val) => setForm({ ...form, type: val })}
+                            onChange={(val) => setForm({ ...form, question_type: val })}
                         />
                         <CustomSelect
                             label="Level"
@@ -1506,7 +1514,7 @@ const QuestionBank = () => {
                     </div>
 
                     {/* Options or Answer Range System */}
-                    {['NUMERICAL', 'INTEGER_TYPE'].includes(form.type) ? (
+                    {['NUMERICAL', 'INTEGER_TYPE'].includes(form.question_type) ? (
                         <div className="space-y-4">
                             <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Answer Range</label>
                             <div className="flex flex-col md:flex-row gap-6">
@@ -1551,13 +1559,13 @@ const QuestionBank = () => {
                                             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
                                         >
                                             <div className={`w-4 h-4 flex items-center justify-center transition-all border-2 
-                                                ${form.type === 'MULTI_CHOICE' ? 'rounded-md' : 'rounded-full'}
+                                                ${form.question_type === 'MULTI_CHOICE' ? 'rounded-md' : 'rounded-full'}
                                                 ${opt.isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-current'}`}
                                             >
                                                 {opt.isCorrect && <Check size={10} strokeWidth={4} className="text-white" />}
                                             </div>
                                             <span className="text-[9px] font-black uppercase tracking-widest">
-                                                {opt.isCorrect ? (form.type === 'MULTI_CHOICE' ? 'Selected' : 'Correct Answer') : 'Mark Correct'}
+                                                {opt.isCorrect ? (form.question_type === 'MULTI_CHOICE' ? 'Selected' : 'Correct Answer') : 'Mark Correct'}
                                             </span>
                                         </button>
                                     </div>

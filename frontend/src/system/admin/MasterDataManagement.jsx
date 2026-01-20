@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
     Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen,
-    Image as ImageIcon, Copy, ExternalLink, CloudUpload
+    Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -21,7 +21,7 @@ const subTabs = [
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' }
 ];
 
-const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
+const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
@@ -516,13 +516,24 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab }) => {
     const renderHeader = () => (
         <div className={`p-8 rounded-[2.5rem] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
             <div className="flex flex-col gap-8">
-                <div>
-                    <h2 className="text-3xl font-black tracking-tight mb-2 uppercase text-center md:text-left">
-                        Master <span className="text-orange-500">Data</span>
-                    </h2>
-                    <p className={`text-sm font-medium text-center md:text-left ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Configure system-wide parameters and categories.
-                    </p>
+                <div className="flex items-center gap-4">
+                    {onBack && (
+                        <button
+                            onClick={onBack}
+                            className={`p-3 rounded-2xl border transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700'}`}
+                            title="Go Back"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                    )}
+                    <div>
+                        <h2 className="text-3xl font-black tracking-tight mb-2 uppercase text-center md:text-left">
+                            Master <span className="text-orange-500">Data</span>
+                        </h2>
+                        <p className={`text-sm font-medium text-center md:text-left ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Configure system-wide parameters and categories.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-center md:justify-start">

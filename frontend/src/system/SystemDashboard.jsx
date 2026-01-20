@@ -54,6 +54,8 @@ const SystemDashboard = () => {
     const [isERPLoading, setIsERPLoading] = useState(false);
     const [masterSubTab, setMasterSubTab] = useState('Session');
 
+    const [previousTab, setPreviousTab] = useState(null);
+
     const isSuperAdmin = user?.user_type === 'superadmin';
 
     // 1. User Management Actions
@@ -344,9 +346,19 @@ const SystemDashboard = () => {
             case 'Centre Management':
                 return <CentreRegistry centresData={erpCentres} isERPLoading={isERPLoading} />;
             case 'Admin Master Data':
-                return <MasterDataManagement activeSubTab={masterSubTab} setActiveSubTab={setMasterSubTab} />;
+                return (
+                    <MasterDataManagement
+                        activeSubTab={masterSubTab}
+                        setActiveSubTab={setMasterSubTab}
+                        onBack={previousTab ? () => { setActiveTab(previousTab); setPreviousTab(null); } : null}
+                    />
+                );
             case 'Question Bank':
-                return <QuestionBank />;
+                return <QuestionBank onNavigate={(tab, subTab) => {
+                    setPreviousTab(activeTab);
+                    setActiveTab(tab);
+                    if (subTab) setMasterSubTab(subTab);
+                }} />;
             case 'Test Create':
                 return <TestCreate />;
             case 'Test Allotment':
