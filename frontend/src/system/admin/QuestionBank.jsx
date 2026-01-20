@@ -70,9 +70,9 @@ const QuestionBank = ({ onNavigate }) => {
         topicId: '',
         examTypeId: '',
         targetExamId: '',
-        targetExamId: '',
         question_type: '',
-        level: ''
+        level: '',
+        is_wrong: ''
     });
 
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -110,6 +110,12 @@ const QuestionBank = ({ onNavigate }) => {
             if (filters.question_type && q.question_type !== filters.question_type) return false;
 
             if (filters.level && String(q.difficulty_level) !== String(filters.level)) return false;
+
+            if (filters.is_wrong !== '') {
+                const filterVal = filters.is_wrong === 'true';
+                if (q.is_wrong !== filterVal) return false;
+            }
+
             return true;
         });
         setCurrentPage(1); // Reset to page 1 on filter change
@@ -142,7 +148,6 @@ const QuestionBank = ({ onNavigate }) => {
         topicId: '',
         examTypeId: '',
         targetExamId: '',
-        targetExamId: '',
         question_type: 'SINGLE_CHOICE',
         level: '1',
         question: '',
@@ -169,7 +174,6 @@ const QuestionBank = ({ onNavigate }) => {
             subjectId: '',
             topicId: '',
             examTypeId: '',
-            targetExamId: '',
             targetExamId: '',
             question_type: 'SINGLE_CHOICE',
             level: '1',
@@ -1015,7 +1019,7 @@ const QuestionBank = ({ onNavigate }) => {
                     </div>
 
                     {/* Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4">
                         <CustomSelect
                             label="Filter Class"
                             value={filters.classId}
@@ -1081,6 +1085,17 @@ const QuestionBank = ({ onNavigate }) => {
                             placeholder="All Levels"
                             onChange={(val) => setFilters({ ...filters, level: val })}
                         />
+                        <CustomSelect
+                            label="Status"
+                            value={filters.is_wrong}
+                            options={[
+                                { value: '', label: 'All Status' },
+                                { value: 'true', label: 'Wrong Only' },
+                                { value: 'false', label: 'Correct Only' }
+                            ]}
+                            placeholder="All Status"
+                            onChange={(val) => setFilters({ ...filters, is_wrong: val })}
+                        />
                     </div>
                 </div>
 
@@ -1137,7 +1152,7 @@ const QuestionBank = ({ onNavigate }) => {
                                                 )}
                                                 {q.is_wrong && (
                                                     <div className="ml-auto px-2 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-md animate-pulse">
-                                                        Wrong Pattern
+                                                        Wrong Question
                                                     </div>
                                                 )}
                                             </div>
