@@ -24,7 +24,7 @@ class Question(models.Model):
         ('PARAGRAPH', 'PARAGRAPH'),
     )
     question_type = models.CharField(max_length=50, choices=QUESTION_TYPES, default='SINGLE_CHOICE')
-    level = models.CharField(max_length=10, default='1') # 1-5
+    difficulty_level = models.CharField(max_length=10, default='1') # 1-5
     
     # Content
     content = models.TextField(help_text="Rich text content")
@@ -34,7 +34,7 @@ class Question(models.Model):
     
     # Options (Stored as JSON for flexibility in MongoDB)
     # Structure: [{"id": 1, "content": "...", "isCorrect": boolean}]
-    options = models.JSONField(default=list, blank=True)
+    question_options = models.JSONField(default=list, blank=True, db_column='question_options')
     
     # Numerical Answers
     answer_from = models.FloatField(null=True, blank=True)

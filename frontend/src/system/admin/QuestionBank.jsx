@@ -109,7 +109,7 @@ const QuestionBank = ({ onNavigate }) => {
 
             if (filters.question_type && q.question_type !== filters.question_type) return false;
 
-            if (filters.level && String(q.level) !== String(filters.level)) return false;
+            if (filters.level && String(q.difficulty_level) !== String(filters.level)) return false;
             return true;
         });
         setCurrentPage(1); // Reset to page 1 on filter change
@@ -415,7 +415,7 @@ const QuestionBank = ({ onNavigate }) => {
 
     const quillFormats = [
         'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-        'list', 'bullet', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
+        'list', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
         'code-block', 'formula'
     ];
 
@@ -826,32 +826,16 @@ const QuestionBank = ({ onNavigate }) => {
             const apiUrl = getApiUrl();
 
             const payload = {
-                question: form.question,
-                options: form.options,
+                content: form.question,
+                question_options: form.options,
                 solution: form.solution,
-
                 question_type: form.question_type,
-                level: form.level,
-
-                classId: form.classId,
-                subjectId: form.subjectId,
-                topicId: form.topicId,
-                examTypeId: form.examTypeId,
-                targetExamId: form.targetExamId,
-
-                hasCalculator: form.hasCalculator,
-                useNumericOptions: form.useNumericOptions,
-
-                answerFrom: form.answerFrom,
-                answerTo: form.answerTo,
-
-                // Backend Mappings
+                difficulty_level: form.level,
                 class_level: form.classId,
                 subject: form.subjectId,
                 topic: form.topicId,
                 exam_type: form.examTypeId,
                 target_exam: form.targetExamId,
-                content: form.question,
                 has_calculator: form.hasCalculator,
                 use_numeric_options: form.useNumericOptions,
                 answer_from: form.answerFrom || null,
@@ -1127,7 +1111,7 @@ const QuestionBank = ({ onNavigate }) => {
                                     <div className="flex items-start gap-4">
                                         <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600 shadow-sm'}`}>
                                             <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
-                                            <div className="text-xs font-black">{q.level}</div>
+                                            <div className="text-xs font-black">{q.difficulty_level}</div>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-2">
@@ -1195,7 +1179,7 @@ const QuestionBank = ({ onNavigate }) => {
                                             {/* Options */}
                                             <div className="space-y-3">
                                                 <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 block">Options</label>
-                                                {q.options && q.options.map((opt, idx) => (
+                                                {q.question_options && q.question_options.map((opt, idx) => (
                                                     <div key={idx} className={`p-4 rounded-xl border flex items-start gap-4 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'}`}>
                                                         <span className="font-bold opacity-50">{String.fromCharCode(97 + idx)}.</span>
                                                         <div className="prose dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: opt.content }} />
@@ -1207,11 +1191,11 @@ const QuestionBank = ({ onNavigate }) => {
                                             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                                                 <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm">
                                                     <span>Answer :</span>
-                                                    {q.options?.filter(o => o.isCorrect).map((o, i) => (
+                                                    {q.question_options?.filter(o => o.isCorrect).map((o, i) => (
                                                         <span key={i} className="flex items-center gap-1">
-                                                            <span className="font-bold">{String.fromCharCode(97 + q.options.findIndex(opt => opt === o))}.</span>
+                                                            <span className="font-bold">{String.fromCharCode(97 + q.question_options.findIndex(opt => opt === o))}.</span>
                                                             <div dangerouslySetInnerHTML={{ __html: o.content }} className="inline-block" />
-                                                            {i < q.options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
+                                                            {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
                                                         </span>
                                                     ))}
                                                 </div>
@@ -1259,7 +1243,7 @@ const QuestionBank = ({ onNavigate }) => {
                                                 <button
                                                     onClick={() => {
                                                         // Ensure options are properly mapped
-                                                        const formattedOptions = q.options.map(opt => ({
+                                                        const formattedOptions = (q.question_options || []).map(opt => ({
                                                             id: opt.id,
                                                             content: opt.content,
                                                             isCorrect: opt.isCorrect
@@ -1271,7 +1255,7 @@ const QuestionBank = ({ onNavigate }) => {
                                                             question: q.question || q.content,
                                                             solution: q.solution,
                                                             question_type: q.question_type || q.type, // Handle migration gracefully
-                                                            level: String(q.level),
+                                                            level: String(q.difficulty_level),
                                                             classId: q.class_level,
                                                             subjectId: q.subject?.id || q.subject,
                                                             topicId: q.topic?.id || q.topic || '',

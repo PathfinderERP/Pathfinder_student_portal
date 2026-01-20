@@ -169,11 +169,11 @@ class QuestionViewSet(viewsets.ModelViewSet):
                         exam_type=exam_type,
                         target_exam=target_exam,
                         question_type=q_type,
-                        level=level if level else '1',
+                        difficulty_level=level if level else '1',
                         content=question_text,
                         image_1=image_url_1,
                         image_2=image_url_2,
-                        options=options,
+                        question_options=options,
                         has_calculator=has_calc,
                         use_numeric_options=is_numeric
                     )
