@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/master-data/', include('master_data.urls')),
     path('api/tests/', include('tests.urls')),
     path('api/questions/', include('questions.urls')),
+    path('api/packages/', include('packages.urls')),
     path('api/', include('api.urls')),
 ]
 

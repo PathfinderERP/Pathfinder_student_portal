@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'master_data',
     'tests',
     'questions',
+    'packages',
 ]
 
 MIDDLEWARE = [
