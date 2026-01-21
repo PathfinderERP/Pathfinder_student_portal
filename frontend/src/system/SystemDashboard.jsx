@@ -27,7 +27,13 @@ import TestResponses from './admin/tests/TestResponses';
 import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
 import QuestionBank from './admin/QuestionBank';
-import PackageDummyPage from './packages/PackageDummyPage';
+
+// Package Components
+import PackageRegistry from './packages/PackageRegistry';
+import PackageAddTest from './packages/PackageAddTest';
+import PackageAddCourse from './packages/PackageAddCourse';
+import PackageAllotment from './packages/PackageAllotment';
+import PackageTestAnalysis from './packages/PackageTestAnalysis';
 
 // Modals
 import EditUserModal from './modals/EditUserModal';
@@ -389,15 +395,15 @@ const SystemDashboard = () => {
             case 'Test Result':
                 return <TestResult />;
             case 'Create Package':
-                return <PackageDummyPage title="Create Package" subtitle="Design and structure new test packages" />;
+                return <PackageRegistry />;
             case 'Add Test':
-                return <PackageDummyPage title="Add Test" subtitle="Include tests in your packages" />;
+                return <PackageAddTest />;
             case 'Add Course':
-                return <PackageDummyPage title="Add Course" subtitle="Link courses to packages" />;
+                return <PackageAddCourse />;
             case 'Package Allotment':
-                return <PackageDummyPage title="Package Allotment" subtitle="Assign packages to students or centres" />;
+                return <PackageAllotment />;
             case 'Test Analysis':
-                return <PackageDummyPage title="Test Analysis" subtitle="Deep dive into test performance analytics" />;
+                return <PackageTestAnalysis />;
             case 'Profile':
                 return (
                     <ProfilePage
