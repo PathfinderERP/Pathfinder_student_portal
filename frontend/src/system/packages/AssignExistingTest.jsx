@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Search, ArrowLeft, RefreshCw, Info, Clock, Calculator, List, Plus, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, LayoutGrid, Filter, BookOpen } from 'lucide-react';
+import { Search, ArrowLeft, RefreshCw, Info, Clock, Calculator, List, Plus, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, LayoutGrid, Filter, BookOpen, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -9,6 +9,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
     const { getApiUrl, token } = useAuth();
     const [availableTests, setAvailableTests] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [masterLoading, setMasterLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [assigningId, setAssigningId] = useState(null);
 
@@ -28,19 +29,36 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
     const [jumpPageInput, setJumpPageInput] = useState('');
 
     const fetchMasterData = useCallback(async () => {
+        setMasterLoading(true);
+        const apiUrl = getApiUrl();
+        const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
+
         try {
-            const apiUrl = getApiUrl();
-            const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
-            const [sRes, cRes, tRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
-                axios.get(`${apiUrl}/api/master-data/class-levels/`, config),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`, config)
-            ]);
-            setSessions(sRes.data);
-            setClassLevels(cRes.data);
-            setTargetExams(tRes.data);
+            // Fetch individual data with separate try-catch to avoid one failure blocking all
+            const fetchSessions = async () => {
+                try {
+                    const res = await axios.get(`${apiUrl}/api/master-data/sessions/`, config);
+                    setSessions(Array.isArray(res.data) ? res.data : (res.data.results || []));
+                } catch (e) { console.error("Sessions fetch failed", e); }
+            };
+            const fetchClasses = async () => {
+                try {
+                    const res = await axios.get(`${apiUrl}/api/master-data/classes/`, config);
+                    setClassLevels(Array.isArray(res.data) ? res.data : (res.data.results || []));
+                } catch (e) { console.error("Classes fetch failed", e); }
+            };
+            const fetchExams = async () => {
+                try {
+                    const res = await axios.get(`${apiUrl}/api/master-data/target-exams/`, config);
+                    setTargetExams(Array.isArray(res.data) ? res.data : (res.data.results || []));
+                } catch (e) { console.error("Target exams fetch failed", e); }
+            };
+
+            await Promise.allSettled([fetchSessions(), fetchClasses(), fetchExams()]);
         } catch (err) {
-            console.error("Fetch master data failed", err);
+            console.error("Fetch master data master call failed", err);
+        } finally {
+            setMasterLoading(false);
         }
     }, [getApiUrl, token]);
 
@@ -50,7 +68,6 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
             const apiUrl = getApiUrl();
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
-            console.log("DEBUG: All tests count:", response.data.length);
 
             // Filter tests that are not already in this package
             const currentPkgId = packageData?._id || packageData?.id;
@@ -58,7 +75,6 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                 const testPkgId = t.package?.id || t.package?._id || t.package;
                 return String(testPkgId) !== String(currentPkgId);
             });
-            console.log("DEBUG: Unassigned tests count:", unassigned.length);
 
             setAvailableTests(unassigned);
         } catch (err) {
@@ -103,7 +119,6 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
         return matchesSearch && matchesSession && matchesClass && matchesTargetExam;
     });
 
-    // Pagination Logic
     const totalPages = Math.ceil(filteredTests.length / itemsPerPage);
     const paginatedTests = filteredTests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -127,9 +142,9 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                         </button>
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <div className="px-3 py-1 bg-green-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-green-500/20">
+                                <span className="px-3 py-1 bg-green-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-green-500/20">
                                     {packageData?.name || 'Package'}
-                                </div>
+                                </span>
                                 <h2 className="text-3xl font-black tracking-tight uppercase">
                                     Assign <span className="text-green-500">Existing Test</span>
                                 </h2>
@@ -166,46 +181,49 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                     </div>
 
                     <div className="relative">
-                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                         <select
                             value={filterSession}
                             onChange={(e) => { setFilterSession(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
-                                ? 'bg-[#10141D] border-white/5 text-white focus:border-green-500/50'
+                            disabled={masterLoading}
+                            className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                                ? 'bg-[#10141D] border-white/5 text-white focus:border-green-500/50 [&>option]:bg-[#10141D]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-green-500/50'
                                 }`}
                         >
-                            <option value="">All Sessions</option>
+                            <option value="">{masterLoading ? 'Loading...' : 'All Sessions'}</option>
                             {sessions.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
                         </select>
                     </div>
 
                     <div className="relative">
-                        <LayoutGrid className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <LayoutGrid className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                         <select
                             value={filterClass}
                             onChange={(e) => { setFilterClass(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
-                                ? 'bg-[#10141D] border-white/5 text-white focus:border-green-500/50'
+                            disabled={masterLoading}
+                            className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                                ? 'bg-[#10141D] border-white/5 text-white focus:border-green-500/50 [&>option]:bg-[#10141D]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-green-500/50'
                                 }`}
                         >
-                            <option value="">All Classes</option>
+                            <option value="">{masterLoading ? 'Loading...' : 'All Classes'}</option>
                             {classLevels.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
                         </select>
                     </div>
 
                     <div className="relative">
-                        <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                         <select
                             value={filterTargetExam}
                             onChange={(e) => { setFilterTargetExam(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
-                                ? 'bg-[#10141D] border-white/5 text-white focus:border-green-500/50'
+                            disabled={masterLoading}
+                            className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                                ? 'bg-[#10141D] border-white/5 text-white focus:border-green-500/50 [&>option]:bg-[#10141D]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-green-500/50'
                                 }`}
                         >
-                            <option value="">All Exams</option>
+                            <option value="">{masterLoading ? 'Loading...' : 'All Exams'}</option>
                             {targetExams.map(t => <option key={t.id || t._id} value={t.id || t._id}>{t.name}</option>)}
                         </select>
                     </div>
@@ -305,7 +323,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                                     <td colSpan="5" className="py-20 text-center">
                                         <div className="max-w-xs mx-auto space-y-4">
                                             <div className="w-20 h-20 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                                                <Search size={40} className="text-slate-300" />
+                                                <AlertCircle size={40} className="text-slate-300" />
                                             </div>
                                             <p className="text-sm font-bold opacity-40 uppercase tracking-[0.2em]">No tests found matching criteria</p>
                                         </div>
