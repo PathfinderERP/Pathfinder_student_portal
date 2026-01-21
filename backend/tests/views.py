@@ -17,7 +17,8 @@ class TestViewSet(viewsets.ModelViewSet):
         queryset = Test.objects.all().order_by('-created_at')
         package_id = self.request.query_params.get('package', None)
         if package_id:
-            queryset = queryset.filter(package_id=package_id)
+            # Djongo sometimes prefers the explicit _id field or the model field name
+            queryset = queryset.filter(package__id=package_id)
         return queryset
 
     def perform_create(self, serializer):

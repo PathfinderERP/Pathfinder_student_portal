@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { RefreshCw, Search, Plus, Edit2, Trash2, ArrowLeft, X, CheckCircle, Clock } from 'lucide-react';
+import AssignExistingTest from './AssignExistingTest';
 
 const TestManagement = ({ packageData, examTypes, onBack }) => {
     const { isDarkMode } = useTheme();
@@ -11,13 +12,30 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
+    // View State
+    const [view, setView] = useState('list'); // 'list' or 'assign'
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Test Picker State (no longer used, but kept for non-disruptive change if needed elsewhere)
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const [availableTests, setAvailableTests] = useState([]);
+    const [pickerLoading, setPickerLoading] = useState(false);
+    const [pickerSearch, setPickerSearch] = useState('');
+
     const fetchTests = useCallback(async () => {
-        if (!packageData?._id) return;
+        const pkgId = packageData?._id || packageData?.id;
+        if (!pkgId) return;
         try {
             setLoading(true);
             const apiUrl = getApiUrl();
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
-            const response = await axios.get(`${apiUrl}/api/tests/?package=${packageData._id}`, config);
+            // Fetch tests assigned to this package
+            console.log("DEBUG: Fetching tests for package:", pkgId);
+            const response = await axios.get(`${apiUrl}/api/tests/?package=${pkgId}`, config);
+            console.log("DEBUG: Tests for package response:", response.data);
             setTests(response.data);
         } catch (err) {
             console.error("Failed to fetch tests", err);
@@ -58,6 +76,9 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
         test.code.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const totalPages = Math.ceil(filteredTests.length / itemsPerPage);
+    const paginatedTests = filteredTests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -67,10 +88,44 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
         duration: 180,
         has_calculator: false,
         option_type_numeric: true,
-        target_exam: packageData.exam_type || '',
+        target_exam: packageData?.target_exam?.id || packageData?.target_exam || '',
         exam_type: '',
-        session: packageData.session || ''
+        session: packageData?.session?.id || packageData?.session || ''
     });
+
+    const fetchAvailableTests = async () => {
+        try {
+            setPickerLoading(true);
+            const apiUrl = getApiUrl();
+            const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
+            // Fetch all tests
+            const response = await axios.get(`${apiUrl}/api/tests/`, config);
+
+            // Filter out tests already in this package
+            const existingIds = tests.map(t => t.id || t._id);
+            const unassigned = response.data.filter(t => !existingIds.includes(t.id || t._id));
+
+            setAvailableTests(unassigned);
+        } catch (err) {
+            console.error("Failed to fetch available tests", err);
+        } finally {
+            setPickerLoading(false);
+        }
+    };
+
+    const handleAssignTest = async (testId) => {
+        const pkgId = packageData?._id || packageData?.id;
+        try {
+            const apiUrl = getApiUrl();
+            const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
+            await axios.patch(`${apiUrl}/api/tests/${testId}/`, { package: pkgId }, config);
+            setView('list');
+            fetchTests();
+        } catch (err) {
+            console.error("Assign test failed", err);
+            alert("Error assigning test.");
+        }
+    };
 
     const handleOpenModal = (test = null) => {
         if (test) {
@@ -123,6 +178,17 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
         }
     };
 
+    if (view === 'assign') {
+        return <AssignExistingTest
+            packageData={packageData}
+            onBack={() => setView('list')}
+            onAssigned={() => {
+                setView('list');
+                fetchTests();
+            }}
+        />;
+    }
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
@@ -156,7 +222,10 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                         >
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
-                        <button onClick={() => handleOpenModal()} className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20">
+                        <button
+                            onClick={() => setView('assign')}
+                            className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20"
+                        >
                             <Plus size={16} strokeWidth={3} />
                             <span>Add Test +</span>
                         </button>
@@ -199,7 +268,13 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                             </tr>
                         </thead>
                         <tbody className="">
-                            {filteredTests.length > 0 ? filteredTests.map((test, index) => (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="11" className="py-20 text-center">
+                                        <RefreshCw size={40} className="animate-spin mx-auto text-blue-500 opacity-20" />
+                                    </td>
+                                </tr>
+                            ) : paginatedTests.length > 0 ? paginatedTests.map((test, index) => (
                                 <tr key={test.id || test._id} className={`group ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-slate-50 shadow-sm'} transition-all duration-300`}>
                                     <td className="py-4 px-4 text-xs font-bold opacity-60 first:rounded-l-2xl">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-4 px-4 text-sm font-extrabold text-center tracking-tight">{test.name}</td>
@@ -337,6 +412,83 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                     {isEditing ? 'Update Test Info' : 'Create New Test'}
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Test Picker Modal */}
+                {isPickerOpen && (
+                    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className={`w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
+                            <div className="bg-green-600 p-8 flex justify-between items-center text-white">
+                                <h3 className="text-xl font-black uppercase tracking-tight">Assign Existing Test</h3>
+                                <button onClick={() => setIsPickerOpen(false)} className="hover:bg-white/20 p-2 rounded-full transition-all active:scale-90"><X size={24} /></button>
+                            </div>
+
+                            <div className="p-8 space-y-6">
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search available tests..."
+                                        value={pickerSearch}
+                                        onChange={(e) => setPickerSearch(e.target.value)}
+                                        className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                                            ? 'bg-white/5 border-white/5 text-white focus:border-green-500/50'
+                                            : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-green-500/50'
+                                            }`}
+                                    />
+                                </div>
+
+                                <div className="max-h-[400px] overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                                    {pickerLoading ? (
+                                        <div className="py-12 text-center">
+                                            <RefreshCw className="animate-spin mx-auto text-green-500 mb-2" />
+                                            <p className="text-xs font-bold opacity-50 uppercase tracking-widest">Loading tests...</p>
+                                        </div>
+                                    ) : availableTests.filter(t =>
+                                        t.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                                        t.code.toLowerCase().includes(pickerSearch.toLowerCase())
+                                    ).length > 0 ? (
+                                        availableTests.filter(t =>
+                                            t.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                                            t.code.toLowerCase().includes(pickerSearch.toLowerCase())
+                                        ).map(test => (
+                                            <div key={test.id || test._id} className={`p-4 rounded-2xl border transition-all flex justify-between items-center group ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
+                                                <div>
+                                                    <p className="text-sm font-black tracking-tight">{test.name}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-500/10 text-blue-600'}`}>{test.code}</span>
+                                                        <span className="text-[9px] font-bold opacity-50 uppercase">{test.exam_type_details?.name || 'Unknown Type'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right hidden sm:block">
+                                                        <p className="text-[10px] font-black uppercase opacity-40 tracking-wider">Duration</p>
+                                                        <p className="text-xs font-bold">{test.duration} min</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleAssignTest(test.id || test._id)}
+                                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all active:scale-90"
+                                                    >
+                                                        Select
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-12 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2.5rem]">
+                                            <p className="text-xs font-bold opacity-40 uppercase tracking-widest mb-4">No tests found</p>
+                                            <button
+                                                onClick={() => { setIsPickerOpen(false); handleOpenModal(); }}
+                                                className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:underline"
+                                            >
+                                                Create a new test instead →
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

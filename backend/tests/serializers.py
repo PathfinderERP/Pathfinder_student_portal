@@ -47,6 +47,7 @@ class TestSerializer(serializers.ModelSerializer):
     target_exam_details = TargetExamSerializer(source='target_exam', read_only=True)
     exam_type_details = ExamTypeSerializer(source='exam_type', read_only=True)
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
+    package_name = serializers.ReadOnlyField(source='package.name')
     
     # Explicitly define allotted_sections to handle M2M with ObjectId pk
     allotted_sections = ObjectIdRelatedField(
