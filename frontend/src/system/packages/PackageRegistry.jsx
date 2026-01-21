@@ -35,6 +35,14 @@ const PackageRegistry = ({ onBack }) => {
     // Image Preview Modal State
     const [previewImage, setPreviewImage] = useState(null);
 
+    // Filter & Pagination State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterExam, setFilterExam] = useState('');
+    const [filterSession, setFilterSession] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [jumpPageInput, setJumpPageInput] = useState('');
+
     // Fetch Master Data on Modal Open
     const fetchMasterData = useCallback(async () => {
         try {
@@ -53,8 +61,11 @@ const PackageRegistry = ({ onBack }) => {
         }
     }, [getApiUrl, token]);
 
-    const handleOpenModal = (pkg = null) => {
+    useEffect(() => {
         fetchMasterData();
+    }, [fetchMasterData]);
+
+    const handleOpenModal = (pkg = null) => {
         if (pkg) {
             setIsEditing(true);
             setEditId(pkg._id);
@@ -93,6 +104,27 @@ const PackageRegistry = ({ onBack }) => {
     useEffect(() => {
         fetchPackages();
     }, [fetchPackages]);
+
+    // Filtering & Pagination Logic
+    const filteredPackages = packages.filter(pkg => {
+        const matchesSearch = pkg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            pkg.code.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesExam = filterExam ? pkg.exam_type === filterExam : true;
+        const matchesSession = filterSession ? pkg.session === filterSession : true;
+        return matchesSearch && matchesExam && matchesSession;
+    });
+
+    const totalPages = Math.ceil(filteredPackages.length / itemsPerPage);
+    const paginatedPackages = filteredPackages.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const handleJumpToPage = (e) => {
+        e.preventDefault();
+        const page = parseInt(jumpPageInput);
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            setJumpPageInput('');
+        }
+    };
 
     const toggleStatus = useCallback(async (pkg) => {
         try {
@@ -237,6 +269,62 @@ const PackageRegistry = ({ onBack }) => {
                     </div>
                 </div>
 
+                {/* Filters Row */}
+                <div className="flex flex-wrap items-center gap-4 mb-8">
+                    <div className="relative flex-1 min-w-[250px]">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search by name or code..."
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50 focus:ring-blue-500/5'
+                                : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50 focus:ring-blue-500/5'
+                                }`}
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <select
+                            value={filterExam}
+                            onChange={(e) => { setFilterExam(e.target.value); setCurrentPage(1); }}
+                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
+                                }`}
+                        >
+                            <option value="">All Exams</option>
+                            {targetExams.map(exam => (
+                                <option key={exam.id} value={exam.id}>{exam.name}</option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={filterSession}
+                            onChange={(e) => { setFilterSession(e.target.value); setCurrentPage(1); }}
+                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
+                                }`}
+                        >
+                            <option value="">All Sessions</option>
+                            {sessions.map(session => (
+                                <option key={session.id} value={session.id}>{session.name}</option>
+                            ))}
+                        </select>
+
+                        {(searchQuery || filterExam || filterSession) && (
+                            <button
+                                onClick={() => { setSearchQuery(''); setFilterExam(''); setFilterSession(''); setCurrentPage(1); }}
+                                className="px-4 py-3 bg-red-500/10 text-red-500 rounded-2xl font-bold text-xs hover:bg-red-500/20 transition-all"
+                            >
+                                Clear Filters
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 {/* Table Section */}
                 <div
                     ref={scrollRef}
@@ -263,9 +351,9 @@ const PackageRegistry = ({ onBack }) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-transparent">
-                            {packages.length > 0 ? packages.map((pkg, index) => (
+                            {paginatedPackages.length > 0 ? paginatedPackages.map((pkg, index) => (
                                 <tr key={pkg._id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300`}>
-                                    <td className="py-0 px-4 text-xs font-bold opacity-60">{index + 1}</td>
+                                    <td className="py-0 px-4 text-xs font-bold opacity-60">{(currentPage - 1) * itemsPerPage + index + 1}</td>
 
                                     <td className="py-0 px-4">
                                         <div className="font-extrabold text-sm tracking-tight">{pkg.name}</div>
@@ -338,6 +426,75 @@ const PackageRegistry = ({ onBack }) => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="mt-8 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-slate-100 dark:border-white/5 pt-8">
+                    <div className="flex items-center gap-4">
+                        <span className="text-xs font-bold opacity-50 uppercase tracking-widest">Show</span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                            className={`px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
+                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
+                                }`}
+                        >
+                            {[5, 10, 20, 50].map(val => (
+                                <option key={val} value={val}>{val} Rows</option>
+                            ))}
+                        </select>
+                        <span className="text-xs font-bold opacity-50 uppercase tracking-widest">per page</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                        >
+                            Prev
+                        </button>
+
+                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all ${currentPage === page
+                                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40'
+                                        : 'hover:bg-white/10 opacity-50 hover:opacity-100'
+                                        }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                        </div>
+
+                        <button
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                        >
+                            Next
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold opacity-50 uppercase tracking-widest">Jump to</span>
+                        <form onSubmit={handleJumpToPage} className="relative">
+                            <input
+                                type="number"
+                                value={jumpPageInput}
+                                onChange={(e) => setJumpPageInput(e.target.value)}
+                                placeholder="Page #"
+                                className={`w-20 px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
+                                    ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                    : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
+                                    }`}
+                            />
+                        </form>
+                    </div>
                 </div>
             </div>
 
