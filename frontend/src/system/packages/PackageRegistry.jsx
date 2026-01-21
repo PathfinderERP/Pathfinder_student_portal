@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Package, Search, Plus, Filter, ArrowLeft, Edit2, Trash2, CheckCircle, Clock, X, Upload } from 'lucide-react';
+import { Package, Search, Plus, Filter, ArrowLeft, Edit2, Trash2, CheckCircle, Clock, X, Upload, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -262,6 +262,14 @@ const PackageRegistry = ({ onBack }) => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <button
+                            onClick={fetchPackages}
+                            disabled={loadingData}
+                            className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            title="Refresh Data"
+                        >
+                            <RefreshCw size={20} className={loadingData ? 'animate-spin' : ''} />
+                        </button>
                         <button onClick={() => handleOpenModal()} className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20">
                             <Plus size={16} strokeWidth={3} />
                             <span>Add Package +</span>
@@ -290,13 +298,13 @@ const PackageRegistry = ({ onBack }) => {
                             value={filterExam}
                             onChange={(e) => { setFilterExam(e.target.value); setCurrentPage(1); }}
                             className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
-                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
                         >
-                            <option value="">All Exams</option>
+                            <option value="" className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>All Exams</option>
                             {targetExams.map(exam => (
-                                <option key={exam.id} value={exam.id}>{exam.name}</option>
+                                <option key={exam.id} value={exam.id} className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>{exam.name}</option>
                             ))}
                         </select>
 
@@ -304,13 +312,13 @@ const PackageRegistry = ({ onBack }) => {
                             value={filterSession}
                             onChange={(e) => { setFilterSession(e.target.value); setCurrentPage(1); }}
                             className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
-                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
                         >
-                            <option value="">All Sessions</option>
+                            <option value="" className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>All Sessions</option>
                             {sessions.map(session => (
-                                <option key={session.id} value={session.id}>{session.name}</option>
+                                <option key={session.id} value={session.id} className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>{session.name}</option>
                             ))}
                         </select>
 
@@ -334,45 +342,45 @@ const PackageRegistry = ({ onBack }) => {
                     onMouseMove={handleMouseMove}
                     className={`overflow-x-auto custom-scrollbar transition-all ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
                 >
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1000px]">
                         <thead>
-                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
-                                <th className="pb-1 px-4">#</th>
-                                <th className="pb-1 px-4">Name</th>
-                                <th className="pb-1 px-4">Code</th>
-                                <th className="pb-1 px-4">Exam Type</th>
-                                <th className="pb-1 px-4">Session</th>
-                                <th className="pb-1 px-4">Image</th>
-                                <th className="pb-1 px-4 text-center">Content Status</th>
-                                <th className="pb-1 px-4 text-center">Test Status</th>
-                                <th className="pb-1 px-4 text-center">Mark Completed</th>
-                                <th className="pb-1 px-4 text-center">Edit</th>
-                                <th className="pb-1 px-4 text-center">Delete</th>
+                            <tr className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                <th className="pb-4 px-6">#</th>
+                                <th className="pb-4 px-6">Name</th>
+                                <th className="pb-4 px-6">Code</th>
+                                <th className="pb-4 px-6">Exam Type</th>
+                                <th className="pb-4 px-6">Session</th>
+                                <th className="pb-4 px-6">Image</th>
+                                <th className="pb-4 px-6 text-center">Content Status</th>
+                                <th className="pb-4 px-6 text-center">Test Status</th>
+                                <th className="pb-4 px-6 text-center">Mark Completed</th>
+                                <th className="pb-4 px-6 text-center">Edit</th>
+                                <th className="pb-4 px-6 text-center">Delete</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-transparent">
+                        <tbody className="">
                             {paginatedPackages.length > 0 ? paginatedPackages.map((pkg, index) => (
-                                <tr key={pkg._id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300`}>
-                                    <td className="py-0 px-4 text-xs font-bold opacity-60">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                <tr key={pkg._id} className={`group ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-slate-50 shadow-sm'} transition-all duration-300`}>
+                                    <td className="py-4 px-6 text-xs font-bold opacity-60 first:rounded-l-2xl">{(currentPage - 1) * itemsPerPage + index + 1}</td>
 
-                                    <td className="py-0 px-4">
+                                    <td className="py-4 px-6">
                                         <div className="font-extrabold text-sm tracking-tight">{pkg.name}</div>
                                     </td>
 
-                                    <td className="py-0 px-4">
-                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                    <td className="py-4 px-6">
+                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                                             {pkg.code}
                                         </span>
                                     </td>
 
-                                    <td className="py-0 px-4 text-xs font-bold opacity-70">{pkg.exam_type_details?.name || 'N/A'}</td>
+                                    <td className="py-4 px-6 text-xs font-bold opacity-70">{pkg.exam_type_details?.name || 'N/A'}</td>
 
-                                    <td className="py-0 px-4 text-xs font-medium opacity-60">{pkg.session_details?.name || 'N/A'}</td>
+                                    <td className="py-4 px-6 text-xs font-medium opacity-60">{pkg.session_details?.name || 'N/A'}</td>
 
-                                    <td className="py-0 px-4">
+                                    <td className="py-4 px-6">
                                         <div
                                             onClick={() => pkg.image && setPreviewImage({ url: pkg.image, name: pkg.name })}
-                                            className={`w-8 h-8 my-1 rounded-lg flex items-center justify-center text-[10px] font-bold overflow-hidden cursor-pointer transition-transform active:scale-90 hover:ring-2 hover:ring-purple-500 shadow-sm ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}
+                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold overflow-hidden cursor-pointer transition-transform active:scale-90 hover:ring-2 hover:ring-purple-500 shadow-sm ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`}
                                             title="Click to view full image"
                                         >
                                             {pkg.image ? (
@@ -381,7 +389,7 @@ const PackageRegistry = ({ onBack }) => {
                                         </div>
                                     </td>
 
-                                    <td className="py-0 px-4 text-center">
+                                    <td className="py-4 px-6 text-center">
                                         <div className="flex justify-center">
                                             {pkg.content_status ?
                                                 <CheckCircle className="text-green-500" size={18} strokeWidth={2.5} /> :
@@ -390,7 +398,7 @@ const PackageRegistry = ({ onBack }) => {
                                         </div>
                                     </td>
 
-                                    <td className="py-0 px-4 text-center">
+                                    <td className="py-4 px-6 text-center">
                                         <div className="flex justify-center">
                                             {pkg.test_status ?
                                                 <CheckCircle className="text-green-500" size={18} strokeWidth={2.5} /> :
@@ -399,21 +407,21 @@ const PackageRegistry = ({ onBack }) => {
                                         </div>
                                     </td>
 
-                                    <td className="py-0 px-4 text-center">
+                                    <td className="py-4 px-6 text-center">
                                         <button onClick={() => toggleStatus(pkg)} className="group active:scale-95 transition-all">
                                             <div className={`w-10 h-5.5 rounded-full p-1 transition-colors duration-300 ease-in-out flex items-center ${pkg.is_completed ? 'bg-red-500 shadow-lg shadow-red-500/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                                                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) ${pkg.is_completed ? 'translate-x-[18px]' : 'translate-x-0'}`} />
+                                                <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${pkg.is_completed ? 'translate-x-[18px]' : 'translate-x-0'}`} />
                                             </div>
                                         </button>
                                     </td>
 
-                                    <td className="py-0 px-4 text-center">
+                                    <td className="py-4 px-6 text-center">
                                         <button onClick={() => handleOpenModal(pkg)} className="p-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors">
                                             <Edit2 size={16} />
                                         </button>
                                     </td>
 
-                                    <td className="py-0 px-4 text-center">
+                                    <td className="py-4 px-6 text-center last:rounded-r-2xl">
                                         <button onClick={() => handleDelete(pkg._id)} className="p-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
                                             <Trash2 size={16} />
                                         </button>
@@ -421,7 +429,7 @@ const PackageRegistry = ({ onBack }) => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="11" className="py-12 text-center opacity-50 font-medium">No packages found.</td>
+                                    <td colSpan="11" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-2xl">No packages found.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -436,12 +444,12 @@ const PackageRegistry = ({ onBack }) => {
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
                             className={`px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
-                                ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
+                                ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
                         >
                             {[5, 10, 20, 50].map(val => (
-                                <option key={val} value={val}>{val} Rows</option>
+                                <option key={val} value={val} className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>{val} Rows</option>
                             ))}
                         </select>
                         <span className="text-xs font-bold opacity-50 uppercase tracking-widest">per page</span>
@@ -562,13 +570,13 @@ const PackageRegistry = ({ onBack }) => {
                                     value={formValues.examType}
                                     onChange={(e) => setFormValues({ ...formValues, examType: e.target.value })}
                                     className={`w-full px-4 py-3.5 rounded-xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
-                                        ? 'bg-transparent border-white/10 text-white focus:border-blue-500'
+                                        ? 'bg-[#1A1F2B] border-white/10 text-white focus:border-blue-500 [&>option]:bg-[#1A1F2B]'
                                         : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'
                                         }`}
                                 >
-                                    <option value="" disabled>Select Exam Type</option>
+                                    <option value="" disabled className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>Select Exam Type</option>
                                     {targetExams.map(exam => (
-                                        <option key={exam.id} value={exam.id} className={isDarkMode ? 'bg-slate-900' : ''}>
+                                        <option key={exam.id} value={exam.id} className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>
                                             {exam.name}
                                         </option>
                                     ))}
@@ -586,13 +594,13 @@ const PackageRegistry = ({ onBack }) => {
                                         value={formValues.session}
                                         onChange={(e) => setFormValues({ ...formValues, session: e.target.value })}
                                         className={`w-full px-4 py-3.5 rounded-xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
-                                            ? 'bg-transparent border-white/10 text-white focus:border-blue-500'
+                                            ? 'bg-[#1A1F2B] border-white/10 text-white focus:border-blue-500 [&>option]:bg-[#1A1F2B]'
                                             : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'
                                             }`}
                                     >
-                                        <option value="" disabled>Select Session</option>
+                                        <option value="" disabled className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>Select Session</option>
                                         {sessions.map(session => (
-                                            <option key={session.id} value={session.id} className={isDarkMode ? 'bg-slate-900' : ''}>
+                                            <option key={session.id} value={session.id} className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>
                                                 {session.name}
                                             </option>
                                         ))}

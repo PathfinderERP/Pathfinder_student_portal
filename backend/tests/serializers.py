@@ -4,6 +4,7 @@ from master_data.serializers import SessionSerializer, ExamTypeSerializer, Class
 from sections.models import Section
 from centres.models import Centre
 from centres.serializers import CentreSerializer
+from packages.models import Package
 from bson import ObjectId
 
 class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
@@ -59,6 +60,12 @@ class TestSerializer(serializers.ModelSerializer):
         queryset=Centre.objects.all(),
         many=True,
         required=False
+    )
+
+    package = ObjectIdRelatedField(
+        queryset=Package.objects.all(),
+        required=False,
+        allow_null=True
     )
     
     # We can add a method to get count of allotted centres or details

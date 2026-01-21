@@ -17,8 +17,12 @@ class Package(models.Model):
     # Status
     content_status = models.BooleanField(default=False)
     test_status = models.BooleanField(default=False)
-    is_completed = models.BooleanField(default=False) # Toggle status
-    is_active = models.BooleanField(default=True) # Soft delete
+    is_completed = models.BooleanField(default=False) # Package status
+    is_published = models.BooleanField(default=False) # For student portal visibility
+    is_active = models.BooleanField(default=True) # Soft delete (don't show in list if False)
+    
+    # Allotment
+    allotted_sections = models.ManyToManyField('sections.Section', related_name='allotted_packages', blank=True)
     
     start_year = models.IntegerField(null=True, blank=True)
     end_year = models.IntegerField(null=True, blank=True)

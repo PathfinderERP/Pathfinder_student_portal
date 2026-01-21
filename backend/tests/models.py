@@ -10,6 +10,7 @@ class Test(models.Model):
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, related_name='tests')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, related_name='tests')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, related_name='tests')
+    package = models.ForeignKey('packages.Package', on_delete=models.CASCADE, related_name='tests', null=True, blank=True)
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, related_name='tests')
     
     # Allotment

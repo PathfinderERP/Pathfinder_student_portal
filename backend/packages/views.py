@@ -56,12 +56,34 @@ class PackageViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # FORCE is_active to be True regardless of serializer defaults
         validated_data = serializer.validated_data
+        # Ensure is_active is True for soft-delete purposes on creation
         validated_data['is_active'] = True
+        # Ensure is_published is False by default if not provided
+        if 'is_published' not in validated_data:
+            validated_data['is_published'] = False
+        
+        # Separate Many-to-Many data from regular data
+        m2m_data = {}
+        create_data = {}
+        for attr, value in validated_data.items():
+            try:
+                field = Package._meta.get_field(attr)
+                if field.many_to_many:
+                    m2m_data[attr] = value
+                else:
+                    create_data[attr] = value
+            except:
+                # If field not found on model, it might be a serializer-only field
+                create_data[attr] = value
             
-        package = Package(**validated_data)
-        package.save()
+        # Create the instance without m2m fields
+        package = Package.objects.create(**create_data)
+        
+        # Set m2m fields after the instance is saved (required by Django)
+        for attr, value in m2m_data.items():
+            if value:
+                getattr(package, attr).set(value)
         
         print(f"[DEBUG] SUCCESS! Created active package: {package.name}, ID: {package._id}, is_active: {package.is_active}")
         
@@ -74,11 +96,24 @@ class PackageViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         # Manually update fields to avoid Djongo's problematic update logic
+        non_m2m_fields = []
         for attr, value in serializer.validated_data.items():
-            setattr(instance, attr, value)
+            try:
+                field = instance._meta.get_field(attr)
+                if field.many_to_many:
+                    getattr(instance, attr).set(value)
+                else:
+                    setattr(instance, attr, value)
+                    non_m2m_fields.append(attr)
+            except:
+                setattr(instance, attr, value)
+                non_m2m_fields.append(attr)
         
-        # Only save modified fields to be safe
-        instance.save(update_fields=list(serializer.validated_data.keys()) + ['updated_at'])
+        # Save non-m2m fields
+        if non_m2m_fields:
+            instance.save(update_fields=non_m2m_fields + ['updated_at'])
+        else:
+            instance.save() # Just update updated_at if only m2m changed
         
         return Response(serializer.data)
 
