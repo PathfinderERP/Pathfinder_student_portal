@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
-    ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle
+    ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package
 } from 'lucide-react';
 
 // Common
@@ -27,6 +27,7 @@ import TestResponses from './admin/tests/TestResponses';
 import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
 import QuestionBank from './admin/QuestionBank';
+import PackageDummyPage from './packages/PackageDummyPage';
 
 // Modals
 import EditUserModal from './modals/EditUserModal';
@@ -275,6 +276,16 @@ const SystemDashboard = () => {
         },
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
         {
+            id: 'package_mgmt', icon: Package, label: 'Package Management', active: activeTab.startsWith('Package') || activeTab.startsWith('Add Test') || activeTab.startsWith('Add Course') || activeTab.startsWith('Test Analysis'),
+            subItems: [
+                { id: 'create_package', label: 'Create Package', active: activeTab === 'Create Package', onClick: () => setActiveTab('Create Package') },
+                { id: 'add_test', label: 'Add Test', active: activeTab === 'Add Test', onClick: () => setActiveTab('Add Test') },
+                { id: 'add_course', label: 'Add Course', active: activeTab === 'Add Course', onClick: () => setActiveTab('Add Course') },
+                { id: 'package_allotment', label: 'Package Allotment', active: activeTab === 'Package Allotment', onClick: () => setActiveTab('Package Allotment') },
+                { id: 'test_analysis', label: 'Test Analysis', active: activeTab === 'Test Analysis', onClick: () => setActiveTab('Test Analysis') }
+            ]
+        },
+        {
             id: 'admin_mgmt', icon: ShieldCheck, label: 'Admin Management', active: activeTab.startsWith('Admin'),
             subItems: [
                 { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
@@ -377,6 +388,16 @@ const SystemDashboard = () => {
                 return <MergeTestResult />;
             case 'Test Result':
                 return <TestResult />;
+            case 'Create Package':
+                return <PackageDummyPage title="Create Package" subtitle="Design and structure new test packages" />;
+            case 'Add Test':
+                return <PackageDummyPage title="Add Test" subtitle="Include tests in your packages" />;
+            case 'Add Course':
+                return <PackageDummyPage title="Add Course" subtitle="Link courses to packages" />;
+            case 'Package Allotment':
+                return <PackageDummyPage title="Package Allotment" subtitle="Assign packages to students or centres" />;
+            case 'Test Analysis':
+                return <PackageDummyPage title="Test Analysis" subtitle="Deep dive into test performance analytics" />;
             case 'Profile':
                 return (
                     <ProfilePage
