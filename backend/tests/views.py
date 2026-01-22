@@ -18,7 +18,13 @@ class TestViewSet(viewsets.ModelViewSet):
         package_id = self.request.query_params.get('package', None)
         if package_id:
             # Djongo sometimes prefers the explicit _id field or the model field name
-            queryset = queryset.filter(package__id=package_id)
+            from bson import ObjectId
+            try:
+                if package_id:
+                    queryset = queryset.filter(package_id=ObjectId(package_id))
+            except Exception:
+                # If invalid objectID is passed, return empty or handle gracefully
+                queryset = queryset.none()
         return queryset
 
     def perform_create(self, serializer):

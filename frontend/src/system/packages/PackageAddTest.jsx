@@ -59,15 +59,16 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("ARE YOU SURE?")) return;
+    const handleRemove = async (id) => {
+        if (!window.confirm("Remove this test from the package?")) return;
         try {
             const apiUrl = getApiUrl();
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
-            await axios.delete(`${apiUrl}/api/tests/${id}/`, config);
+            // Unassign test by setting package to null
+            await axios.patch(`${apiUrl}/api/tests/${id}/`, { package: null }, config);
             fetchTests();
         } catch (err) {
-            console.error("Delete failed", err);
+            console.error("Remove failed", err);
         }
     };
 
@@ -168,7 +169,8 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
             if (isEditing) {
                 await axios.patch(`${apiUrl}/api/tests/${editId}/`, payload, config);
             } else {
-                await axios.post(`${apiUrl}/api/tests/`, payload, config);
+                // Create Unassigned Test (package: null)
+                await axios.post(`${apiUrl}/api/tests/`, { ...formValues, package: null }, config);
             }
             setIsModalOpen(false);
             fetchTests();
@@ -185,6 +187,10 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
             onAssigned={() => {
                 setView('list');
                 fetchTests();
+            }}
+            onCreate={() => {
+                setView('list');
+                setTimeout(() => handleOpenModal(), 50);
             }}
         />;
     }
@@ -263,14 +269,13 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                 <th className="pb-4 px-4 text-center">Test Type</th>
                                 <th className="pb-1 px-4 text-center whitespace-nowrap">showQuestionPaper</th>
                                 <th className="pb-1 px-4 text-center">Sections</th>
-                                <th className="pb-1 px-4 text-center">Action</th>
-                                <th className="pb-1 px-4 text-center">Delete</th>
+                                <th className="pb-1 px-4 text-center">Remove</th>
                             </tr>
                         </thead>
                         <tbody className="">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="11" className="py-20 text-center">
+                                    <td colSpan="10" className="py-20 text-center">
                                         <RefreshCw size={40} className="animate-spin mx-auto text-blue-500 opacity-20" />
                                     </td>
                                 </tr>
@@ -307,20 +312,16 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             Manage
                                         </button>
                                     </td>
-                                    <td className="py-4 px-4 text-center">
-                                        <button onClick={() => handleOpenModal(test)} className="p-2 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors">
-                                            <Edit2 size={16} />
-                                        </button>
-                                    </td>
+                                    {/* Edit Removed as per request */}
                                     <td className="py-4 px-4 text-center last:rounded-r-2xl">
-                                        <button onClick={() => handleDelete(test.id || test._id)} className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+                                        <button onClick={() => handleRemove(test.id || test._id)} className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors" title="Remove from Package">
                                             <Trash2 size={16} />
                                         </button>
                                     </td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="11" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-2xl">No tests found for this package.</td>
+                                    <td colSpan="10" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-2xl">No tests found for this package.</td>
                                 </tr>
                             )}
                         </tbody>

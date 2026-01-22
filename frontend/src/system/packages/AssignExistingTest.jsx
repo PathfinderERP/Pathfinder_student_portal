@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Search, ArrowLeft, RefreshCw, Info, Clock, Calculator, List, Plus, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, LayoutGrid, Filter, BookOpen, AlertCircle } from 'lucide-react';
+import { Search, ArrowLeft, RefreshCw, Info, Clock, Calculator, List, Plus, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, LayoutGrid, Filter, BookOpen, AlertCircle, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
+const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [availableTests, setAvailableTests] = useState([]);
@@ -69,14 +69,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
 
-            // Filter tests that are not already in this package
-            const currentPkgId = packageData?._id || packageData?.id;
-            const unassigned = response.data.filter(t => {
-                const testPkgId = t.package?.id || t.package?._id || t.package;
-                return String(testPkgId) !== String(currentPkgId);
-            });
-
-            setAvailableTests(unassigned);
+            setAvailableTests(response.data);
         } catch (err) {
             console.error("Failed to fetch tests", err);
         } finally {
@@ -155,13 +148,22 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={fetchAvailableTests}
-                        disabled={loading}
-                        className={`p-4 rounded-2xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-blue-400 border border-white/5' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100'}`}
-                    >
-                        <RefreshCw size={24} className={loading ? 'animate-spin' : ''} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onCreate}
+                            className={`px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center gap-2 ${isDarkMode ? 'bg-orange-600 text-white hover:bg-orange-500' : 'bg-orange-500 text-white hover:bg-orange-600'}`}
+                        >
+                            <Plus size={16} strokeWidth={3} />
+                            <span>Create New Test</span>
+                        </button>
+                        <button
+                            onClick={fetchAvailableTests}
+                            disabled={loading}
+                            className={`p-4 rounded-2xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-blue-400 border border-white/5' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100'}`}
+                        >
+                            <RefreshCw size={24} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Row */}
@@ -301,21 +303,38 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                                         </div>
                                     </td>
                                     <td className="py-8 px-8 text-right">
-                                        <button
-                                            onClick={() => handleAssign(test.id || test._id)}
-                                            disabled={assigningId === (test.id || test._id)}
-                                            className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl transition-all active:scale-90 flex items-center gap-2 ml-auto ${assigningId === (test.id || test._id)
-                                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                                : 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 shadow-lg'
-                                                }`}
-                                        >
-                                            {assigningId === (test.id || test._id) ? (
-                                                <RefreshCw size={14} className="animate-spin" />
-                                            ) : (
-                                                <Plus size={14} strokeWidth={3} />
-                                            )}
-                                            <span>Assign Test</span>
-                                        </button>
+                                        {(() => {
+                                            const pkgId = packageData?._id || packageData?.id;
+                                            const testPkgId = test.package?.id || test.package?._id || test.package;
+                                            const isAlreadyAssigned = String(testPkgId) === String(pkgId);
+
+                                            if (isAlreadyAssigned) {
+                                                return (
+                                                    <div className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2 ml-auto ${isDarkMode ? 'bg-white/10 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                                        <CheckCircle size={14} strokeWidth={3} />
+                                                        <span>Selected</span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <button
+                                                    onClick={() => handleAssign(test.id || test._id)}
+                                                    disabled={assigningId === (test.id || test._id)}
+                                                    className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl transition-all active:scale-90 flex items-center gap-2 ml-auto ${assigningId === (test.id || test._id)
+                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                                        : 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 shadow-lg'
+                                                        }`}
+                                                >
+                                                    {assigningId === (test.id || test._id) ? (
+                                                        <RefreshCw size={14} className="animate-spin" />
+                                                    ) : (
+                                                        <Plus size={14} strokeWidth={3} />
+                                                    )}
+                                                    <span>Assign Test</span>
+                                                </button>
+                                            );
+                                        })()}
                                     </td>
                                 </tr>
                             )) : (
