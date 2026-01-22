@@ -827,9 +827,12 @@ const PackageAddCourse = () => {
     const handleDuplicate = (pkg) => alert(`Duplicate ${pkg.name} coming soon!`);
     const toggleStatus = async (pkg) => {
         try {
+            const pkgId = pkg.id || pkg._id;
+            if (!pkgId) return;
+
             const apiUrl = getApiUrl();
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
-            await axios.patch(`${apiUrl}/api/packages/${pkg._id}/`, { is_completed: !pkg.is_completed }, config);
+            await axios.patch(`${apiUrl}/api/packages/${pkgId}/`, { is_completed: !pkg.is_completed }, config);
             fetchPackages();
         } catch (err) {
             console.error("Toggle status failed", err);
@@ -947,6 +950,7 @@ const PackageAddCourse = () => {
                                     <th className="py-6 px-6">Name</th>
                                     <th className="py-6 px-6 text-center">Code</th>
                                     <th className="py-6 px-6 text-center">Manage</th>
+                                    <th className="py-6 px-6 text-center">Complete</th>
                                     <th className="py-6 px-6 text-center">Make Duplicate</th>
                                 </tr>
                             </thead>
@@ -957,6 +961,16 @@ const PackageAddCourse = () => {
                                         <td className="py-8 px-6"><p className="font-black text-sm">{pkg.name}</p></td>
                                         <td className="py-8 px-6 text-center"><span className="text-[10px] font-black tracking-widest bg-slate-100 dark:bg-white/10 px-2 py-1 rounded-lg">{pkg.code}</span></td>
                                         <td className="py-8 px-6 text-center"><button onClick={() => handleManagePackage(pkg)} className="px-4 py-2 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-blue-600/20">Manage Course</button></td>
+                                        <td className="py-8 px-6 text-center">
+                                            <button
+                                                onClick={() => toggleStatus(pkg)}
+                                                className={`group relative inline-flex h-6 w-12 items-center rounded-full transition-all duration-300 focus:outline-none ${pkg.is_completed ? 'bg-green-500 shadow-lg shadow-green-500/30' : 'bg-slate-300 dark:bg-white/10'}`}
+                                            >
+                                                <span
+                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-sm ${pkg.is_completed ? 'translate-x-7' : 'translate-x-1'}`}
+                                                />
+                                            </button>
+                                        </td>
                                         <td className="py-8 px-6 text-center"><button onClick={() => handleDuplicate(pkg)} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 mx-auto"><Copy size={12} /><span>Duplicate</span></button></td>
                                     </tr>
                                 ))}
