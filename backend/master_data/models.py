@@ -119,22 +119,59 @@ class Subject(models.Model):
     def __str__(self):
         return self.name
 
-class Topic(models.Model):
-    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='topics')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='topics')
-    name = models.CharField(max_length=255, help_text="Topic Name")
-    sub_topic = models.CharField(max_length=255, blank=True, null=True, help_text="Sub-topic (Optional)")
+class Chapter(models.Model):
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='chapters')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='chapters')
+    name = models.CharField(max_length=255)
     code = models.CharField(max_length=100, unique=True, blank=True)
+    sort_order = models.IntegerField(default=1)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         if not self.code:
-            # Generate a short code from topic name
+            base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
+            self.code = generate_unique_code(Chapter, base_short)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.subject.name} - {self.class_level.name})"
+
+class Topic(models.Model):
+    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='topics', null=True, blank=True)
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='topics')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='topics')
+    name = models.CharField(max_length=255, help_text="Topic Name")
+    code = models.CharField(max_length=100, unique=True, blank=True)
+    sort_order = models.IntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
             base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
             self.code = generate_unique_code(Topic, base_short)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} ({self.subject.name})"
+
+class SubTopic(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='subtopics')
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=100, unique=True, blank=True)
+    sort_order = models.IntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
+            self.code = generate_unique_code(SubTopic, base_short)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.name} ({self.topic.name})"

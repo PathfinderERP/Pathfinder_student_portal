@@ -13,7 +13,9 @@ const subTabs = [
     { id: 'Section Management', icon: Layers, label: 'Section Management', endpoint: 'sections' },
     { id: 'Subject', icon: BookOpen, label: 'Subject', endpoint: 'subjects' },
     { id: 'Class', icon: GraduationCap, label: 'Class', endpoint: 'classes' },
+    { id: 'Chapter', icon: BookOpen, label: 'Chapter', endpoint: 'chapters' },
     { id: 'Topic', icon: BookOpen, label: 'Topic', endpoint: 'topics' },
+    { id: 'SubTopic', icon: BookOpen, label: 'SubTopic', endpoint: 'subtopics' },
     { id: 'Session', icon: Calendar, label: 'Session', endpoint: 'sessions' },
     { id: 'Target Exam', icon: Target, label: 'Target Exam', endpoint: 'target-exams' },
     { id: 'Exam Type', icon: Layers, label: 'Exam Type', endpoint: 'exam-types' },
@@ -92,6 +94,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const [targetExams, setTargetExams] = useState([]);
     const [subjects, setSubjects] = useState([]);
     const [topics, setTopics] = useState([]);
+    const [chapters, setChapters] = useState([]);
+    const [subTopics, setSubTopics] = useState([]);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -228,22 +232,26 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             setData(response.data);
             lastFetchedTab.current = activeSubTab;
 
-            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Image') {
+            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
                 const requests = [
                     axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                     axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
                     axios.get(`${apiUrl}/api/master-data/classes/`, config),
                     axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
                     axios.get(`${apiUrl}/api/master-data/subjects/`, config),
-                    axios.get(`${apiUrl}/api/master-data/topics/`, config)
+                    axios.get(`${apiUrl}/api/master-data/topics/`, config),
+                    axios.get(`${apiUrl}/api/master-data/chapters/`, config),
+                    axios.get(`${apiUrl}/api/master-data/subtopics/`, config)
                 ];
-                const [sessRes, typeRes, classRes, targetRes, subRes, topicRes] = await Promise.all(requests);
+                const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes, subTopicRes] = await Promise.all(requests);
                 setSessions(sessRes.data);
                 setExamTypes(typeRes.data);
                 setClasses(classRes.data);
                 setTargetExams(targetRes.data);
                 setSubjects(subRes.data);
                 setTopics(topicRes.data);
+                setChapters(chapRes.data);
+                setSubTopics(subTopicRes.data);
             }
         } catch (err) {
             console.error(`Failed to fetch ${activeSubTab} data:`, err);
@@ -405,6 +413,23 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 total_marks: item.total_marks || 0,
                 is_active: item.is_active
             });
+        } else if (activeSubTab === 'Chapter') {
+            setFormValues({
+                name: item.name || '',
+                code: item.code || '',
+                class_level: item.class_level,
+                subject: item.subject,
+                order: item.order || 1,
+                is_active: item.is_active
+            });
+        } else if (activeSubTab === 'SubTopic') {
+            setFormValues({
+                name: item.name || '',
+                code: item.code || '',
+                topic: item.topic,
+                order: item.order || 1,
+                is_active: item.is_active
+            });
         } else if (activeSubTab === 'Topic') {
             setFormValues({
                 name: item.name || '',
@@ -412,6 +437,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 code: item.code || '',
                 class_level: item.class_level,
                 subject: item.subject,
+                chapter: item.chapter || '',
                 is_active: item.is_active
             });
         } else if (activeSubTab === 'Image') {
@@ -528,9 +554,35 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             return matchesSearch && matchesStatus && matchesSession && matchesExamType && matchesClass && matchesTarget;
         }
 
+        if (activeSubTab === 'Chapter') {
+            const matchesSearch = (item.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (item.subject_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (item.class_level_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (item.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+
+            let matchesStatus = true;
+            if (statusFilter === 'active') matchesStatus = item.is_active === true;
+            if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
+
+            return matchesSearch && matchesStatus;
+        }
+
+        if (activeSubTab === 'SubTopic') {
+            const matchesSearch = (item.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (item.topic_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (item.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+
+            let matchesStatus = true;
+            if (statusFilter === 'active') matchesStatus = item.is_active === true;
+            if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
+
+            return matchesSearch && matchesStatus;
+        }
+
         if (activeSubTab === 'Topic') {
             const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.subject_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.chapter_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.class_level_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.code?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -1114,11 +1166,25 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             <th className="pb-4 px-4 font-black text-center">Marks</th>
                                             <th className="pb-4 px-4 font-black text-center">Duration</th>
                                         </>
+                                    ) : activeSubTab === 'Chapter' ? (
+                                        <>
+                                            <th className="pb-4 px-4 font-black">Chapter Name</th>
+                                            <th className="pb-4 px-4 font-black text-center">Class</th>
+                                            <th className="pb-4 px-4 font-black">Subject</th>
+                                            <th className="pb-4 px-4 font-black">Code</th>
+                                        </>
+                                    ) : activeSubTab === 'SubTopic' ? (
+                                        <>
+                                            <th className="pb-4 px-4 font-black">SubTopic Name</th>
+                                            <th className="pb-4 px-4 font-black text-center">Topic</th>
+                                            <th className="pb-4 px-4 font-black">Code</th>
+                                        </>
                                     ) : activeSubTab === 'Topic' ? (
                                         <>
                                             <th className="pb-4 px-4 font-black">Topic Name</th>
                                             <th className="pb-4 px-4 font-black text-center">Class</th>
                                             <th className="pb-4 px-4 font-black">Subject</th>
+                                            <th className="pb-4 px-4 font-black">Chapter</th>
                                             <th className="pb-4 px-4 font-black">Sub-topic</th>
                                             <th className="pb-4 px-4 font-black">Code</th>
                                         </>
@@ -1175,6 +1241,41 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                                     </div>
                                                 </td>
                                             </>
+                                        ) : activeSubTab === 'Chapter' ? (
+                                            <>
+                                                <td className="py-5 px-4">
+                                                    <span className="font-extrabold text-sm uppercase">{item.name}</span>
+                                                </td>
+                                                <td className="py-5 px-4 text-center">
+                                                    <span className="font-bold text-sm tracking-tight">{item.class_level_name}</span>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                                        {item.subject_name}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 text-xs font-bold opacity-70">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {item.code}
+                                                    </span>
+                                                </td>
+                                            </>
+                                        ) : activeSubTab === 'SubTopic' ? (
+                                            <>
+                                                <td className="py-5 px-4">
+                                                    <span className="font-extrabold text-sm uppercase">{item.name}</span>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                                        {item.topic_name}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 text-xs font-bold opacity-70">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {item.code}
+                                                    </span>
+                                                </td>
+                                            </>
                                         ) : activeSubTab === 'Topic' ? (
                                             <>
                                                 <td className="py-5 px-4">
@@ -1186,6 +1287,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                                 <td className="py-5 px-4">
                                                     <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
                                                         {item.subject_name}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase">
+                                                        {item.chapter_name || '-'}
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-4">
@@ -1477,6 +1583,114 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         accept="image/*"
                                     />
                                 </div>
+                            ) : activeSubTab === 'SubTopic' ? (
+                                <div className="grid grid-cols-2 gap-4 text-left">
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
+                                        <select
+                                            required
+                                            value={formValues.topic}
+                                            onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">Select Topic</option>
+                                            {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">SubTopic Name</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={formValues.name}
+                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                            placeholder="e.g. Introduction, Key Concepts"
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center ml-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Unique Code</label>
+                                            <span className="text-[9px] font-bold text-orange-500 uppercase opacity-60 italic">Auto-generated</span>
+                                        </div>
+                                        <input
+                                            disabled
+                                            type="text"
+                                            value={formValues.code}
+                                            placeholder="SYSTEM_GEN"
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none opacity-50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
+                                        <input
+                                            type="number"
+                                            value={formValues.order}
+                                            onChange={e => setFormValues({ ...formValues, order: e.target.value })}
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                </div>
+                            ) : activeSubTab === 'Chapter' ? (
+                                <div className="grid grid-cols-2 gap-4 text-left">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                        <select
+                                            required
+                                            value={formValues.class_level}
+                                            onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">Select Class</option>
+                                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
+                                        <select
+                                            required
+                                            value={formValues.subject}
+                                            onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">Select Subject</option>
+                                            {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter Name</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={formValues.name}
+                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                            placeholder="e.g. Chemical Bonding, Linear Algebra"
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center ml-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Unique Code</label>
+                                            <span className="text-[9px] font-bold text-orange-500 uppercase opacity-60 italic">Auto-generated</span>
+                                        </div>
+                                        <input
+                                            disabled
+                                            type="text"
+                                            value={formValues.code}
+                                            placeholder="SYSTEM_GEN"
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none opacity-50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
+                                        <input
+                                            type="number"
+                                            value={formValues.order}
+                                            onChange={e => setFormValues({ ...formValues, order: e.target.value })}
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                </div>
                             ) : activeSubTab === 'Topic' ? (
                                 <div className="grid grid-cols-2 gap-4 text-left">
                                     <div className="space-y-1.5">
@@ -1501,6 +1715,22 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         >
                                             <option value="">Select Subject</option>
                                             {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter</label>
+                                        <select
+                                            value={formValues.chapter}
+                                            onChange={e => setFormValues({ ...formValues, chapter: e.target.value })}
+                                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">Select Chapter</option>
+                                            {chapters.filter(ch =>
+                                                (!formValues.class_level || String(ch.class_level) === String(formValues.class_level)) &&
+                                                (!formValues.subject || String(ch.subject) === String(formValues.subject))
+                                            ).map(ch => (
+                                                <option key={ch.id} value={ch.id}>{ch.name}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div className="space-y-1.5 col-span-2">

@@ -1,6 +1,6 @@
 from rest_framework import viewsets
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -18,6 +18,10 @@ class ClassLevelViewSet(viewsets.ModelViewSet):
     queryset = ClassLevel.objects.all().order_by('-created_at')
     serializer_class = ClassLevelSerializer
 
+class ChapterViewSet(viewsets.ModelViewSet):
+    queryset = Chapter.objects.all().order_by('-created_at')
+    serializer_class = ChapterSerializer
+
 class ExamDetailViewSet(viewsets.ModelViewSet):
     queryset = ExamDetail.objects.all().order_by('-created_at')
     serializer_class = ExamDetailSerializer
@@ -29,3 +33,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
 class TopicViewSet(viewsets.ModelViewSet):
     queryset = Topic.objects.all().order_by('-created_at')
     serializer_class = TopicSerializer
+
+class SubTopicViewSet(viewsets.ModelViewSet):
+    queryset = SubTopic.objects.all().order_by('-created_at')
+    serializer_class = SubTopicSerializer
