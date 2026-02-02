@@ -1,5 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
+<<<<<<< Updated upstream
 import { Search, ArrowLeft, RefreshCw, Info, Clock, Calculator, List, Plus, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, LayoutGrid, Filter, BookOpen, AlertCircle, CheckCircle } from 'lucide-react';
+=======
+import { Search, ArrowLeft, RefreshCw, Info, Clock, Calculator, List, Plus, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, LayoutGrid, Filter, BookOpen, AlertCircle, CheckCircle2 } from 'lucide-react';
+>>>>>>> Stashed changes
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,6 +16,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
     const [masterLoading, setMasterLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [assigningId, setAssigningId] = useState(null);
+    const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(false);
 
     // Master Data State
     const [sessions, setSessions] = useState([]);
@@ -34,7 +39,6 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
         const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
 
         try {
-            // Fetch individual data with separate try-catch to avoid one failure blocking all
             const fetchSessions = async () => {
                 try {
                     const res = await axios.get(`${apiUrl}/api/master-data/sessions/`, config);
@@ -56,7 +60,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
 
             await Promise.allSettled([fetchSessions(), fetchClasses(), fetchExams()]);
         } catch (err) {
-            console.error("Fetch master data master call failed", err);
+            console.error("Fetch master data failed", err);
         } finally {
             setMasterLoading(false);
         }
@@ -69,7 +73,18 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
 
+<<<<<<< Updated upstream
             setAvailableTests(response.data);
+=======
+            // Filter out tests already in this package
+            const currentPkgId = packageData?._id || packageData?.id;
+            const available = response.data.filter(t => {
+                const testPkgId = t.package?.id || t.package?._id || t.package;
+                return String(testPkgId) !== String(currentPkgId);
+            });
+
+            setAvailableTests(available);
+>>>>>>> Stashed changes
         } catch (err) {
             console.error("Failed to fetch tests", err);
         } finally {
@@ -109,7 +124,9 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
         const matchesClass = filterClass ? String(tClass) === String(filterClass) : true;
         const matchesTargetExam = filterTargetExam ? String(tTargetExam) === String(filterTargetExam) : true;
 
-        return matchesSearch && matchesSession && matchesClass && matchesTargetExam;
+        const matchesUnassigned = showOnlyUnassigned ? !t.package : true;
+
+        return matchesSearch && matchesSession && matchesClass && matchesTargetExam && matchesUnassigned;
     });
 
     const totalPages = Math.ceil(filteredTests.length / itemsPerPage);
@@ -143,11 +160,12 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
                                 </h2>
                             </div>
                             <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Select from the system-wide test library to add to this package.
+                                Select from the system-wide library. These tests are available for listing and assignment.
                             </p>
                         </div>
                     </div>
 
+<<<<<<< Updated upstream
                     <div className="flex items-center gap-3">
                         <button
                             onClick={onCreate}
@@ -156,6 +174,20 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
                             <Plus size={16} strokeWidth={3} />
                             <span>Create New Test</span>
                         </button>
+=======
+                    <div className="flex items-center gap-4">
+                        {/* Toggle for Unassigned only */}
+                        <button
+                            onClick={() => { setShowOnlyUnassigned(!showOnlyUnassigned); setCurrentPage(1); }}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2 ${showOnlyUnassigned
+                                ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20'
+                                : (isDarkMode ? 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-slate-100')}`}
+                        >
+                            <CheckCircle2 size={16} className={showOnlyUnassigned ? 'opacity-100' : 'opacity-20'} />
+                            <span>Only Unassigned</span>
+                        </button>
+
+>>>>>>> Stashed changes
                         <button
                             onClick={fetchAvailableTests}
                             disabled={loading}
@@ -241,7 +273,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
                                 <th className="py-6 px-8">Test Information</th>
                                 <th className="py-6 px-8 text-center">Exam Configuration</th>
                                 <th className="py-6 px-8 text-center">Duration</th>
-                                <th className="py-6 px-8 text-center">Features</th>
+                                <th className="py-6 px-8 text-center">Assignment Status</th>
                                 <th className="py-6 px-8 text-right">Action</th>
                             </tr>
                         </thead>
@@ -261,16 +293,9 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
                                             </div>
                                             <div>
                                                 <p className="font-black text-lg tracking-tight group-hover:text-green-500 transition-colors leading-none mb-2">{test.name}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest uppercase ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                        CODE: {test.code}
-                                                    </span>
-                                                    {test.package_name && (
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600'}`}>
-                                                            CURR: {test.package_name}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest uppercase ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                    CODE: {test.code}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>
@@ -291,15 +316,15 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned, onCreate }) => {
                                         </div>
                                     </td>
                                     <td className="py-8 px-8 text-center">
-                                        <div className="flex justify-center gap-3">
-                                            {test.has_calculator && (
-                                                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 shadow-sm" title="Calculator Enabled">
-                                                    <Calculator size={16} />
-                                                </div>
+                                        <div className="flex flex-col items-center gap-2">
+                                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border ${test.package_name
+                                                ? (isDarkMode ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-600')
+                                                : (isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600')}`}>
+                                                {test.package_name ? 'Assigned' : 'Available'}
+                                            </span>
+                                            {test.package_name && (
+                                                <span className="text-[9px] font-bold opacity-40 italic">In: {test.package_name}</span>
                                             )}
-                                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shadow-sm" title="Detailed Config">
-                                                <Info size={16} />
-                                            </div>
                                         </div>
                                     </td>
                                     <td className="py-8 px-8 text-right">
