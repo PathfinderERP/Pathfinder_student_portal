@@ -37,6 +37,7 @@ import PackageTestAnalysis from './packages/PackageTestAnalysis';
 
 // Doubt Components
 import AssignDoubt from './doubt/AssignDoubt';
+import SolveDoubt from './doubt/SolveDoubt';
 
 // Modals
 import EditUserModal from './modals/EditUserModal';
@@ -428,6 +429,8 @@ const SystemDashboard = () => {
                 return <PackageTestAnalysis />;
             case 'Assign Doubt':
                 return <AssignDoubt />;
+            case 'Solve Doubt':
+                return <SolveDoubt />;
             case 'Profile':
                 return (
                     <ProfilePage
@@ -467,7 +470,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Profile', 'Settings'
+            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt'
         ];
 
         return (
