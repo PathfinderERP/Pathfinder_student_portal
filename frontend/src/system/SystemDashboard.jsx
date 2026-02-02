@@ -39,7 +39,8 @@ import PackageTestAnalysis from './packages/PackageTestAnalysis';
 import AssignDoubt from './doubt/AssignDoubt';
 import SolveDoubt from './doubt/SolveDoubt';
 
-// Modals
+// Content Components
+import LibraryRegistry from './content/LibraryRegistry';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
@@ -303,8 +304,11 @@ const SystemDashboard = () => {
             ]
         },
         {
-            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Live Class', 'Video Management', 'Pen Paper Test', 'Homework'].includes(activeTab),
+            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework'].includes(activeTab),
             subItems: [
+                { id: 'library', label: 'Library', active: activeTab === 'Library', onClick: () => setActiveTab('Library') },
+                { id: 'solution_dpp_rpp', label: 'Solution To Dpp Rpp', active: activeTab === 'Solution To Dpp Rpp', onClick: () => setActiveTab('Solution To Dpp Rpp') },
+                { id: 'notice', label: 'Notice', active: activeTab === 'Notice', onClick: () => setActiveTab('Notice') },
                 { id: 'live_class', label: 'Live Class', active: activeTab === 'Live Class', onClick: () => setActiveTab('Live Class') },
                 { id: 'video_mgmt', label: 'Video Management', active: activeTab === 'Video Management', onClick: () => setActiveTab('Video Management') },
                 { id: 'pen_paper_test', label: 'Pen Paper Test', active: activeTab === 'Pen Paper Test', onClick: () => setActiveTab('Pen Paper Test') },
@@ -431,6 +435,8 @@ const SystemDashboard = () => {
                 return <AssignDoubt />;
             case 'Solve Doubt':
                 return <SolveDoubt />;
+            case 'Library':
+                return <LibraryRegistry />;
             case 'Profile':
                 return (
                     <ProfilePage
@@ -470,7 +476,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt'
+            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library'
         ];
 
         return (

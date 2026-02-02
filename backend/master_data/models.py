@@ -195,3 +195,15 @@ class Teacher(models.Model):
 
     def __str__(self):
         return self.name
+
+class LibraryItem(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    thumbnail = models.ImageField(upload_to='library/thumbnails/', blank=True, null=True)
+    pdf_file = models.FileField(upload_to='library/pdfs/', blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name

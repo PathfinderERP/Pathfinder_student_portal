@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import SystemDashboard from './system/SystemDashboard';
@@ -13,6 +14,7 @@ import './App.css';
 function App() {
   return (
     <Router>
+      <Toaster position="top-right" />
       <ThemeProvider>
         <AuthProvider>
           <Routes>

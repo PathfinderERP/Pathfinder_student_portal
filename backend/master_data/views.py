@@ -1,6 +1,7 @@
-from rest_framework import viewsets
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer
+from rest_framework import viewsets, permissions
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -41,3 +42,9 @@ class SubTopicViewSet(viewsets.ModelViewSet):
 class TeacherViewSet(viewsets.ModelViewSet):
     queryset = Teacher.objects.all().order_by('-created_at')
     serializer_class = TeacherSerializer
+
+class LibraryItemViewSet(viewsets.ModelViewSet):
+    queryset = LibraryItem.objects.all().order_by('-created_at')
+    serializer_class = LibraryItemSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.AllowAny] # Adjust as needed
