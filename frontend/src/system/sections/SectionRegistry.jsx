@@ -51,6 +51,7 @@ const SectionRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const authToken = token || localStorage.getItem('auth_token');
+            if (!authToken) return;
             const response = await axios.get(`${apiUrl}/api/sections/`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });

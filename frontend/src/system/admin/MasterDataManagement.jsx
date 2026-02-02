@@ -20,7 +20,8 @@ const subTabs = [
     { id: 'Target Exam', icon: Target, label: 'Target Exam', endpoint: 'target-exams' },
     { id: 'Exam Type', icon: Layers, label: 'Exam Type', endpoint: 'exam-types' },
     { id: 'Exam Details', icon: Database, label: 'Exam Details', endpoint: 'exam-details' },
-    { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' }
+    { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
+    { id: 'Teacher', icon: GraduationCap, label: 'Teacher', endpoint: 'teachers' }
 ];
 
 const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
@@ -111,6 +112,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         subject: '',
         topic: '',
         sub_topic: '',
+        email: '',
+        phone: '',
+        qualification: '',
+        experience: '',
         duration: 180,
         total_marks: 0,
         is_active: true
@@ -232,7 +237,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             setData(response.data);
             lastFetchedTab.current = activeSubTab;
 
-            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
+            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image' || activeSubTab === 'Teacher') {
                 const requests = [
                     axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                     axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
@@ -269,8 +274,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     useEffect(() => {
         const fetchCSRFToken = async () => {
             try {
+                const config = getAuthConfig();
+                if (!config) return;
+
                 const apiUrl = getApiUrl();
-                await axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig());
+                await axios.get(`${apiUrl}/api/master-data/sessions/`, config);
 
                 // Configure axios to always include CSRF token
                 const getCookie = (name) => {
@@ -380,6 +388,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             class_level: classes[0]?.id || '',
             subject: subjects[0]?.id || '',
             sub_topic: '',
+            email: '',
+            phone: '',
+            qualification: '',
+            experience: '',
             duration: 180,
             total_marks: 0,
             is_active: true
@@ -446,6 +458,17 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 subject: item.subject || '',
                 topic: item.topic || '',
                 is_active: true
+            });
+        } else if (activeSubTab === 'Teacher') {
+            setFormValues({
+                name: item.name || '',
+                code: item.code || '',
+                subject: item.subject,
+                email: item.email || '',
+                phone: item.phone || '',
+                qualification: item.qualification || '',
+                experience: item.experience || '',
+                is_active: item.is_active
             });
         } else {
             setFormValues({
@@ -1188,6 +1211,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             <th className="pb-4 px-4 font-black">Sub-topic</th>
                                             <th className="pb-4 px-4 font-black">Code</th>
                                         </>
+                                    ) : activeSubTab === 'Teacher' ? (
+                                        <>
+                                            <th className="pb-4 px-4 font-black">Teacher Name</th>
+                                            <th className="pb-4 px-4 font-black">Subject</th>
+                                            <th className="pb-4 px-4 font-black">Email</th>
+                                            <th className="pb-4 px-4 font-black">Phone</th>
+                                            <th className="pb-4 px-4 font-black">Qualification</th>
+                                        </>
                                     ) : (
                                         <>
                                             <th className="pb-4 px-4 font-black">Name / Title</th>
@@ -1305,6 +1336,27 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                                     </span>
                                                 </td>
                                             </>
+                                        ) : activeSubTab === 'Teacher' ? (
+                                            <>
+                                                <td className="py-5 px-4 block">
+                                                    <span className="font-extrabold text-sm uppercase">{item.name}</span>
+                                                    <div className="text-[10px] opacity-40 font-bold uppercase tracking-wider">{item.code}</div>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                                        {item.subject_name}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 font-bold text-xs opacity-70">
+                                                    {item.email || '-'}
+                                                </td>
+                                                <td className="py-5 px-4 font-bold text-xs opacity-70">
+                                                    {item.phone || '-'}
+                                                </td>
+                                                <td className="py-5 px-4 font-bold text-xs opacity-70">
+                                                    {item.qualification || '-'}
+                                                </td>
+                                            </>
                                         ) : (
                                             <>
                                                 <td className="py-5 px-4">
@@ -1388,14 +1440,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         return (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isActionLoading && setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-2xl rounded-[2.5rem] border shadow-2xl animate-in zoom-in duration-300 z-[1001] ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
-                    <form onSubmit={handleSubmit} className="p-7 space-y-5">
+                <div className={`relative w-full max-w-xl rounded-[2rem] border shadow-2xl animate-in zoom-in duration-300 z-[1001] ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <form onSubmit={handleSubmit} className="p-5 space-y-3">
                         <div className="flex justify-between items-center">
                             <div>
-                                <h2 className="text-2xl font-black uppercase tracking-tight">
+                                <h2 className="text-xl font-black uppercase tracking-tight">
                                     {modalMode === 'create' ? 'Add New' : 'Edit'} <span className="text-orange-500">{activeSubTab}</span>
                                 </h2>
-                                <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Configuration parameters</p>
+                                <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Configuration parameters</p>
                             </div>
                             <button type="button" onClick={() => setIsModalOpen(false)} className={`p-2 rounded-xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
                                 <X size={20} strokeWidth={3} />
@@ -1765,6 +1817,84 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             value={formValues.code}
                                             placeholder="SYSTEM_GEN"
                                             className={`w-full p-3 rounded-xl border font-bold text-sm outline-none opacity-50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                </div>
+                            ) : activeSubTab === 'Teacher' ? (
+                                <div className="grid grid-cols-2 gap-3 text-left">
+                                    <div className="space-y-1 col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Teacher Name</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={formValues.name}
+                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                            placeholder="e.g. John Doe, Dr. Smith"
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1 col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
+                                        <select
+                                            value={formValues.subject}
+                                            onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">Select Subject</option>
+                                            {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Email</label>
+                                        <input
+                                            type="email"
+                                            value={formValues.email}
+                                            onChange={e => setFormValues({ ...formValues, email: e.target.value })}
+                                            placeholder="email@example.com"
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Phone</label>
+                                        <input
+                                            type="text"
+                                            value={formValues.phone}
+                                            onChange={e => setFormValues({ ...formValues, phone: e.target.value })}
+                                            placeholder="+1 234 567 890"
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Qualification</label>
+                                        <input
+                                            type="text"
+                                            value={formValues.qualification}
+                                            onChange={e => setFormValues({ ...formValues, qualification: e.target.value })}
+                                            placeholder="e.g. PhD, MSc"
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Experience</label>
+                                        <input
+                                            type="text"
+                                            value={formValues.experience}
+                                            onChange={e => setFormValues({ ...formValues, experience: e.target.value })}
+                                            placeholder="e.g. 5 Years"
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-1 text-right col-span-2">
+                                        <div className="flex justify-between items-center ml-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Unique Code</label>
+                                            <span className="text-[9px] font-bold text-orange-500 uppercase opacity-60 italic">Auto-generated</span>
+                                        </div>
+                                        <input
+                                            disabled
+                                            type="text"
+                                            value={formValues.code}
+                                            placeholder="SYSTEM_GEN"
+                                            className={`w-full p-2 rounded-lg border font-bold text-xs outline-none opacity-50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                         />
                                     </div>
                                 </div>

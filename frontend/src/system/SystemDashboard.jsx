@@ -35,6 +35,9 @@ import PackageAddCourse from './packages/PackageAddCourse';
 import PackageAllotment from './packages/PackageAllotment';
 import PackageTestAnalysis from './packages/PackageTestAnalysis';
 
+// Doubt Components
+import AssignDoubt from './doubt/AssignDoubt';
+
 // Modals
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
@@ -292,6 +295,22 @@ const SystemDashboard = () => {
             ]
         },
         {
+            id: 'doubt_mgmt', icon: FileText, label: 'Doubt Management', active: activeTab.startsWith('Doubt') || activeTab.startsWith('Assign Doubt') || activeTab.startsWith('Solve Doubt'),
+            subItems: [
+                { id: 'assign_doubt', label: 'Assign Doubt', active: activeTab === 'Assign Doubt', onClick: () => setActiveTab('Assign Doubt') },
+                { id: 'solve_doubt', label: 'Solve Doubt', active: activeTab === 'Solve Doubt', onClick: () => setActiveTab('Solve Doubt') },
+            ]
+        },
+        {
+            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Live Class', 'Video Management', 'Pen Paper Test', 'Homework'].includes(activeTab),
+            subItems: [
+                { id: 'live_class', label: 'Live Class', active: activeTab === 'Live Class', onClick: () => setActiveTab('Live Class') },
+                { id: 'video_mgmt', label: 'Video Management', active: activeTab === 'Video Management', onClick: () => setActiveTab('Video Management') },
+                { id: 'pen_paper_test', label: 'Pen Paper Test', active: activeTab === 'Pen Paper Test', onClick: () => setActiveTab('Pen Paper Test') },
+                { id: 'homework', label: 'Homework', active: activeTab === 'Homework', onClick: () => setActiveTab('Homework') },
+            ]
+        },
+        {
             id: 'admin_mgmt', icon: ShieldCheck, label: 'Admin Management', active: activeTab.startsWith('Admin'),
             subItems: [
                 { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
@@ -314,6 +333,7 @@ const SystemDashboard = () => {
                         { label: 'Exam Type', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Type', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Type'); } },
                         { label: 'Exam Details', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Details', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Details'); } },
                         { label: 'Question Images', active: activeTab === 'Admin Master Data' && masterSubTab === 'Image', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Image'); } },
+                        { label: 'Teacher', active: activeTab === 'Admin Master Data' && masterSubTab === 'Teacher', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Teacher'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
@@ -406,6 +426,8 @@ const SystemDashboard = () => {
                 return <PackageAllotment />;
             case 'Test Analysis':
                 return <PackageTestAnalysis />;
+            case 'Assign Doubt':
+                return <AssignDoubt />;
             case 'Profile':
                 return (
                     <ProfilePage

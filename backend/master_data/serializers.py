@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -66,3 +66,9 @@ class SubTopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubTopic
         fields = ['id', 'topic', 'name', 'code', 'order', 'is_active', 'created_at', 'updated_at', 'topic_name']
+
+class TeacherSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    class Meta:
+        model = Teacher
+        fields = '__all__'

@@ -175,3 +175,23 @@ class SubTopic(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.topic.name})"
+
+class Teacher(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    qualification = models.CharField(max_length=255, blank=True, null=True)
+    experience = models.CharField(max_length=100, blank=True, null=True)
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='teachers')
+    code = models.CharField(max_length=50, unique=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_unique_code(Teacher, self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
