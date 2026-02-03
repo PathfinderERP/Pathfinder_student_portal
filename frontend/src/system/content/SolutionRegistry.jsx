@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Layers, CheckSquare, Square, ChevronDown, Check } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Layers, CheckSquare, Square, ChevronDown, Check, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
@@ -69,9 +69,20 @@ const SolutionRegistry = () => {
         question_thumbnail: null,
         question_pdf: null,
 
-        answer_title: '',
         answer_thumbnail: null,
         answer_pdf: null
+    });
+
+    // Advanced Pagination & Filtering State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [jumpToPage, setJumpToPage] = useState('');
+    const [activeFilters, setActiveFilters] = useState({
+        session: '',
+        class_level: '',
+        subject: '',
+        target_exam: '',
+        resource_type: ''
     });
 
     const fetchSolutionItems = useCallback(async () => {
@@ -336,9 +347,67 @@ const SolutionRegistry = () => {
         setIsSectionDropdownOpen(false);
     };
 
-    const filteredItems = solutionItems.filter(item =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Extract dynamic filter options from current data
+    const dynamicFilterOptions = useMemo(() => {
+        const options = {
+            sessions: new Set(),
+            classes: new Set(),
+            subjects: new Set(),
+            targetExams: new Set(),
+            resourceTypes: ['DPP', 'RPP', 'Others']
+        };
+
+        solutionItems.forEach(item => {
+            if (item.session_name) options.sessions.add(item.session_name);
+            if (item.class_name) options.classes.add(item.class_name);
+            if (item.subject_name) options.subjects.add(item.subject_name);
+            if (item.target_exam_name) options.targetExams.add(item.target_exam_name);
+        });
+
+        return {
+            sessions: Array.from(options.sessions).sort(),
+            classes: Array.from(options.classes).sort(),
+            subjects: Array.from(options.subjects).sort(),
+            targetExams: Array.from(options.targetExams).sort(),
+            resourceTypes: options.resourceTypes
+        };
+    }, [solutionItems]);
+
+    // Handle filtration
+    const filteredItems = useMemo(() => {
+        return solutionItems.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSession = !activeFilters.session || item.session_name === activeFilters.session;
+            const matchesClass = !activeFilters.class_level || item.class_name === activeFilters.class_level;
+            const matchesSubject = !activeFilters.subject || item.subject_name === activeFilters.subject;
+            const matchesTargetExam = !activeFilters.target_exam || item.target_exam_name === activeFilters.target_exam;
+
+            let matchesResourceType = true;
+            if (activeFilters.resource_type === 'DPP') matchesResourceType = item.resource_type_dpp;
+            else if (activeFilters.resource_type === 'RPP') matchesResourceType = item.resource_type_rpp;
+            else if (activeFilters.resource_type === 'Others') matchesResourceType = item.resource_type_others;
+
+            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesTargetExam && matchesResourceType;
+        });
+    }, [solutionItems, searchQuery, activeFilters]);
+
+    // Handle pagination
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const paginatedItems = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredItems.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredItems, currentPage, itemsPerPage]);
+
+    const handleJumpToPage = (e) => {
+        e.preventDefault();
+        const pageNum = parseInt(jumpToPage);
+        if (pageNum >= 1 && pageNum <= totalPages) {
+            setCurrentPage(pageNum);
+            setJumpToPage('');
+        } else {
+            toast.error(`Please enter a page between 1 and ${totalPages}`);
+        }
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative text-slate-900 dark:text-white">
@@ -389,6 +458,44 @@ const SolutionRegistry = () => {
                             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                         </button>
                     </div>
+
+                    {/* Filter Bar */}
+                    <div className={`p-6 rounded-[2rem] border flex flex-wrap items-center gap-6 ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex items-center gap-2 mr-2">
+                            <Filter size={16} className="text-amber-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Filters</span>
+                        </div>
+
+                        {[
+                            { label: 'Session', field: 'session', options: dynamicFilterOptions.sessions },
+                            { label: 'Class', field: 'class_level', options: dynamicFilterOptions.classes },
+                            { label: 'Subject', field: 'subject', options: dynamicFilterOptions.subjects },
+                            { label: 'Target Exam', field: 'target_exam', options: dynamicFilterOptions.targetExams },
+                            { label: 'Resource', field: 'resource_type', options: dynamicFilterOptions.resourceTypes }
+                        ].map((filter, i) => (
+                            <div key={i} className="flex flex-col gap-1">
+                                <select
+                                    value={activeFilters[filter.field]}
+                                    onChange={(e) => { setActiveFilters({ ...activeFilters, [filter.field]: e.target.value }); setCurrentPage(1); }}
+                                    className={`px-4 py-2 rounded-xl border-none outline-none font-bold text-[10px] uppercase tracking-wider cursor-pointer transition-all ${isDarkMode ? 'bg-[#1E2532] text-slate-300 hover:bg-[#252E3D]' : 'bg-white text-slate-600 shadow-sm hover:shadow-md'}`}
+                                >
+                                    <option value="" className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>All {filter.label}s</option>
+                                    {filter.options.map((opt, idx) => (
+                                        <option key={idx} value={opt} className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
+
+                        {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.target_exam || activeFilters.resource_type) && (
+                            <button
+                                onClick={() => { setActiveFilters({ session: '', class_level: '', subject: '', target_exam: '', resource_type: '' }); setCurrentPage(1); }}
+                                className="px-4 py-2 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all ml-auto"
+                            >
+                                Clear All
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -419,11 +526,11 @@ const SolutionRegistry = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredItems.length > 0 ? (
-                                filteredItems.map((item, index) => (
+                            ) : paginatedItems.length > 0 ? (
+                                paginatedItems.map((item, index) => (
                                     <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
-                                            <span className={`text-sm font-black ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{index + 1}</span>
+                                            <span className={`text-sm font-black ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{((currentPage - 1) * itemsPerPage) + index + 1}</span>
                                         </td>
                                         <td className="py-5 px-6">
                                             <span className="font-bold text-sm block">{item.name}</span>
@@ -490,6 +597,83 @@ const SolutionRegistry = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Advanced Pagination Footer */}
+                <div className={`p-8 border-t flex flex-col md:flex-row justify-between items-center gap-8 ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-slate-100 bg-slate-50/50'}`}>
+                    {/* Items Per Page */}
+                    <div className="flex items-center gap-4 order-2 md:order-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">View</span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm'}`}
+                        >
+                            {[10, 20, 50, 100].map(val => (
+                                <option key={val} value={val} className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>{val} per page</option>
+                            ))}
+                        </select>
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-2">
+                            Total: <span className="text-amber-500">{filteredItems.length}</span>
+                        </span>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="flex items-center gap-2 order-1 md:order-2">
+                        <button
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(1)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                        >
+                            <ChevronsLeft size={18} strokeWidth={2.5} />
+                        </button>
+                        <button
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(prev => prev - 1)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                        >
+                            <ChevronLeft size={18} strokeWidth={2.5} />
+                        </button>
+
+                        <div className="flex items-center gap-1 mx-4">
+                            <span className="text-sm font-black">Page</span>
+                            <span className={`px-4 py-1.5 rounded-lg font-black text-sm ${isDarkMode ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-amber-500 text-white shadow-lg'}`}>
+                                {currentPage}
+                            </span>
+                            <span className="text-sm font-black opacity-40">of {totalPages || 1}</span>
+                        </div>
+
+                        <button
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            onClick={() => setCurrentPage(prev => prev + 1)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                        >
+                            <ChevronRight size={18} strokeWidth={2.5} />
+                        </button>
+                        <button
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                        >
+                            <ChevronsRight size={18} strokeWidth={2.5} />
+                        </button>
+                    </div>
+
+                    {/* Jump To */}
+                    <div className="order-3">
+                        <form onSubmit={handleJumpToPage} className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                placeholder="Jump to..."
+                                value={jumpToPage}
+                                onChange={(e) => setJumpToPage(e.target.value)}
+                                className={`w-24 px-4 py-2 rounded-xl text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800'}`}
+                            />
+                            <button type="submit" className={`p-2 rounded-xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>
+                                Go
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
