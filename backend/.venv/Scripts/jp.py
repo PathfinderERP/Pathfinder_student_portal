@@ -1,4 +1,4 @@
-#!A:\Pathfinder_student_portal\backend\.venv\Scripts\python.exe
+#!D:\student portal\backend\.venv\Scripts\python.exe
 
 import sys
 import json

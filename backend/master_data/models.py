@@ -207,3 +207,43 @@ class LibraryItem(models.Model):
 
     def __str__(self):
         return self.name
+
+class SolutionItem(models.Model):
+    # Core Details
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    
+    # Master Data Links
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    sections = models.ManyToManyField('sections.Section', related_name='solutions', blank=True)
+
+    # Resource Categories (Stored as comma-separated or similar, handled in frontend)
+    resource_type_dpp = models.BooleanField(default=False)
+    resource_type_rpp = models.BooleanField(default=False)
+    resource_type_others = models.BooleanField(default=False)
+    other_resource_name = models.CharField(max_length=100, blank=True, null=True)
+
+    # Question Part
+    question_title = models.CharField(max_length=255, blank=True, null=True)
+    question_thumbnail = models.ImageField(upload_to='solutions/thumbnails/questions/', blank=True, null=True)
+    question_pdf = models.FileField(upload_to='solutions/pdfs/questions/', blank=True, null=True)
+
+    # Answer Part
+    answer_title = models.CharField(max_length=255, blank=True, null=True)
+    answer_thumbnail = models.ImageField(upload_to='solutions/thumbnails/answers/', blank=True, null=True)
+    answer_pdf = models.FileField(upload_to='solutions/pdfs/answers/', blank=True, null=True)
+
+    # Legacy field (keeping it for safety or migrating later, but we'll use the new ones)
+    thumbnail = models.ImageField(upload_to='solutions/thumbnails/', blank=True, null=True)
+    pdf_file = models.FileField(upload_to='solutions/pdfs/', blank=True, null=True)
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name

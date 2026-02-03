@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -46,5 +46,13 @@ class TeacherViewSet(viewsets.ModelViewSet):
 class LibraryItemViewSet(viewsets.ModelViewSet):
     queryset = LibraryItem.objects.all().order_by('-created_at')
     serializer_class = LibraryItemSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.AllowAny] # Adjust as needed
+
+class SolutionItemViewSet(viewsets.ModelViewSet):
+    queryset = SolutionItem.objects.select_related(
+        'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+    ).prefetch_related('sections').all().order_by('-created_at')
+    serializer_class = SolutionItemSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.AllowAny] # Adjust as needed

@@ -41,6 +41,7 @@ import SolveDoubt from './doubt/SolveDoubt';
 
 // Content Components
 import LibraryRegistry from './content/LibraryRegistry';
+import SolutionRegistry from './content/SolutionRegistry';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
@@ -437,6 +438,8 @@ const SystemDashboard = () => {
                 return <SolveDoubt />;
             case 'Library':
                 return <LibraryRegistry />;
+            case 'Solution To Dpp Rpp':
+                return <SolutionRegistry />;
             case 'Profile':
                 return (
                     <ProfilePage
@@ -476,7 +479,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library'
+            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp'
         ];
 
         return (

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -77,3 +77,64 @@ class LibraryItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = LibraryItem
         fields = '__all__'
+
+from sections.models import Section
+from bson import ObjectId
+
+class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
+    """
+    Custom field to handle MongoDB ObjectIds in PrimaryKeyRelatedFields.
+    Djongo often requires strings to be converted to ObjectIds explicitly for lookups.
+    """
+    def to_internal_value(self, data):
+        try:
+            if isinstance(data, str) and ObjectId.is_valid(data):
+                data = ObjectId(data)
+        except Exception:
+            pass
+        return super().to_internal_value(data)
+
+    def to_representation(self, value):
+        return str(value.pk)
+
+class SolutionItemSerializer(serializers.ModelSerializer):
+    sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
+    section_names = serializers.SerializerMethodField()
+    session_name = serializers.SerializerMethodField()
+    class_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    exam_type_name = serializers.SerializerMethodField()
+    target_exam_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SolutionItem
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Explicitly ensure sections are returned as ID strings
+        # This fixes Djongo's tendency to return __str__ values for ManyToMany fields
+        if 'sections' in ret:
+            ret['sections'] = [str(s.pk) for s in instance.sections.all()]
+        return ret
+
+    def get_section_names(self, obj):
+        try:
+            return [section.name for section in obj.sections.all()]
+        except:
+            return []
+
+    def get_session_name(self, obj):
+        return obj.session.name if obj.session else None
+
+    def get_class_name(self, obj):
+        return obj.class_level.name if obj.class_level else None
+
+    def get_subject_name(self, obj):
+        return obj.subject.name if obj.subject else None
+
+    def get_exam_type_name(self, obj):
+        return obj.exam_type.name if obj.exam_type else None
+
+    def get_target_exam_name(self, obj):
+        return obj.target_exam.name if obj.target_exam else None
