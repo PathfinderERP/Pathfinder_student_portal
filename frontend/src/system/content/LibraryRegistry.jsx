@@ -21,6 +21,7 @@ const LibraryRegistry = () => {
     const [subjects, setSubjects] = useState([]);
     const [examTypes, setExamTypes] = useState([]);
     const [targetExams, setTargetExams] = useState([]);
+    const [sections, setSections] = useState([]);
 
     // View Modal State
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -37,7 +38,8 @@ const LibraryRegistry = () => {
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: ''
+        target_exam: '',
+        section: ''
     });
 
     const [libraryItems, setLibraryItems] = useState([]);
@@ -51,7 +53,8 @@ const LibraryRegistry = () => {
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: ''
+        target_exam: '',
+        section: ''
     });
 
     const fetchLibraryItems = useCallback(async () => {
@@ -71,18 +74,20 @@ const LibraryRegistry = () => {
     const fetchMasterData = useCallback(async () => {
         try {
             const apiUrl = getApiUrl();
-            const [sessRes, classRes, subRes, etRes, teRes] = await Promise.all([
+            const [sessRes, classRes, subRes, etRes, teRes, secRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/sessions/`),
                 axios.get(`${apiUrl}/api/master-data/classes/`),
                 axios.get(`${apiUrl}/api/master-data/subjects/`),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`)
+                axios.get(`${apiUrl}/api/master-data/target-exams/`),
+                axios.get(`${apiUrl}/api/sections/`)
             ]);
             setSessions(sessRes.data);
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
             setTargetExams(teRes.data);
+            setSections(secRes.data);
         } catch (error) {
             console.error("Failed to fetch master data", error);
         }
@@ -118,6 +123,7 @@ const LibraryRegistry = () => {
             if (newItem.subject) formData.append('subject', newItem.subject);
             if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
             if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
+            if (newItem.section) formData.append('section', newItem.section);
             if (newItem.thumbnail) formData.append('thumbnail', newItem.thumbnail);
             if (newItem.pdf) formData.append('pdf_file', newItem.pdf);
 
@@ -147,6 +153,7 @@ const LibraryRegistry = () => {
             subject: item.subject || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
+            section: item.section || '',
             thumbnail: null,
             pdf: null,
             existing_thumbnail: item.thumbnail
@@ -167,6 +174,7 @@ const LibraryRegistry = () => {
             formData.append('subject', newItem.subject || '');
             formData.append('exam_type', newItem.exam_type || '');
             formData.append('target_exam', newItem.target_exam || '');
+            formData.append('section', newItem.section || '');
             if (newItem.thumbnail) formData.append('thumbnail', newItem.thumbnail);
             if (newItem.pdf) formData.append('pdf_file', newItem.pdf);
 
@@ -201,7 +209,7 @@ const LibraryRegistry = () => {
     };
 
     const resetForm = () => {
-        setNewItem({ name: '', description: '', thumbnail: null, pdf: null, session: '', class_level: '', subject: '', exam_type: '', target_exam: '' });
+        setNewItem({ name: '', description: '', thumbnail: null, pdf: null, session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' });
         setSelectedItemForEdit(null);
     };
 
@@ -214,16 +222,20 @@ const LibraryRegistry = () => {
             const matchesSubject = !activeFilters.subject || item.subject === activeFilters.subject;
             const matchesExamType = !activeFilters.exam_type || item.exam_type === activeFilters.exam_type;
             const matchesTargetExam = !activeFilters.target_exam || item.target_exam === activeFilters.target_exam;
-            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam;
+            const matchesSection = !activeFilters.section || item.section === activeFilters.section;
+            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam && matchesSection;
         });
     }, [libraryItems, searchQuery, activeFilters]);
 
-    // Dynamic Filter Options
+    // Dynamic Filter Options based on available data
     const dynamicFilterOptions = useMemo(() => {
         return {
             sessions: [...new Set(libraryItems.filter(i => i.session_name).map(i => JSON.stringify({ id: i.session, name: i.session_name })))].map(s => JSON.parse(s)),
             classes: [...new Set(libraryItems.filter(i => i.class_name).map(i => JSON.stringify({ id: i.class_level, name: i.class_name })))].map(c => JSON.parse(c)),
-            subjects: [...new Set(libraryItems.filter(i => i.subject_name).map(i => JSON.stringify({ id: i.subject, name: i.subject_name })))].map(s => JSON.parse(s))
+            subjects: [...new Set(libraryItems.filter(i => i.subject_name).map(i => JSON.stringify({ id: i.subject, name: i.subject_name })))].map(s => JSON.parse(s)),
+            examTypes: [...new Set(libraryItems.filter(i => i.exam_type_name).map(i => JSON.stringify({ id: i.exam_type, name: i.exam_type_name })))].map(e => JSON.parse(e)),
+            targetExams: [...new Set(libraryItems.filter(i => i.target_exam_name).map(i => JSON.stringify({ id: i.target_exam, name: i.target_exam_name })))].map(t => JSON.parse(t)),
+            sections: [...new Set(libraryItems.filter(i => i.section_name).map(i => JSON.stringify({ id: i.section, name: i.section_name })))].map(s => JSON.parse(s))
         };
     }, [libraryItems]);
 
@@ -316,12 +328,48 @@ const LibraryRegistry = () => {
                                 <option value="">All Classes</option>
                                 {dynamicFilterOptions.classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
-                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject) && (
+                            <select
+                                value={activeFilters.subject}
+                                onChange={(e) => setActiveFilters({ ...activeFilters, subject: e.target.value })}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                                <option value="">All Subjects</option>
+                                {dynamicFilterOptions.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                            <select
+                                value={activeFilters.exam_type}
+                                onChange={(e) => setActiveFilters({ ...activeFilters, exam_type: e.target.value })}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                                <option value="">All Exam Types</option>
+                                {dynamicFilterOptions.examTypes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                            </select>
+                            <select
+                                value={activeFilters.target_exam}
+                                onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                                <option value="">All Target Exams</option>
+                                {dynamicFilterOptions.targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                            <select
+                                value={activeFilters.section}
+                                onChange={(e) => setActiveFilters({ ...activeFilters, section: e.target.value })}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                                <option value="">All Sections</option>
+                                {dynamicFilterOptions.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exam || activeFilters.section) && (
                                 <button
-                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '' })}
-                                    className="px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all"
+                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' })}
+                                    className="px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                                 >
-                                    Clear All
+                                    Clear All Filters
                                 </button>
                             )}
                         </div>
@@ -370,6 +418,12 @@ const LibraryRegistry = () => {
                                                         <>
                                                             <span className="w-1 h-1 bg-slate-500 rounded-full opacity-30" />
                                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{item.class_name}</span>
+                                                        </>
+                                                    )}
+                                                    {item.section_name && (
+                                                        <>
+                                                            <span className="w-1 h-1 bg-slate-500 rounded-full opacity-30" />
+                                                            <span className="text-[10px] font-bold text-indigo-500 uppercase">{item.section_name}</span>
                                                         </>
                                                     )}
                                                 </div>
@@ -486,112 +540,125 @@ const LibraryRegistry = () => {
                             <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><X size={20} /></button>
                         </div>
 
-                        <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-1.5 ml-1 text-slate-500">Resource Name *</label>
-                                            <input
-                                                required
-                                                type="text"
-                                                value={newItem.name}
-                                                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                                className={`w-full px-5 py-3 rounded-2xl outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800'}`}
-                                                placeholder="e.g. Physics Module Vol 1"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-1.5 ml-1 text-slate-500">Description</label>
-                                            <textarea
-                                                value={newItem.description}
-                                                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                                className={`w-full px-5 py-3 rounded-2xl outline-none border-2 font-bold transition-all min-h-[80px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800'}`}
-                                                placeholder="Detailed description of the resource..."
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-1.5 ml-1 text-slate-500">Thumbnail</label>
-                                            <div className="relative h-28 group/thumb">
-                                                {(newItem.thumbnail || newItem.existing_thumbnail) && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveFile('thumbnail')}
-                                                        className="absolute -top-2 -right-2 z-20 p-1 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600 transition-all opacity-0 group-hover/thumb:opacity-100"
-                                                    >
-                                                        <X size={12} strokeWidth={3} />
-                                                    </button>
-                                                )}
-                                                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'thumbnail')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                                <div className={`absolute inset-0 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${newItem.thumbnail || newItem.existing_thumbnail ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/10 hover:border-emerald-500/30'}`}>
-                                                    {newItem.thumbnail ? (
-                                                        <img src={URL.createObjectURL(newItem.thumbnail)} className="h-20 object-contain rounded-lg shadow-lg" alt="Preview" />
-                                                    ) : newItem.existing_thumbnail ? (
-                                                        <img src={newItem.existing_thumbnail} className="h-20 object-contain rounded-lg shadow-lg" alt="Existing" />
-                                                    ) : (
-                                                        <Upload className="text-slate-500" size={20} />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-1.5 ml-1 text-slate-500">PDF File</label>
-                                            <div className="relative h-28 group/pdf">
-                                                {newItem.pdf && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveFile('pdf')}
-                                                        className="absolute -top-2 -right-2 z-20 p-1 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600 transition-all opacity-0 group-hover/pdf:opacity-100"
-                                                    >
-                                                        <X size={12} strokeWidth={3} />
-                                                    </button>
-                                                )}
-                                                <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, 'pdf')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                                <div className={`absolute inset-0 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${newItem.pdf ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10 hover:border-blue-500/30'}`}>
-                                                    {newItem.pdf ? (
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <FileCheck className="text-blue-500" size={24} />
-                                                            <span className="text-[10px] font-bold text-blue-500/80 truncate max-w-[80px]">{newItem.pdf.name}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <FileText className="text-slate-500" size={20} />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                            {/* Top Section: Academic Categorization */}
+                            <div className={`p-6 rounded-[2rem] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="w-1.5 h-5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                    <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-emerald-500">Resource Categorization</span>
                                 </div>
 
-                                <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Academic Filtering</span>
-                                    </div>
-
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     {[
                                         { label: 'Session', field: 'session', options: sessions },
                                         { label: 'Class Level', field: 'class_level', options: classes },
                                         { label: 'Subject', field: 'subject', options: subjects },
                                         { label: 'Exam Type', field: 'exam_type', options: examTypes },
-                                        { label: 'Target Exam', field: 'target_exam', options: targetExams }
+                                        { label: 'Target Exam', field: 'target_exam', options: targetExams },
+                                        { label: 'Section', field: 'section', options: sections }
                                     ].map((meta, idx) => (
-                                        <div key={idx}>
-                                            <label className="block text-[9px] font-black uppercase tracking-widest opacity-40 mb-1.5 ml-1">{meta.label}</label>
+                                        <div key={idx} className="space-y-1.5">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">{meta.label}</label>
                                             <select
+                                                required
                                                 value={newItem[meta.field]}
                                                 onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
                                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                                className={`w-full px-4 py-2.5 rounded-xl border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-emerald-500/50' : 'bg-slate-50 border-slate-100 text-slate-800'}`}
+                                                className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-emerald-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'}`}
                                             >
-                                                <option value="">All {meta.label}s</option>
+                                                <option value="">Select {meta.label}</option>
                                                 {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                                             </select>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+
+                            {/* Bottom Section: Resource Details */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Resource Name *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={newItem.name}
+                                            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
+                                            placeholder="e.g. Physics Module Vol 1"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Short Description</label>
+                                        <textarea
+                                            value={newItem.description}
+                                            onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-bold transition-all min-h-[120px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
+                                            placeholder="Provide a brief summary of this resource..."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Thumbnail</label>
+                                        <div className={`relative h-[220px] rounded-[2rem] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-emerald-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-emerald-500 bg-slate-50'}`}>
+                                            {(newItem.thumbnail || newItem.existing_thumbnail) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveFile('thumbnail')}
+                                                    className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-xl shadow-xl hover:bg-red-600 transition-all active:scale-90"
+                                                >
+                                                    <X size={14} strokeWidth={3} />
+                                                </button>
+                                            )}
+                                            <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'thumbnail')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                            {newItem.thumbnail ? (
+                                                <img src={URL.createObjectURL(newItem.thumbnail)} className="h-40 w-full object-contain rounded-xl shadow-2xl" alt="Preview" />
+                                            ) : newItem.existing_thumbnail ? (
+                                                <img src={newItem.existing_thumbnail} className="h-40 w-full object-contain rounded-xl shadow-2xl" alt="Existing" />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="p-4 rounded-2xl bg-emerald-500/10 text-emerald-500">
+                                                        <Upload size={32} />
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Cover Image</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">PDF File</label>
+                                        <div className={`relative h-[220px] rounded-[2rem] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
+                                            {newItem.pdf && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveFile('pdf')}
+                                                    className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-xl shadow-xl hover:bg-red-600 transition-all active:scale-90"
+                                                >
+                                                    <X size={14} strokeWidth={3} />
+                                                </button>
+                                            )}
+                                            <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, 'pdf')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                            {newItem.pdf ? (
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="p-4 rounded-2xl bg-blue-500/20 text-blue-500 shadow-xl shadow-blue-500/10">
+                                                        <FileCheck size={40} />
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 max-w-[120px] truncate">{newItem.pdf.name}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="p-4 rounded-2xl bg-blue-500/10 text-blue-500">
+                                                        <FileText size={32} />
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Main Document</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -609,7 +676,7 @@ const LibraryRegistry = () => {
 
             {/* View Modal */}
             {isViewModalOpen && selectedItemForView && (
-                <div className={`fixed z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
+                <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
                     <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-4xl rounded-[2.5rem] h-[85vh]'}`}>
                         <div className={`flex-grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
                             {/* Minimalism Controls */}
@@ -656,7 +723,7 @@ const LibraryRegistry = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </div >
     );
 };
 

@@ -1,5 +1,23 @@
 from rest_framework import serializers
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice
+from sections.models import Section
+from bson import ObjectId
+
+class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
+    """
+    Custom field to handle MongoDB ObjectIds in PrimaryKeyRelatedFields.
+    Djongo often requires strings to be converted to ObjectIds explicitly for lookups.
+    """
+    def to_internal_value(self, data):
+        try:
+            if isinstance(data, str) and ObjectId.is_valid(data):
+                data = ObjectId(data)
+        except Exception:
+            pass
+        return super().to_internal_value(data)
+
+    def to_representation(self, value):
+        return str(value.pk)
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -79,6 +97,8 @@ class LibraryItemSerializer(serializers.ModelSerializer):
     subject_name = serializers.SerializerMethodField()
     exam_type_name = serializers.SerializerMethodField()
     target_exam_name = serializers.SerializerMethodField()
+    section_name = serializers.SerializerMethodField()
+    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = LibraryItem
@@ -99,24 +119,8 @@ class LibraryItemSerializer(serializers.ModelSerializer):
     def get_target_exam_name(self, obj):
         return obj.target_exam.name if obj.target_exam else None
 
-from sections.models import Section
-from bson import ObjectId
-
-class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
-    """
-    Custom field to handle MongoDB ObjectIds in PrimaryKeyRelatedFields.
-    Djongo often requires strings to be converted to ObjectIds explicitly for lookups.
-    """
-    def to_internal_value(self, data):
-        try:
-            if isinstance(data, str) and ObjectId.is_valid(data):
-                data = ObjectId(data)
-        except Exception:
-            pass
-        return super().to_internal_value(data)
-
-    def to_representation(self, value):
-        return str(value.pk)
+    def get_section_name(self, obj):
+        return obj.section.name if obj.section else None
 
 class SolutionItemSerializer(serializers.ModelSerializer):
     sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
@@ -166,6 +170,8 @@ class NoticeSerializer(serializers.ModelSerializer):
     subject_name = serializers.SerializerMethodField()
     exam_type_name = serializers.SerializerMethodField()
     target_exam_name = serializers.SerializerMethodField()
+    section_name = serializers.SerializerMethodField()
+    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = Notice
@@ -185,3 +191,6 @@ class NoticeSerializer(serializers.ModelSerializer):
 
     def get_target_exam_name(self, obj):
         return obj.target_exam.name if obj.target_exam else None
+
+    def get_section_name(self, obj):
+        return obj.section.name if obj.section else None
