@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -74,9 +74,30 @@ class TeacherSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class LibraryItemSerializer(serializers.ModelSerializer):
+    session_name = serializers.SerializerMethodField()
+    class_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    exam_type_name = serializers.SerializerMethodField()
+    target_exam_name = serializers.SerializerMethodField()
+
     class Meta:
         model = LibraryItem
         fields = '__all__'
+
+    def get_session_name(self, obj):
+        return obj.session.name if obj.session else None
+
+    def get_class_name(self, obj):
+        return obj.class_level.name if obj.class_level else None
+
+    def get_subject_name(self, obj):
+        return obj.subject.name if obj.subject else None
+
+    def get_exam_type_name(self, obj):
+        return obj.exam_type.name if obj.exam_type else None
+
+    def get_target_exam_name(self, obj):
+        return obj.target_exam.name if obj.target_exam else None
 
 from sections.models import Section
 from bson import ObjectId
@@ -123,6 +144,32 @@ class SolutionItemSerializer(serializers.ModelSerializer):
             return [section.name for section in obj.sections.all()]
         except:
             return []
+
+    def get_session_name(self, obj):
+        return obj.session.name if obj.session else None
+
+    def get_class_name(self, obj):
+        return obj.class_level.name if obj.class_level else None
+
+    def get_subject_name(self, obj):
+        return obj.subject.name if obj.subject else None
+
+    def get_exam_type_name(self, obj):
+        return obj.exam_type.name if obj.exam_type else None
+
+    def get_target_exam_name(self, obj):
+        return obj.target_exam.name if obj.target_exam else None
+
+class NoticeSerializer(serializers.ModelSerializer):
+    session_name = serializers.SerializerMethodField()
+    class_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    exam_type_name = serializers.SerializerMethodField()
+    target_exam_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notice
+        fields = '__all__'
 
     def get_session_name(self, obj):
         return obj.session.name if obj.session else None

@@ -682,7 +682,7 @@ const SolutionRegistry = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className="w-full max-w-4xl overflow-hidden rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
                         {/* Header */}
-                        <div className={`flex-shrink-0 flex items-center justify-between px-10 py-6 text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-amber-600'}`}>
+                        <div className={`flex-shrink-0 flex items-center justify-between px-8 py-4 text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-amber-600'}`}>
                             <div>
                                 <h3 className="text-xl font-black uppercase tracking-tight leading-none mb-1">{isEditModalOpen ? 'Edit Solution' : 'Add Solution'}</h3>
                                 <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Post new academic resources</p>
@@ -691,19 +691,19 @@ const SolutionRegistry = () => {
                         </div>
 
                         {/* Body */}
-                        <div className={`overflow-y-auto custom-scrollbar flex-grow p-10 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
-                            <form onSubmit={isEditModalOpen ? handleUpdateItem : handleAddItem} className="space-y-10">
+                        <div className={`overflow-y-auto custom-scrollbar flex-grow p-6 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
+                            <form onSubmit={isEditModalOpen ? handleUpdateItem : handleAddItem} className="space-y-6">
 
                                 {/* 1. Basic Info & Categories */}
-                                <div className="space-y-6">
+                                <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Solution Item Name *</label>
-                                            <input required type="text" placeholder="e.g. Maths Physics DPP 01" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-6 py-4 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
+                                            <input required type="text" placeholder="e.g. Maths Physics DPP 01" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-5 py-3 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Resource Categories (Multiple)</label>
-                                            <div className="flex flex-wrap gap-4 mt-2">
+                                            <div className="flex flex-wrap gap-4 mt-1">
                                                 <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_dpp: !newItem.resource_type_dpp })} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-xs uppercase ${newItem.resource_type_dpp ? 'bg-emerald-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     {newItem.resource_type_dpp ? <CheckSquare size={16} /> : <Square size={16} />} DPP
                                                 </button>
@@ -721,14 +721,14 @@ const SolutionRegistry = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-1.5">
                                         <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Overall Description</label>
-                                        <textarea rows={2} placeholder="Brief details about this bundle" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className={`w-full px-6 py-4 rounded-2xl border-2 outline-none font-bold transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
+                                        <textarea rows={2} placeholder="Brief details about this bundle" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className={`w-full px-5 py-3 rounded-2xl border-2 outline-none font-bold transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
                                     </div>
                                 </div>
 
                                 {/* 2. Academic Metadata (Dropdowns) */}
-                                <div className="p-8 rounded-[2rem] border-2 border-dashed border-white/5 space-y-8 bg-white/5">
+                                <div className="p-6 rounded-[2rem] border-2 border-dashed border-white/5 space-y-4 bg-white/5">
                                     <div className="flex items-center gap-3">
                                         <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
                                         <h4 className="text-sm font-black uppercase tracking-[0.2em] opacity-80">Academic Metadata</h4>
@@ -747,14 +747,15 @@ const SolutionRegistry = () => {
                                                     <select
                                                         value={sel.value}
                                                         onChange={(e) => setNewItem({ ...newItem, [sel.field]: e.target.value })}
+                                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                                         className={`w-full pl-6 pr-12 py-3 rounded-xl border appearance-none outline-none font-bold text-sm transition-all focus:ring-4 focus:ring-amber-500/10 ${isDarkMode
-                                                            ? 'bg-[#1e293b] border-white/5 text-white'
+                                                            ? 'bg-[#1a1f2e] border-white/5 text-white'
                                                             : 'bg-white border-slate-200 text-slate-800'
                                                             }`}
                                                     >
-                                                        <option value="" className={isDarkMode ? 'bg-[#1e293b]' : 'bg-white'}>Select {sel.label}</option>
+                                                        <option value="">Select {sel.label}</option>
                                                         {sel.options.map(opt => (
-                                                            <option key={opt.id} value={opt.id} className={isDarkMode ? 'bg-[#1e293b]' : 'bg-white'}>
+                                                            <option key={opt.id} value={opt.id}>
                                                                 {opt.name}
                                                             </option>
                                                         ))}
@@ -925,7 +926,7 @@ const SolutionRegistry = () => {
                                     </div>
                                 </div>
 
-                                <button type="submit" disabled={isActionLoading} className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${isEditModalOpen ? 'total-blue-700 bg-blue-600' : 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/30'}`}>
+                                <button type="submit" disabled={isActionLoading} className={`w-full py-3.5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${isEditModalOpen ? 'total-blue-700 bg-blue-600' : 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/30'}`}>
                                     {isActionLoading ? <Loader2 size={24} className="animate-spin" /> : <><RefreshCw size={20} /> {isEditModalOpen ? "Update Complete Solution" : "Save Solution Bundle"}</>}
                                 </button>
                             </form>

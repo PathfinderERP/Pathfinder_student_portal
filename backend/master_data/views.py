@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -44,10 +44,12 @@ class TeacherViewSet(viewsets.ModelViewSet):
     serializer_class = TeacherSerializer
 
 class LibraryItemViewSet(viewsets.ModelViewSet):
-    queryset = LibraryItem.objects.all().order_by('-created_at')
+    queryset = LibraryItem.objects.select_related(
+        'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+    ).all().order_by('-created_at')
     serializer_class = LibraryItemSerializer
     parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [permissions.AllowAny] # Adjust as needed
+    permission_classes = [permissions.AllowAny]
 
 class SolutionItemViewSet(viewsets.ModelViewSet):
     queryset = SolutionItem.objects.select_related(
@@ -55,4 +57,12 @@ class SolutionItemViewSet(viewsets.ModelViewSet):
     ).prefetch_related('sections').all().order_by('-created_at')
     serializer_class = SolutionItemSerializer
     parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [permissions.AllowAny] # Adjust as needed
+    permission_classes = [permissions.AllowAny]
+
+class NoticeViewSet(viewsets.ModelViewSet):
+    queryset = Notice.objects.select_related(
+        'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+    ).all().order_by('-created_at')
+    serializer_class = NoticeSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.AllowAny]

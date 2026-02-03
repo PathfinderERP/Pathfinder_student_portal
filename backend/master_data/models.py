@@ -201,6 +201,14 @@ class LibraryItem(models.Model):
     description = models.TextField(blank=True, null=True)
     thumbnail = models.ImageField(upload_to='library/thumbnails/', blank=True, null=True)
     pdf_file = models.FileField(upload_to='library/pdfs/', blank=True, null=True)
+    
+    # Master Data Links
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -247,3 +255,22 @@ class SolutionItem(models.Model):
 
     def __str__(self):
         return self.name
+
+class Notice(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    file_attachment = models.FileField(upload_to='notices/', blank=True, null=True)
+    
+    # Master Data Links
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
