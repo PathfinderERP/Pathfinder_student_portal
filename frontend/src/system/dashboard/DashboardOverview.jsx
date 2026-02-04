@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    RefreshCw, MapPin, Layers, Users, Database, FilePlus, ChevronRight
+    RefreshCw, MapPin, Layers, Users, Database, FilePlus, ChevronRight, FileText
 } from 'lucide-react';
 
 const DashboardOverview = ({
@@ -104,7 +104,7 @@ const DashboardOverview = ({
             </div>
 
             {/* Action Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div onClick={() => setActiveTab('Test Create')} className={`p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
                     ${isDarkMode
                         ? 'bg-gradient-to-br from-orange-500 to-[#F97316] border-orange-400'
@@ -132,6 +132,18 @@ const DashboardOverview = ({
                     <h3 className={`text-3xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Manage Centres</h3>
                     <div className={`mt-4 flex items-center gap-2 font-bold text-sm ${isDarkMode ? 'text-white/60' : 'text-slate-500'}`}>
                         <span>Configure training locations</span>
+                        <ChevronRight size={18} className="group-hover:translate-x-2 transition-transform" />
+                    </div>
+                </div>
+
+                <div onClick={() => setActiveTab('Pen Paper Test')} className={`p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
+                    ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200 shadow-slate-200/50'}`}>
+                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-2xl ${isDarkMode ? 'bg-white/10 text-white' : 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'}`}>
+                        <FileText size={32} strokeWidth={3} />
+                    </div>
+                    <h3 className={`text-3xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pen Paper Test</h3>
+                    <div className={`mt-4 flex items-center gap-2 font-bold text-sm ${isDarkMode ? 'text-white/60' : 'text-slate-500'}`}>
+                        <span>Offline test management</span>
                         <ChevronRight size={18} className="group-hover:translate-x-2 transition-transform" />
                     </div>
                 </div>

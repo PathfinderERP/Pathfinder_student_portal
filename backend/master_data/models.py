@@ -326,3 +326,46 @@ class Video(models.Model):
 
     def __str__(self):
         return self.title
+
+class PenPaperTest(models.Model):
+    # Core Details
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=100, unique=True, blank=True)
+    duration = models.IntegerField(help_text="Duration in minutes", default=180)
+    test_type = models.CharField(max_length=100, default='Practice Paper')
+    pdf_link = models.URLField(max_length=500, help_text="Link to the Question Paper PDF", blank=True, null=True)
+    
+    # New Fields
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True, help_text="Last joining Date and Time")
+    question_paper = models.FileField(upload_to='pen_paper_tests/questions/', blank=True, null=True)
+    solution_file = models.FileField(upload_to='pen_paper_tests/solutions/', blank=True, null=True)
+    thumbnail = models.ImageField(upload_to='pen_paper_tests/thumbnails/', blank=True, null=True, help_text="Optional thumbnail image")
+    
+    # Toggle Status
+    is_active = models.BooleanField(default=True)
+    show_solution = models.BooleanField(default=False)
+    
+    # Master Data Targeting
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Targeting Logic
+    is_general = models.BooleanField(default=False)
+    packages = models.ManyToManyField('packages.Package', blank=True, related_name='pen_paper_tests')
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_unique_code(PenPaperTest, self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name

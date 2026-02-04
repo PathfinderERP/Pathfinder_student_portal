@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -79,4 +79,11 @@ class VideoViewSet(viewsets.ModelViewSet):
         'session', 'class_level', 'subject', 'exam_type', 'target_exam'
     ).prefetch_related('packages').all().order_by('-created_at')
     serializer_class = VideoSerializer
+    permission_classes = [permissions.AllowAny]
+
+class PenPaperTestViewSet(viewsets.ModelViewSet):
+    queryset = PenPaperTest.objects.select_related(
+        'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+    ).prefetch_related('packages').all().order_by('-created_at')
+    serializer_class = PenPaperTestSerializer
     permission_classes = [permissions.AllowAny]
