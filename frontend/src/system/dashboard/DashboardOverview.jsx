@@ -11,7 +11,7 @@ const DashboardOverview = ({
     setActiveTab
 }) => {
     return (
-        <>
+        <div className="space-y-8">
             {/* Dashboard Overview Banner */}
             <div className={`relative overflow-hidden p-10 rounded-[2.5rem] shadow-2xl transition-all border
                 ${isDarkMode
@@ -136,7 +136,7 @@ const DashboardOverview = ({
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 

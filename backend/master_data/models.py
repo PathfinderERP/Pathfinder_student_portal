@@ -302,3 +302,27 @@ class LiveClass(models.Model):
 
     def __str__(self):
         return self.name
+
+class Video(models.Model):
+    # Core Details
+    title = models.CharField(max_length=255)
+    link = models.URLField(max_length=500)
+    description = models.TextField(blank=True, null=True)
+    
+    # Master Data Targeting
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    is_general = models.BooleanField(default=False)
+    packages = models.ManyToManyField('packages.Package', blank=True, related_name='videos')
+
+    def __str__(self):
+        return self.title
