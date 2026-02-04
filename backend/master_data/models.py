@@ -276,3 +276,29 @@ class Notice(models.Model):
 
     def __str__(self):
         return self.title
+
+class LiveClass(models.Model):
+    # Core Details
+    name = models.CharField(max_length=255)
+    meeting_link = models.URLField(max_length=500)
+    start_time = models.DateTimeField()
+    duration = models.IntegerField(help_text="Duration in minutes")
+    description = models.TextField(blank=True, null=True)
+    
+    # Master Data Targeting
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    is_general = models.BooleanField(default=False)
+    packages = models.ManyToManyField('packages.Package', blank=True, related_name='live_classes')
+
+    def __str__(self):
+        return self.name

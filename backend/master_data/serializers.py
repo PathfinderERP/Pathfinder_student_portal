@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass
 from sections.models import Section
+from packages.models import Package
 from bson import ObjectId
 
 class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
@@ -176,6 +177,53 @@ class NoticeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notice
         fields = '__all__'
+
+    def get_session_name(self, obj):
+        return obj.session.name if obj.session else None
+
+    def get_class_name(self, obj):
+        return obj.class_level.name if obj.class_level else None
+
+    def get_subject_name(self, obj):
+        return obj.subject.name if obj.subject else None
+
+    def get_exam_type_name(self, obj):
+        return obj.exam_type.name if obj.exam_type else None
+
+    def get_target_exam_name(self, obj):
+        return obj.target_exam.name if obj.target_exam else None
+
+    def get_section_name(self, obj):
+        return obj.section.name if obj.section else None
+
+class LiveClassSerializer(serializers.ModelSerializer):
+    session_name = serializers.SerializerMethodField()
+    class_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+    exam_type_name = serializers.SerializerMethodField()
+    target_exam_name = serializers.SerializerMethodField()
+    section_name = serializers.SerializerMethodField()
+    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
+    
+    packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
+    package_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LiveClass
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Explicitly ensure packages are returned as ID strings
+        if 'packages' in ret:
+             ret['packages'] = [str(p.pk) for p in instance.packages.all()]
+        return ret
+
+    def get_package_names(self, obj):
+        try:
+            return [p.name for p in obj.packages.all()]
+        except:
+            return []
 
     def get_session_name(self, obj):
         return obj.session.name if obj.session else None
