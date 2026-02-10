@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 
 const LibraryRegistry = () => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl } = useAuth();
+    const { getApiUrl, token, loading: authLoading } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -58,10 +58,13 @@ const LibraryRegistry = () => {
     });
 
     const fetchLibraryItems = useCallback(async () => {
+        if (authLoading) return;
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/master-data/library/`);
+            const response = await axios.get(`${apiUrl}/api/master-data/library/`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
             setLibraryItems(response.data);
         } catch (error) {
             console.error("Failed to fetch library items", error);
@@ -69,18 +72,20 @@ const LibraryRegistry = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [getApiUrl]);
+    }, [getApiUrl, token, authLoading]);
 
     const fetchMasterData = useCallback(async () => {
+        if (authLoading) return;
         try {
             const apiUrl = getApiUrl();
+            const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
             const [sessRes, classRes, subRes, etRes, teRes, secRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/sessions/`),
-                axios.get(`${apiUrl}/api/master-data/classes/`),
-                axios.get(`${apiUrl}/api/master-data/subjects/`),
-                axios.get(`${apiUrl}/api/master-data/exam-types/`),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`),
-                axios.get(`${apiUrl}/api/sections/`)
+                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
+                axios.get(`${apiUrl}/api/master-data/classes/`, config),
+                axios.get(`${apiUrl}/api/master-data/subjects/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
+                axios.get(`${apiUrl}/api/sections/`, config)
             ]);
             setSessions(sessRes.data);
             setClasses(classRes.data);
@@ -91,12 +96,14 @@ const LibraryRegistry = () => {
         } catch (error) {
             console.error("Failed to fetch master data", error);
         }
-    }, [getApiUrl]);
+    }, [getApiUrl, token, authLoading]);
 
     useEffect(() => {
-        fetchLibraryItems();
-        fetchMasterData();
-    }, [fetchLibraryItems, fetchMasterData]);
+        if (!authLoading) {
+            fetchLibraryItems();
+            fetchMasterData();
+        }
+    }, [fetchLibraryItems, fetchMasterData, authLoading]);
 
     const handleFileChange = (e, field) => {
         setNewItem({ ...newItem, [field]: e.target.files[0] });

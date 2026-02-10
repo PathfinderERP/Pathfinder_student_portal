@@ -7,17 +7,18 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 const AllocatedTestsForCentre = ({ centre, onBack }) => {
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, loading: authLoading } = useAuth();
     const { isDarkMode } = useTheme();
     const [tests, setTests] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
     const fetchTests = useCallback(async (showLoader = true) => {
+        if (authLoading) return;
         if (showLoader) setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const authToken = token || localStorage.getItem('auth_token');
+            const authToken = token;
             const response = await axios.get(`${apiUrl}/api/tests/?_t=${Date.now()}`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
@@ -120,7 +121,7 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
 
 const CentreRegistry = ({ centresData, isERPLoading }) => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, loading: authLoading } = useAuth();
     const [centres, setCentres] = useState(centresData || []);
     const [localCentres, setLocalCentres] = useState([]);
     const [tests, setTests] = useState([]);
@@ -134,11 +135,12 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     const [selectedCentreForTests, setSelectedCentreForTests] = useState(null);
 
     const loadData = useCallback(async (force = false) => {
+        if (authLoading) return;
         if (!force && centres.length > 0 && localCentres.length > 0) return;
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const authToken = token || localStorage.getItem('auth_token');
+            const authToken = token;
 
             let erpData = centresData;
             if (!erpData || erpData.length === 0) {

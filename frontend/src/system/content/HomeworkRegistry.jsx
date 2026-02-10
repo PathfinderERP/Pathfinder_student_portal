@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 
 const HomeworkRegistry = () => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl } = useAuth();
+    const { getApiUrl, token, loading: authLoading } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -68,10 +68,13 @@ const HomeworkRegistry = () => {
     });
 
     const fetchHomeworkItems = useCallback(async () => {
+        if (authLoading) return;
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/master-data/homework/`);
+            const response = await axios.get(`${apiUrl}/api/master-data/homework/`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
             setHomeworkItems(response.data);
         } catch (error) {
             console.error("Failed to fetch homework items", error);
@@ -79,19 +82,21 @@ const HomeworkRegistry = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [getApiUrl]);
+    }, [getApiUrl, token, authLoading]);
 
     const fetchMasterData = useCallback(async () => {
+        if (authLoading) return;
         try {
             const apiUrl = getApiUrl();
+            const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
             const [secRes, sessRes, classRes, subRes, etRes, teRes, pkgRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/sections/`),
-                axios.get(`${apiUrl}/api/master-data/sessions/`),
-                axios.get(`${apiUrl}/api/master-data/classes/`),
-                axios.get(`${apiUrl}/api/master-data/subjects/`),
-                axios.get(`${apiUrl}/api/master-data/exam-types/`),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`),
-                axios.get(`${apiUrl}/api/packages/`)
+                axios.get(`${apiUrl}/api/sections/`, config),
+                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
+                axios.get(`${apiUrl}/api/master-data/classes/`, config),
+                axios.get(`${apiUrl}/api/master-data/subjects/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
+                axios.get(`${apiUrl}/api/packages/`, config)
             ]);
             setSections(secRes.data);
             setSessions(sessRes.data);
@@ -103,12 +108,14 @@ const HomeworkRegistry = () => {
         } catch (error) {
             console.error("Failed to fetch master data", error);
         }
-    }, [getApiUrl]);
+    }, [getApiUrl, token, authLoading]);
 
     useEffect(() => {
-        fetchHomeworkItems();
-        fetchMasterData();
-    }, [fetchHomeworkItems, fetchMasterData]);
+        if (!authLoading) {
+            fetchHomeworkItems();
+            fetchMasterData();
+        }
+    }, [fetchHomeworkItems, fetchMasterData, authLoading]);
 
     // Handle outside clicks for custom multiselect
     useEffect(() => {

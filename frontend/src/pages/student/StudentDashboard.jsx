@@ -18,110 +18,67 @@ import Grievances from './components/Grievances';
 import PortalLayout from '../../components/common/PortalLayout';
 
 const StudentDashboard = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, token, getApiUrl, loading: authLoading } = useAuth();
     const { isDarkMode } = useTheme();
     const [activeTab, setActiveTab] = useState('Dashboard');
     const [studentData, setStudentData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Fetch Student Data from ERP based on logged-in user's email
+    // Fetch Student Data from backend API (which proxies to ERP)
     useEffect(() => {
         const fetchStudentData = async () => {
-            if (!user) return;
+            // Wait for auth to finish loading
+            if (authLoading) return;
 
-            // Helper function to perform ERP login and return token
-            const loginToErp = async () => {
-                console.log("Authenticating with ERP...");
-                if (!import.meta.env.VITE_ERP_API_URL) {
-                    console.warn("VITE_ERP_API_URL is not set, using fallback.");
-                }
-                const erpBaseUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-
-                const loginRes = await axios.post(`${erpBaseUrl}/api/superAdmin/login`, {
-                    email: "atanu@gmail.com",
-                    password: "000000"
-                });
-
-                if (loginRes.data && loginRes.data.token) {
-                    return loginRes.data.token;
-                } else {
-                    throw new Error("ERP Login returned no token");
-                }
-            };
-
-            const searchEmail = user.email || user.username;
-            console.log("Fetching ERP data for:", searchEmail);
-            const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
+            if (!user) {
+                setLoading(false);
+                return;
+            }
 
             setLoading(true);
             setError(null);
 
             try {
-                let erpToken = localStorage.getItem('erp_token');
-                let admissions = null;
+                const apiUrl = getApiUrl();
 
-                // Function to fetch admissions with a given token
-                const getAdmissions = async (token) => {
-                    return await axios.get(`${erpUrl}/api/admission`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                };
-
-                // Attempt 1: Try with existing token if available
-                if (erpToken) {
-                    try {
-                        const response = await getAdmissions(erpToken);
-                        admissions = response.data;
-                    } catch (fetchErr) {
-                        // If 401, token is invalid/expired. We will need to re-login.
-                        if (fetchErr.response && fetchErr.response.status === 401) {
-                            console.log("ERP Token expired or invalid. Re-authenticating...");
-                            erpToken = null; // Force re-login
-                        } else {
-                            throw fetchErr; // Other errors are fatal
-                        }
-                    }
+                if (!token) {
+                    setError("Authentication required. Please log in again.");
+                    setLoading(false);
+                    return;
                 }
 
-                // Attempt 2: Login if no token or previous attempt failed with 401
-                if (!erpToken) {
-                    try {
-                        erpToken = await loginToErp();
-                        localStorage.setItem('erp_token', erpToken); // Cache new token
-                        const response = await getAdmissions(erpToken);
-                        admissions = response.data;
-                    } catch (loginOrFetchErr) {
-                        console.error("Failed to authenticate or fetch data from ERP:", loginOrFetchErr);
-                        throw new Error("Unable to connect to Student Records System.");
+                // Call our backend API which handles ERP communication
+                const response = await axios.get(`${apiUrl}/api/student/erp-data/`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
                     }
-                }
+                });
 
-                // Process Data
-                if (admissions) {
-                    const foundStudent = admissions.find(admission =>
-                        admission.student?.studentsDetails?.some(detail =>
-                            detail.studentEmail?.toLowerCase() === searchEmail.toLowerCase()
-                        )
-                    );
-
-                    if (foundStudent) {
-                        setStudentData(foundStudent);
-                    } else {
-                        console.warn("Student email not found in ERP Records:", searchEmail);
-                        setError("Your student record could not be found. Please contact support.");
-                    }
+                if (response.data) {
+                    setStudentData(response.data);
+                } else {
+                    setError("No student data received from server.");
                 }
             } catch (err) {
-                console.error("Critical Error in Student Data Sync:", err);
-                setError(err.message || "Failed to load student profile.");
+                console.error("Error fetching student data:", err);
+
+                if (err.response?.status === 404) {
+                    setError("Your student record could not be found. Please contact support.");
+                } else if (err.response?.status === 503) {
+                    setError("Unable to connect to Student Records System. Please try again later.");
+                } else if (err.response?.status === 401) {
+                    setError("Session expired. Please log in again.");
+                } else {
+                    setError(err.response?.data?.error || "Failed to load student profile.");
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchStudentData();
-    }, [user]);
+    }, [user, token, getApiUrl, authLoading]);
 
     const navItems = [
         { name: 'Dashboard', icon: LayoutDashboard },

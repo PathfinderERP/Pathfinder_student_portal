@@ -59,7 +59,7 @@ import DeleteUserModal from './modals/DeleteUserModal';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
 const SystemDashboard = () => {
-    const { user, updateProfile, getApiUrl, normalizeUser, lastUsername, lastPassword } = useAuth();
+    const { user, updateProfile, getApiUrl, normalizeUser, lastUsername, lastPassword, token, loading: authLoading } = useAuth();
     const { isDarkMode } = useTheme();
     const [activeTab, setActiveTab] = useState('Dashboard');
     const [isUploading, setIsUploading] = useState(false);
@@ -182,9 +182,10 @@ const SystemDashboard = () => {
     useEffect(() => {
         if (activeTab.startsWith('Admin')) {
             const fetchUsers = async () => {
+                if (authLoading) return;
                 try {
                     const apiUrl = getApiUrl();
-                    const token = localStorage.getItem('auth_token');
+                    const authToken = token;
                     const response = await axios.get(`${apiUrl}/api/users/`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -206,9 +207,10 @@ const SystemDashboard = () => {
     useEffect(() => {
         if (activeTab === 'Dashboard') {
             const fetchLoginHistory = async () => {
+                if (authLoading) return;
                 try {
                     const apiUrl = getApiUrl();
-                    const token = localStorage.getItem('auth_token');
+                    const authToken = token;
                     const response = await axios.get(`${apiUrl}/api/login-history/?_t=${Date.now()}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
