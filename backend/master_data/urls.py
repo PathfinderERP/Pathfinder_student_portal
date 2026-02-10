@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet
+from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet
 
 router = DefaultRouter()
 router.register(r'sessions', SessionViewSet)
@@ -20,6 +20,10 @@ router.register(r'live-classes', LiveClassViewSet)
 router.register(r'videos', VideoViewSet)
 router.register(r'pen-paper-tests', PenPaperTestViewSet)
 router.register(r'homework', HomeworkViewSet)
+router.register(r'banners', BannerViewSet)
+router.register(r'seminars', SeminarViewSet)
+router.register(r'guides', GuideViewSet)
+router.register(r'communities', CommunityViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

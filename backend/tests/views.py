@@ -84,6 +84,56 @@ class TestViewSet(viewsets.ModelViewSet):
             'sections': sections_data
         })
 
+    @action(detail=True, methods=['post'])
+    def duplicate_test(self, request, pk=None):
+        source_test = self.get_object()
+        section_id = request.data.get('section_id')
+        
+        if not section_id:
+            return Response({'error': 'Section ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            target_section = Section.objects.get(pk=section_id)
+        except Section.DoesNotExist:
+            return Response({'error': 'Section not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Clone Test
+        # We need to fetch it freshly or be careful not to mutate existing
+        # Using the instance from get_object()
+        
+        # Create a new instance with same fields
+        new_test = Test(
+            name=f"{source_test.name} (Copy)",
+            session=source_test.session,
+            target_exam=source_test.target_exam,
+            exam_type=source_test.exam_type,
+            package=source_test.package,
+            class_level=source_test.class_level,
+            duration=source_test.duration,
+            total_marks=source_test.total_marks,
+            description=source_test.description,
+            instructions=source_test.instructions,
+            is_completed=False, # Reset status
+            has_calculator=source_test.has_calculator,
+            option_type_numeric=source_test.option_type_numeric
+        )
+        
+        # Generate unique code
+        while True:
+            rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            new_code = f"{source_test.code}-COPY-{rand_suffix}"
+            if not Test.objects.filter(code=new_code).exists():
+                new_test.code = new_code
+                break
+        
+        new_test.save()
+        
+        # Set the section
+        new_test.allotted_sections.set([target_section])
+        
+        serializer = self.get_serializer(new_test)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     queryset = TestCentreAllotment.objects.all()
     serializer_class = TestCentreAllotmentSerializer

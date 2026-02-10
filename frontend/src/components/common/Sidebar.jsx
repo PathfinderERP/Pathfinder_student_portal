@@ -126,13 +126,22 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                                             if (hasNestedSubs) toggleExpand(subItem.label);
                                                             if (subItem.onClick) subItem.onClick();
                                                         }}
-                                                        className={`w-full flex items-center justify-between py-2 text-sm font-medium rounded-lg transition-all duration-200
+                                                        className={`w-full flex items-center gap-3 py-2 text-sm font-medium rounded-lg transition-all duration-200
                                                         ${subItem.active
                                                                 ? (isDarkMode ? "text-orange-500" : "text-orange-600")
                                                                 : (isDarkMode ? "text-slate-500 hover:text-white" : "text-gray-500 hover:text-gray-900")
                                                             }`}
                                                     >
-                                                        <span>{subItem.label}</span>
+                                                        {subItem.icon && (
+                                                            <subItem.icon
+                                                                size={14}
+                                                                className={`flex-shrink-0 ${subItem.active
+                                                                    ? (isDarkMode ? "text-orange-500" : "text-orange-600")
+                                                                    : (isDarkMode ? "text-slate-500" : "text-gray-400")
+                                                                    }`}
+                                                            />
+                                                        )}
+                                                        <span className="flex-1 text-left">{subItem.label}</span>
                                                         {hasNestedSubs && (
                                                             <ChevronDown
                                                                 size={14}

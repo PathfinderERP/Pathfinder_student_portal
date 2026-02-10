@@ -398,3 +398,59 @@ class Homework(models.Model):
 
     def __str__(self):
         return self.name
+
+class Banner(models.Model):
+    image = models.ImageField(upload_to='banners/')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Banner {self.id} - {'Active' if self.is_active else 'Inactive'}"
+
+class Seminar(models.Model):
+    name = models.CharField(max_length=255)
+    link = models.URLField(max_length=500, blank=True, null=True)
+    date_time = models.DateTimeField()
+    duration = models.IntegerField(help_text="Duration in minutes")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['-date_time']
+
+class Guide(models.Model):
+    GUIDE_TYPES = (
+        ('pdf', 'PDF'),
+        ('video', 'Video'),
+    )
+    title = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=10, choices=GUIDE_TYPES)
+    thumbnail = models.ImageField(upload_to='guides/thumbnails/') # Required based on UI
+    pdf_file = models.FileField(upload_to='guides/pdfs/', blank=True, null=True)
+    video_link = models.URLField(max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        ordering = ['-created_at']
+
+class Community(models.Model):
+    title = models.CharField(max_length=255)
+    link = models.URLField(max_length=500)
+    thumbnail = models.ImageField(upload_to='community/thumbnails/')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        ordering = ['-created_at']

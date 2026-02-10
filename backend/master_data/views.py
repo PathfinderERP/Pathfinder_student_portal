@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer
 
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -92,5 +92,28 @@ class HomeworkViewSet(viewsets.ModelViewSet):
         'session', 'class_level', 'subject', 'exam_type', 'target_exam'
     ).prefetch_related('sections').all().order_by('-created_at')
     serializer_class = HomeworkSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.AllowAny]
+
+class BannerViewSet(viewsets.ModelViewSet):
+    queryset = Banner.objects.all().order_by('-created_at')
+    serializer_class = BannerSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.AllowAny]
+
+class SeminarViewSet(viewsets.ModelViewSet):
+    queryset = Seminar.objects.all().order_by('-date_time')
+    serializer_class = SeminarSerializer
+    permission_classes = [permissions.AllowAny]
+
+class GuideViewSet(viewsets.ModelViewSet):
+    queryset = Guide.objects.all().order_by('-created_at')
+    serializer_class = GuideSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.AllowAny]
+
+class CommunityViewSet(viewsets.ModelViewSet):
+    queryset = Community.objects.all().order_by('-created_at')
+    serializer_class = CommunitySerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.AllowAny]
