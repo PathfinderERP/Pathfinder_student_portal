@@ -264,7 +264,7 @@ const NoticeRegistry = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative text-slate-900 dark:text-white">
-            <div className={`p-8 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -282,7 +282,7 @@ const NoticeRegistry = () => {
                         </div>
                         <button
                             onClick={() => { resetForm(); setIsAddModalOpen(true); }}
-                            className="group flex items-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-amber-500/25 active:scale-95 whitespace-nowrap"
+                            className="group flex items-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-[5px] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-amber-500/25 active:scale-95 whitespace-nowrap"
                         >
                             <Plus size={20} strokeWidth={3} className="group-hover:rotate-90 transition-all duration-300" />
                             <span>Add Notice</span>
@@ -298,12 +298,12 @@ const NoticeRegistry = () => {
                                     placeholder="Search notices by title..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-4 rounded-2xl border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/[0.01] border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
+                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/[0.01] border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                 />
                             </div>
                             <button
                                 onClick={() => { fetchNotices(); fetchMasterData(); }}
-                                className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500 border border-white/5' : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100'}`}
+                                className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500 border border-white/5' : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100'}`}
                             >
                                 <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                             </button>
@@ -311,14 +311,14 @@ const NoticeRegistry = () => {
 
                         {/* Filter Bar */}
                         <div className="flex flex-wrap items-center gap-3">
-                            <div className={`p-2 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                            <div className={`p-2 rounded-[5px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
                                 <Filter size={14} /> Filters
                             </div>
                             <select
                                 value={activeFilters.session}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, session: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Sessions</option>
                                 {dynamicFilterOptions.sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -327,7 +327,7 @@ const NoticeRegistry = () => {
                                 value={activeFilters.class_level}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, class_level: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Classes</option>
                                 {dynamicFilterOptions.classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -336,7 +336,7 @@ const NoticeRegistry = () => {
                                 value={activeFilters.subject}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, subject: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Subjects</option>
                                 {dynamicFilterOptions.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -345,7 +345,7 @@ const NoticeRegistry = () => {
                                 value={activeFilters.exam_type}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, exam_type: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Exam Types</option>
                                 {dynamicFilterOptions.examTypes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -354,7 +354,7 @@ const NoticeRegistry = () => {
                                 value={activeFilters.target_exam}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Target Exams</option>
                                 {dynamicFilterOptions.targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -363,7 +363,7 @@ const NoticeRegistry = () => {
                                 value={activeFilters.section}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, section: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Sections</option>
                                 {dynamicFilterOptions.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -371,7 +371,7 @@ const NoticeRegistry = () => {
                             {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exam || activeFilters.section) && (
                                 <button
                                     onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' })}
-                                    className="px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
+                                    className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                                 >
                                     Clear All Filters
                                 </button>
@@ -381,7 +381,7 @@ const NoticeRegistry = () => {
                 </div>
             </div>
 
-            <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
@@ -433,7 +433,7 @@ const NoticeRegistry = () => {
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex flex-col gap-1 items-center">
                                                 {notice.subject_name ? (
-                                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-lg border border-emerald-500/20">{notice.subject_name}</span>
+                                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-[5px] border border-emerald-500/20">{notice.subject_name}</span>
                                                 ) : <span className="text-[9px] font-black uppercase opacity-20">General</span>}
                                                 {notice.exam_type_name && <span className="text-[8px] font-black uppercase opacity-40">{notice.exam_type_name}</span>}
                                             </div>
@@ -448,7 +448,7 @@ const NoticeRegistry = () => {
                                                                     setSelectedItemForView(notice);
                                                                     setIsViewModalOpen(true);
                                                                 }}
-                                                                className="relative group/img overflow-hidden rounded-lg shadow-md w-12 h-12 border border-white/10 bg-black/5 cursor-pointer active:scale-90 transition-all"
+                                                                className="relative group/img overflow-hidden rounded-[5px] shadow-md w-12 h-12 border border-white/10 bg-black/5 cursor-pointer active:scale-90 transition-all"
                                                             >
                                                                 <img src={notice.file_attachment} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
@@ -461,7 +461,7 @@ const NoticeRegistry = () => {
                                                                     setSelectedItemForView(notice);
                                                                     setIsViewModalOpen(true);
                                                                 }}
-                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-[5px] text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 hover:text-white transition-all shadow-sm"
                                                             >
                                                                 <FileText size={12} /> View Document
                                                             </button>
@@ -478,10 +478,10 @@ const NoticeRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => handleEditClick(notice)} className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-blue-500/5">
+                                                <button onClick={() => handleEditClick(notice)} className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-blue-500/5">
                                                     <Edit2 size={14} strokeWidth={3} />
                                                 </button>
-                                                <button onClick={() => handleDeleteItem(notice.id)} className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-red-500/5">
+                                                <button onClick={() => handleDeleteItem(notice.id)} className="p-2.5 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-red-500/5">
                                                     <Trash2 size={14} strokeWidth={3} />
                                                 </button>
                                             </div>
@@ -502,7 +502,7 @@ const NoticeRegistry = () => {
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm transition-all'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm transition-all'}`}
                         >
                             {[10, 20, 50].map(val => (
                                 <option key={val} value={val} className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>{val} per page</option>
@@ -511,15 +511,15 @@ const NoticeRegistry = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(1)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsLeft size={18} strokeWidth={2.5} /></button>
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsLeft size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
                         <div className="flex items-center gap-1 mx-4">
                             <span className="text-[10px] font-black uppercase opacity-40 tracking-tighter">Page</span>
-                            <span className="px-4 py-1.5 bg-amber-500 text-white rounded-lg font-black text-xs shadow-lg shadow-amber-500/20">{currentPage}</span>
+                            <span className="px-4 py-1.5 bg-amber-500 text-white rounded-[5px] font-black text-xs shadow-lg shadow-amber-500/20">{currentPage}</span>
                             <span className="text-[10px] font-black uppercase opacity-40 tracking-tighter">of {totalPages || 1}</span>
                         </div>
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => prev + 1)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(totalPages)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsRight size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => prev + 1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(totalPages)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsRight size={18} strokeWidth={2.5} /></button>
                     </div>
 
                     <form onSubmit={handleJumpToPage} className="flex items-center gap-2">
@@ -528,9 +528,9 @@ const NoticeRegistry = () => {
                             placeholder="Jump..."
                             value={jumpToPage}
                             onChange={(e) => setJumpToPage(e.target.value)}
-                            className={`w-20 px-4 py-2 rounded-xl text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
+                            className={`w-20 px-4 py-2 rounded-[5px] text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
                         />
-                        <button type="submit" className={`p-2 rounded-xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>Go</button>
+                        <button type="submit" className={`p-2 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>Go</button>
                     </form>
                 </div>
             </div>
@@ -538,18 +538,18 @@ const NoticeRegistry = () => {
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-2xl rounded-[2.5rem] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
+                    <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-500 rounded-xl text-white shadow-lg shadow-amber-500/20"><Bell size={20} /></div>
+                                <div className="p-2 bg-amber-500 rounded-[5px] text-white shadow-lg shadow-amber-500/20"><Bell size={20} /></div>
                                 <h2 className="text-xl font-black uppercase tracking-tight">{isAddModalOpen ? 'Create New' : 'Edit'} <span className="text-amber-500">Notice</span></h2>
                             </div>
-                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><X size={20} /></button>
+                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-[5px] transition-colors"><X size={20} /></button>
                         </div>
 
                         <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {/* Top Section: Academic Targeting */}
-                            <div className={`p-6 rounded-[2rem] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="flex items-center gap-2 mb-6">
                                     <div className="w-1.5 h-5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-amber-500">Academic Targeting</span>
@@ -570,7 +570,7 @@ const NoticeRegistry = () => {
                                                 value={newItem[meta.field]}
                                                 onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
                                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                                className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
+                                                className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
                                             >
                                                 <option value="">All {meta.label}s</option>
                                                 {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
@@ -590,7 +590,7 @@ const NoticeRegistry = () => {
                                             type="text"
                                             value={newItem.title}
                                             onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Enter notice title..."
                                         />
                                     </div>
@@ -600,7 +600,7 @@ const NoticeRegistry = () => {
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-bold transition-all min-h-[140px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[140px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Provide more context for students..."
                                         />
                                     </div>
@@ -608,19 +608,19 @@ const NoticeRegistry = () => {
 
                                 <div className="flex flex-col">
                                     <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Attachment</label>
-                                    <div className={`relative flex-grow min-h-[220px] rounded-[2rem] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-6 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
+                                    <div className={`relative flex-grow min-h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-6 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
                                         {(previews.image_preview || previews.file_attachment) ? (
                                             <div className="relative w-full h-full flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
                                                 <button
                                                     type="button"
                                                     onClick={(e) => { e.stopPropagation(); handleRemoveFile(); }}
-                                                    className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-xl shadow-xl hover:bg-red-600 transition-all active:scale-90"
+                                                    className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90"
                                                 >
                                                     <X size={16} strokeWidth={3} />
                                                 </button>
 
                                                 {previews.image_preview ? (
-                                                    <img src={previews.image_preview} alt="Notice Preview" className="max-h-40 w-full object-contain rounded-2xl shadow-2xl border border-white/10 mb-3" />
+                                                    <img src={previews.image_preview} alt="Notice Preview" className="max-h-40 w-full object-contain rounded-[5px] shadow-2xl border border-white/10 mb-3" />
                                                 ) : (
                                                     <FileCheck size={48} className="text-amber-500 mb-2" />
                                                 )}
@@ -629,7 +629,7 @@ const NoticeRegistry = () => {
                                         ) : (
                                             <>
                                                 <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                                                <div className="p-5 rounded-3xl bg-amber-500/10 text-amber-500 mb-4 group-hover:scale-110 transition-transform duration-500">
+                                                <div className="p-5 rounded-[5px] bg-amber-500/10 text-amber-500 mb-4 group-hover:scale-110 transition-transform duration-500">
                                                     <Upload size={40} strokeWidth={2.5} />
                                                 </div>
                                                 <h4 className="text-xs font-black uppercase tracking-widest mb-1">Click or Drag File</h4>
@@ -643,7 +643,7 @@ const NoticeRegistry = () => {
                             <button
                                 type="submit"
                                 disabled={isActionLoading}
-                                className={`w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                className={`w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-[5px] font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isActionLoading ? <Loader2 className="animate-spin" size={24} /> : (isAddModalOpen ? 'Publish Official Notice' : 'Update Notice Details')}
                             </button>
@@ -655,19 +655,19 @@ const NoticeRegistry = () => {
             {/* View Modal */}
             {isViewModalOpen && selectedItemForView && (
                 <div className={`fixed z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
-                    <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-5xl rounded-[2.5rem] h-[85vh]'}`}>
+                    <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-5xl rounded-[5px] h-[85vh]'}`}>
                         <div className={`flex-grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
                             {/* Minimalism Controls */}
                             <div className="absolute top-6 right-6 z-[110] flex items-center gap-3">
                                 <button
                                     onClick={() => setIsFullScreen(!isFullScreen)}
-                                    className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-2xl transition-all active:scale-90"
+                                    className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[5px] transition-all active:scale-90"
                                 >
                                     {isFullScreen ? <Minimize2 size={20} strokeWidth={3} /> : <Maximize2 size={20} strokeWidth={3} />}
                                 </button>
                                 <button
                                     onClick={() => { setIsViewModalOpen(false); setSelectedItemForView(null); setIsFullScreen(false); }}
-                                    className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-2xl transition-all active:scale-90"
+                                    className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[5px] transition-all active:scale-90"
                                 >
                                     <X size={24} strokeWidth={3} />
                                 </button>

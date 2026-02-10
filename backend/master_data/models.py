@@ -352,7 +352,7 @@ class PenPaperTest(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
-    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    sections = models.ManyToManyField('sections.Section', blank=True, related_name='pen_paper_tests')
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -365,6 +365,35 @@ class PenPaperTest(models.Model):
     def save(self, *args, **kwargs):
         if not self.code:
             self.code = generate_unique_code(PenPaperTest, self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+class Homework(models.Model):
+    # Core Details
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=100, unique=True, blank=True)
+    homework_type = models.CharField(max_length=100, default='Must Do Questions')
+    pdf_file = models.FileField(upload_to='homework/pdfs/', blank=True, null=True)
+    
+    # Master Data Targeting
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    sections = models.ManyToManyField('sections.Section', related_name='homeworks', blank=True)
+    is_general = models.BooleanField(default=True)
+    packages = models.ManyToManyField('packages.Package', related_name='homeworks', blank=True)
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_unique_code(Homework, self.name)
         super().save(*args, **kwargs)
 
     def __str__(self):

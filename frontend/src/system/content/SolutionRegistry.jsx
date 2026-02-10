@@ -411,7 +411,7 @@ const SolutionRegistry = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative text-slate-900 dark:text-white">
-            <div className={`p-8 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 {/* Header & Controls */}
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -430,7 +430,7 @@ const SolutionRegistry = () => {
                         </div>
                         <button
                             onClick={() => { resetForm(); setIsAddModalOpen(true); }}
-                            className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-600/20 active:scale-95"
+                            className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-[5px] font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-600/20 active:scale-95"
                         >
                             <Plus size={20} strokeWidth={3} />
                             <span>Add Solution</span>
@@ -445,7 +445,7 @@ const SolutionRegistry = () => {
                                 placeholder="Search by name..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-14 pr-6 py-3 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode
+                                className={`w-full pl-14 pr-6 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
                                     ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/5'
                                     : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/5'
                                     }`}
@@ -453,7 +453,7 @@ const SolutionRegistry = () => {
                         </div>
                         <button
                             onClick={fetchSolutionItems}
-                            className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-400 border border-white/5' : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100'}`}
+                            className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-400 border border-white/5' : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100'}`}
                         >
                             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                         </button>
@@ -477,7 +477,7 @@ const SolutionRegistry = () => {
                                 <select
                                     value={activeFilters[filter.field]}
                                     onChange={(e) => { setActiveFilters({ ...activeFilters, [filter.field]: e.target.value }); setCurrentPage(1); }}
-                                    className={`px-4 py-2 rounded-xl border-none outline-none font-bold text-[10px] uppercase tracking-wider cursor-pointer transition-all ${isDarkMode ? 'bg-[#1E2532] text-slate-300 hover:bg-[#252E3D]' : 'bg-white text-slate-600 shadow-sm hover:shadow-md'}`}
+                                    className={`px-4 py-2 rounded-[5px] border-none outline-none font-bold text-[10px] uppercase tracking-wider cursor-pointer transition-all ${isDarkMode ? 'bg-[#1E2532] text-slate-300 hover:bg-[#252E3D]' : 'bg-white text-slate-600 shadow-sm hover:shadow-md'}`}
                                 >
                                     <option value="" className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>All {filter.label}s</option>
                                     {filter.options.map((opt, idx) => (
@@ -490,7 +490,7 @@ const SolutionRegistry = () => {
                         {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.target_exam || activeFilters.resource_type) && (
                             <button
                                 onClick={() => { setActiveFilters({ session: '', class_level: '', subject: '', target_exam: '', resource_type: '' }); setCurrentPage(1); }}
-                                className="px-4 py-2 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all ml-auto"
+                                className="px-4 py-2 bg-red-500/10 text-red-500 rounded-[5px] text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all ml-auto"
                             >
                                 Clear All
                             </button>
@@ -500,7 +500,7 @@ const SolutionRegistry = () => {
             </div>
 
             {/* Table */}
-            <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1200px]">
                         <thead>
@@ -567,24 +567,24 @@ const SolutionRegistry = () => {
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex items-center justify-center gap-3">
                                                 {item.question_pdf && (
-                                                    <button onClick={() => { setSelectedItemForView(item); setPdfToView('question'); setViewPage(1); setIsViewModalOpen(true); }} className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all tooltip" title="Question">
+                                                    <button onClick={() => { setSelectedItemForView(item); setPdfToView('question'); setViewPage(1); setIsViewModalOpen(true); }} className="p-2 rounded-[5px] bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all tooltip" title="Question">
                                                         <Eye size={16} />
                                                     </button>
                                                 )}
                                                 {item.answer_pdf && (
-                                                    <button onClick={() => { setSelectedItemForView(item); setPdfToView('answer'); setViewPage(1); setIsViewModalOpen(true); }} className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-700 hover:text-white transition-all" title="Answer">
+                                                    <button onClick={() => { setSelectedItemForView(item); setPdfToView('answer'); setViewPage(1); setIsViewModalOpen(true); }} className="p-2 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-700 hover:text-white transition-all" title="Answer">
                                                         <Eye size={16} />
                                                     </button>
                                                 )}
                                             </div>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <button onClick={() => handleEditClick(item)} className="p-3 rounded-xl bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all active:scale-90">
+                                            <button onClick={() => handleEditClick(item)} className="p-3 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all active:scale-90">
                                                 <Edit2 size={16} strokeWidth={2.5} />
                                             </button>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <button onClick={() => handleDeleteItem(item.id)} className="p-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-90">
+                                            <button onClick={() => handleDeleteItem(item.id)} className="p-3 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-90">
                                                 <Trash2 size={16} strokeWidth={2.5} />
                                             </button>
                                         </td>
@@ -607,7 +607,7 @@ const SolutionRegistry = () => {
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm'}`}
                         >
                             {[10, 20, 50, 100].map(val => (
                                 <option key={val} value={val} className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>{val} per page</option>
@@ -623,21 +623,21 @@ const SolutionRegistry = () => {
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(1)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                            className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
                         >
                             <ChevronsLeft size={18} strokeWidth={2.5} />
                         </button>
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(prev => prev - 1)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                            className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
                         >
                             <ChevronLeft size={18} strokeWidth={2.5} />
                         </button>
 
                         <div className="flex items-center gap-1 mx-4">
                             <span className="text-sm font-black">Page</span>
-                            <span className={`px-4 py-1.5 rounded-lg font-black text-sm ${isDarkMode ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-amber-500 text-white shadow-lg'}`}>
+                            <span className={`px-4 py-1.5 rounded-[5px] font-black text-sm ${isDarkMode ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-amber-500 text-white shadow-lg'}`}>
                                 {currentPage}
                             </span>
                             <span className="text-sm font-black opacity-40">of {totalPages || 1}</span>
@@ -646,14 +646,14 @@ const SolutionRegistry = () => {
                         <button
                             disabled={currentPage === totalPages || totalPages === 0}
                             onClick={() => setCurrentPage(prev => prev + 1)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                            className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
                         >
                             <ChevronRight size={18} strokeWidth={2.5} />
                         </button>
                         <button
                             disabled={currentPage === totalPages || totalPages === 0}
                             onClick={() => setCurrentPage(totalPages)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
+                            className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
                         >
                             <ChevronsRight size={18} strokeWidth={2.5} />
                         </button>
@@ -667,9 +667,9 @@ const SolutionRegistry = () => {
                                 placeholder="Jump to..."
                                 value={jumpToPage}
                                 onChange={(e) => setJumpToPage(e.target.value)}
-                                className={`w-24 px-4 py-2 rounded-xl text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800'}`}
+                                className={`w-24 px-4 py-2 rounded-[5px] text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800'}`}
                             />
-                            <button type="submit" className={`p-2 rounded-xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>
+                            <button type="submit" className={`p-2 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>
                                 Go
                             </button>
                         </form>
@@ -680,14 +680,14 @@ const SolutionRegistry = () => {
             {/* Combined Add/Edit Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className="w-full max-w-4xl overflow-hidden rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+                    <div className="w-full max-w-4xl overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
                         {/* Header */}
                         <div className={`flex-shrink-0 flex items-center justify-between px-8 py-4 text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-amber-600'}`}>
                             <div>
                                 <h3 className="text-xl font-black uppercase tracking-tight leading-none mb-1">{isEditModalOpen ? 'Edit Solution' : 'Add Solution'}</h3>
                                 <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Post new academic resources</p>
                             </div>
-                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-xl transition-colors"><X size={24} strokeWidth={3} /></button>
+                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/20 rounded-[5px] transition-colors"><X size={24} strokeWidth={3} /></button>
                         </div>
 
                         {/* Body */}
@@ -699,23 +699,23 @@ const SolutionRegistry = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Solution Item Name *</label>
-                                            <input required type="text" placeholder="e.g. Maths Physics DPP 01" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-5 py-3 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
+                                            <input required type="text" placeholder="e.g. Maths Physics DPP 01" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-5 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Resource Categories (Multiple)</label>
                                             <div className="flex flex-wrap gap-4 mt-1">
-                                                <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_dpp: !newItem.resource_type_dpp })} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-xs uppercase ${newItem.resource_type_dpp ? 'bg-emerald-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                                <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_dpp: !newItem.resource_type_dpp })} className={`flex items-center gap-2 px-4 py-2 rounded-[5px] transition-all font-bold text-xs uppercase ${newItem.resource_type_dpp ? 'bg-emerald-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     {newItem.resource_type_dpp ? <CheckSquare size={16} /> : <Square size={16} />} DPP
                                                 </button>
-                                                <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_rpp: !newItem.resource_type_rpp })} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-xs uppercase ${newItem.resource_type_rpp ? 'bg-blue-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                                <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_rpp: !newItem.resource_type_rpp })} className={`flex items-center gap-2 px-4 py-2 rounded-[5px] transition-all font-bold text-xs uppercase ${newItem.resource_type_rpp ? 'bg-blue-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     {newItem.resource_type_rpp ? <CheckSquare size={16} /> : <Square size={16} />} RPP
                                                 </button>
                                                 <div className="flex flex-col gap-2">
-                                                    <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_others: !newItem.resource_type_others })} className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-xs uppercase ${newItem.resource_type_others ? 'bg-amber-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                                    <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_others: !newItem.resource_type_others })} className={`flex items-center gap-2 px-4 py-2 rounded-[5px] transition-all font-bold text-xs uppercase ${newItem.resource_type_others ? 'bg-amber-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                         {newItem.resource_type_others ? <CheckSquare size={16} /> : <Square size={16} />} Others
                                                     </button>
                                                     {newItem.resource_type_others && (
-                                                        <input type="text" placeholder="Specify category" value={newItem.other_resource_name} onChange={(e) => setNewItem({ ...newItem, other_resource_name: e.target.value })} className={`px-4 py-2 rounded-xl border font-bold text-xs outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200'}`} />
+                                                        <input type="text" placeholder="Specify category" value={newItem.other_resource_name} onChange={(e) => setNewItem({ ...newItem, other_resource_name: e.target.value })} className={`px-4 py-2 rounded-[5px] border font-bold text-xs outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200'}`} />
                                                     )}
                                                 </div>
                                             </div>
@@ -723,12 +723,12 @@ const SolutionRegistry = () => {
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Overall Description</label>
-                                        <textarea rows={2} placeholder="Brief details about this bundle" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className={`w-full px-5 py-3 rounded-2xl border-2 outline-none font-bold transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
+                                        <textarea rows={2} placeholder="Brief details about this bundle" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className={`w-full px-5 py-3 rounded-[5px] border-2 outline-none font-bold transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
                                     </div>
                                 </div>
 
                                 {/* 2. Academic Metadata (Dropdowns) */}
-                                <div className="p-6 rounded-[2rem] border-2 border-dashed border-white/5 space-y-4 bg-white/5">
+                                <div className="p-6 rounded-[5px] border-2 border-dashed border-white/5 space-y-4 bg-white/5">
                                     <div className="flex items-center gap-3">
                                         <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
                                         <h4 className="text-sm font-black uppercase tracking-[0.2em] opacity-80">Academic Metadata</h4>
@@ -748,7 +748,7 @@ const SolutionRegistry = () => {
                                                         value={sel.value}
                                                         onChange={(e) => setNewItem({ ...newItem, [sel.field]: e.target.value })}
                                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                                        className={`w-full pl-6 pr-12 py-3 rounded-xl border appearance-none outline-none font-bold text-sm transition-all focus:ring-4 focus:ring-amber-500/10 ${isDarkMode
+                                                        className={`w-full pl-6 pr-12 py-3 rounded-[5px] border appearance-none outline-none font-bold text-sm transition-all focus:ring-4 focus:ring-amber-500/10 ${isDarkMode
                                                             ? 'bg-[#1a1f2e] border-white/5 text-white'
                                                             : 'bg-white border-slate-200 text-slate-800'
                                                             }`}
@@ -771,7 +771,7 @@ const SolutionRegistry = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsSectionDropdownOpen(!isSectionDropdownOpen)}
-                                                className={`w-full pl-6 pr-12 py-3 rounded-xl border outline-none font-bold text-sm transition-all text-left flex items-center justify-between focus:ring-4 focus:ring-amber-500/10 ${isDarkMode
+                                                className={`w-full pl-6 pr-12 py-3 rounded-[5px] border outline-none font-bold text-sm transition-all text-left flex items-center justify-between focus:ring-4 focus:ring-amber-500/10 ${isDarkMode
                                                     ? 'bg-[#1e293b] border-white/5 text-white'
                                                     : 'bg-white border-slate-200 text-slate-800'
                                                     }`}
@@ -785,7 +785,7 @@ const SolutionRegistry = () => {
                                             </button>
 
                                             {isSectionDropdownOpen && (
-                                                <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-2xl border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                                <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                                     ? 'bg-[#1e293b] border-white/10 shadow-black/40'
                                                     : 'bg-white border-slate-100 shadow-slate-200'
                                                     }`}>
@@ -798,7 +798,7 @@ const SolutionRegistry = () => {
                                                                         key={sec.id}
                                                                         type="button"
                                                                         onClick={() => handleSectionToggle(sec.id)}
-                                                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${isSelected
+                                                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-[5px] text-xs font-bold transition-all ${isSelected
                                                                             ? 'bg-amber-500 text-white'
                                                                             : (isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')
                                                                             }`}
@@ -822,22 +822,22 @@ const SolutionRegistry = () => {
                                 {/* 3. Dual Resource Upload (Question & Answer) */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     {/* Question Part */}
-                                    <div className="p-8 rounded-[2rem] border-2 border-emerald-500/10 space-y-6 bg-emerald-500/5">
+                                    <div className="p-8 rounded-[5px] border-2 border-emerald-500/10 space-y-6 bg-emerald-500/5">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500">1. Question Resource</h4>
                                             <span className="text-[9px] font-bold opacity-40">STEP ONE</span>
                                         </div>
                                         <div className="space-y-4">
-                                            <input type="text" placeholder="Question Title (e.g. Set A Question)" value={newItem.question_title} onChange={(e) => setNewItem({ ...newItem, question_title: e.target.value })} className={`w-full px-5 py-3 rounded-xl border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-200'}`} />
+                                            <input type="text" placeholder="Question Title (e.g. Set A Question)" value={newItem.question_title} onChange={(e) => setNewItem({ ...newItem, question_title: e.target.value })} className={`w-full px-5 py-3 rounded-[5px] border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-200'}`} />
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="relative h-24">
                                                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'question_thumbnail')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.question_thumbnail || previews.question_thumbnail ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10'}`}>
+                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-[5px] overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.question_thumbnail || previews.question_thumbnail ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10'}`}>
                                                         {previews.question_thumbnail ? (
                                                             <>
                                                                 <img src={previews.question_thumbnail} className="w-full h-full object-cover" alt="Preview" />
                                                                 {previews.question_thumbnail !== PLACEHOLDER_IMAGE && (
-                                                                    <button type="button" onClick={() => handleRemoveFile('question_thumbnail')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
+                                                                    <button type="button" onClick={() => handleRemoveFile('question_thumbnail')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
                                                                         <X size={12} strokeWidth={4} />
                                                                     </button>
                                                                 )}
@@ -849,18 +849,18 @@ const SolutionRegistry = () => {
                                                 </div>
                                                 <div className="relative h-24">
                                                     <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, 'question_pdf')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.question_pdf || previews.question_pdf ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10'}`}>
+                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-[5px] overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.question_pdf || previews.question_pdf ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10'}`}>
                                                         {(newItem.question_pdf || previews.question_pdf) ? (
                                                             <>
                                                                 <div className="flex flex-col items-center gap-2 p-2">
-                                                                    <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20 animate-bounce">
+                                                                    <div className="w-10 h-10 bg-red-500 rounded-[5px] flex items-center justify-center shadow-lg shadow-red-500/20 animate-bounce">
                                                                         <span className="text-[10px] font-black text-white italic">PDF</span>
                                                                     </div>
                                                                     <span className="text-[7px] font-black uppercase text-emerald-500 truncate w-full text-center px-2">
                                                                         {newItem.question_pdf ? newItem.question_pdf.name : "Question Resource"}
                                                                     </span>
                                                                 </div>
-                                                                <button type="button" onClick={() => handleRemoveFile('question_pdf')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
+                                                                <button type="button" onClick={() => handleRemoveFile('question_pdf')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
                                                                     <X size={12} strokeWidth={4} />
                                                                 </button>
                                                             </>
@@ -874,22 +874,22 @@ const SolutionRegistry = () => {
                                     </div>
 
                                     {/* Answer Part */}
-                                    <div className="p-8 rounded-[2rem] border-2 border-blue-500/10 space-y-6 bg-blue-500/5">
+                                    <div className="p-8 rounded-[5px] border-2 border-blue-500/10 space-y-6 bg-blue-500/5">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-sm font-black uppercase tracking-widest text-blue-500">2. Answer Resource</h4>
                                             <span className="text-[9px] font-bold opacity-40">STEP TWO</span>
                                         </div>
                                         <div className="space-y-4">
-                                            <input type="text" placeholder="Answer Title (e.g. Set A Answer Key)" value={newItem.answer_title} onChange={(e) => setNewItem({ ...newItem, answer_title: e.target.value })} className={`w-full px-5 py-3 rounded-xl border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-200'}`} />
+                                            <input type="text" placeholder="Answer Title (e.g. Set A Answer Key)" value={newItem.answer_title} onChange={(e) => setNewItem({ ...newItem, answer_title: e.target.value })} className={`w-full px-5 py-3 rounded-[5px] border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-200'}`} />
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="relative h-24">
                                                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'answer_thumbnail')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.answer_thumbnail || previews.answer_thumbnail ? 'border-blue-500 bg-blue-500/10' : 'border-white/10'}`}>
+                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-[5px] overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.answer_thumbnail || previews.answer_thumbnail ? 'border-blue-500 bg-blue-500/10' : 'border-white/10'}`}>
                                                         {previews.answer_thumbnail ? (
                                                             <>
                                                                 <img src={previews.answer_thumbnail} className="w-full h-full object-cover" alt="Preview" />
                                                                 {previews.answer_thumbnail !== PLACEHOLDER_IMAGE && (
-                                                                    <button type="button" onClick={() => handleRemoveFile('answer_thumbnail')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
+                                                                    <button type="button" onClick={() => handleRemoveFile('answer_thumbnail')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
                                                                         <X size={12} strokeWidth={4} />
                                                                     </button>
                                                                 )}
@@ -901,18 +901,18 @@ const SolutionRegistry = () => {
                                                 </div>
                                                 <div className="relative h-24">
                                                     <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, 'answer_pdf')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.answer_pdf || previews.answer_pdf ? 'border-blue-500 bg-blue-500/10' : 'border-white/10'}`}>
+                                                    <div className={`absolute inset-0 border-2 border-dashed rounded-[5px] overflow-hidden flex flex-col items-center justify-center gap-1 transition-all ${newItem.answer_pdf || previews.answer_pdf ? 'border-blue-500 bg-blue-500/10' : 'border-white/10'}`}>
                                                         {(newItem.answer_pdf || previews.answer_pdf) ? (
                                                             <>
                                                                 <div className="flex flex-col items-center gap-2 p-2">
-                                                                    <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center shadow-lg shadow-red-500/20 animate-bounce">
+                                                                    <div className="w-10 h-10 bg-red-500 rounded-[5px] flex items-center justify-center shadow-lg shadow-red-500/20 animate-bounce">
                                                                         <span className="text-[10px] font-black text-white italic">PDF</span>
                                                                     </div>
                                                                     <span className="text-[7px] font-black uppercase text-blue-500 truncate w-full text-center px-2">
                                                                         {newItem.answer_pdf ? newItem.answer_pdf.name : "Answer Resource"}
                                                                     </span>
                                                                 </div>
-                                                                <button type="button" onClick={() => handleRemoveFile('answer_pdf')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
+                                                                <button type="button" onClick={() => handleRemoveFile('answer_pdf')} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90 z-20">
                                                                     <X size={12} strokeWidth={4} />
                                                                 </button>
                                                             </>
@@ -926,7 +926,7 @@ const SolutionRegistry = () => {
                                     </div>
                                 </div>
 
-                                <button type="submit" disabled={isActionLoading} className={`w-full py-3.5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${isEditModalOpen ? 'total-blue-700 bg-blue-600' : 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/30'}`}>
+                                <button type="submit" disabled={isActionLoading} className={`w-full py-3.5 rounded-[5px] font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 ${isEditModalOpen ? 'total-blue-700 bg-blue-600' : 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/30'}`}>
                                     {isActionLoading ? <Loader2 size={24} className="animate-spin" /> : <><RefreshCw size={20} /> {isEditModalOpen ? "Update Complete Solution" : "Save Solution Bundle"}</>}
                                 </button>
                             </form>
@@ -938,12 +938,12 @@ const SolutionRegistry = () => {
             {/* Enhanced View Modal */}
             {isViewModalOpen && selectedItemForView && (
                 <div className={`fixed z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
-                    <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-5xl rounded-[2.5rem] h-[85vh]'}`}>
+                    <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-5xl rounded-[5px] h-[85vh]'}`}>
                         {/* Header */}
                         <div className={`flex-shrink-0 flex items-center justify-between px-10 py-6 text-white ${pdfToView === 'question' ? 'bg-emerald-600' : 'bg-blue-600'} ${isFullScreen ? 'rounded-none' : ''}`}>
                             <div className="flex items-center gap-4">
                                 {viewPage === 2 && (
-                                    <button onClick={() => { if (isFullScreen) setIsFullScreen(false); setViewPage(1); }} className="p-2 hover:bg-white/20 rounded-xl transition-all flex items-center gap-2 group">
+                                    <button onClick={() => { if (isFullScreen) setIsFullScreen(false); setViewPage(1); }} className="p-2 hover:bg-white/20 rounded-[5px] transition-all flex items-center gap-2 group">
                                         <ChevronLeft size={20} strokeWidth={3} className="group-hover:-translate-x-1 transition-transform" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
                                     </button>
@@ -957,14 +957,14 @@ const SolutionRegistry = () => {
                                 {viewPage === 2 && (
                                     <>
                                         {isFullScreen ? (
-                                            <button onClick={() => setIsFullScreen(false)} className="px-4 py-2 bg-white/20 rounded-xl text-xs font-bold active:scale-95"><Minimize2 size={16} strokeWidth={3} /></button>
+                                            <button onClick={() => setIsFullScreen(false)} className="px-4 py-2 bg-white/20 rounded-[5px] text-xs font-bold active:scale-95"><Minimize2 size={16} strokeWidth={3} /></button>
                                         ) : (
-                                            <button onClick={() => setIsFullScreen(true)} className="px-4 py-2 bg-white/20 rounded-xl text-xs font-bold active:scale-95"><Maximize2 size={16} strokeWidth={3} /></button>
+                                            <button onClick={() => setIsFullScreen(true)} className="px-4 py-2 bg-white/20 rounded-[5px] text-xs font-bold active:scale-95"><Maximize2 size={16} strokeWidth={3} /></button>
                                         )}
-                                        <button onClick={() => window.open(pdfToView === 'question' ? selectedItemForView.question_pdf : selectedItemForView.answer_pdf, '_blank')} className="p-2 hover:bg-white/20 rounded-xl transition-all"><ExternalLink size={20} strokeWidth={3} /></button>
+                                        <button onClick={() => window.open(pdfToView === 'question' ? selectedItemForView.question_pdf : selectedItemForView.answer_pdf, '_blank')} className="p-2 hover:bg-white/20 rounded-[5px] transition-all"><ExternalLink size={20} strokeWidth={3} /></button>
                                     </>
                                 )}
-                                <button onClick={() => { setIsViewModalOpen(false); setSelectedItemForView(null); setIsFullScreen(false); }} className="p-2 hover:bg-white/20 rounded-xl transition-colors"><X size={24} strokeWidth={3} /></button>
+                                <button onClick={() => { setIsViewModalOpen(false); setSelectedItemForView(null); setIsFullScreen(false); }} className="p-2 hover:bg-white/20 rounded-[5px] transition-colors"><X size={24} strokeWidth={3} /></button>
                             </div>
                         </div>
 
@@ -972,7 +972,7 @@ const SolutionRegistry = () => {
                         <div className={`flex-grow overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#0f172a]' : 'bg-slate-50'}`}>
                             {viewPage === 1 ? (
                                 <div className="flex flex-col lg:flex-row items-center justify-center h-full p-10 lg:p-16 gap-10 lg:gap-16 animate-in slide-in-from-right-8 duration-500 overflow-y-auto custom-scrollbar">
-                                    <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl shadow-emerald-500/20 w-full max-w-[18rem] h-[24rem] lg:max-w-[20rem] lg:h-[28rem] border-[8px] border-white dark:border-white/5 flex-shrink-0 mt-5">
+                                    <div className="relative group overflow-hidden rounded-[5px] shadow-2xl shadow-emerald-500/20 w-full max-w-[18rem] h-[24rem] lg:max-w-[20rem] lg:h-[28rem] border-[8px] border-white dark:border-white/5 flex-shrink-0 mt-5">
                                         <img src={pdfToView === 'question' ? (selectedItemForView.question_thumbnail || selectedItemForView.thumbnail || PLACEHOLDER_IMAGE) : (selectedItemForView.answer_thumbnail || selectedItemForView.thumbnail || PLACEHOLDER_IMAGE)} className="w-full h-full object-cover" alt="Preview" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                                     </div>
@@ -983,7 +983,7 @@ const SolutionRegistry = () => {
                                             <div className={`w-20 h-2 rounded-full mb-6 lg:ml-0 mx-auto ${pdfToView === 'question' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
                                         </div>
                                         <p className={`text-base font-medium mb-10 opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{selectedItemForView.description || "No further details available for this document."}</p>
-                                        <button onClick={() => setViewPage(2)} className={`px-10 py-5 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-95 flex items-center gap-4 group ring-4 ${pdfToView === 'question' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/40 ring-emerald-600/10' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/40 ring-blue-600/10'}`}>
+                                        <button onClick={() => setViewPage(2)} className={`px-10 py-5 text-white rounded-[5px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-95 flex items-center gap-4 group ring-4 ${pdfToView === 'question' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/40 ring-emerald-600/10' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/40 ring-blue-600/10'}`}>
                                             <FileText size={24} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
                                             <span>Open PDF Reader</span>
                                         </button>
@@ -991,7 +991,7 @@ const SolutionRegistry = () => {
                                 </div>
                             ) : (
                                 <div className={`w-full h-full animate-in slide-in-from-right-8 duration-500 ${isFullScreen ? 'p-0' : 'p-4'}`}>
-                                    <iframe src={pdfToView === 'question' ? selectedItemForView.question_pdf : selectedItemForView.answer_pdf} className={`w-full h-full bg-white ${isFullScreen ? 'rounded-none' : 'rounded-2xl'}`} title="PDF Viewer" />
+                                    <iframe src={pdfToView === 'question' ? selectedItemForView.question_pdf : selectedItemForView.answer_pdf} className={`w-full h-full bg-white ${isFullScreen ? 'rounded-none' : 'rounded-[5px]'}`} title="PDF Viewer" />
                                 </div>
                             )}
                         </div>

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../context/ThemeContext';
-import { FileText, Plus, Trash2, Edit2, Search, Filter, X, CheckCircle, RefreshCw, Eye, File } from 'lucide-react';
+import { FileText, Plus, Trash2, Edit2, Search, Filter, X, CheckCircle, RefreshCw, Eye, File, ChevronDown, Check, Square, CheckSquare } from 'lucide-react';
 
 const PenPaperTestRegistry = () => {
     const { isDarkMode } = useTheme();
@@ -24,6 +24,10 @@ const PenPaperTestRegistry = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSectionDropdownOpen, setIsSectionDropdownOpen] = useState(false);
+    const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+    const sectionDropdownRef = useRef(null);
+    const typeDropdownRef = useRef(null);
 
     // Pagination & Filter State
     const [currentPage, setCurrentPage] = useState(1);
@@ -60,7 +64,7 @@ const PenPaperTestRegistry = () => {
         subject: '',
         exam_type: '',
         target_exam: '',
-        section: '',
+        selectedSections: [],
         is_general: false,
         packages: []
     });
@@ -108,6 +112,19 @@ const PenPaperTestRegistry = () => {
         fetchMasterData();
     }, [fetchTests, fetchMasterData]);
 
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(event.target)) {
+                setIsSectionDropdownOpen(false);
+            }
+            if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target)) {
+                setIsTypeDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleAddItem = async (e) => {
         e.preventDefault();
         setIsActionLoading(true);
@@ -142,7 +159,8 @@ const PenPaperTestRegistry = () => {
                 if (newItem.subject) formData.append('subject', newItem.subject);
                 if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
                 if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
-                if (newItem.section) formData.append('section', newItem.section);
+
+                newItem.selectedSections.forEach(id => formData.append('sections', id));
             } else {
                 newItem.packages.forEach(id => formData.append('packages', id));
             }
@@ -192,14 +210,23 @@ const PenPaperTestRegistry = () => {
             if (newItem.remove_thumbnail) formData.append('remove_thumbnail', 'true');
 
             if (newItem.is_general) {
-                if (newItem.session) formData.append('session', newItem.session);
-                if (newItem.class_level) formData.append('class_level', newItem.class_level);
-                if (newItem.subject) formData.append('subject', newItem.subject);
-                if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
-                if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
-                if (newItem.section) formData.append('section', newItem.section);
+                formData.append('session', newItem.session || '');
+                formData.append('class_level', newItem.class_level || '');
+                formData.append('subject', newItem.subject || '');
+                formData.append('exam_type', newItem.exam_type || '');
+                formData.append('target_exam', newItem.target_exam || '');
+
+                if (newItem.selectedSections.length === 0) {
+                    formData.append('sections', '');
+                } else {
+                    newItem.selectedSections.forEach(id => formData.append('sections', id));
+                }
             } else {
-                newItem.packages.forEach(id => formData.append('packages', id));
+                if (newItem.packages.length === 0) {
+                    formData.append('packages', '');
+                } else {
+                    newItem.packages.forEach(id => formData.append('packages', id));
+                }
             }
 
             await axios.patch(`${apiUrl}/api/master-data/pen-paper-tests/${selectedItemForEdit.id}/`, formData, {
@@ -269,7 +296,7 @@ const PenPaperTestRegistry = () => {
             subject: item.subject || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
-            section: item.section || '',
+            selectedSections: (item.sections || []).filter(id => typeof id === 'string'),
             is_general: item.is_general || false,
             packages: item.packages || []
         });
@@ -282,8 +309,8 @@ const PenPaperTestRegistry = () => {
             start_date: '', end_date: '', question_paper: null, solution_file: null, thumbnail: null, remove_thumbnail: false,
             pdf_link: '',
             is_active: true, show_solution: false,
-            session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '',
-            is_general: false, packages: []
+            session: '', class_level: '', subject: '', exam_type: '', target_exam: '',
+            selectedSections: [], is_general: false, packages: []
         });
     };
 
@@ -320,10 +347,10 @@ const PenPaperTestRegistry = () => {
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-amber-500/10 rounded-xl">
+                            <div className="p-2 bg-amber-500/10 rounded-[5px]">
                                 <FileText className="text-amber-500" size={24} />
                             </div>
-                            <h1 className="text-3xl font-black uppercase tracking-tight">
+                            <h1 className={`text-3xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                 Pen Paper <span className="text-amber-500">Test</span>
                             </h1>
                         </div>
@@ -333,14 +360,14 @@ const PenPaperTestRegistry = () => {
                     </div>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black text-sm uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-2"
+                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black text-sm uppercase tracking-widest rounded-[5px] shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-2"
                     >
                         <Plus size={18} /> Add PenPaperTest
                     </button>
                 </div>
 
                 {/* Search & Filters */}
-                <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-[#1a1f2e] border-white/5' : 'bg-white border-slate-200'} space-y-4`}>
+                <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#1a1f2e] border-white/5' : 'bg-white border-slate-200'} space-y-4`}>
                     <div className="flex items-center gap-4">
                         <div className="flex-1 relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -349,23 +376,23 @@ const PenPaperTestRegistry = () => {
                                 placeholder="Enter the name or code..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-amber-500'}`}
+                                className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-amber-500'}`}
                             />
                         </div>
                         <button
                             onClick={fetchTests}
-                            className={`p-3 rounded-xl border-2 transition-all ${isDarkMode ? 'bg-[#0f1419] border-white/5 hover:border-amber-500/50' : 'bg-slate-50 border-slate-200 hover:border-amber-500'}`}
+                            className={`p-3 rounded-[5px] border-2 transition-all ${isDarkMode ? 'bg-[#0f1419] border-white/5 hover:border-amber-500/50' : 'bg-slate-50 border-slate-200 hover:border-amber-500'}`}
                         >
                             <RefreshCw size={18} className="text-amber-500" />
                         </button>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className={`p-1 rounded-xl flex items-center gap-1 border transition-all ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
+                        <div className={`p-1 rounded-[5px] flex items-center gap-1 border transition-all ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
                             <span className="px-2 text-[10px] font-black uppercase tracking-widest opacity-50">Targeting:</span>
-                            <button onClick={() => setViewTargeting('all')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'all' ? 'bg-amber-500 text-white shadow-lg' : 'opacity-60 hover:opacity-100'}`}>All</button>
-                            <button onClick={() => setViewTargeting('packages')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'packages' ? 'bg-amber-500 text-white shadow-lg' : 'opacity-60 hover:opacity-100'}`}>Packages</button>
-                            <button onClick={() => setViewTargeting('general')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'general' ? 'bg-amber-500 text-white shadow-lg' : 'opacity-60 hover:opacity-100'}`}>General</button>
+                            <button onClick={() => setViewTargeting('all')} className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'all' ? 'bg-amber-500 text-white shadow-lg' : 'opacity-60 hover:opacity-100'}`}>All</button>
+                            <button onClick={() => setViewTargeting('packages')} className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'packages' ? 'bg-amber-500 text-white shadow-lg' : 'opacity-60 hover:opacity-100'}`}>Packages</button>
+                            <button onClick={() => setViewTargeting('general')} className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'general' ? 'bg-amber-500 text-white shadow-lg' : 'opacity-60 hover:opacity-100'}`}>General</button>
                         </div>
 
                         {/* Dynamic Filters similar to VideoRegistry */}
@@ -373,7 +400,7 @@ const PenPaperTestRegistry = () => {
                             <select
                                 value={activeFilters.package}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, package: e.target.value })}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-slate-50 text-slate-700'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-slate-50 text-slate-700'}`}
                             >
                                 <option value="">All Packages</option>
                                 {packages.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
@@ -382,7 +409,7 @@ const PenPaperTestRegistry = () => {
                             <select
                                 value={activeFilters.target_exam}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
-                                className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-slate-50 text-slate-700'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-slate-50 text-slate-700'}`}
                             >
                                 <option value="">All Exams</option>
                                 {targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -390,13 +417,13 @@ const PenPaperTestRegistry = () => {
                         )}
 
                         {(activeFilters.session || activeFilters.package || activeFilters.target_exam) && (
-                            <button onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '', package: '' })} className="px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all">Clear Filters</button>
+                            <button onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '', package: '' })} className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all">Clear Filters</button>
                         )}
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-[#1a1f2e] border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#1a1f2e] border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
@@ -423,7 +450,9 @@ const PenPaperTestRegistry = () => {
                                         <td className="py-5 px-6 text-xs font-mono opacity-70">{item.code || '-'}</td>
                                         <td className="py-5 px-6 text-center text-sm font-bold">{item.duration}</td>
                                         <td className="py-5 px-6 text-center text-xs font-bold uppercase text-amber-500">{item.target_exam_name || '-'}</td>
-                                        <td className="py-5 px-6 text-center text-xs font-bold opacity-70">{item.section_name || '-'}</td>
+                                        <td className="py-5 px-6 text-center text-xs font-bold opacity-70 truncate max-w-[150px]">
+                                            {(item.section_names || []).join(', ') || '-'}
+                                        </td>
                                         <td className="py-5 px-6 text-center text-xs opacity-70">{item.test_type}</td>
 
                                         {/* Status Toggles */}
@@ -446,7 +475,13 @@ const PenPaperTestRegistry = () => {
 
                                         <td className="py-5 px-6 text-center text-xs opacity-70 max-w-[200px] truncate">
                                             {item.is_general ? (
-                                                <span className="bg-blue-500/10 text-blue-500 px-2 py-1 rounded">{item.section_name || 'All Sections'}</span>
+                                                <div className="flex flex-wrap justify-center gap-1 max-w-[200px] mx-auto">
+                                                    {(item.section_names || []).length > 0 ? (
+                                                        item.section_names.map((name, i) => (
+                                                            <span key={i} className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[10px] whitespace-nowrap">{name}</span>
+                                                        ))
+                                                    ) : <span className="opacity-30">All Sections</span>}
+                                                </div>
                                             ) : (
                                                 <div className="flex flex-col gap-1">
                                                     {item.package_names?.slice(0, 2).map((p, i) => (
@@ -459,7 +494,7 @@ const PenPaperTestRegistry = () => {
 
                                         <td className="py-5 px-6 text-center">
                                             {(item.question_paper || item.pdf_link) ? (
-                                                <a href={item.question_paper || item.pdf_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-blue-500/30 text-blue-500 hover:bg-blue-500 hover:text-white transition-all text-xs font-bold uppercase">
+                                                <a href={item.question_paper || item.pdf_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[5px] border border-blue-500/30 text-blue-500 hover:bg-blue-500 hover:text-white transition-all text-xs font-bold uppercase">
                                                     <Eye size={12} /> View
                                                 </a>
                                             ) : <span className="opacity-30">-</span>}
@@ -467,8 +502,8 @@ const PenPaperTestRegistry = () => {
 
                                         <td className="py-5 px-6">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => handleEditClick(item)} className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"><Edit2 size={14} /></button>
-                                                <button onClick={() => handleDeleteClick(item.id)} className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14} /></button>
+                                                <button onClick={() => handleEditClick(item)} className="p-2 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"><Edit2 size={14} /></button>
+                                                <button onClick={() => handleDeleteClick(item.id)} className="p-2 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -494,7 +529,8 @@ const PenPaperTestRegistry = () => {
                                         setItemsPerPage(Number(e.target.value));
                                         setCurrentPage(1);
                                     }}
-                                    className={`px-3 py-2 rounded-lg font-bold text-sm outline-none border-2 cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white hover:border-amber-500/50' : 'bg-white border-slate-200 text-slate-700 hover:border-amber-500'}`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                    className={`px-3 py-2 rounded-[5px] font-bold text-sm outline-none border-2 cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white hover:border-amber-500/50' : 'bg-white border-slate-200 text-slate-700 hover:border-amber-500'}`}
                                 >
                                     {[5, 10, 20, 50, 100].map(size => (
                                         <option key={size} value={size}>{size}</option>
@@ -506,14 +542,14 @@ const PenPaperTestRegistry = () => {
                                 <button
                                     onClick={() => setCurrentPage(1)}
                                     disabled={currentPage === 1}
-                                    className={`p-2 rounded-lg transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
+                                    className={`p-2 rounded-[5px] transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
                                 >
                                     First
                                 </button>
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
+                                    className={`px-4 py-2 rounded-[5px] font-bold text-sm transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
                                 >
                                     Previous
                                 </button>
@@ -536,7 +572,7 @@ const PenPaperTestRegistry = () => {
                                             }
                                         }}
                                         placeholder={currentPage.toString()}
-                                        className={`w-12 px-2 py-1 rounded-lg text-center font-bold text-sm outline-none border-2 transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500' : 'bg-white border-slate-200 text-slate-700 focus:border-amber-500'}`}
+                                        className={`w-12 px-2 py-1 rounded-[5px] text-center font-bold text-sm outline-none border-2 transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500' : 'bg-white border-slate-200 text-slate-700 focus:border-amber-500'}`}
                                     />
                                     <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>of {totalPages}</span>
                                 </div>
@@ -544,14 +580,14 @@ const PenPaperTestRegistry = () => {
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages}
-                                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
+                                    className={`px-4 py-2 rounded-[5px] font-bold text-sm transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
                                 >
                                     Next
                                 </button>
                                 <button
                                     onClick={() => setCurrentPage(totalPages)}
                                     disabled={currentPage === totalPages}
-                                    className={`p-2 rounded-lg transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
+                                    className={`p-2 rounded-[5px] transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
                                 >
                                     Last
                                 </button>
@@ -564,10 +600,10 @@ const PenPaperTestRegistry = () => {
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className={`w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border ${isDarkMode ? 'bg-[#1a1f2e] border-white/10' : 'bg-white border-slate-200'} shadow-2xl`}>
-                        <div className={`sticky top-0 z-10 flex items-center justify-between p-6 border-b ${isDarkMode ? 'bg-[#1a1f2e] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className={`w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[5px] border ${isDarkMode ? 'bg-[#1a1f2e] border-white/10' : 'bg-white border-slate-200'} shadow-2xl`}>
+                        <div className={`sticky top-0 z-10 flex items-center justify-between p-6 border-b ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                             <h2 className="text-2xl font-black uppercase tracking-tight">{isEditModalOpen ? 'Edit' : 'Add'} <span className="text-amber-500">Test</span></h2>
-                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 rounded-lg hover:bg-red-500/10 text-red-500"><X size={20} /></button>
+                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 rounded-[5px] hover:bg-red-500/10 text-red-500 transition-colors"><X size={20} /></button>
                         </div>
 
                         <form onSubmit={isEditModalOpen ? handleUpdateItem : handleAddItem} className="p-6 space-y-6">
@@ -575,31 +611,31 @@ const PenPaperTestRegistry = () => {
                             {/* Dates */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Date and Time:</label>
-                                    <input type="datetime-local" value={newItem.start_date} onChange={(e) => setNewItem({ ...newItem, start_date: e.target.value })} className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} />
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Date and Time:</label>
+                                    <input type="datetime-local" value={newItem.start_date} onChange={(e) => setNewItem({ ...newItem, start_date: e.target.value })} className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Last joining Date and Time:</label>
-                                    <input type="datetime-local" value={newItem.end_date} onChange={(e) => setNewItem({ ...newItem, end_date: e.target.value })} className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} />
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Last joining Date and Time:</label>
+                                    <input type="datetime-local" value={newItem.end_date} onChange={(e) => setNewItem({ ...newItem, end_date: e.target.value })} className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} />
                                 </div>
                             </div>
 
                             {/* Targeting */}
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-100 dark:bg-white/5">
-                                <span className="text-xs font-black uppercase tracking-widest opacity-60">Targeting Type:</span>
-                                <div className="flex bg-white dark:bg-black/20 p-1 rounded-lg">
-                                    <button type="button" onClick={() => setNewItem({ ...newItem, is_general: false })} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40'}`}>Packages</button>
-                                    <button type="button" onClick={() => setNewItem({ ...newItem, is_general: true })} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40'}`}>General</button>
+                            <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
+                                <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'opacity-60' : 'text-slate-500'}`}>Targeting Type:</span>
+                                <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
+                                    <button type="button" onClick={() => setNewItem({ ...newItem, is_general: false })} className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40'}`}>Packages</button>
+                                    <button type="button" onClick={() => setNewItem({ ...newItem, is_general: true })} className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40'}`}>General</button>
                                 </div>
                             </div>
 
                             {/* Package Selection */}
                             {!newItem.is_general ? (
                                 <div className="space-y-3">
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Select Packages *</label>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} ml-1`}>Select Packages *</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-[5px] border border-dashed border-slate-300 dark:border-white/10">
                                         {packages.map(pkg => (
-                                            <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent'}`}>
+                                            <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent'}`}>
                                                 <input type="checkbox" checked={newItem.packages.includes(pkg._id)} onChange={(e) => {
                                                     if (e.target.checked) setNewItem(prev => ({ ...prev, packages: [...prev.packages, pkg._id] }));
                                                     else setNewItem(prev => ({ ...prev, packages: prev.packages.filter(id => id !== pkg._id) }));
@@ -617,52 +653,147 @@ const PenPaperTestRegistry = () => {
                                         { label: 'Class', field: 'class_level', options: classes },
                                         { label: 'Subject', field: 'subject', options: subjects },
                                         { label: 'Exam Tag', field: 'target_exam', options: targetExams },
-                                        { label: 'Exam Type', field: 'exam_type', options: examTypes },
-                                        { label: 'Section', field: 'section', options: sections }
+                                        { label: 'Exam Type', field: 'exam_type', options: examTypes }
                                     ].map(meta => (
                                         <div key={meta.field}>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">{meta.label}</label>
-                                            <select value={newItem[meta.field]} onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })} className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>{meta.label}</label>
+                                            <select
+                                                value={newItem[meta.field]}
+                                                onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
+                                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                                className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                                            >
                                                 <option value="">Select {meta.label}</option>
                                                 {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                                             </select>
                                         </div>
                                     ))}
+
+                                    {/* Multi-Select for Sections */}
+                                    <div className="space-y-2 relative" ref={sectionDropdownRef}>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Assign to Sections</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsSectionDropdownOpen(!isSectionDropdownOpen)}
+                                            className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all text-left flex items-center justify-between ${isDarkMode
+                                                ? 'bg-[#1a1f2e] border-white/5 text-white'
+                                                : 'bg-white border-slate-200 text-slate-800'
+                                                }`}
+                                        >
+                                            <span className="truncate">
+                                                {newItem.selectedSections.length === 0
+                                                    ? 'Select Sections'
+                                                    : `${newItem.selectedSections.length} Sections Selected`}
+                                            </span>
+                                            <ChevronDown size={16} className={`transition-transform duration-300 ${isSectionDropdownOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {isSectionDropdownOpen && (
+                                            <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                                ? 'bg-[#1e293b] border-white/10 shadow-black/40'
+                                                : 'bg-white border-slate-100 shadow-slate-200'
+                                                }`}>
+                                                <div className="max-h-60 overflow-y-auto custom-scrollbar p-2">
+                                                    <div className="space-y-1">
+                                                        {sections.length > 0 ? sections.map(sec => {
+                                                            const isSelected = (newItem.selectedSections || []).includes(sec.id);
+                                                            return (
+                                                                <button
+                                                                    key={sec.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setNewItem(prev => {
+                                                                            const currentSections = prev.selectedSections || [];
+                                                                            const isSelected = currentSections.includes(sec.id);
+                                                                            if (isSelected) {
+                                                                                return { ...prev, selectedSections: currentSections.filter(id => id !== sec.id) };
+                                                                            } else {
+                                                                                return { ...prev, selectedSections: [...currentSections, sec.id] };
+                                                                            }
+                                                                        });
+                                                                    }}
+                                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] transition-all ${isSelected
+                                                                        ? 'bg-amber-500/10 text-amber-500'
+                                                                        : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-500'
+                                                                        }`}
+                                                                >
+                                                                    {isSelected ? <CheckSquare size={16} strokeWidth={3} /> : <Square size={16} strokeWidth={2} />}
+                                                                    <span className="text-[11px] font-black uppercase tracking-tight">{sec.name}</span>
+                                                                    {isSelected && <Check size={14} className="ml-auto" strokeWidth={4} />}
+                                                                </button>
+                                                            );
+                                                        }) : <div className="p-4 text-center text-[10px] font-bold opacity-30">No sections found</div>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
                             {/* Core Details */}
                             <div className="space-y-5">
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">PenPaper Test Name *</label>
-                                    <input required type="text" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} placeholder="e.g. NEET Mock Test 01" />
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>PenPaper Test Name *</label>
+                                    <input required type="text" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} placeholder="e.g. NEET Mock Test 01" />
                                 </div>
                                 {/* Duration */}
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Duration (minutes) *</label>
-                                    <input required type="number" value={newItem.duration} onChange={(e) => setNewItem({ ...newItem, duration: e.target.value })} className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} />
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Duration (minutes) *</label>
+                                    <input required type="number" value={newItem.duration} onChange={(e) => setNewItem({ ...newItem, duration: e.target.value })} className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`} />
                                 </div>
-                                {/* Test Type */}
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Test Type</label>
-                                    <select value={newItem.test_type} onChange={(e) => setNewItem({ ...newItem, test_type: e.target.value })} className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-sm ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-white' : 'bg-white border-slate-200'}`}>
-                                        <option value="Practice Paper">Practice Paper</option>
-                                        <option value="Mock Test">Mock Test</option>
-                                        <option value="Previous Year Paper">Previous Year Paper</option>
-                                    </select>
+                                <div className="relative" ref={typeDropdownRef}>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Test Type</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
+                                        className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-sm transition-all text-left flex items-center justify-between ${isDarkMode
+                                            ? 'bg-[#0f1419] border-white/5 text-white focus:border-amber-500/50'
+                                            : 'bg-white border-slate-200 text-slate-800'
+                                            }`}
+                                    >
+                                        <span>{newItem.test_type}</span>
+                                        <ChevronDown size={18} className={`transition-transform duration-300 ${isTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {isTypeDropdownOpen && (
+                                        <div className={`absolute top-full left-0 right-0 z-[120] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                            ? 'bg-[#1e293b] border-white/10 shadow-black'
+                                            : 'bg-white border-slate-100 shadow-slate-200'
+                                            }`}>
+                                            <div className="p-2 space-y-1">
+                                                {['Practice Paper', 'Mock Test', 'Previous Year Paper'].map((type) => (
+                                                    <button
+                                                        key={type}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setNewItem({ ...newItem, test_type: type });
+                                                            setIsTypeDropdownOpen(false);
+                                                        }}
+                                                        className={`w-full text-left px-4 py-2.5 rounded-[5px] font-bold text-xs transition-all ${newItem.test_type === type
+                                                            ? 'bg-amber-500 text-white'
+                                                            : isDarkMode ? 'text-slate-400 hover:bg-white/5 hover:text-white' : 'text-slate-600 hover:bg-slate-50'
+                                                            }`}
+                                                    >
+                                                        {type}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Files */}
                             <div className="space-y-6 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Question Paper (PDF only)</label>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Question Paper (PDF only)</label>
                                     <div className="flex flex-col gap-2">
                                         <input
                                             type="file"
                                             accept=".pdf"
                                             onChange={(e) => setNewItem({ ...newItem, question_paper: e.target.files[0] })}
-                                            className={`block w-full text-sm rounded-xl border p-2 ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-slate-300 file:bg-white/10 file:text-white file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:text-xs file:font-bold hover:file:bg-white/20' : 'bg-white border-slate-200 text-slate-500 file:bg-slate-100 file:text-slate-700 file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:text-xs file:font-bold hover:file:bg-slate-200'} transition-all cursor-pointer`}
+                                            className={`block w-full text-sm rounded-[5px] border p-2 ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-slate-300 file:bg-white/10 file:text-white file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-[5px] file:text-xs file:font-bold hover:file:bg-white/20' : 'bg-white border-slate-200 text-slate-500 file:bg-slate-100 file:text-slate-700 file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-[5px] file:text-xs file:font-bold hover:file:bg-slate-200'} transition-all cursor-pointer`}
                                         />
                                         {newItem.question_paper && typeof newItem.question_paper === 'string' && (
                                             <a href={newItem.question_paper} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-bold text-blue-500 hover:underline px-2">
@@ -672,13 +803,13 @@ const PenPaperTestRegistry = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Solution (PDF only)</label>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Solution (PDF only)</label>
                                     <div className="flex flex-col gap-2">
                                         <input
                                             type="file"
                                             accept=".pdf"
                                             onChange={(e) => setNewItem({ ...newItem, solution_file: e.target.files[0] })}
-                                            className={`block w-full text-sm rounded-xl border p-2 ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-slate-300 file:bg-white/10 file:text-white file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:text-xs file:font-bold hover:file:bg-white/20' : 'bg-white border-slate-200 text-slate-500 file:bg-slate-100 file:text-slate-700 file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:text-xs file:font-bold hover:file:bg-slate-200'} transition-all cursor-pointer`}
+                                            className={`block w-full text-sm rounded-[5px] border p-2 ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-slate-300 file:bg-white/10 file:text-white file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-[5px] file:text-xs file:font-bold hover:file:bg-white/20' : 'bg-white border-slate-200 text-slate-500 file:bg-slate-100 file:text-slate-700 file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-[5px] file:text-xs file:font-bold hover:file:bg-slate-200'} transition-all cursor-pointer`}
                                         />
                                         {newItem.solution_file && typeof newItem.solution_file === 'string' && (
                                             <a href={newItem.solution_file} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-bold text-blue-500 hover:underline px-2">
@@ -688,18 +819,18 @@ const PenPaperTestRegistry = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Thumbnail Image (Optional)</label>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Thumbnail Image (Optional)</label>
                                     <div className="flex flex-col gap-2">
                                         <input
                                             type="file"
                                             accept="image/*"
                                             onChange={(e) => setNewItem({ ...newItem, thumbnail: e.target.files[0] })}
-                                            className={`block w-full text-sm rounded-xl border p-2 ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-slate-300 file:bg-white/10 file:text-white file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:text-xs file:font-bold hover:file:bg-white/20' : 'bg-white border-slate-200 text-slate-500 file:bg-slate-100 file:text-slate-700 file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:text-xs file:font-bold hover:file:bg-slate-200'} transition-all cursor-pointer`}
+                                            className={`block w-full text-sm rounded-[5px] border p-2 ${isDarkMode ? 'bg-[#0f1419] border-white/5 text-slate-300 file:bg-white/10 file:text-white file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-[5px] file:text-xs file:font-bold hover:file:bg-white/20' : 'bg-white border-slate-200 text-slate-500 file:bg-slate-100 file:text-slate-700 file:border-0 file:mr-4 file:py-2 file:px-4 file:rounded-[5px] file:text-xs file:font-bold hover:file:bg-slate-200'} transition-all cursor-pointer`}
                                         />
                                         {newItem.thumbnail && typeof newItem.thumbnail === 'string' && (
                                             <div className="flex items-center gap-4 px-2">
-                                                <img src={newItem.thumbnail} alt="Thumbnail Preview" className="h-20 w-auto rounded-lg border border-slate-200 dark:border-white/10 object-cover" />
-                                                <button type="button" onClick={() => setNewItem({ ...newItem, thumbnail: null, remove_thumbnail: true })} className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all text-xs font-bold uppercase">
+                                                <img src={newItem.thumbnail} alt="Thumbnail Preview" className="h-20 w-auto rounded-[5px] border border-slate-200 dark:border-white/10 object-cover" />
+                                                <button type="button" onClick={() => setNewItem({ ...newItem, thumbnail: null, remove_thumbnail: true })} className="px-3 py-1.5 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all text-xs font-bold uppercase">
                                                     Remove
                                                 </button>
                                             </div>
@@ -709,8 +840,8 @@ const PenPaperTestRegistry = () => {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-3 rounded-xl font-bold text-sm uppercase bg-slate-500/10 text-slate-500">Cancel</button>
-                                <button type="submit" disabled={isActionLoading} className="px-6 py-3 rounded-xl font-bold text-sm uppercase bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg">{isActionLoading ? 'Saving...' : 'Save Test'}</button>
+                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-3 rounded-[5px] font-bold text-sm uppercase bg-slate-500/10 text-slate-500">Cancel</button>
+                                <button type="submit" disabled={isActionLoading} className="px-6 py-3 rounded-[5px] font-bold text-sm uppercase bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg">{isActionLoading ? 'Saving...' : 'Save Test'}</button>
                             </div>
                         </form>
                     </div>

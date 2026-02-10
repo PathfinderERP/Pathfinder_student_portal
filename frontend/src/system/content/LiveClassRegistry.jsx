@@ -297,7 +297,7 @@ const LiveClassRegistry = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative text-slate-900 dark:text-white">
-            <div className={`p-8 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -315,7 +315,7 @@ const LiveClassRegistry = () => {
                         </div>
                         <button
                             onClick={() => { resetForm(); setIsAddModalOpen(true); }}
-                            className="group flex items-center gap-2 px-8 py-4 bg-green-700 hover:bg-green-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-green-700/25 active:scale-95 whitespace-nowrap"
+                            className="group flex items-center gap-2 px-8 py-4 bg-green-700 hover:bg-green-800 text-white rounded-[5px] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-green-700/25 active:scale-95 whitespace-nowrap"
                         >
                             <Plus size={20} strokeWidth={3} className="group-hover:rotate-90 transition-all duration-300" />
                             <span>Add LiveClass +</span>
@@ -331,12 +331,12 @@ const LiveClassRegistry = () => {
                                     placeholder="Enter the name..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-4 rounded-2xl border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/[0.01] border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
+                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/[0.01] border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                 />
                             </div>
                             <button
                                 onClick={() => { fetchLiveClasses(); fetchMasterData(); }}
-                                className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500 border border-white/5' : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100'}`}
+                                className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500 border border-white/5' : 'bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-100'}`}
                             >
                                 <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                             </button>
@@ -345,23 +345,23 @@ const LiveClassRegistry = () => {
                         {/* Filter Bar */}
                         <div className="flex flex-wrap items-center gap-3">
                             {/* Toggle View Mode */}
-                            <div className={`p-1 rounded-xl flex items-center gap-1 border transition-all ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
+                            <div className={`p-1 rounded-[5px] flex items-center gap-1 border transition-all ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
                                 <span className="px-2 text-[10px] font-black uppercase tracking-widest opacity-50">Targeting:</span>
                                 <button
                                     onClick={() => setViewTargeting('all')}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'all' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
+                                    className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'all' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
                                 >
                                     All
                                 </button>
                                 <button
                                     onClick={() => setViewTargeting('packages')}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'packages' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
+                                    className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'packages' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
                                 >
                                     Packages
                                 </button>
                                 <button
                                     onClick={() => setViewTargeting('general')}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'general' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
+                                    className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'general' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
                                 >
                                     General
                                 </button>
@@ -369,18 +369,18 @@ const LiveClassRegistry = () => {
 
                             <div className={`w-px h-8 mx-2 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
 
-                            <div className={`p-2 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                            <div className={`p-2 rounded-[5px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
                                 <Filter size={14} /> Filters
                             </div>
 
                             {viewTargeting === 'all' ? (
-                                <span className={`px-4 py-2.5 rounded-xl font-bold text-xs ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>Showing all live classes</span>
+                                <span className={`px-4 py-2.5 rounded-[5px] font-bold text-xs ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>Showing all live classes</span>
                             ) : viewTargeting === 'packages' ? (
                                 <select
                                     value={activeFilters.package}
                                     onChange={(e) => setActiveFilters({ ...activeFilters, package: e.target.value })}
                                     style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                    className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                    className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                 >
                                     <option value="">All Packages</option>
                                     {packages.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
@@ -391,7 +391,7 @@ const LiveClassRegistry = () => {
                                         value={activeFilters.session}
                                         onChange={(e) => setActiveFilters({ ...activeFilters, session: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                     >
                                         <option value="">All Sessions</option>
                                         {dynamicFilterOptions.sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -401,7 +401,7 @@ const LiveClassRegistry = () => {
                                         value={activeFilters.class_level}
                                         onChange={(e) => setActiveFilters({ ...activeFilters, class_level: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                     >
                                         <option value="">All Classes</option>
                                         {dynamicFilterOptions.classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -410,7 +410,7 @@ const LiveClassRegistry = () => {
                                         value={activeFilters.subject}
                                         onChange={(e) => setActiveFilters({ ...activeFilters, subject: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                     >
                                         <option value="">All Subjects</option>
                                         {dynamicFilterOptions.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -419,7 +419,7 @@ const LiveClassRegistry = () => {
                                         value={activeFilters.exam_type}
                                         onChange={(e) => setActiveFilters({ ...activeFilters, exam_type: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                     >
                                         <option value="">All Exam Types</option>
                                         {dynamicFilterOptions.examTypes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -428,7 +428,7 @@ const LiveClassRegistry = () => {
                                         value={activeFilters.target_exam}
                                         onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                     >
                                         <option value="">All Target Exams</option>
                                         {dynamicFilterOptions.targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -437,7 +437,7 @@ const LiveClassRegistry = () => {
                                         value={activeFilters.section}
                                         onChange={(e) => setActiveFilters({ ...activeFilters, section: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                                     >
                                         <option value="">All Sections</option>
                                         {dynamicFilterOptions.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -448,7 +448,7 @@ const LiveClassRegistry = () => {
                             {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exam || activeFilters.section || activeFilters.package) && (
                                 <button
                                     onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '', package: '' })}
-                                    className="px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
+                                    className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                                 >
                                     Clear All Filters
                                 </button>
@@ -458,7 +458,7 @@ const LiveClassRegistry = () => {
                 </div>
             </div>
 
-            <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
@@ -506,7 +506,7 @@ const LiveClassRegistry = () => {
                                             <span className="text-[11px] font-bold opacity-70">{item.duration}</span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${item.is_general ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                                            <span className={`px-2 py-1 rounded-[5px] text-[10px] font-black uppercase ${item.is_general ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
                                                 {item.is_general ? 'General' : 'Package'}
                                             </span>
                                         </td>
@@ -515,7 +515,7 @@ const LiveClassRegistry = () => {
                                                 {item.is_general ? (
                                                     <>
                                                         {item.subject_name ? (
-                                                            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-lg border border-emerald-500/20">{item.subject_name}</span>
+                                                            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-[5px] border border-emerald-500/20">{item.subject_name}</span>
                                                         ) : <span className="text-[9px] font-black uppercase opacity-20">General</span>}
                                                         {item.class_name && <span className="text-[8px] font-black uppercase opacity-40">{item.class_name}</span>}
                                                     </>
@@ -523,7 +523,7 @@ const LiveClassRegistry = () => {
                                                     <div className="flex flex-col gap-1">
                                                         {item.package_names && item.package_names.length > 0 ? (
                                                             item.package_names.slice(0, 2).map((p, i) => (
-                                                                <span key={i} className="px-2 py-0.5 bg-purple-500/10 text-purple-500 text-[9px] font-black uppercase rounded-lg border border-purple-500/20 max-w-[150px] truncate">{p}</span>
+                                                                <span key={i} className="px-2 py-0.5 bg-purple-500/10 text-purple-500 text-[9px] font-black uppercase rounded-[5px] border border-purple-500/20 max-w-[150px] truncate">{p}</span>
                                                             ))
                                                         ) : <span className="text-[9px] opacity-30">-</span>}
                                                         {item.package_names && item.package_names.length > 2 && (
@@ -535,14 +535,14 @@ const LiveClassRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex justify-center">
-                                                <button onClick={() => handleEditClick(item)} className="p-2.5 rounded-xl text-blue-500 hover:bg-blue-500/10 transition-all">
+                                                <button onClick={() => handleEditClick(item)} className="p-2.5 rounded-[5px] text-blue-500 hover:bg-blue-500/10 transition-all">
                                                     <Edit2 size={16} strokeWidth={3} />
                                                 </button>
                                             </div>
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex justify-center">
-                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2.5 rounded-xl text-blue-500 hover:bg-blue-500/10 transition-all">
+                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2.5 rounded-[5px] text-blue-500 hover:bg-blue-500/10 transition-all">
                                                     <Trash2 size={16} strokeWidth={3} />
                                                 </button>
                                             </div>
@@ -563,7 +563,7 @@ const LiveClassRegistry = () => {
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm transition-all'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer ${isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-700 shadow-sm transition-all'}`}
                         >
                             {[10, 20, 50].map(val => (
                                 <option key={val} value={val} className={isDarkMode ? 'bg-[#1E2532] text-white' : 'bg-white text-slate-800'}>{val} per page</option>
@@ -572,15 +572,15 @@ const LiveClassRegistry = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(1)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsLeft size={18} strokeWidth={2.5} /></button>
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsLeft size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
                         <div className="flex items-center gap-1 mx-4">
                             <span className="text-[10px] font-black uppercase opacity-40 tracking-tighter">Page</span>
-                            <span className="px-4 py-1.5 bg-amber-500 text-white rounded-lg font-black text-xs shadow-lg shadow-amber-500/20">{currentPage}</span>
+                            <span className="px-4 py-1.5 bg-amber-500 text-white rounded-[5px] font-black text-xs shadow-lg shadow-amber-500/20">{currentPage}</span>
                             <span className="text-[10px] font-black uppercase opacity-40 tracking-tighter">of {totalPages || 1}</span>
                         </div>
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => prev + 1)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(totalPages)} className={`p-2 rounded-xl bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsRight size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => prev + 1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(totalPages)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsRight size={18} strokeWidth={2.5} /></button>
                     </div>
 
                     <form onSubmit={handleJumpToPage} className="flex items-center gap-2">
@@ -589,9 +589,9 @@ const LiveClassRegistry = () => {
                             placeholder="Jump..."
                             value={jumpToPage}
                             onChange={(e) => setJumpToPage(e.target.value)}
-                            className={`w-20 px-4 py-2 rounded-xl text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
+                            className={`w-20 px-4 py-2 rounded-[5px] text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
                         />
-                        <button type="submit" className={`p-2 rounded-xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>Go</button>
+                        <button type="submit" className={`p-2 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-500' : 'bg-amber-50 hover:bg-amber-100 text-amber-600'}`}>Go</button>
                     </form>
                 </div>
             </div>
@@ -599,33 +599,33 @@ const LiveClassRegistry = () => {
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-2xl rounded-[2.5rem] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
+                    <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-500 rounded-xl text-white shadow-lg shadow-amber-500/20"><Bell size={20} /></div>
+                                <div className="p-2 bg-amber-500 rounded-[5px] text-white shadow-lg shadow-amber-500/20"><Bell size={20} /></div>
                                 <h2 className="text-xl font-black uppercase tracking-tight">{isAddModalOpen ? 'Create New' : 'Edit'} <span className="text-amber-500">Live Class</span></h2>
                             </div>
-                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><X size={20} /></button>
+                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-[5px] transition-colors"><X size={20} /></button>
                         </div>
 
                         <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {/* Top Section: Academic Targeting */}
                             <div className="flex flex-col gap-6">
                                 {/* Type Toggle */}
-                                <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-100 dark:bg-white/5">
+                                <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
                                     <span className="text-xs font-black uppercase tracking-widest opacity-60">Targeting Type:</span>
-                                    <div className="flex bg-white dark:bg-black/20 p-1 rounded-lg">
+                                    <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
                                         <button
                                             type="button"
                                             onClick={() => setNewItem({ ...newItem, is_general: false })}
-                                            className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
                                         >
                                             Packages
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setNewItem({ ...newItem, is_general: true })}
-                                            className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
                                         >
                                             General (Master Data)
                                         </button>
@@ -636,10 +636,10 @@ const LiveClassRegistry = () => {
                                     /* Package Selection */
                                     <div className="space-y-3">
                                         <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Select Packages *</label>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-xl border border-dashed border-slate-300 dark:border-white/10">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-[5px] border border-dashed border-slate-300 dark:border-white/10">
                                             {packages.map(pkg => (
-                                                <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent hover:bg-slate-50 dark:hover:bg-white/10'}`}>
-                                                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${newItem.packages.includes(pkg._id) ? 'bg-amber-500 border-amber-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent hover:bg-slate-50 dark:hover:bg-white/10'}`}>
+                                                    <div className={`w-5 h-5 rounded-[5px] border-2 flex items-center justify-center transition-all ${newItem.packages.includes(pkg._id) ? 'bg-amber-500 border-amber-500' : 'border-slate-300 dark:border-slate-600'}`}>
                                                         {newItem.packages.includes(pkg._id) && <CheckCircle size={12} className="text-white" />}
                                                     </div>
                                                     <input
@@ -686,7 +686,7 @@ const LiveClassRegistry = () => {
                                                     value={newItem[meta.field]}
                                                     onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
                                                     style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
+                                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
                                                 >
                                                     <option value="">All {meta.label}s</option>
                                                     {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
@@ -707,7 +707,7 @@ const LiveClassRegistry = () => {
                                             type="text"
                                             value={newItem.name}
                                             onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                             placeholder="Enter live class title..."
                                         />
                                     </div>
@@ -720,7 +720,7 @@ const LiveClassRegistry = () => {
                                                 type="url"
                                                 value={newItem.meeting_link}
                                                 onChange={(e) => setNewItem({ ...newItem, meeting_link: e.target.value })}
-                                                className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                                className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                                 placeholder="https://..."
                                             />
                                         </div>
@@ -731,7 +731,7 @@ const LiveClassRegistry = () => {
                                                 type="datetime-local"
                                                 value={newItem.start_time}
                                                 onChange={(e) => setNewItem({ ...newItem, start_time: e.target.value })}
-                                                className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                                className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             />
                                         </div>
                                     </div>
@@ -743,7 +743,7 @@ const LiveClassRegistry = () => {
                                             type="number"
                                             value={newItem.duration}
                                             onChange={(e) => setNewItem({ ...newItem, duration: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Duration in minutes"
                                         />
                                     </div>
@@ -753,7 +753,7 @@ const LiveClassRegistry = () => {
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-2xl outline-none border-2 font-bold transition-all min-h-[100px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[100px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                             placeholder="Provide more context for students..."
                                         />
                                     </div>
@@ -763,7 +763,7 @@ const LiveClassRegistry = () => {
                             <button
                                 type="submit"
                                 disabled={isActionLoading}
-                                className={`w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                className={`w-full py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-[5px] font-black uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
                                 {isActionLoading ? <Loader2 className="animate-spin" size={24} /> : (isAddModalOpen ? 'Schedule Live Class' : 'Update Live Class')}
                             </button>

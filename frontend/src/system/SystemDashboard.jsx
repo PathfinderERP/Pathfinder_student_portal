@@ -46,6 +46,7 @@ import NoticeRegistry from './content/NoticeRegistry';
 import LiveClassRegistry from './content/LiveClassRegistry';
 import VideoRegistry from './content/VideoRegistry';
 import PenPaperTestRegistry from './content/PenPaperTestRegistry';
+import HomeworkRegistry from './content/HomeworkRegistry';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
@@ -452,6 +453,8 @@ const SystemDashboard = () => {
                 return <VideoRegistry />;
             case 'Pen Paper Test':
                 return <PenPaperTestRegistry />;
+            case 'Homework':
+                return <HomeworkRegistry />;
             case 'Profile':
                 return (
                     <ProfilePage
@@ -491,7 +494,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test'
+            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework'
         ];
 
         return (

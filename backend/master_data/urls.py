@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet
+from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet
 
 router = DefaultRouter()
 router.register(r'sessions', SessionViewSet)
@@ -19,6 +19,7 @@ router.register(r'notices', NoticeViewSet)
 router.register(r'live-classes', LiveClassViewSet)
 router.register(r'videos', VideoViewSet)
 router.register(r'pen-paper-tests', PenPaperTestViewSet)
+router.register(r'homework', HomeworkViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
