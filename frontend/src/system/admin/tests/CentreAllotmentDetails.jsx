@@ -177,11 +177,11 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     return (
         <div className={`min-h-screen ${isDarkMode ? 'bg-[#0B0F17] text-white' : 'bg-slate-50 text-slate-900'} p-6 animate-in fade-in duration-500`}>
             {/* Header Info */}
-            <div className={`mb-8 p-6 rounded-2xl border flex flex-wrap justify-between items-center gap-6 shadow-sm ${isDarkMode ? 'bg-[#1A1F2B] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`mb-8 p-6 rounded-[5px] border flex flex-wrap justify-between items-center gap-6 shadow-sm ${isDarkMode ? 'bg-[#1A1F2B] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="flex items-center gap-5">
                     <button
                         onClick={onBack}
-                        className={`p-3 rounded-xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                        className={`p-3 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
                     >
                         <ArrowLeft size={24} />
                     </button>
@@ -204,12 +204,12 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                             placeholder="Find centre..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className={`pl-10 pr-4 py-2.5 rounded-xl border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
+                            className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
                         />
                     </div>
                     <button
                         onClick={fetchAllotments}
-                        className={`p-3 rounded-xl border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
+                        className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
                     >
                         <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                     </button>
@@ -217,7 +217,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             </div>
 
             {/* Table Area */}
-            <div className={`rounded-3xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
                 <div
                     ref={tableContainerRef}
                     className={`overflow-x-auto overflow-y-visible cursor-grab ${isDragging ? 'cursor-grabbing select-none' : ''}`}
@@ -301,12 +301,12 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         {allotment.access_code ? (
                                             <div className="flex items-center gap-2 justify-center">
                                                 <div className="relative group/history inline-block">
-                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-bold font-mono tracking-widest border border-blue-500/20 cursor-pointer">
+                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-[5px] text-xs font-bold font-mono tracking-widest border border-blue-500/20 cursor-pointer">
                                                         {allotment.access_code}
                                                     </span>
                                                     {/* History Tooltip */}
                                                     {allotment.code_history?.length > 0 && (
-                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-xl shadow-2xl overflow-hidden border transition-all z-[999] pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-[5px] shadow-2xl overflow-hidden border transition-all z-[999] pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
                                                             {/* Tooltip Header */}
                                                             <div className={`p-3 border-b flex items-center justify-between ${isDarkMode ? 'bg-orange-500/10 border-white/5' : 'bg-orange-50 border-orange-100'}`}>
                                                                 <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>History</span>
@@ -315,7 +315,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                                             {/* Tooltip Body */}
                                                             <div className="max-h-[140px] overflow-y-auto custom-scrollbar p-1">
                                                                 {allotment.code_history.slice().reverse().map((h, i) => (
-                                                                    <div key={i} className={`flex justify-between items-center p-2 mb-1 rounded-lg text-xs font-mono transition-colors last:mb-0 ${isDarkMode ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-50 text-slate-600'}`}>
+                                                                    <div key={i} className={`flex justify-between items-center p-2 mb-1 rounded-[5px] text-xs font-mono transition-colors last:mb-0 ${isDarkMode ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-50 text-slate-600'}`}>
                                                                         <span className="font-bold line-through decoration-red-500/40 opacity-70">{h.code}</span>
                                                                         <span className="text-[9px] opacity-40 font-sans font-bold uppercase tracking-wider whitespace-nowrap">
                                                                             {new Date(h.generated_at).toLocaleString(undefined, {
@@ -339,7 +339,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         ) : (
                                             <button
                                                 onClick={() => handleGenerateCode(allotment.id)}
-                                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2 mx-auto"
+                                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2 mx-auto"
                                             >
                                                 <Wand2 size={12} /> Generate
                                             </button>
@@ -349,7 +349,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         <button
                                             disabled={!allotment.access_code || !allotment.is_active}
                                             onClick={() => handleSendEmail(allotment.id)}
-                                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                            className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                                         >
                                             <Send size={12} /> Send
                                         </button>
@@ -357,7 +357,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleEditClick(allotment)}
-                                            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2 mx-auto"
+                                            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2 mx-auto"
                                         >
                                             <Edit2 size={12} /> Edit
                                         </button>
@@ -373,7 +373,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             {isEditModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => !isActionLoading && setIsEditModalOpen(false)} />
-                    <div className={`relative w-full max-w-sm rounded-[2rem] shadow-2xl border overflow-hidden animate-scale-up duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className={`relative w-full max-w-sm rounded-[5px] shadow-2xl border overflow-hidden animate-scale-up duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-blue-600 p-6 flex justify-between items-center">
                             <h3 className="text-white text-lg font-black uppercase tracking-tighter">Edit Schedule</h3>
                             <button onClick={() => setIsEditModalOpen(false)} className="text-white/80 hover:text-white transition-all">
@@ -389,7 +389,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     <input
                                         required
                                         type="datetime-local"
-                                        className={`w-full p-4 rounded-xl border text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-blue-500 text-white' : 'bg-slate-50 border-slate-200 focus:border-blue-500 focus:bg-white'}`}
+                                        className={`w-full p-4 rounded-[5px] border text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-blue-500 text-white' : 'bg-slate-50 border-slate-200 focus:border-blue-500 focus:bg-white'}`}
                                         value={editForm.start_time}
                                         onChange={e => setEditForm({ ...editForm, start_time: e.target.value })}
                                     />
@@ -401,7 +401,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     <input
                                         required
                                         type="datetime-local"
-                                        className={`w-full p-4 rounded-xl border text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-blue-500 text-white' : 'bg-slate-50 border-slate-200 focus:border-blue-500 focus:bg-white'}`}
+                                        className={`w-full p-4 rounded-[5px] border text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-blue-500 text-white' : 'bg-slate-50 border-slate-200 focus:border-blue-500 focus:bg-white'}`}
                                         value={editForm.end_time}
                                         onChange={e => setEditForm({ ...editForm, end_time: e.target.value })}
                                     />
@@ -409,7 +409,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                             </div>
                             <button
                                 disabled={isActionLoading}
-                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                             >
                                 {isActionLoading && <Loader2 size={16} className="animate-spin" />} Save Changes
                             </button>
@@ -421,8 +421,8 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             {/* Alert Notifications */}
             {alert.show && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
-                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
+                        <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
                         </div>
                         <div>

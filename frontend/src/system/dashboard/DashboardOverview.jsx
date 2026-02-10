@@ -13,7 +13,7 @@ const DashboardOverview = ({
     return (
         <div className="space-y-8">
             {/* Dashboard Overview Banner */}
-            <div className={`relative overflow-hidden p-10 rounded-[2.5rem] shadow-2xl transition-all border
+            <div className={`relative overflow-hidden p-10 rounded-[5px] shadow-2xl transition-all border
                 ${isDarkMode
                     ? 'bg-gradient-to-r from-[#1A202C] to-[#111827] border-white/5'
                     : 'bg-gradient-to-br from-slate-50 to-white border-slate-100 shadow-orange-900/5'}`}>
@@ -33,7 +33,7 @@ const DashboardOverview = ({
                         <button
                             onClick={() => syncERP(true)}
                             disabled={isERPLoading}
-                            className={`px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg
+                            className={`px-6 py-3 rounded-[5px] font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg
                                 ${isERPLoading
                                     ? 'bg-orange-500/20 text-orange-500 cursor-not-allowed'
                                     : 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20'}`}
@@ -53,7 +53,7 @@ const DashboardOverview = ({
                     { label: 'TOTAL STUDENTS', value: erpStudentsCount > 0 ? erpStudentsCount.toString() : (isERPLoading ? '...' : '684'), icon: Users, color: 'purple', trend: 'Live from ERP' },
                     { label: 'QUESTION BANK', value: '4.2k', icon: Database, color: 'orange', trend: 'Categorized items' },
                 ].map((stat, i) => (
-                    <div key={i} className={`relative overflow-hidden p-8 rounded-[2rem] border transition-all duration-500 group hover:-translate-y-2
+                    <div key={i} className={`relative overflow-hidden p-8 rounded-[5px] border transition-all duration-500 group hover:-translate-y-2
                         ${isDarkMode
                             ? `bg-[#0B0E14] border-white/5 shadow-2xl`
                             : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}
@@ -72,7 +72,7 @@ const DashboardOverview = ({
 
                         <div className="relative z-10">
                             <div className="relative mb-6">
-                                <div className={`p-3 rounded-2xl w-fit relative z-10 transition-transform group-hover:scale-110 duration-500
+                                <div className={`p-3 rounded-[5px] w-fit relative z-10 transition-transform group-hover:scale-110 duration-500
                                     ${stat.color === 'blue' ? 'bg-blue-600 text-white' :
                                         stat.color === 'purple' ? 'bg-purple-600 text-white' :
                                             stat.color === 'emerald' ? 'bg-emerald-600 text-white' :
@@ -105,12 +105,12 @@ const DashboardOverview = ({
 
             {/* Action Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div onClick={() => setActiveTab('Test Create')} className={`p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
+                <div onClick={() => setActiveTab('Test Create')} className={`p-10 rounded-[5px] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
                     ${isDarkMode
                         ? 'bg-gradient-to-br from-orange-500 to-[#F97316] border-orange-400'
                         : 'bg-gradient-to-br from-slate-50 to-white border-slate-100 shadow-orange-900/5'}`}>
 
-                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-2xl transition-all duration-300
+                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-[5px] transition-all duration-300
                         ${isDarkMode ? 'bg-white/20 text-white' : 'bg-orange-600 text-white shadow-lg shadow-orange-600/30 group-hover:scale-110'}`}>
                         <FilePlus size={32} strokeWidth={3} />
                     </div>
@@ -124,9 +124,9 @@ const DashboardOverview = ({
                     </div>
                 </div>
 
-                <div onClick={() => setActiveTab('Centre Management')} className={`p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
+                <div onClick={() => setActiveTab('Centre Management')} className={`p-10 rounded-[5px] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
                     ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200 shadow-slate-200/50'}`}>
-                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-2xl ${isDarkMode ? 'bg-white/10 text-white' : 'bg-slate-900 text-white'}`}>
+                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-[5px] ${isDarkMode ? 'bg-white/10 text-white' : 'bg-slate-900 text-white'}`}>
                         <MapPin size={32} strokeWidth={3} />
                     </div>
                     <h3 className={`text-3xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Manage Centres</h3>
@@ -136,9 +136,9 @@ const DashboardOverview = ({
                     </div>
                 </div>
 
-                <div onClick={() => setActiveTab('Pen Paper Test')} className={`p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
+                <div onClick={() => setActiveTab('Pen Paper Test')} className={`p-10 rounded-[5px] shadow-2xl relative overflow-hidden flex flex-col justify-end min-h-[220px] transition-transform hover:scale-[1.01] duration-500 cursor-pointer group border
                     ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200 shadow-slate-200/50'}`}>
-                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-2xl ${isDarkMode ? 'bg-white/10 text-white' : 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'}`}>
+                    <div className={`absolute top-8 left-10 p-4 backdrop-blur-md rounded-[5px] ${isDarkMode ? 'bg-white/10 text-white' : 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'}`}>
                         <FileText size={32} strokeWidth={3} />
                     </div>
                     <h3 className={`text-3xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pen Paper Test</h3>

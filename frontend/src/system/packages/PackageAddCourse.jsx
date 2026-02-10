@@ -87,10 +87,10 @@ const TopicSubTopicManagement = ({ topicData, onBack, breadcrumbs }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div className="flex items-center gap-6">
-                        <button onClick={onBack} className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
+                        <button onClick={onBack} className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
                         <div>
@@ -104,14 +104,14 @@ const TopicSubTopicManagement = ({ topicData, onBack, breadcrumbs }) => {
                     <div className="relative flex-1 min-w-[300px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input type="text" placeholder="Search subtopics..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
                     </div>
-                    <button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-green-700 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg active:scale-95">
+                    <button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-green-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg active:scale-95">
                         Add Subtopic +
                     </button>
                 </div>
 
-                <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
@@ -134,13 +134,13 @@ const TopicSubTopicManagement = ({ topicData, onBack, breadcrumbs }) => {
                                             </div>
                                         </td>
                                         <td className="py-6 px-6 text-center">
-                                            <button className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                                            <button className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
                                                 Add Content
                                             </button>
                                         </td>
-                                        <td className="py-6 px-6 text-center"><button className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg"><Edit2 size={18} /></button></td>
+                                        <td className="py-6 px-6 text-center"><button className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-[5px]"><Edit2 size={18} /></button></td>
                                         <td className="py-6 px-6 text-center">
-                                            <button onClick={() => handleDeleteSubTopic(sub.id || sub._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                                            <button onClick={() => handleDeleteSubTopic(sub.id || sub._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-[5px] transition-colors">
                                                 <Trash2 size={18} />
                                             </button>
                                         </td>
@@ -158,17 +158,17 @@ const TopicSubTopicManagement = ({ topicData, onBack, breadcrumbs }) => {
 
                 {isAddModalOpen && (
                     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <div className={`w-full max-w-md rounded-3xl p-8 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white shadow-2xl'}`}>
+                        <div className={`w-full max-w-md rounded-[5px] p-8 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white shadow-2xl'}`}>
                             <h3 className="text-xl font-black uppercase mb-6">Add New Sub Topic</h3>
                             <form onSubmit={handleAddSubTopic} className="space-y-4">
                                 <div>
                                     <label className="text-[10px] font-black uppercase opacity-40 mb-1.5 block">SubTopic Name</label>
                                     <input required type="text" value={newSubTopicName} onChange={e => setNewSubTopicName(e.target.value)} placeholder="e.g. Introduction"
-                                        className={`w-full p-3 rounded-xl border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-200'}`} />
+                                        className={`w-full p-3 rounded-[5px] border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-200'}`} />
                                 </div>
                                 <div className="flex gap-3 pt-4">
-                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className={`flex-1 py-3 rounded-xl font-black uppercase text-xs ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>Cancel</button>
-                                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs shadow-lg active:scale-95 disabled:opacity-50">
+                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className={`flex-1 py-3 rounded-[5px] font-black uppercase text-xs ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>Cancel</button>
+                                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-green-600 text-white rounded-[5px] font-black uppercase text-xs shadow-lg active:scale-95 disabled:opacity-50">
                                         {isSubmitting ? 'Adding...' : 'Add Subtopic'}
                                     </button>
                                 </div>
@@ -251,10 +251,10 @@ const ChapterTopicManagement = ({ chapterData, onNavigate, onBack, breadcrumbs }
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div className="flex items-center gap-6">
-                        <button onClick={onBack} className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
+                        <button onClick={onBack} className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
                         <div>
@@ -268,14 +268,14 @@ const ChapterTopicManagement = ({ chapterData, onNavigate, onBack, breadcrumbs }
                     <div className="relative flex-1 min-w-[300px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input type="text" placeholder="Search topics..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
                     </div>
-                    <button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-green-700 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg active:scale-95">
+                    <button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-green-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg active:scale-95">
                         Add Topic +
                     </button>
                 </div>
 
-                <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
@@ -300,13 +300,13 @@ const ChapterTopicManagement = ({ chapterData, onNavigate, onBack, breadcrumbs }
                                             </div>
                                         </td>
                                         <td className="py-6 px-6 text-center">
-                                            <button onClick={() => onNavigate(topic)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                                            <button onClick={() => onNavigate(topic)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
                                                 Manage
                                             </button>
                                         </td>
-                                        <td className="py-6 px-6 text-center"><button className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg"><Edit2 size={18} /></button></td>
+                                        <td className="py-6 px-6 text-center"><button className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-[5px]"><Edit2 size={18} /></button></td>
                                         <td className="py-6 px-6 text-center">
-                                            <button onClick={() => handleDeleteTopic(topic.id || topic._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                                            <button onClick={() => handleDeleteTopic(topic.id || topic._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-[5px] transition-colors">
                                                 <Trash2 size={18} />
                                             </button>
                                         </td>
@@ -322,17 +322,17 @@ const ChapterTopicManagement = ({ chapterData, onNavigate, onBack, breadcrumbs }
 
                 {isAddModalOpen && (
                     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <div className={`w-full max-w-md rounded-3xl p-8 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white shadow-2xl'}`}>
+                        <div className={`w-full max-w-md rounded-[5px] p-8 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white shadow-2xl'}`}>
                             <h3 className="text-xl font-black uppercase mb-6">Add New Topic</h3>
                             <form onSubmit={handleAddTopic} className="space-y-4">
                                 <div>
                                     <label className="text-[10px] font-black uppercase opacity-40 mb-1.5 block">Topic Name</label>
                                     <input required type="text" value={newTopicName} onChange={e => setNewTopicName(e.target.value)} placeholder="e.g. Laws of Motion"
-                                        className={`w-full p-3 rounded-xl border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`} />
+                                        className={`w-full p-3 rounded-[5px] border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`} />
                                 </div>
                                 <div className="flex gap-3 pt-4">
-                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className={`flex-1 py-3 rounded-xl font-black uppercase text-xs ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>Cancel</button>
-                                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs shadow-lg active:scale-95 disabled:opacity-50">
+                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className={`flex-1 py-3 rounded-[5px] font-black uppercase text-xs ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>Cancel</button>
+                                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-green-600 text-white rounded-[5px] font-black uppercase text-xs shadow-lg active:scale-95 disabled:opacity-50">
                                         {isSubmitting ? 'Adding...' : 'Add Topic'}
                                     </button>
                                 </div>
@@ -420,10 +420,10 @@ const SubjectChapterManagement = ({ subjectData, onNavigate, onBack, breadcrumbs
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div className="flex items-center gap-6">
-                        <button onClick={onBack} className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
+                        <button onClick={onBack} className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
                         <div>
@@ -437,14 +437,14 @@ const SubjectChapterManagement = ({ subjectData, onNavigate, onBack, breadcrumbs
                     <div className="relative flex-1 min-w-[300px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input type="text" placeholder="Search chapters..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
                     </div>
-                    <button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-green-700 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg active:scale-95">
+                    <button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-green-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all shadow-lg active:scale-95">
                         Add chapter +
                     </button>
                 </div>
 
-                <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
@@ -469,13 +469,13 @@ const SubjectChapterManagement = ({ subjectData, onNavigate, onBack, breadcrumbs
                                             </div>
                                         </td>
                                         <td className="py-6 px-6 text-center">
-                                            <button onClick={() => onNavigate(chap)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                                            <button onClick={() => onNavigate(chap)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
                                                 Manage
                                             </button>
                                         </td>
-                                        <td className="py-6 px-6 text-center"><button className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg"><Edit2 size={18} /></button></td>
+                                        <td className="py-6 px-6 text-center"><button className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-[5px]"><Edit2 size={18} /></button></td>
                                         <td className="py-6 px-6 text-center">
-                                            <button onClick={() => handleDeleteChapter(chap.id || chap._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                                            <button onClick={() => handleDeleteChapter(chap.id || chap._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-[5px] transition-colors">
                                                 <Trash2 size={18} />
                                             </button>
                                         </td>
@@ -491,13 +491,13 @@ const SubjectChapterManagement = ({ subjectData, onNavigate, onBack, breadcrumbs
 
                 {isAddModalOpen && (
                     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <div className={`w-full max-w-md rounded-3xl p-8 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white shadow-2xl'}`}>
+                        <div className={`w-full max-w-md rounded-[5px] p-8 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white shadow-2xl'}`}>
                             <h3 className="text-xl font-black uppercase mb-6">Add New Chapter</h3>
                             <form onSubmit={handleAddChapter} className="space-y-4">
                                 <div>
                                     <label className="text-[10px] font-black uppercase opacity-40 mb-1.5 block">Class</label>
                                     <select required value={selectedClass} onChange={e => setSelectedClass(e.target.value)}
-                                        className={`w-full p-3 rounded-xl border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}>
+                                        className={`w-full p-3 rounded-[5px] border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}>
                                         <option value="">Select Class</option>
                                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
@@ -505,11 +505,11 @@ const SubjectChapterManagement = ({ subjectData, onNavigate, onBack, breadcrumbs
                                 <div>
                                     <label className="text-[10px] font-black uppercase opacity-40 mb-1.5 block">Chapter Name</label>
                                     <input required type="text" value={newChapterName} onChange={e => setNewChapterName(e.target.value)} placeholder="e.g. Thermodynamics"
-                                        className={`w-full p-3 rounded-xl border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`} />
+                                        className={`w-full p-3 rounded-[5px] border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`} />
                                 </div>
                                 <div className="flex gap-3 pt-4">
-                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className={`flex-1 py-3 rounded-xl font-black uppercase text-xs ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>Cancel</button>
-                                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-xs shadow-lg active:scale-95 disabled:opacity-50">
+                                    <button type="button" onClick={() => setIsAddModalOpen(false)} className={`flex-1 py-3 rounded-[5px] font-black uppercase text-xs ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>Cancel</button>
+                                    <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-green-600 text-white rounded-[5px] font-black uppercase text-xs shadow-lg active:scale-95 disabled:opacity-50">
                                         {isSubmitting ? 'Adding...' : 'Add Chapter'}
                                     </button>
                                 </div>
@@ -596,10 +596,10 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div className="flex items-center gap-6">
-                        <button onClick={onBack} className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
+                        <button onClick={onBack} className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
                         <div>
@@ -614,7 +614,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
 
                     <div className="flex items-center gap-3">
                         <button
-                            className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                         >
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
@@ -630,7 +630,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                             placeholder="Enter the name"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                 ? 'bg-white/5 border-white/5 text-white focus:border-green-500/50 focus:ring-green-500/5'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-green-500/50 focus:ring-green-500/5'
                                 }`}
@@ -639,14 +639,14 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
 
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="px-6 py-3 bg-green-700 text-white rounded-lg font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all active:scale-95 shadow-lg shadow-green-700/20 shadow-green-700/20 ring-offset-2 ring-green-600"
+                        className="px-6 py-3 bg-green-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest hover:bg-green-800 transition-all active:scale-95 shadow-lg shadow-green-700/20 shadow-green-700/20 ring-offset-2 ring-green-600"
                     >
                         Add Subject +
                     </button>
                 </div>
 
                 {/* Table */}
-                <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
@@ -663,14 +663,14 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                                         <td className="py-6 px-6 text-xs font-bold opacity-50">{idx + 1}</td>
                                         <td className="py-6 px-6 font-bold text-sm tracking-tight">{sub.name}</td>
                                         <td className="py-6 px-6 text-center">
-                                            <button onClick={() => onNavigate(sub)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
+                                            <button onClick={() => onNavigate(sub)} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
                                                 Manage
                                             </button>
                                         </td>
                                         <td className="py-6 px-6 text-center">
                                             <button
                                                 onClick={() => handleRemoveSubject(sub.id)}
-                                                className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-[5px] transition-colors"
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -685,7 +685,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                 {/* Add Subject Modal */}
                 {isAddModalOpen && (
                     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className={`w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
+                        <div className={`w-full max-w-4xl rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
                             <div className="bg-green-600 p-8 flex justify-between items-center text-white shrink-0">
                                 <h3 className="text-xl font-black uppercase tracking-tight">Add Subjects</h3>
                                 <button onClick={() => setIsAddModalOpen(false)} className="hover:bg-white/20 p-2 rounded-full transition-all active:scale-90"><X size={24} /></button>
@@ -699,7 +699,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                                         placeholder="Search subjects..."
                                         value={modalSearch}
                                         onChange={(e) => setModalSearch(e.target.value)}
-                                        className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-green-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-green-500'}`}
+                                        className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-green-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-green-500'}`}
                                     />
                                 </div>
                             </div>
@@ -715,7 +715,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                                                 <div
                                                     key={subject.id || subject._id}
                                                     onClick={() => !isAlreadyAdded && toggleSubject(subject.id || subject._id)}
-                                                    className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-3 ${isAlreadyAdded
+                                                    className={`p-4 rounded-[5px] border-2 transition-all cursor-pointer flex items-center gap-3 ${isAlreadyAdded
                                                         ? 'opacity-50 cursor-not-allowed border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5'
                                                         : isSelected
                                                             ? 'border-green-500 bg-green-500/10'
@@ -724,7 +724,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                                                                 : 'border-slate-100 hover:border-slate-300 bg-slate-50'
                                                         }`}
                                                 >
-                                                    <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-green-500 text-white' : isDarkMode ? 'bg-white/10' : 'bg-slate-200'
+                                                    <div className={`w-6 h-6 rounded-[5px] flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-green-500 text-white' : isDarkMode ? 'bg-white/10' : 'bg-slate-200'
                                                         }`}>
                                                         {isSelected && <CheckSquare size={14} fill="currentColor" className="text-white" />}
                                                     </div>
@@ -751,7 +751,7 @@ const CourseSubjectManagement = ({ packageData, onNavigate, onBack }) => {
                                         <button
                                             type="submit"
                                             disabled={selectedSubjectIds.length === 0}
-                                            className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-green-500/30 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-[5px] font-black uppercase tracking-widest shadow-xl shadow-green-500/30 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             Add Selected Subjects
                                         </button>
@@ -917,7 +917,7 @@ const PackageAddCourse = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header + Filter + Table (Existing Package List UI) */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -927,7 +927,7 @@ const PackageAddCourse = () => {
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage courses and duplicate packages.</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button onClick={fetchPackages} disabled={loading} className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        <button onClick={fetchPackages} disabled={loading} className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
@@ -936,12 +936,12 @@ const PackageAddCourse = () => {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
                     <div className="relative md:col-span-6">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
+                        <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800'}`} />
                     </div>
                     {/* Filters omitted for brevity but logic exists */}
                 </div>
 
-                <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left border-collapse min-w-[1000px]">
                             <thead>
@@ -959,8 +959,8 @@ const PackageAddCourse = () => {
                                     <tr key={pkg.id || pkg._id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-8 px-6 text-center text-xs font-bold opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                         <td className="py-8 px-6"><p className="font-black text-sm">{pkg.name}</p></td>
-                                        <td className="py-8 px-6 text-center"><span className="text-[10px] font-black tracking-widest bg-slate-100 dark:bg-white/10 px-2 py-1 rounded-lg">{pkg.code}</span></td>
-                                        <td className="py-8 px-6 text-center"><button onClick={() => handleManagePackage(pkg)} className="px-4 py-2 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-blue-600/20">Manage Course</button></td>
+                                        <td className="py-8 px-6 text-center"><span className="text-[10px] font-black tracking-widest bg-slate-100 dark:bg-white/10 px-2 py-1 rounded-[5px]">{pkg.code}</span></td>
+                                        <td className="py-8 px-6 text-center"><button onClick={() => handleManagePackage(pkg)} className="px-4 py-2 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 border border-blue-600/20">Manage Course</button></td>
                                         <td className="py-8 px-6 text-center">
                                             <button
                                                 onClick={() => toggleStatus(pkg)}
@@ -971,7 +971,7 @@ const PackageAddCourse = () => {
                                                 />
                                             </button>
                                         </td>
-                                        <td className="py-8 px-6 text-center"><button onClick={() => handleDuplicate(pkg)} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 mx-auto"><Copy size={12} /><span>Duplicate</span></button></td>
+                                        <td className="py-8 px-6 text-center"><button onClick={() => handleDuplicate(pkg)} className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-2 mx-auto"><Copy size={12} /><span>Duplicate</span></button></td>
                                     </tr>
                                 ))}
                             </tbody>

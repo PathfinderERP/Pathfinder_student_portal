@@ -41,7 +41,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
             }
         }
     }, [tex, isDarkMode]);
-    return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-xl border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
+    return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-[5px] border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
 };
 
 const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [] }) => {
@@ -476,7 +476,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         return (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMathTools(false)} />
-                <div className={`relative w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
+                <div className={`relative w-full max-w-xl rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
                     <div className="bg-blue-600 p-6 flex justify-between items-center text-white">
                         <div className="flex items-center gap-3">
                             <Sigma size={24} />
@@ -491,7 +491,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 value={formulaValue}
                                 onChange={(e) => setFormulaValue(e.target.value)}
                                 placeholder="e.g. \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}"
-                                className={`w-full h-32 p-4 rounded-xl border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                className={`w-full h-32 p-4 rounded-[5px] border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                             />
                         </div>
                         <div className="space-y-2">
@@ -512,7 +512,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 <button
                                     key={i}
                                     onClick={() => setFormulaValue(prev => prev + sym.t)}
-                                    className={`p-2 rounded-lg text-[10px] font-bold border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-blue-500/20 hover:text-blue-500' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-50'}`}
+                                    className={`p-2 rounded-[5px] text-[10px] font-bold border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-blue-500/20 hover:text-blue-500' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-blue-50'}`}
                                 >
                                     {sym.l}
                                 </button>
@@ -521,7 +521,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <button
                             onClick={insertFormula}
                             disabled={!formulaValue}
-                            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all"
+                            className="w-full py-4 bg-blue-600 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all"
                         >
                             Insert into Editor
                         </button>
@@ -641,14 +641,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const renderOverview = () => (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl" />
                 <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
 
                 <div className="relative z-10 flex flex-col gap-8">
                     <div>
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-orange-500 rounded-2xl shadow-lg shadow-orange-500/30">
+                            <div className="p-3 bg-orange-500 rounded-[5px] shadow-lg shadow-orange-500/30">
                                 <Database className="text-white" size={24} />
                             </div>
                             <h2 className="text-4xl font-black tracking-tight uppercase">
@@ -661,8 +661,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                        <div className={`px-6 py-4 rounded-3xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
-                            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
+                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
+                            <div className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500">
                                 <Database size={20} />
                             </div>
                             <div>
@@ -671,8 +671,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             </div>
                         </div>
 
-                        <div className={`px-6 py-4 rounded-3xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
-                            <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-500">
+                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
+                            <div className="p-2.5 rounded-[5px] bg-orange-500/10 text-orange-500">
                                 <Clock size={20} />
                             </div>
                             <div>
@@ -681,8 +681,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             </div>
                         </div>
 
-                        <div className={`px-6 py-4 rounded-3xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
-                            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
+                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
+                            <div className="p-2.5 rounded-[5px] bg-emerald-500/10 text-emerald-500">
                                 <Plus size={20} />
                             </div>
                             <div>
@@ -696,7 +696,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
-                    <div className={`p-8 rounded-[2.5rem] border shadow-xl flex flex-col h-full ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                    <div className={`p-8 rounded-[5px] border shadow-xl flex flex-col h-full ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                         <div className="flex items-center justify-between mb-8">
                             <div>
                                 <h3 className="text-xl font-black uppercase tracking-tight">Bulk Import</h3>
@@ -706,14 +706,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                         <div
                             onClick={() => setView('bulk')}
-                            className={`flex-1 min-h-[300px] rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center p-8 text-center relative cursor-pointer
+                            className={`flex-1 min-h-[300px] rounded-[5px] border-2 border-dashed transition-all flex flex-col items-center justify-center p-8 text-center relative cursor-pointer
                                 ${isDarkMode ? 'border-white/10 hover:border-orange-500/50 hover:bg-orange-500/5' : 'border-slate-200 hover:border-orange-500/30 hover:bg-slate-50'}`}
                         >
                             <CloudUpload size={48} className="text-orange-500 mb-6 animate-bounce" />
                             <h4 className="text-lg font-black uppercase tracking-tight mb-2">Bulk Import Questions</h4>
                             <p className="text-xs font-medium opacity-50 mb-8 max-w-[280px]">Upload your Excel or CSV files with our standardized format.</p>
 
-                            <button className="px-8 py-3.5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/30 active:scale-95 flex items-center gap-3">
+                            <button className="px-8 py-3.5 bg-orange-500 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/30 active:scale-95 flex items-center gap-3">
                                 <FileSpreadsheet size={18} />
                                 <span>Get Started</span>
                             </button>
@@ -726,8 +726,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 </div>
 
                 <div className="space-y-8">
-                    <div onClick={() => { resetForm(); setView('manual'); }} className={`p-8 rounded-[2.5rem] border shadow-xl group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
-                        <div className="w-14 h-14 bg-blue-500 rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center mb-6 text-white"><Plus size={28} strokeWidth={3} /></div>
+                    <div onClick={() => { resetForm(); setView('manual'); }} className={`p-8 rounded-[5px] border shadow-xl group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                        <div className="w-14 h-14 bg-blue-500 rounded-[5px] shadow-lg shadow-blue-500/30 flex items-center justify-center mb-6 text-white"><Plus size={28} strokeWidth={3} /></div>
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">Manual Entry</h3>
                         <p className="text-sm font-medium opacity-60 mb-8 leading-relaxed">Create complex questions manually with equations and multi-format options.</p>
                         <div className="flex items-center gap-2 text-blue-500 font-black uppercase tracking-widest text-[10px]">Add Question Now <ChevronRight size={14} strokeWidth={4} /></div>
@@ -737,9 +737,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             fetchQuestions();
                             setView('repository');
                         }}
-                        className={`p-8 rounded-[2.5rem] border shadow-xl relative group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}
+                        className={`p-8 rounded-[5px] border shadow-xl relative group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}
                     >
-                        <div className="w-14 h-14 bg-emerald-500 rounded-2xl shadow-lg flex items-center justify-center mb-6 text-white"><Layers size={28} /></div>
+                        <div className="w-14 h-14 bg-emerald-500 rounded-[5px] shadow-lg flex items-center justify-center mb-6 text-white"><Layers size={28} /></div>
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">Question Bank</h3>
                         <p className="text-sm font-medium opacity-60 mb-8 leading-relaxed">Explore historical question bank. Filter by tags or level.</p>
                         <div className="flex items-center gap-2 text-emerald-500 font-black uppercase tracking-widest text-[10px]">Browse All <ChevronRight size={14} strokeWidth={4} /></div>
@@ -752,9 +752,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 setView('media');
                             }
                         }}
-                        className={`p-8 rounded-[2.5rem] border shadow-xl relative group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}
+                        className={`p-8 rounded-[5px] border shadow-xl relative group cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}
                     >
-                        <div className="w-14 h-14 bg-purple-500 rounded-2xl shadow-lg flex items-center justify-center mb-6 text-white"><ImageIcon size={28} /></div>
+                        <div className="w-14 h-14 bg-purple-500 rounded-[5px] shadow-lg flex items-center justify-center mb-6 text-white"><ImageIcon size={28} /></div>
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">Media Master</h3>
                         <p className="text-sm font-medium opacity-60 mb-8 leading-relaxed">Upload and manage question images. Copy links for Excel.</p>
                         <div className="flex items-center gap-2 text-purple-500 font-black uppercase tracking-widest text-[10px]">Manage Media <ChevronRight size={14} strokeWidth={4} /></div>
@@ -786,7 +786,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 {/* Floating Label Container */}
                 <div
                     onClick={() => setIsOpen(!isOpen)}
-                    className={`relative w-full px-4 py-3.5 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-between
+                    className={`relative w-full px-4 py-3.5 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
                         ${isOpen
                             ? 'border-blue-500 bg-white shadow-[0_0_0_4px_rgba(59,130,246,0.1)]'
                             : isDarkMode ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-300 bg-white hover:border-slate-400 shadow-sm'}`}
@@ -806,7 +806,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-lg border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
                         ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                         <div className="max-h-60 overflow-y-auto custom-scrollbar">
                             {options.length > 0 ? options.map((opt, i) => (
@@ -921,7 +921,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             setItemsPerPage(Number(e.target.value));
                             setCurrentPage(1);
                         }}
-                        className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                        className={`px-2 py-1 rounded-[5px] text-xs font-bold border outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
                     >
                         <option value={10}>10</option>
                         <option value={20}>20</option>
@@ -939,7 +939,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className="p-2 rounded-xl border disabled:opacity-30 hover:bg-slate-50 transition-all dark:hover:bg-white/5"
+                        className="p-2 rounded-[5px] border disabled:opacity-30 hover:bg-slate-50 transition-all dark:hover:bg-white/5"
                     >
                         <ChevronLeft size={16} />
                     </button>
@@ -947,7 +947,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className="p-2 rounded-xl border disabled:opacity-30 hover:bg-slate-50 transition-all dark:hover:bg-white/5"
+                        className="p-2 rounded-[5px] border disabled:opacity-30 hover:bg-slate-50 transition-all dark:hover:bg-white/5"
                     >
                         <ChevronRight size={16} />
                     </button>
@@ -960,11 +960,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         value={jumpToPage}
                         onChange={(e) => setJumpToPage(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleJumpToPage()}
-                        className={`w-12 px-2 py-1 rounded-lg text-xs font-bold border outline-none text-center ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                        className={`w-12 px-2 py-1 rounded-[5px] text-xs font-bold border outline-none text-center ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
                     />
                     <button
                         onClick={handleJumpToPage}
-                        className="p-1.5 rounded-lg bg-emerald-500 text-white shadow-sm active:scale-95"
+                        className="p-1.5 rounded-[5px] bg-emerald-500 text-white shadow-sm active:scale-95"
                     >
                         <ChevronRight size={12} strokeWidth={4} />
                     </button>
@@ -1010,7 +1010,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <>
                         <button
                             onClick={() => setView('overview')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                            className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
                                 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                         >
                             <ArrowLeft size={16} />
@@ -1019,7 +1019,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => { resetForm(); setView('manual'); }}
-                                className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
                             >
                                 <Plus size={16} strokeWidth={3} />
                                 Add Question
@@ -1039,7 +1039,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
 
             {/* Questions Grid */}
-            <div className={`p-10 rounded-[3rem] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="mb-4 space-y-8 border-b border-dashed border-slate-200/50 pb-8">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
@@ -1156,7 +1156,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             setSelectedQuestion(isSelected ? null : q);
                                         }}
                                         key={q.id || q._id}
-                                        className={`relative rounded-[2.5rem] border transition-all cursor-pointer group flex flex-col overflow-hidden p-6
+                                        className={`relative rounded-[5px] border transition-all cursor-pointer group flex flex-col overflow-hidden p-6
                                             ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50 shadow-sm'} 
                                             ${isSelected ? 'ring-2 ring-emerald-500/50' : ''}
                                         `}
@@ -1166,13 +1166,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             <div className="flex items-center gap-5 shrink-0">
                                                 {isSelectionMode && (
                                                     alreadySelectedIds.includes(q.id || q._id) ? (
-                                                        <div className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center shrink-0 bg-slate-200/50 border-slate-300 text-slate-400 opacity-60`}>
+                                                        <div className={`w-12 h-12 rounded-[5px] border-2 flex items-center justify-center shrink-0 bg-slate-200/50 border-slate-300 text-slate-400 opacity-60`}>
                                                             <CheckCircle size={24} strokeWidth={3} />
                                                         </div>
                                                     ) : (
                                                         <div
                                                             onClick={(e) => toggleQuestionSelection(q.id || q._id, e)}
-                                                            className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all shrink-0 ${selectedIds.includes(q.id || q._id)
+                                                            className={`w-12 h-12 rounded-[5px] border-2 flex items-center justify-center transition-all shrink-0 ${selectedIds.includes(q.id || q._id)
                                                                 ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl shadow-emerald-500/30'
                                                                 : 'bg-white/50 backdrop-blur-sm border-slate-300'
                                                                 }`}
@@ -1181,7 +1181,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                         </div>
                                                     )
                                                 )}
-                                                <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
+                                                <div className={`w-14 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
                                                     <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
                                                     <div className="text-sm font-black">{q.difficulty_level || q.level}</div>
                                                 </div>
@@ -1190,22 +1190,22 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             {/* Primary Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex flex-wrap items-center gap-3 mb-3">
-                                                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
                                                         {q.question_type?.replace('_', ' ') || 'QUESTION'}
                                                     </span>
                                                     {alreadySelectedIds.includes(q.id || q._id) && (
-                                                        <div className="px-3 py-1 rounded-xl bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                                        <div className="px-3 py-1 rounded-[5px] bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                                                             <CheckCircle size={10} strokeWidth={3} />
                                                             <span>IN TEST</span>
                                                         </div>
                                                     )}
                                                     {qSubject && (
-                                                        <div className="px-3 py-1 rounded-xl bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
+                                                        <div className="px-3 py-1 rounded-[5px] bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
                                                             {qSubject.name}
                                                         </div>
                                                     )}
                                                     {q.is_wrong && (
-                                                        <div className="px-3 py-1 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                                                        <div className="px-3 py-1 rounded-[5px] bg-red-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
                                                             <AlertCircle size={10} />
                                                             <span>WRONG</span>
                                                         </div>
@@ -1221,12 +1221,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             {(q.image_1 || q.image_2) && (
                                                 <div className="flex items-center gap-3 shrink-0">
                                                     {q.image_1 && (
-                                                        <div className="w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
+                                                        <div className="w-20 h-20 rounded-[5px] overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
                                                             <img src={q.image_1} alt="Q-Img-1" className="w-full h-full object-contain" />
                                                         </div>
                                                     )}
                                                     {q.image_2 && (
-                                                        <div className="w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
+                                                        <div className="w-20 h-20 rounded-[5px] overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
                                                             <img src={q.image_2} alt="Q-Img-2" className="w-full h-full object-contain" />
                                                         </div>
                                                     )}
@@ -1245,12 +1245,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                     {!isSelectionMode && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id || q._id); }}
-                                                            className="p-3 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                                                            className="p-3 bg-red-500/10 text-red-500 rounded-[5px] hover:bg-red-500 hover:text-white transition-all active:scale-90"
                                                         >
                                                             <Trash2 size={20} />
                                                         </button>
                                                     )}
-                                                    <div className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                    <div className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'}`}>
                                                         <ChevronRight className={`transition-transform duration-500 ${isSelected ? 'rotate-90' : ''}`} size={24} />
                                                     </div>
                                                 </div>
@@ -1267,8 +1267,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                         {q.question_options && q.question_options.map((opt, idx) => {
                                                             const isCorrect = opt.isCorrect;
                                                             return (
-                                                                <div key={idx} className={`p-5 rounded-[1.5rem] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
-                                                                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
+                                                                <div key={idx} className={`p-5 rounded-[5px] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
+                                                                    <span className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
                                                                     <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
                                                                 </div>
                                                             );
@@ -1277,7 +1277,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 </div>
 
                                                 {/* Answer display */}
-                                                <div className="p-6 rounded-[2rem] bg-emerald-500/10 border-2 border-dashed border-emerald-500/30 flex items-center justify-between">
+                                                <div className="p-6 rounded-[5px] bg-emerald-500/10 border-2 border-dashed border-emerald-500/30 flex items-center justify-between">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">
                                                             <CheckCircle size={20} />
@@ -1323,7 +1323,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                             });
                                                             setView('manual');
                                                         }}
-                                                        className="px-8 py-3 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                                                        className="px-8 py-3 bg-emerald-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
                                                     >
                                                         Edit Content
                                                     </button>
@@ -1331,10 +1331,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                                                 {/* Solution */}
                                                 {q.solution && (
-                                                    <div className={`p-8 rounded-[2rem] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
+                                                    <div className={`p-8 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
                                                         <details className="group">
                                                             <summary className="flex items-center gap-3 cursor-pointer text-blue-500 font-black text-[11px] uppercase tracking-widest select-none">
-                                                                <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
+                                                                <div className="w-8 h-8 rounded-[5px] bg-blue-500 text-white flex items-center justify-center">
                                                                     <HelpCircle size={16} />
                                                                 </div>
                                                                 <span>Explanatory Solution</span>
@@ -1358,7 +1358,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                             e.stopPropagation();
                                                             handleMarkAsWrong(q.id || q._id);
                                                         }}
-                                                        className={`px-6 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
+                                                        className={`px-6 py-2 rounded-[5px] font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
                                                             ${q.is_wrong
                                                                 ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
                                                                 : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'}`}
@@ -1380,7 +1380,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <div className="fixed bottom-10 right-10 z-[120] animate-in slide-in-from-bottom-5 duration-300">
                         <button
                             onClick={() => onAssignQuestions(selectedIds)}
-                            className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-2xl flex items-center gap-4 transition-all hover:scale-110 active:scale-95 border-4 border-white/20 backdrop-blur-sm"
+                            className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl flex items-center gap-4 transition-all hover:scale-110 active:scale-95 border-4 border-white/20 backdrop-blur-sm"
                         >
                             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                                 <Plus size={20} strokeWidth={3} />
@@ -1400,7 +1400,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             <div className="flex items-center justify-between">
                 <button
                     onClick={() => setView('overview')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                    className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
                         ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                 >
                     <ArrowLeft size={16} />
@@ -1412,7 +1412,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             fetchQuestions();
                             setView('repository');
                         }}
-                        className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 active:scale-95 transition-all"
+                        className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 active:scale-95 transition-all"
                     >
                         <Logs size={16} strokeWidth={3} />
                         View Question Bank
@@ -1425,7 +1425,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
 
             {/* Main Form Card */}
-            <div className={`p-10 rounded-[3rem] border shadow-2xl relative ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl relative ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 {/* Decorative title */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-dashed border-slate-200/50 pb-8">
                     <div>
@@ -1438,7 +1438,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <button
                             onClick={() => { if (confirm("Clear all fields? This will lose current progress.")) resetForm(); }}
                             title="Clear All Fields"
-                            className={`p-3 rounded-2xl border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 italic'}`}>
+                            className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 italic'}`}>
                             <div className="flex items-center gap-2">
                                 <Eraser size={20} />
                                 <span className="text-[10px] font-black uppercase tracking-widest">Clear Form</span>
@@ -1447,12 +1447,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <button
                             onClick={handleLoadDraft}
                             title="Load Saved Draft"
-                            className={`p-3 rounded-2xl border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                            className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
                             <HardDrive size={20} />
                         </button>
                         <button
                             onClick={handleSaveProgress}
-                            className="px-8 py-4 bg-orange-500 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/20 active:scale-95 flex items-center gap-3 hover:bg-orange-600 transition-colors">
+                            className="px-8 py-4 bg-orange-500 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-500/20 active:scale-95 flex items-center gap-3 hover:bg-orange-600 transition-colors">
                             <Save size={18} />
                             Save Progress
                         </button>
@@ -1530,7 +1530,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             placeholder="Select Level"
                             onChange={(val) => setForm({ ...form, level: val })}
                         />
-                        <div className="flex items-center gap-6 px-4 py-2 border-2 border-dashed border-slate-200 rounded-xl">
+                        <div className="flex items-center gap-6 px-4 py-2 border-2 border-dashed border-slate-200 rounded-[5px]">
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"
@@ -1560,11 +1560,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-black uppercase tracking-[0.2em]">Enter Question Content</label>
                                 <div className="flex gap-1">
-                                    <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {form.question.length}</span>
-                                    <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase bg-blue-500/10 text-blue-500`}>Draft Saved</span>
+                                    <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {form.question.length}</span>
+                                    <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase bg-blue-500/10 text-blue-500`}>Draft Saved</span>
                                 </div>
                             </div>
-                            <div className={`rich-editor-wrapper rounded-3xl border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
+                            <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
                                 <ReactQuill
                                     key={`question-${formKey}`}
                                     theme="snow"
@@ -1581,7 +1581,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         {(form.image_1 || form.image_2) && (
                             <div className="flex flex-wrap gap-4 pt-2">
                                 {form.image_1 && (
-                                    <div className={`relative group max-w-[240px] rounded-2xl overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                    <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
                                         <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
                                             <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 1</span>
                                         </div>
@@ -1589,7 +1589,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     </div>
                                 )}
                                 {form.image_2 && (
-                                    <div className={`relative group max-w-[240px] rounded-2xl overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                    <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
                                         <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
                                             <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 2</span>
                                         </div>
@@ -1608,7 +1608,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     placeholder="https://example.com/image1.png"
                                     value={form.image_1 || ''}
                                     onChange={(e) => setForm({ ...form, image_1: e.target.value })}
-                                    className={`w-full px-6 py-4 rounded-2xl border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                    className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -1618,7 +1618,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     placeholder="https://example.com/image2.png"
                                     value={form.image_2 || ''}
                                     onChange={(e) => setForm({ ...form, image_2: e.target.value })}
-                                    className={`w-full px-6 py-4 rounded-2xl border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                    className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
                                 />
                             </div>
                         </div>
@@ -1637,7 +1637,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         placeholder="Min valid value"
                                         value={form.answerFrom}
                                         onChange={(e) => setForm({ ...form, answerFrom: e.target.value })}
-                                        className={`w-full px-6 py-4 rounded-2xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
                                     />
                                 </div>
                                 <div className="space-y-1 flex-1">
@@ -1648,7 +1648,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         placeholder="Max valid value"
                                         value={form.answerTo}
                                         onChange={(e) => setForm({ ...form, answerTo: e.target.value })}
-                                        className={`w-full px-6 py-4 rounded-2xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
                                     />
                                 </div>
                             </div>
@@ -1659,7 +1659,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 <div key={opt.id} className="space-y-3 relative group">
                                     <div className="flex items-center justify-between px-2">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${opt.isCorrect ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                            <div className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${opt.isCorrect ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                                                 {String.fromCharCode(65 + index)}
                                             </div>
                                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Option {index + 1}</label>
@@ -1667,10 +1667,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         <button
                                             type="button"
                                             onClick={() => handleToggleOption(opt.id)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
                                         >
                                             <div className={`w-4 h-4 flex items-center justify-center transition-all border-2 
-                                                ${form.question_type === 'MULTI_CHOICE' ? 'rounded-md' : 'rounded-full'}
+                                                ${form.question_type === 'MULTI_CHOICE' ? 'rounded-[5px]' : 'rounded-full'}
                                                 ${opt.isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-current'}`}
                                             >
                                                 {opt.isCorrect && <Check size={10} strokeWidth={4} className="text-white" />}
@@ -1680,7 +1680,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             </span>
                                         </button>
                                     </div>
-                                    <div className={`rich-editor-wrapper rounded-[2rem] border transition-all overflow-hidden ${opt.isCorrect ? 'border-emerald-500/40 bg-emerald-500/[0.02]' : isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
+                                    <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${opt.isCorrect ? 'border-emerald-500/40 bg-emerald-500/[0.02]' : isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
                                         <ReactQuill
                                             key={`opt-${index}-${formKey}`}
                                             theme="snow"
@@ -1703,7 +1703,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     {/* Solution / Explanation */}
                     <div className="space-y-4">
                         <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
-                        <div className={`rich-editor-wrapper rounded-3xl border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
+                        <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
                             <ReactQuill
                                 key={`solution-${formKey}`}
                                 theme="snow"
@@ -1723,7 +1723,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             type="button"
                             onClick={handleSubmit}
                             disabled={isSubmitting}
-                            className={`px-16 py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] text-sm shadow-2xl shadow-orange-600/30 transition-all hover:scale-[1.05] active:scale-95 flex items-center gap-4 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`px-16 py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.3em] text-sm shadow-2xl shadow-orange-600/30 transition-all hover:scale-[1.05] active:scale-95 flex items-center gap-4 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {isSubmitting ? (
                                 <>
@@ -1750,7 +1750,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             <div className="flex items-center justify-between">
                 <button
                     onClick={() => setView('overview')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                    className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
                         ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                 >
                     <ArrowLeft size={16} />
@@ -1760,7 +1760,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <button
                         onClick={() => mediaInputRef.current?.click()}
                         disabled={isUploadingImage}
-                        className="px-8 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 flex items-center gap-3 disabled:opacity-50"
+                        className="px-8 py-3 bg-blue-500 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 flex items-center gap-3 disabled:opacity-50"
                     >
                         {isUploadingImage ? <Loader2 className="animate-spin" size={18} /> : <ImageIcon size={18} />}
                         <span>{isUploadingImage ? 'Uploading...' : 'Upload To Gallery'}</span>
@@ -1777,7 +1777,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
 
             {/* Filter & Info Card */}
-            <div className={`p-8 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                     <div className="max-w-md">
                         <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-2">
@@ -1817,11 +1817,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {isLoadingImages ? (
                     Array(10).fill(0).map((_, i) => (
-                        <div key={i} className={`aspect-square rounded-[2rem] animate-pulse ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                        <div key={i} className={`aspect-square rounded-[5px] animate-pulse ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                     ))
                 ) : images.length > 0 ? images.map((img) => (
-                    <div key={img._id || img.id} className={`group relative p-3 rounded-[2rem] border transition-all hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100 shadow-sm'}`}>
-                        <div className="aspect-square w-full rounded-2xl overflow-hidden bg-slate-900 border border-white/5 relative">
+                    <div key={img._id || img.id} className={`group relative p-3 rounded-[5px] border transition-all hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100 shadow-sm'}`}>
+                        <div className="aspect-square w-full rounded-[5px] overflow-hidden bg-slate-900 border border-white/5 relative">
                             <img
                                 src={img.image}
                                 alt="Gallery item"
@@ -1831,14 +1831,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4 p-6 scale-95 group-hover:scale-100">
                                 <button
                                     onClick={() => copyToClipboard(img.image)}
-                                    className="w-full py-3 bg-white text-black rounded-xl font-black uppercase tracking-widest text-[9px] shadow-xl hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-white text-black rounded-[5px] font-black uppercase tracking-widest text-[9px] shadow-xl hover:bg-blue-500 hover:text-white transition-all flex items-center justify-center gap-2"
                                 >
                                     <Copy size={14} />
                                     <span>Copy Excel Link</span>
                                 </button>
                                 <button
                                     onClick={() => window.open(img.image, '_blank')}
-                                    className="w-full py-3 bg-white/10 text-white rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-white/20 transition-all flex items-center justify-center gap-2 border border-white/10"
+                                    className="w-full py-3 bg-white/10 text-white rounded-[5px] font-black uppercase tracking-widest text-[9px] hover:bg-white/20 transition-all flex items-center justify-center gap-2 border border-white/10"
                                 >
                                     <Search size={14} />
                                     <span>Full View</span>
@@ -1854,7 +1854,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     {topics.find(t => String(t.id) === String(img.topic))?.name || 'No Topic'}
                                 </p>
                             </div>
-                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-[5px]">
                                 <CheckCircle size={12} />
                             </div>
                         </div>
@@ -1880,7 +1880,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             <div className="flex items-center justify-between">
                 <button
                     onClick={() => setView('overview')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                    className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
                         ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                 >
                     <ArrowLeft size={16} />
@@ -1893,7 +1893,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
 
             {/* Instruction Card */}
-            <div className={`p-10 rounded-[3rem] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="mb-10 border-b border-dashed border-slate-200/50 pb-8 flex items-start justify-between">
                     <div>
                         <h2 className="text-3xl font-black uppercase tracking-tight">Bulk Question <span className="text-blue-500">Import</span></h2>
@@ -1904,7 +1904,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setView('repository')}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all
+                            className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
                                 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                         >
                             <Database size={16} />
@@ -1912,7 +1912,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         </button>
                         <button
                             onClick={() => setView('manual')}
-                            className="px-6 py-3 bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
+                            className="px-6 py-3 bg-blue-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
                         >
                             <Plus size={16} />
                             Add Manually
@@ -1946,9 +1946,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 { col: '17', title: 'Answer 4', req: true },
                                 { col: '18', title: 'Correct Answer', req: true, hint: '(A, B, C, D or Numerical value)' },
                             ].map((item) => (
-                                <div key={item.col} className={`p-4 rounded-2xl flex items-center justify-between border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <div key={item.col} className={`p-4 rounded-[5px] flex items-center justify-between border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                     <div className="flex items-center gap-4">
-                                        <span className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center text-[10px] font-black">{item.col}</span>
+                                        <span className="w-8 h-8 rounded-[5px] bg-blue-500/10 text-blue-500 flex items-center justify-center text-[10px] font-black">{item.col}</span>
                                         <div>
                                             <p className="text-xs font-bold">{item.title} {item.req && <span className="text-red-500">*</span>}</p>
                                             {item.hint && <p className="text-[9px] opacity-40 uppercase tracking-widest font-bold mt-0.5">{item.hint}</p>}
@@ -1969,7 +1969,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-emerald-500 flex items-center gap-2">
                                 <FileSpreadsheet size={16} /> Data Example
                             </h3>
-                            <div className={`overflow-hidden rounded-3xl border ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                            <div className={`overflow-hidden rounded-[5px] border ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
                                 <table className="w-full text-left text-[10px]">
                                     <thead className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
                                         <tr className="border-b border-slate-200/50">
@@ -1987,9 +1987,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             </div>
                         </div>
 
-                        <div className="bg-orange-500/5 border-2 border-dashed border-orange-500/20 p-8 rounded-3xl space-y-4">
+                        <div className="bg-orange-500/5 border-2 border-dashed border-orange-500/20 p-8 rounded-[5px] space-y-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-orange-500 rounded-lg text-white"><CloudUpload size={20} /></div>
+                                <div className="p-2 bg-orange-500 rounded-[5px] text-white"><CloudUpload size={20} /></div>
                                 <h4 className="text-sm font-black uppercase tracking-tight">Ready to Upload?</h4>
                             </div>
                             <p className="text-xs opacity-60 leading-relaxed font-medium">
@@ -1998,14 +1998,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <div className="pt-4 flex items-center gap-4">
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="px-6 py-3 bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 transition-all flex items-center gap-2"
+                                    className="px-6 py-3 bg-blue-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 transition-all flex items-center gap-2"
                                 >
                                     <FileSpreadsheet size={14} />
                                     Select File
                                 </button>
                                 <button
                                     onClick={handleDownloadTemplate}
-                                    className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 border 
+                                    className={`px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 border 
                                         ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                                 >
                                     <Download size={14} />
@@ -2023,8 +2023,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                         {selectedFile && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                <div className={`p-6 rounded-[2rem] border flex items-center gap-4 shadow-xl ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}>
-                                    <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
+                                <div className={`p-6 rounded-[5px] border flex items-center gap-4 shadow-xl ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className="p-3 bg-emerald-500 rounded-[5px] text-white shadow-lg shadow-emerald-500/20">
                                         <FileSpreadsheet size={24} />
                                     </div>
                                     <div className="flex-1 overflow-hidden text-left">
@@ -2034,14 +2034,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     </div>
                                     <button
                                         onClick={() => setSelectedFile(null)}
-                                        className="p-3 hover:bg-red-500/10 hover:text-red-500 rounded-xl transition-all"
+                                        className="p-3 hover:bg-red-500/10 hover:text-red-500 rounded-[5px] transition-all"
                                     >
                                         <X size={20} />
                                     </button>
                                 </div>
                                 <button
                                     onClick={handleUpload}
-                                    className="w-full mt-4 py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-500/30 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                    className="w-full mt-4 py-5 bg-emerald-500 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-500/30 hover:bg-emerald-600 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
                                 >
                                     <Upload size={18} strokeWidth={3} />
                                     <span>Proceed with Bulk Import</span>

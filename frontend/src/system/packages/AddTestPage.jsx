@@ -56,7 +56,7 @@ const AddTestPage = () => {
 
     return (
         <div className="animate-in fade-in duration-500">
-            <div className={`p-8 rounded-3xl border shadow-xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-xl font-bold tracking-tight">All Packages</h2>
                     <button onClick={fetchPackages} className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition-colors ${loading ? 'animate-spin' : ''}`}>
@@ -95,7 +95,7 @@ const AddTestPage = () => {
                                     <td className="py-5 px-4 text-center">
                                         <button
                                             onClick={() => setSelectedPackage(pkg)}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-xs font-black shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 active:translate-y-0 transition-all uppercase tracking-wider"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-[5px] text-xs font-black shadow-[0_4px_12px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 active:translate-y-0 transition-all uppercase tracking-wider"
                                         >
                                             Manage Test
                                         </button>

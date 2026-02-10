@@ -372,14 +372,14 @@ const SystemDashboard = () => {
                 const tabTitle = tabName.split(' ')[1];
                 return (
                     <div className="space-y-8">
-                        <div className={`p-10 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-100 border-slate-200 shadow-slate-200/50'}`}>
+                        <div className={`p-10 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-100 border-slate-200 shadow-slate-200/50'}`}>
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                                 <div>
                                     <h2 className="text-3xl font-black tracking-tight mb-2 uppercase"><span className="text-orange-500">{tabTitle}</span> Management</h2>
                                     <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage {tabTitle.toLowerCase()} level access and configurations.</p>
                                 </div>
                                 {tabName === 'Admin System' && (
-                                    <button onClick={() => setActiveTab('Create User')} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
+                                    <button onClick={() => setActiveTab('Create User')} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
                                         <Plus size={20} strokeWidth={3} />
                                         <span>Add New User</span>
                                     </button>
@@ -478,7 +478,7 @@ const SystemDashboard = () => {
             default:
                 return (
                     <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-                        <div className={`p-6 rounded-[2rem] mb-6 ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <div className={`p-6 rounded-[5px] mb-6 ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
                             <div className="text-orange-500"><Plus size={48} /></div>
                         </div>
                         <h2 className="text-3xl font-black uppercase tracking-tight mb-2">UNDER <span className="text-orange-500">DEVELOPMENT</span></h2>
@@ -524,14 +524,14 @@ const SystemDashboard = () => {
             title={isSuperAdmin ? "Super Admin Dashboard" : "Admin Dashboard"}
             subtitle={activeTab === 'Dashboard' ? "Manage your application content and users" : `System Administration > ${activeTab}`}
             headerActions={(
-                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50 ${isDarkMode ? 'bg-slate-800/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50 ${isDarkMode ? 'bg-slate-800/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                     <ExternalLink size={14} /> <span>View Site</span>
                 </div>
             )}
         >
             {successMessage && (
                 <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top duration-500">
-                    <div className="flex items-center gap-3 px-6 py-3 bg-emerald-500 text-white rounded-2xl shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest text-[10px]">
+                    <div className="flex items-center gap-3 px-6 py-3 bg-emerald-500 text-white rounded-[5px] shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest text-[10px]">
                         <CheckCircle size={14} strokeWidth={3} /> {successMessage}
                     </div>
                 </div>

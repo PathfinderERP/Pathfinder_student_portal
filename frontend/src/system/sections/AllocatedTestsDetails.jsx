@@ -59,12 +59,12 @@ const AllocatedTestsDetails = ({ section, onBack }) => {
     return (
         <div className="p-1 animate-in fade-in duration-500">
             {/* Header / Info Area */}
-            <div className={`p-8 rounded-[2.5rem] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={onBack}
-                            className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
+                            className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
                         >
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
@@ -73,7 +73,7 @@ const AllocatedTestsDetails = ({ section, onBack }) => {
                                 All Tests <span className="text-orange-500">Details</span>
                             </h2>
                             <p className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                <span className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">{section.code}</span>
+                                <span className="px-2 py-0.5 rounded-[5px] bg-orange-500/10 text-orange-500 border border-orange-500/20">{section.code}</span>
                                 <span>-</span>
                                 <span className="opacity-80">{section.name}</span>
                             </p>
@@ -88,7 +88,7 @@ const AllocatedTestsDetails = ({ section, onBack }) => {
                                 placeholder="Search by name or code..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full pl-12 pr-4 py-3 rounded-2xl border transition-all outline-none font-bold text-sm
+                                className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-bold text-sm
                                     ${isDarkMode
                                         ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50'
                                         : 'bg-slate-50 border-slate-200 focus:border-orange-500/50 focus:bg-white'}`}
@@ -96,7 +96,7 @@ const AllocatedTestsDetails = ({ section, onBack }) => {
                         </div>
                         <button
                             onClick={fetchTests}
-                            className={`p-3 rounded-2xl border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-white border-slate-200 text-slate-500 hover:text-orange-600'}`}
+                            className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-white border-slate-200 text-slate-500 hover:text-orange-600'}`}
                         >
                             <RotateCcw size={20} />
                         </button>
@@ -105,7 +105,7 @@ const AllocatedTestsDetails = ({ section, onBack }) => {
             </div>
 
             {/* Table Area */}
-            <div className={`rounded-[2.5rem] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
@@ -148,7 +148,7 @@ const AllocatedTestsDetails = ({ section, onBack }) => {
                                         </div>
                                     </td>
                                     <td className="py-6 px-10">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wider ${isDarkMode ? 'bg-white/5 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>
+                                        <span className={`px-3 py-1 rounded-[5px] text-xs font-black tracking-wider ${isDarkMode ? 'bg-white/5 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>
                                             {test.code}
                                         </span>
                                     </td>

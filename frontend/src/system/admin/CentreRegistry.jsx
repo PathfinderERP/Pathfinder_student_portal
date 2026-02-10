@@ -46,12 +46,12 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
 
     return (
         <div className="p-1 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className={`p-8 rounded-[2.5rem] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={onBack}
-                            className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
+                            className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
                         >
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
@@ -60,7 +60,7 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
                                 Centre <span className="text-orange-500">Tests</span>
                             </h2>
                             <p className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                <span className="px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">{centre.code}</span>
+                                <span className="px-2 py-0.5 rounded-[5px] bg-orange-500/10 text-orange-500 border border-orange-500/20">{centre.code}</span>
                                 <span>-</span>
                                 <span className="opacity-80">{centre.name}</span>
                             </p>
@@ -73,14 +73,14 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
                             placeholder="Search tests..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-2xl border transition-all outline-none font-bold text-sm
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-bold text-sm
                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50' : 'bg-slate-50 border-slate-200 focus:border-orange-500/50'}`}
                         />
                     </div>
                 </div>
             </div>
 
-            <div className={`rounded-[2.5rem] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left font-bold">
                         <thead>
@@ -100,7 +100,7 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
                                 <tr key={t.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                     <td className="py-6 px-10 text-xs opacity-30">{idx + 1}</td>
                                     <td className="py-6 px-10 uppercase text-sm">{t.name}</td>
-                                    <td className="py-6 px-10 font-bold"><span className="px-2 py-1 bg-orange-500/10 text-orange-500 rounded text-[10px]">{t.code}</span></td>
+                                    <td className="py-6 px-10 font-bold"><span className="px-2 py-1 bg-orange-500/10 text-orange-500 rounded-[5px] text-[10px]">{t.code}</span></td>
                                     <td className="py-6 px-10 text-right pr-12">
                                         <div className="relative flex justify-end">
                                             <div className={`w-11 h-6 rounded-full transition-all duration-500 ${Boolean(t.is_completed) ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-200'}`}>
@@ -216,12 +216,12 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     if (error && centres.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mb-6 border border-red-500/20">
+                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-[5px] flex items-center justify-center mb-6 border border-red-500/20">
                     <AlertCircle size={40} strokeWidth={2.5} />
                 </div>
                 <h3 className="text-xl font-black uppercase tracking-tight mb-2">Sync Connection Failed</h3>
                 <p className="text-sm font-medium opacity-50 max-w-xs mx-auto mb-8">{error}</p>
-                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest">Retry Sync</button>
+                <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-900 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest">Retry Sync</button>
             </div>
         );
     }
@@ -232,7 +232,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-1000 p-1">
-            <div className={`p-10 rounded-[3rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -248,7 +248,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                             <select
                                 value={filterState}
                                 onChange={(e) => setFilterState(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-3 rounded-2xl border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'}`}
+                                className={`w-full pl-4 pr-10 py-3 rounded-[5px] border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'}`}
                             >
                                 <option value="">All Regions</option>
                                 {uniqueStates.map(state => (
@@ -263,7 +263,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                             <select
                                 value={filterAllotment}
                                 onChange={(e) => setFilterAllotment(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-3 rounded-2xl border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'}`}
+                                className={`w-full pl-4 pr-10 py-3 rounded-[5px] border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'}`}
                             >
                                 <option value="">Show All</option>
                                 <option value="allotted">Allotted Only</option>
@@ -280,7 +280,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                                 placeholder="Filter centres..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full pl-12 pr-4 py-3 rounded-2xl border transition-all outline-none font-bold text-sm
+                                className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-bold text-sm
                                     ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50' : 'bg-white border-slate-200 focus:border-orange-500/50 focus:shadow-lg focus:shadow-orange-500/5'}`}
                             />
                         </div>
@@ -309,7 +309,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                                         <td className="py-6 px-4"><span className="text-[10px] font-black opacity-30">{(i + 1).toString().padStart(2, '0')}</span></td>
                                         <td className="py-6 px-4">
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 transition-all group-hover:scale-110 group-hover:rotate-3 ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-white/5 shadow-inner' : 'bg-orange-50 text-orange-600 border-orange-100 shadow-sm'}`}>
+                                                <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center font-black text-sm border-2 transition-all group-hover:scale-110 group-hover:rotate-3 ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-white/5 shadow-inner' : 'bg-orange-50 text-orange-600 border-orange-100 shadow-sm'}`}>
                                                     {centre.enterCode || 'C'}
                                                 </div>
                                                 <div>
@@ -354,7 +354,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                                                     });
                                                     setView('details');
                                                 }}
-                                                className="px-4 py-2 bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/30 active:scale-95"
+                                                className="px-4 py-2 bg-orange-500 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/30 active:scale-95"
                                             >
                                                 Tests
                                             </button>

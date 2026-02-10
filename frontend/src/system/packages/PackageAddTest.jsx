@@ -198,10 +198,10 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div className="flex items-center gap-6">
-                        <button onClick={onBack} className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
+                        <button onClick={onBack} className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
                         <div>
@@ -223,14 +223,14 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                         <button
                             onClick={fetchTests}
                             disabled={loading}
-                            className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                             title="Refresh Data"
                         >
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
                         <button
                             onClick={() => setView('assign')}
-                            className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20"
+                            className="px-6 py-3 bg-green-600 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20"
                         >
                             <Plus size={16} strokeWidth={3} />
                             <span>Add Test +</span>
@@ -247,7 +247,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                             placeholder="Search by test name or code..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                 ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50 focus:ring-blue-500/5'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50 focus:ring-blue-500/5'
                                 }`}
@@ -281,10 +281,10 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                 </tr>
                             ) : paginatedTests.length > 0 ? paginatedTests.map((test, index) => (
                                 <tr key={test.id || test._id} className={`group ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-slate-50 shadow-sm'} transition-all duration-300`}>
-                                    <td className="py-4 px-4 text-xs font-bold opacity-60 first:rounded-l-2xl">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                    <td className="py-4 px-4 text-xs font-bold opacity-60 first:rounded-l-[5px]">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-4 px-4 text-sm font-extrabold text-center tracking-tight">{test.name}</td>
                                     <td className="py-4 px-4 text-center">
-                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
+                                        <span className={`px-2 py-0.5 rounded-[5px] text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-500'}`}>
                                             {test.code}
                                         </span>
                                     </td>
@@ -302,26 +302,26 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                     <td className="py-4 px-4 text-center text-xs font-bold opacity-70">{test.exam_type_details?.name || 'N/A'}</td>
                                     <td className="py-4 px-4 text-center">
                                         <div className="flex justify-center">
-                                            <button className="px-3 py-1 border-2 border-blue-500/30 text-blue-500 rounded-lg text-[9px] font-black uppercase hover:bg-blue-500 hover:text-white transition-all">
+                                            <button className="px-3 py-1 border-2 border-blue-500/30 text-blue-500 rounded-[5px] text-[9px] font-black uppercase hover:bg-blue-500 hover:text-white transition-all">
                                                 QuestionPaper
                                             </button>
                                         </div>
                                     </td>
                                     <td className="py-4 px-4 text-center">
-                                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
+                                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wider shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
                                             Manage
                                         </button>
                                     </td>
                                     {/* Edit Removed as per request */}
-                                    <td className="py-4 px-4 text-center last:rounded-r-2xl">
-                                        <button onClick={() => handleRemove(test.id || test._id)} className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors" title="Remove from Package">
+                                    <td className="py-4 px-4 text-center last:rounded-r-[5px]">
+                                        <button onClick={() => handleRemove(test.id || test._id)} className="p-2 rounded-[5px] text-red-500 hover:bg-red-500/10 transition-colors" title="Remove from Package">
                                             <Trash2 size={16} />
                                         </button>
                                     </td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="10" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-2xl">No tests found for this package.</td>
+                                    <td colSpan="10" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-[5px]">No tests found for this package.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -330,7 +330,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
 
                 {isModalOpen && (
                     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className={`w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
+                        <div className={`w-full max-w-lg rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
                             <div className="bg-orange-500 p-8 flex justify-between items-center text-white">
                                 <h3 className="text-xl font-black uppercase tracking-tight">{isEditing ? 'Edit Test' : 'Add New Test'}</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/20 p-2 rounded-full transition-all active:scale-90"><X size={24} /></button>
@@ -343,7 +343,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             value={formValues.name}
                                             onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                             placeholder=" "
-                                            className={`peer w-full px-4 py-3.5 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-transparent border-white/10 text-white focus:border-blue-500' : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'}`}
+                                            className={`peer w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-transparent border-white/10 text-white focus:border-blue-500' : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'}`}
                                             required
                                         />
                                         <label className={`absolute left-4 transition-all duration-200 pointer-events-none top-0 -translate-y-full text-[10px] font-black uppercase tracking-widest peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:-translate-y-full ${isDarkMode ? 'text-slate-500 bg-[#1A1F2B] px-2' : 'text-slate-400 bg-white px-2'}`}>
@@ -356,7 +356,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             value={formValues.code}
                                             onChange={e => setFormValues({ ...formValues, code: e.target.value })}
                                             placeholder=" "
-                                            className={`peer w-full px-4 py-3.5 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-transparent border-white/10 text-white focus:border-blue-500' : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'}`}
+                                            className={`peer w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-transparent border-white/10 text-white focus:border-blue-500' : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'}`}
                                             required
                                         />
                                         <label className={`absolute left-4 transition-all duration-200 pointer-events-none top-0 -translate-y-full text-[10px] font-black uppercase tracking-widest peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:-translate-y-full ${isDarkMode ? 'text-slate-500 bg-[#1A1F2B] px-2' : 'text-slate-400 bg-white px-2'}`}>
@@ -370,7 +370,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                                 value={formValues.duration}
                                                 onChange={e => setFormValues({ ...formValues, duration: parseInt(e.target.value) })}
                                                 placeholder=" "
-                                                className={`peer w-full px-4 py-3.5 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-transparent border-white/10 text-white' : 'bg-transparent border-slate-200 text-slate-800'}`}
+                                                className={`peer w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-transparent border-white/10 text-white' : 'bg-transparent border-slate-200 text-slate-800'}`}
                                             />
                                             <label className={`absolute left-4 transition-all duration-200 pointer-events-none top-0 -translate-y-full text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500 bg-[#1A1F2B] px-2' : 'text-slate-400 bg-white px-2'}`}>
                                                 Duration (min)
@@ -380,7 +380,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             <select
                                                 value={formValues.exam_type}
                                                 onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
-                                                className={`w-full px-4 py-3.5 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white [&>option]:bg-[#1A1F2B]' : 'bg-transparent border-slate-200 text-slate-800'}`}
+                                                className={`w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white [&>option]:bg-[#1A1F2B]' : 'bg-transparent border-slate-200 text-slate-800'}`}
                                             >
                                                 <option value="" className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>Select Type</option>
                                                 {examTypes.map(et => (
@@ -392,7 +392,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             </label>
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between p-6 rounded-2xl bg-slate-50 dark:bg-white/5 border-2 border-transparent dark:border-white/5">
+                                    <div className="flex items-center justify-between p-6 rounded-[5px] bg-slate-50 dark:bg-white/5 border-2 border-transparent dark:border-white/5">
                                         <div>
                                             <span className="block text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Calculator Status</span>
                                             <span className="font-bold">Enable Scientific Calculator</span>
@@ -408,7 +408,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                 </div>
                                 <button
                                     type="submit"
-                                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-500/30 active:scale-95 transition-all mt-4"
+                                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-[5px] font-black uppercase tracking-widest shadow-xl shadow-orange-500/30 active:scale-95 transition-all mt-4"
                                 >
                                     {isEditing ? 'Update Test Info' : 'Create New Test'}
                                 </button>
@@ -420,7 +420,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                 {/* Test Picker Modal */}
                 {isPickerOpen && (
                     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className={`w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
+                        <div className={`w-full max-w-2xl rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
                             <div className="bg-green-600 p-8 flex justify-between items-center text-white">
                                 <h3 className="text-xl font-black uppercase tracking-tight">Assign Existing Test</h3>
                                 <button onClick={() => setIsPickerOpen(false)} className="hover:bg-white/20 p-2 rounded-full transition-all active:scale-90"><X size={24} /></button>
@@ -434,7 +434,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                         placeholder="Search available tests..."
                                         value={pickerSearch}
                                         onChange={(e) => setPickerSearch(e.target.value)}
-                                        className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                                        className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                             ? 'bg-white/5 border-white/5 text-white focus:border-green-500/50'
                                             : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-green-500/50'
                                             }`}
@@ -455,11 +455,11 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             t.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
                                             t.code.toLowerCase().includes(pickerSearch.toLowerCase())
                                         ).map(test => (
-                                            <div key={test.id || test._id} className={`p-4 rounded-2xl border transition-all flex justify-between items-center group ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
+                                            <div key={test.id || test._id} className={`p-4 rounded-[5px] border transition-all flex justify-between items-center group ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
                                                 <div>
                                                     <p className="text-sm font-black tracking-tight">{test.name}</p>
                                                     <div className="flex items-center gap-2 mt-1">
-                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-500/10 text-blue-600'}`}>{test.code}</span>
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[5px] ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-500/10 text-blue-600'}`}>{test.code}</span>
                                                         <span className="text-[9px] font-bold opacity-50 uppercase">{test.exam_type_details?.name || 'Unknown Type'}</span>
                                                     </div>
                                                 </div>
@@ -470,7 +470,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                                     </div>
                                                     <button
                                                         onClick={() => handleAssignTest(test.id || test._id)}
-                                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all active:scale-90"
+                                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all active:scale-90"
                                                     >
                                                         Select
                                                     </button>
@@ -478,7 +478,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="py-12 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2.5rem]">
+                                        <div className="py-12 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[5px]">
                                             <p className="text-xs font-bold opacity-40 uppercase tracking-widest mb-4">No tests found</p>
                                             <button
                                                 onClick={() => { setIsPickerOpen(false); handleOpenModal(); }}
@@ -590,7 +590,7 @@ const PackageAddTest = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -609,7 +609,7 @@ const PackageAddTest = () => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={fetchPackages}
-                            className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                             title="Refresh Data"
                         >
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
@@ -626,7 +626,7 @@ const PackageAddTest = () => {
                             placeholder="Search by name or code..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                 ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50 focus:ring-blue-500/5'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50 focus:ring-blue-500/5'
                                 }`}
@@ -637,7 +637,7 @@ const PackageAddTest = () => {
                         <select
                             value={filterExam}
                             onChange={(e) => { setFilterExam(e.target.value); setCurrentPage(1); }}
-                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                            className={`px-4 py-3 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
@@ -651,7 +651,7 @@ const PackageAddTest = () => {
                         <select
                             value={filterSession}
                             onChange={(e) => { setFilterSession(e.target.value); setCurrentPage(1); }}
-                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                            className={`px-4 py-3 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
@@ -681,12 +681,12 @@ const PackageAddTest = () => {
                         <tbody className="">
                             {paginatedPackages.length > 0 ? paginatedPackages.map((pkg, index) => (
                                 <tr key={pkg._id} className={`group ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-slate-50 shadow-sm'} transition-all duration-300`}>
-                                    <td className="py-4 px-6 text-xs font-bold opacity-60 first:rounded-l-2xl">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                    <td className="py-4 px-6 text-xs font-bold opacity-60 first:rounded-l-[5px]">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-4 px-6">
                                         <div className="font-extrabold text-sm tracking-tight">{pkg.name}</div>
                                     </td>
                                     <td className="py-4 px-6">
-                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                        <span className={`px-2 py-0.5 rounded-[5px] text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                                             {pkg.code}
                                         </span>
                                     </td>
@@ -699,10 +699,10 @@ const PackageAddTest = () => {
                                             </div>
                                         </button>
                                     </td>
-                                    <td className="py-4 px-6 text-center last:rounded-r-2xl">
+                                    <td className="py-4 px-6 text-center last:rounded-r-[5px]">
                                         <button
                                             onClick={() => setSelectedPackage(pkg)}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
                                         >
                                             Manage Test
                                         </button>
@@ -710,7 +710,7 @@ const PackageAddTest = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="7" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-2xl">No packages found.</td>
+                                    <td colSpan="7" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-[5px]">No packages found.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -724,7 +724,7 @@ const PackageAddTest = () => {
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                            className={`px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
+                            className={`px-3 py-2 rounded-[5px] border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
@@ -740,16 +740,16 @@ const PackageAddTest = () => {
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
                         >
                             Prev
                         </button>
-                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-[5px]">
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                                 <button
                                     key={page}
                                     onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all ${currentPage === page
+                                    className={`w-8 h-8 rounded-[5px] font-black text-[10px] transition-all ${currentPage === page
                                         ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40'
                                         : 'hover:bg-white/10 opacity-50 hover:opacity-100'
                                         }`}
@@ -761,7 +761,7 @@ const PackageAddTest = () => {
                         <button
                             disabled={currentPage === totalPages}
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
                         >
                             Next
                         </button>
@@ -775,7 +775,7 @@ const PackageAddTest = () => {
                                 value={jumpPageInput}
                                 onChange={(e) => setJumpPageInput(e.target.value)}
                                 placeholder="Page #"
-                                className={`w-20 px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
+                                className={`w-20 px-3 py-2 rounded-[5px] border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
                                     ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
                                     : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                     }`}

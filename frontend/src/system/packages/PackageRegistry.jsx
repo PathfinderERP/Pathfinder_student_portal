@@ -235,13 +235,13 @@ const PackageRegistry = ({ onBack }) => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div className="flex items-center gap-6">
                         {onBack && (
                             <button
                                 onClick={onBack}
-                                className={`p-4 rounded-2xl transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
+                                className={`p-4 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
                             >
                                 <ArrowLeft size={24} strokeWidth={3} />
                             </button>
@@ -265,12 +265,12 @@ const PackageRegistry = ({ onBack }) => {
                         <button
                             onClick={fetchPackages}
                             disabled={loadingData}
-                            className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                             title="Refresh Data"
                         >
                             <RefreshCw size={20} className={loadingData ? 'animate-spin' : ''} />
                         </button>
-                        <button onClick={() => handleOpenModal()} className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20">
+                        <button onClick={() => handleOpenModal()} className="px-6 py-3 bg-green-600 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl shadow-green-600/20">
                             <Plus size={16} strokeWidth={3} />
                             <span>Add Package +</span>
                         </button>
@@ -286,7 +286,7 @@ const PackageRegistry = ({ onBack }) => {
                             placeholder="Search by name or code..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                 ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50 focus:ring-blue-500/5'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50 focus:ring-blue-500/5'
                                 }`}
@@ -297,7 +297,7 @@ const PackageRegistry = ({ onBack }) => {
                         <select
                             value={filterExam}
                             onChange={(e) => { setFilterExam(e.target.value); setCurrentPage(1); }}
-                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                            className={`px-4 py-3 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
@@ -311,7 +311,7 @@ const PackageRegistry = ({ onBack }) => {
                         <select
                             value={filterSession}
                             onChange={(e) => { setFilterSession(e.target.value); setCurrentPage(1); }}
-                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                            className={`px-4 py-3 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
@@ -325,7 +325,7 @@ const PackageRegistry = ({ onBack }) => {
                         {(searchQuery || filterExam || filterSession) && (
                             <button
                                 onClick={() => { setSearchQuery(''); setFilterExam(''); setFilterSession(''); setCurrentPage(1); }}
-                                className="px-4 py-3 bg-red-500/10 text-red-500 rounded-2xl font-bold text-xs hover:bg-red-500/20 transition-all"
+                                className="px-4 py-3 bg-red-500/10 text-red-500 rounded-[5px] font-bold text-xs hover:bg-red-500/20 transition-all"
                             >
                                 Clear Filters
                             </button>
@@ -368,7 +368,7 @@ const PackageRegistry = ({ onBack }) => {
                                     </td>
 
                                     <td className="py-4 px-6">
-                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                        <span className={`px-2 py-0.5 rounded-[5px] text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                                             {pkg.code}
                                         </span>
                                     </td>
@@ -380,7 +380,7 @@ const PackageRegistry = ({ onBack }) => {
                                     <td className="py-4 px-6">
                                         <div
                                             onClick={() => pkg.image && setPreviewImage({ url: pkg.image, name: pkg.name })}
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold overflow-hidden cursor-pointer transition-transform active:scale-90 hover:ring-2 hover:ring-purple-500 shadow-sm ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`}
+                                            className={`w-8 h-8 rounded-[5px] flex items-center justify-center text-[10px] font-bold overflow-hidden cursor-pointer transition-transform active:scale-90 hover:ring-2 hover:ring-purple-500 shadow-sm ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`}
                                             title="Click to view full image"
                                         >
                                             {pkg.image ? (
@@ -416,20 +416,20 @@ const PackageRegistry = ({ onBack }) => {
                                     </td>
 
                                     <td className="py-4 px-6 text-center">
-                                        <button onClick={() => handleOpenModal(pkg)} className="p-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors">
+                                        <button onClick={() => handleOpenModal(pkg)} className="p-1 rounded-[5px] text-blue-500 hover:bg-blue-500/10 transition-colors">
                                             <Edit2 size={16} />
                                         </button>
                                     </td>
 
                                     <td className="py-4 px-6 text-center last:rounded-r-2xl">
-                                        <button onClick={() => handleDelete(pkg._id)} className="p-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+                                        <button onClick={() => handleDelete(pkg._id)} className="p-1 rounded-[5px] text-red-500 hover:bg-red-500/10 transition-colors">
                                             <Trash2 size={16} />
                                         </button>
                                     </td>
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="11" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-2xl">No packages found.</td>
+                                    <td colSpan="11" className="py-12 text-center opacity-50 font-medium italic bg-white/5 rounded-[5px]">No packages found.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -443,7 +443,7 @@ const PackageRegistry = ({ onBack }) => {
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                            className={`px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
+                            className={`px-3 py-2 rounded-[5px] border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-blue-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                 }`}
@@ -459,17 +459,17 @@ const PackageRegistry = ({ onBack }) => {
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
                         >
                             Prev
                         </button>
 
-                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-[5px]">
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                                 <button
                                     key={page}
                                     onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all ${currentPage === page
+                                    className={`w-8 h-8 rounded-[5px] font-black text-[10px] transition-all ${currentPage === page
                                         ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40'
                                         : 'hover:bg-white/10 opacity-50 hover:opacity-100'
                                         }`}
@@ -482,7 +482,7 @@ const PackageRegistry = ({ onBack }) => {
                         <button
                             disabled={currentPage === totalPages}
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
                         >
                             Next
                         </button>
@@ -496,7 +496,7 @@ const PackageRegistry = ({ onBack }) => {
                                 value={jumpPageInput}
                                 onChange={(e) => setJumpPageInput(e.target.value)}
                                 placeholder="Page #"
-                                className={`w-20 px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
+                                className={`w-20 px-3 py-2 rounded-[5px] border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
                                     ? 'bg-white/5 border-white/5 text-white focus:border-blue-500/50'
                                     : 'bg-white border-slate-100 text-slate-800 focus:border-blue-500/50'
                                     }`}
@@ -509,7 +509,7 @@ const PackageRegistry = ({ onBack }) => {
             {/* Add Package Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
-                    <div className={`w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
+                    <div className={`w-full max-w-lg rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
 
                         {/* Orange Header */}
                         <div className="bg-orange-500 p-6 flex items-center justify-between shrink-0">
@@ -529,7 +529,7 @@ const PackageRegistry = ({ onBack }) => {
                                     value={formValues.name}
                                     onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
                                     placeholder=" "
-                                    className={`peer w-full px-4 py-3.5 rounded-xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                                    className={`peer w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                         ? 'bg-transparent border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/10'
                                         : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-blue-500/10'
                                         }`}
@@ -550,7 +550,7 @@ const PackageRegistry = ({ onBack }) => {
                                     value={formValues.code}
                                     onChange={(e) => setFormValues({ ...formValues, code: e.target.value })}
                                     placeholder=" "
-                                    className={`peer w-full px-4 py-3.5 rounded-xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                                    className={`peer w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                         ? 'bg-transparent border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/10'
                                         : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-blue-500/10'
                                         }`}
@@ -569,7 +569,7 @@ const PackageRegistry = ({ onBack }) => {
                                 <select
                                     value={formValues.examType}
                                     onChange={(e) => setFormValues({ ...formValues, examType: e.target.value })}
-                                    className={`w-full px-4 py-3.5 rounded-xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
+                                    className={`w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
                                         ? 'bg-[#1A1F2B] border-white/10 text-white focus:border-blue-500 [&>option]:bg-[#1A1F2B]'
                                         : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'
                                         }`}
@@ -593,7 +593,7 @@ const PackageRegistry = ({ onBack }) => {
                                     <select
                                         value={formValues.session}
                                         onChange={(e) => setFormValues({ ...formValues, session: e.target.value })}
-                                        className={`w-full px-4 py-3.5 rounded-xl border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
+                                        className={`w-full px-4 py-3.5 rounded-[5px] border-2 outline-none font-bold appearance-none cursor-pointer transition-all ${isDarkMode
                                             ? 'bg-[#1A1F2B] border-white/10 text-white focus:border-blue-500 [&>option]:bg-[#1A1F2B]'
                                             : 'bg-transparent border-slate-200 text-slate-800 focus:border-blue-500'
                                             }`}
@@ -612,7 +612,7 @@ const PackageRegistry = ({ onBack }) => {
                             </div>
 
                             {/* Description */}
-                            <div className={`p-4 rounded-xl border-2 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
+                            <div className={`p-4 rounded-[5px] border-2 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
                                 <textarea
                                     value={formValues.description}
                                     onChange={(e) => setFormValues({ ...formValues, description: e.target.value })}
@@ -626,7 +626,7 @@ const PackageRegistry = ({ onBack }) => {
                             <div>
                                 <h4 className={`text-sm font-bold mb-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Select Image</h4>
                                 <div className="flex items-center gap-3 mb-4">
-                                    <label className={`cursor-pointer px-4 py-2 rounded-lg border-2 font-bold text-sm transition-all shadow-sm active:scale-95 ${isDarkMode ? 'border-white/20 hover:bg-white/5 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-600'}`}>
+                                    <label className={`cursor-pointer px-4 py-2 rounded-[5px] border-2 font-bold text-sm transition-all shadow-sm active:scale-95 ${isDarkMode ? 'border-white/20 hover:bg-white/5 text-slate-300' : 'border-slate-300 hover:bg-slate-50 text-slate-600'}`}>
                                         Choose File
                                         <input
                                             type="file"
@@ -642,7 +642,7 @@ const PackageRegistry = ({ onBack }) => {
 
                                 {/* Image Preview */}
                                 {(formValues.image || formValues.currentImage) && (
-                                    <div className={`w-full h-48 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden relative ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-300 bg-slate-50'}`}>
+                                    <div className={`w-full h-48 rounded-[5px] border-2 border-dashed flex items-center justify-center overflow-hidden relative ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-300 bg-slate-50'}`}>
                                         <img
                                             src={formValues.image ? URL.createObjectURL(formValues.image) : formValues.currentImage}
                                             alt="Preview"
@@ -657,7 +657,7 @@ const PackageRegistry = ({ onBack }) => {
                                 <button
                                     onClick={handleSubmit}
                                     disabled={isLoading}
-                                    className={`px-12 py-3 rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${formValues.name && formValues.code
+                                    className={`px-12 py-3 rounded-[5px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${formValues.name && formValues.code
                                         ? (isDarkMode ? 'bg-white text-slate-900' : 'bg-orange-500 text-white hover:bg-orange-600')
                                         : (isDarkMode ? 'bg-white/10 text-white/20' : 'bg-slate-300 text-slate-900 cursor-not-allowed')
                                         } ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}
@@ -694,7 +694,7 @@ const PackageRegistry = ({ onBack }) => {
                         <img
                             src={previewImage.url}
                             alt={previewImage.name}
-                            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black/50"
+                            className="max-w-full max-h-full object-contain rounded-[5px] shadow-2xl shadow-black/50"
                         />
                         <div className="px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white font-bold text-sm tracking-wide">
                             {previewImage.name}

@@ -460,7 +460,7 @@ const SolutionRegistry = () => {
                     </div>
 
                     {/* Filter Bar */}
-                    <div className={`p-6 rounded-[2rem] border flex flex-wrap items-center gap-6 ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                    <div className={`p-6 rounded-[5px] border flex flex-wrap items-center gap-6 ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                         <div className="flex items-center gap-2 mr-2">
                             <Filter size={16} className="text-amber-500" />
                             <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Filters</span>
@@ -805,7 +805,7 @@ const SolutionRegistry = () => {
                                                                     >
                                                                         <span className="uppercase">{sec.name}</span>
                                                                         {isSelected && <Check size={14} strokeWidth={3} />}
-                                                                        {!isSelected && <span className={`w-3.5 h-3.5 rounded-md border-2 ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`} />}
+                                                                        {!isSelected && <span className={`w-3.5 h-3.5 rounded-[5px] border-2 ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`} />}
                                                                     </button>
                                                                 );
                                                             }) : (

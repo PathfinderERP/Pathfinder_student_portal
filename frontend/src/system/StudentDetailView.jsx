@@ -17,14 +17,14 @@ const StudentDetailView = ({ student, onClose }) => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-            <div className={`relative w-full max-w-5xl h-[90vh] overflow-hidden rounded-[2.5rem] border shadow-2xl flex flex-col animate-in zoom-in duration-300
+            <div className={`relative w-full max-w-5xl h-[90vh] overflow-hidden rounded-[5px] border shadow-2xl flex flex-col animate-in zoom-in duration-300
                 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
 
                 {/* Header */}
                 <div className={`px-8 py-6 border-b flex justify-between items-center z-10 
                     ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black border-2
+                        <div className={`w-14 h-14 rounded-[5px] flex items-center justify-center text-2xl font-black border-2
                             ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
                             {(details.studentName || 'S').charAt(0).toUpperCase()}
                         </div>
@@ -46,7 +46,7 @@ const StudentDetailView = ({ student, onClose }) => {
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className={`p-3 rounded-xl transition-all hover:rotate-90 hover:scale-110 active:scale-95
+                    <button onClick={onClose} className={`p-3 rounded-[5px] transition-all hover:rotate-90 hover:scale-110 active:scale-95
                         ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-200 text-slate-900 hover:bg-slate-300'}`}>
                         <X size={20} strokeWidth={2.5} />
                     </button>
@@ -60,7 +60,7 @@ const StudentDetailView = ({ student, onClose }) => {
                         <div className="lg:col-span-2 space-y-8">
 
                             {/* Personal Info Card */}
-                            <section className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                     <User size={14} className="text-orange-500" /> Personal Information
                                 </h3>
@@ -78,7 +78,7 @@ const StudentDetailView = ({ student, onClose }) => {
                             </section>
 
                             {/* Course Info Card */}
-                            <section className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                     <Layers size={14} className="text-blue-500" /> Course Details
                                 </h3>
@@ -92,13 +92,13 @@ const StudentDetailView = ({ student, onClose }) => {
                             </section>
 
                             {/* Payment Timeline */}
-                            <section className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                     <Activity size={14} className="text-emerald-500" /> Installment Schedule
                                 </h3>
                                 <div className="space-y-3">
                                     {paymentBreakdown.slice(0, 5).map((pay, i) => (
-                                        <div key={pay._id || i} className={`flex items-center justify-between p-4 rounded-2xl border
+                                        <div key={pay._id || i} className={`flex items-center justify-between p-4 rounded-[5px] border
                                             ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
@@ -136,7 +136,7 @@ const StudentDetailView = ({ student, onClose }) => {
 
                         {/* Right Column: Financial Summary */}
                         <div className="space-y-8">
-                            <section className={`p-6 rounded-3xl border sticky top-0 ${isDarkMode ? 'bg-[#151923] border-white/10' : 'bg-white border-slate-200 shadow-xl'}`}>
+                            <section className={`p-6 rounded-[5px] border sticky top-0 ${isDarkMode ? 'bg-[#151923] border-white/10' : 'bg-white border-slate-200 shadow-xl'}`}>
                                 <div className="mb-8">
                                     <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                         <DollarSign size={14} className="text-yellow-500" /> Financial Overview
@@ -163,7 +163,7 @@ const StudentDetailView = ({ student, onClose }) => {
                                     </h3>
                                     <div className="space-y-3">
                                         {feeStructure.map((fee, i) => (
-                                            <div key={i} className={`p-3 rounded-xl border flex justify-between items-center
+                                            <div key={i} className={`p-3 rounded-[5px] border flex justify-between items-center
                                                 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                                 <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">{fee.feesType}</span>
                                                 <span className="text-sm font-black">₹{fee.value?.toLocaleString()}</span>

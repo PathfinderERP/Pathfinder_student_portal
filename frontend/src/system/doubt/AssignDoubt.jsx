@@ -122,13 +122,13 @@ const AssignDoubt = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
-            <div className={`p-8 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 {/* Header & Tabs */}
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <span className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-orange-500/20">
+                                <span className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/20">
                                     Doubt Management
                                 </span>
                                 <h2 className="text-3xl font-black tracking-tight uppercase">
@@ -147,7 +147,7 @@ const AssignDoubt = () => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`px-6 py-3 text-xs font-black uppercase tracking-widest rounded-t-2xl transition-all relative
+                                className={`px-6 py-3 text-xs font-black uppercase tracking-widest rounded-[5px] transition-all relative
                                     ${activeTab === tab.id
                                         ? (isDarkMode ? 'text-orange-400 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-orange-500' : 'text-orange-600 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-orange-600')
                                         : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')
@@ -167,13 +167,13 @@ const AssignDoubt = () => {
                                 placeholder="Search by student or subject..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-14 pr-6 py-3 rounded-2xl border-2 outline-none font-bold transition-all ${isDarkMode
+                                className={`w-full pl-14 pr-6 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
                                     ? 'bg-white/5 border-white/5 text-white focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
                                     : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
                                     }`}
                             />
                         </div>
-                        <button className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
+                        <button className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
                             <RefreshCw size={20} />
                         </button>
                     </div>
@@ -181,7 +181,7 @@ const AssignDoubt = () => {
             </div>
 
             {/* Table */}
-            <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
@@ -238,7 +238,7 @@ const AssignDoubt = () => {
                                                     <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                                                         {doubt.subject}
                                                     </span>
                                                 </td>
@@ -262,14 +262,14 @@ const AssignDoubt = () => {
                                                     <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                                                         {doubt.subject}
                                                     </span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
                                                     <button
                                                         onClick={() => handleShowDoubtClick(doubt)}
-                                                        className="px-4 py-3 rounded-xl bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
+                                                        className="px-4 py-3 rounded-[5px] bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
                                                         <Eye size={14} strokeWidth={3} />
                                                         <span>Show Doubt</span>
                                                     </button>
@@ -277,7 +277,7 @@ const AssignDoubt = () => {
                                                 <td className="py-4 px-2 text-center">
                                                     <button
                                                         onClick={() => handleRestoreDoubt(doubt.id)}
-                                                        className="px-4 py-3 rounded-xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
+                                                        className="px-4 py-3 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
                                                         <RotateCcw size={14} strokeWidth={3} />
                                                         <span>Redo / Restore</span>
                                                     </button>
@@ -294,7 +294,7 @@ const AssignDoubt = () => {
                                                     <span className="font-bold text-sm tracking-tight">{doubt.student}</span>
                                                 </td>
                                                 <td className="py-4 px-2">
-                                                    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                                                         {doubt.subject}
                                                     </span>
                                                 </td>
@@ -306,7 +306,7 @@ const AssignDoubt = () => {
                                                 <td className="py-4 px-2 text-center">
                                                     <button
                                                         onClick={() => handleShowDoubtClick(doubt)}
-                                                        className="px-4 py-3 rounded-xl bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
+                                                        className="px-4 py-3 rounded-[5px] bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
                                                         <Eye size={14} strokeWidth={3} />
                                                         <span>Show Doubt</span>
                                                     </button>
@@ -314,7 +314,7 @@ const AssignDoubt = () => {
                                                 <td className="py-4 px-2 text-center">
                                                     <button
                                                         onClick={() => handleAssignClick(doubt)}
-                                                        className="px-4 py-3 rounded-xl bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]"
+                                                        className="px-4 py-3 rounded-[5px] bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]"
                                                     >
                                                         <UserPlus size={14} strokeWidth={3} />
                                                         <span>Assign To</span>
@@ -323,7 +323,7 @@ const AssignDoubt = () => {
                                                 <td className="py-4 px-2 text-center">
                                                     <button
                                                         onClick={() => handleRejectDoubt(doubt.id)}
-                                                        className="px-4 py-3 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
+                                                        className="px-4 py-3 rounded-[5px] bg-red-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
                                                         <X size={14} strokeWidth={3} />
                                                         <span>Reject</span>
                                                     </button>
@@ -350,8 +350,8 @@ const AssignDoubt = () => {
                 <div className={`p-6 border-t flex items-center justify-between ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
                     <span className="text-xs font-bold opacity-50">Showing {filteredDoubts.length} entries</span>
                     <div className="flex gap-2">
-                        <button disabled={currentPage === 1} className="p-2 rounded-lg hover:bg-black/5 disabled:opacity-30"><ChevronLeft size={16} /></button>
-                        <button disabled={currentPage >= totalPages} className="p-2 rounded-lg hover:bg-black/5 disabled:opacity-30"><ChevronRight size={16} /></button>
+                        <button disabled={currentPage === 1} className="p-2 rounded-[5px] hover:bg-black/5 disabled:opacity-30"><ChevronLeft size={16} /></button>
+                        <button disabled={currentPage >= totalPages} className="p-2 rounded-[5px] hover:bg-black/5 disabled:opacity-30"><ChevronRight size={16} /></button>
                     </div>
                 </div>
             </div>
@@ -377,7 +377,7 @@ const AssignDoubt = () => {
                                 <select
                                     value={selectedTeacher}
                                     onChange={(e) => setSelectedTeacher(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-lg border-2 outline-none font-bold appearance-none ${isDarkMode
+                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
                                         ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500'
                                         : 'bg-white border-blue-400/50 text-slate-700 focus:border-blue-500'
                                         }`}
@@ -395,7 +395,7 @@ const AssignDoubt = () => {
                             <button
                                 onClick={handleConfirmAssign}
                                 disabled={!selectedTeacher}
-                                className={`w-full mt-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 ${selectedTeacher
+                                className={`w-full mt-8 py-3 rounded-[5px] font-bold uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 ${selectedTeacher
                                     ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
                                     : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                     }`}

@@ -164,11 +164,11 @@ const TestSectionManager = ({ test, onBack }) => {
     return (
         <div className={`min-h-screen ${isDarkMode ? 'bg-[#0B0F17] text-white' : 'bg-slate-50 text-slate-900'} px-1 py-6 animate-in fade-in duration-500`}>
             {/* Header Info */}
-            <div className={`mb-6 p-4 rounded-xl border flex flex-wrap justify-between items-center gap-4 ${isDarkMode ? 'bg-[#1A1F2B] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`mb-6 p-4 rounded-[5px] border flex flex-wrap justify-between items-center gap-4 ${isDarkMode ? 'bg-[#1A1F2B] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onBack}
-                        className={`p-3 rounded-xl transition-all hover:scale-110 ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                        className={`p-3 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
                     >
                         <ArrowLeft size={24} />
                     </button>
@@ -187,14 +187,14 @@ const TestSectionManager = ({ test, onBack }) => {
                 </div>
                 <button
                     onClick={onBack}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-sm shadow-lg shadow-blue-600/20 transition-all flex items-center gap-3 active:scale-95"
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] font-black text-sm shadow-lg shadow-blue-600/20 transition-all flex items-center gap-3 active:scale-95"
                 >
                     Show ALL Test
                 </button>
             </div>
 
             {/* Main Content Card */}
-            <div className={`rounded-2xl border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 {/* Actions Toolbar */}
                 <div className="p-6 border-b border-inherit flex flex-wrap justify-between items-center gap-4">
                     <h3 className="text-lg font-black uppercase tracking-tight">Section List</h3>
@@ -206,18 +206,18 @@ const TestSectionManager = ({ test, onBack }) => {
                                 placeholder="Enter the Section name"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`pl-10 pr-4 py-2 rounded-lg border text-xs font-medium outline-none transition-all focus:ring-2 focus:ring-blue-500/20 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                                className={`pl-10 pr-4 py-2 rounded-[5px] border text-xs font-medium outline-none transition-all focus:ring-2 focus:ring-blue-500/20 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
                             />
                         </div>
                         <button
                             onClick={handleAdd}
-                            className="px-6 py-3 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-xl font-black text-sm shadow-xl shadow-green-900/10 transition-all flex items-center gap-3 active:scale-95"
+                            className="px-6 py-3 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-black text-sm shadow-xl shadow-green-900/10 transition-all flex items-center gap-3 active:scale-95"
                         >
                             <Plus size={20} /> Add Section +
                         </button>
                         <button
                             onClick={fetchSections}
-                            className={`p-3 rounded-xl border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200 text-blue-500'}`}
+                            className={`p-3 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200 text-blue-500'}`}
                         >
                             <RefreshCw size={22} className={isLoading ? 'animate-spin' : ''} />
                         </button>
@@ -282,7 +282,7 @@ const TestSectionManager = ({ test, onBack }) => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isActionLoading && setIsModalOpen(false)} />
-                    <div className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className={`relative w-full max-w-md rounded-[5px] shadow-2xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         {/* Header - Matching User Image */}
                         <div className="bg-[#FF6600] p-6 flex justify-between items-center relative">
                             <h3 className="text-lg font-black text-white uppercase tracking-tighter">
@@ -339,7 +339,7 @@ const TestSectionManager = ({ test, onBack }) => {
                             <div className="flex justify-center pt-4">
                                 <button
                                     disabled={isActionLoading}
-                                    className="px-8 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-green-900/20 transition-all flex items-center gap-3 active:scale-95"
+                                    className="px-8 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-[5px] font-black text-xs uppercase tracking-widest shadow-xl shadow-green-900/20 transition-all flex items-center gap-3 active:scale-95"
                                 >
                                     {isActionLoading && <Loader2 size={16} className="animate-spin" />}
                                     {modalMode === 'add' ? 'Create' : 'Update'}
@@ -353,11 +353,11 @@ const TestSectionManager = ({ test, onBack }) => {
             {/* Premium Custom Alert */}
             {alert.show && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
-                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success'
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success'
                         ? 'bg-emerald-500/90 border-emerald-400 text-white'
                         : 'bg-red-500/90 border-red-400 text-white'
                         }`}>
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                        <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
                         </div>
                         <div>

@@ -51,9 +51,9 @@ const QuestionPaperView = ({ test, onBack }) => {
         <div className={`min-h-screen animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 ${isDarkMode ? 'bg-[#0B0F17]' : 'bg-gray-50/30'}`}>
             {/* Header (Hidden on Print) */}
             <div className="max-w-6xl mx-auto mt-6 px-4 print:hidden">
-                <div className="bg-[#E65100] text-white p-4 rounded-2xl flex justify-between items-center shadow-2xl">
+                <div className="bg-[#E65100] text-white p-4 rounded-[5px] flex justify-between items-center shadow-2xl">
                     <div className="flex items-center gap-6">
-                        <button onClick={onBack} className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-90">
+                        <button onClick={onBack} className="p-3 bg-white/10 hover:bg-white/20 rounded-[5px] transition-all active:scale-90">
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
                         <h1 className="text-sm font-black uppercase tracking-[0.2em]">Question Paper</h1>
@@ -61,12 +61,12 @@ const QuestionPaperView = ({ test, onBack }) => {
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-3 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                            className="flex items-center gap-3 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
                         >
                             <Printer size={18} />
                             Print JSON
                         </button>
-                        <button onClick={onBack} className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-90">
+                        <button onClick={onBack} className="p-3 bg-white/10 hover:bg-white/20 rounded-[5px] transition-all active:scale-90">
                             <X size={24} strokeWidth={3} />
                         </button>
                     </div>
@@ -122,8 +122,8 @@ const QuestionPaperView = ({ test, onBack }) => {
                                         {/* Images if any */}
                                         {(q.image_1 || q.image_2) && (
                                             <div className="flex flex-wrap gap-4 mb-4">
-                                                {q.image_1 && <img src={q.image_1} alt="Q1" className="max-h-20 max-w-[150px] rounded-md object-contain border border-slate-100 shadow-sm transition-all hover:scale-150 cursor-zoom-in" />}
-                                                {q.image_2 && <img src={q.image_2} alt="Q2" className="max-h-20 max-w-[150px] rounded-md object-contain border border-slate-100 shadow-sm transition-all hover:scale-150 cursor-zoom-in" />}
+                                                {q.image_1 && <img src={q.image_1} alt="Q1" className="max-h-20 max-w-[150px] rounded-[5px] object-contain border border-slate-100 shadow-sm transition-all hover:scale-150 cursor-zoom-in" />}
+                                                {q.image_2 && <img src={q.image_2} alt="Q2" className="max-h-20 max-w-[150px] rounded-[5px] object-contain border border-slate-100 shadow-sm transition-all hover:scale-150 cursor-zoom-in" />}
                                             </div>
                                         )}
 

@@ -77,7 +77,7 @@ const TestResponses = () => {
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className={`p-8 rounded-[2.5rem] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
@@ -95,12 +95,12 @@ const TestResponses = () => {
                                 placeholder="Enter the test name"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`pl-10 pr-4 py-2.5 rounded-xl border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
+                                className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
                             />
                         </div>
                         <button
                             onClick={fetchTests}
-                            className={`p-3 rounded-xl border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
+                            className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
                         >
                             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                         </button>
@@ -109,7 +109,7 @@ const TestResponses = () => {
             </div>
 
             {/* Table */}
-            <div className={`rounded-3xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
                 <div
                     ref={tableContainerRef}
                     onMouseDown={handleMouseDown}
@@ -157,7 +157,7 @@ const TestResponses = () => {
                                         </div>
                                     </td>
                                     <td className="py-5 px-6">
-                                        <span className="px-3 py-1.5 bg-purple-500/10 text-purple-500 rounded-lg text-xs font-bold font-mono tracking-widest border border-purple-500/20">
+                                        <span className="px-3 py-1.5 bg-purple-500/10 text-purple-500 rounded-[5px] text-xs font-bold font-mono tracking-widest border border-purple-500/20">
                                             {test.code}
                                         </span>
                                     </td>
@@ -170,7 +170,7 @@ const TestResponses = () => {
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleViewCentres(test.id)}
-                                            className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                                            className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                                         >
                                             Centres
                                         </button>
@@ -178,7 +178,7 @@ const TestResponses = () => {
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleGenerateResult(test.id)}
-                                            className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
+                                            className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
                                         >
                                             <FileText size={11} /> Generate Result
                                         </button>

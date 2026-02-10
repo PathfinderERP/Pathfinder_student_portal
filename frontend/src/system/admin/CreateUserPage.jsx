@@ -148,9 +148,9 @@ const CreateUserPage = ({ onBack }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`p-10 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-100 border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-100 border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex items-center gap-6 mb-10">
-                    <button onClick={onBack} className={`p-3 rounded-2xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-900 shadow-sm border border-slate-200/50'}`}>
+                    <button onClick={onBack} className={`p-3 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-900 shadow-sm border border-slate-200/50'}`}>
                         <ArrowLeft size={20} strokeWidth={3} />
                     </button>
                     <div>
@@ -160,14 +160,14 @@ const CreateUserPage = ({ onBack }) => {
                 </div>
 
                 {successMessage && (
-                    <div className="mb-8 p-6 rounded-[2rem] bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center gap-4 font-bold uppercase tracking-widest text-xs animate-in zoom-in">
+                    <div className="mb-8 p-6 rounded-[5px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center gap-4 font-bold uppercase tracking-widest text-xs animate-in zoom-in">
                         <ShieldCheck size={24} />
                         {successMessage}
                     </div>
                 )}
 
                 {error && (
-                    <div className="mb-8 p-6 rounded-[2rem] bg-red-500/10 border border-red-500/20 text-red-500 flex items-center gap-4 font-bold uppercase tracking-widest text-xs animate-in zoom-in">
+                    <div className="mb-8 p-6 rounded-[5px] bg-red-500/10 border border-red-500/20 text-red-500 flex items-center gap-4 font-bold uppercase tracking-widest text-xs animate-in zoom-in">
                         <ShieldCheck size={24} />
                         {error}
                     </div>
@@ -185,7 +185,7 @@ const CreateUserPage = ({ onBack }) => {
                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Username</label>
                                     <input required type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                        className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                             ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
                                             autofill:transition-colors autofill:duration-[5000000ms]`}
                                         placeholder="admin_atanu"
@@ -195,7 +195,7 @@ const CreateUserPage = ({ onBack }) => {
                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Email</label>
                                     <input required type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                        className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                             ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
                                             autofill:transition-colors autofill:duration-[5000000ms]`}
                                         placeholder="atanu@example.com"
@@ -210,7 +210,7 @@ const CreateUserPage = ({ onBack }) => {
                                             value={formData.password}
                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                                             style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                            className={`w-full p-4 pr-12 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                            className={`w-full p-4 pr-12 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
                                                 autofill:transition-colors autofill:duration-[5000000ms]`}
                                             placeholder="••••••••"
@@ -218,7 +218,7 @@ const CreateUserPage = ({ onBack }) => {
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'text-slate-500 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-200'}`}
+                                            className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'text-slate-500 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-200'}`}
                                         >
                                             {showPassword ? <EyeOff size={18} strokeWidth={2.5} /> : <Eye size={18} strokeWidth={2.5} />}
                                         </button>
@@ -229,7 +229,7 @@ const CreateUserPage = ({ onBack }) => {
                                     <div className="relative">
                                         <select value={formData.user_type} onChange={e => setFormData({ ...formData, user_type: e.target.value })}
                                             style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                            className={`w-full p-4 pr-12 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
+                                            className={`w-full p-4 pr-12 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
                                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'} 
                                                 [&>option]:bg-slate-900 [&>option]:text-white cursor-pointer`}
                                         >
@@ -248,7 +248,7 @@ const CreateUserPage = ({ onBack }) => {
                         </div>
 
                         <div className="pt-10">
-                            <button disabled={isLoading} type="submit" className="w-full py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-4">
+                            <button disabled={isLoading} type="submit" className="w-full py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-sm shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-4">
                                 {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>CREATE USER <UserPlus size={20} /></>}
                             </button>
                         </div>
@@ -262,7 +262,7 @@ const CreateUserPage = ({ onBack }) => {
 
                         <div className="space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                             {permissionTabs.map((tab) => (
-                                <div key={tab.id} className={`p-6 rounded-3xl border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-100/30 border-slate-200/60 shadow-sm hover:bg-white'}`}>
+                                <div key={tab.id} className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-100/30 border-slate-200/60 shadow-sm hover:bg-white'}`}>
                                     <div className="flex items-center justify-between mb-6">
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-black uppercase tracking-widest opacity-80">{tab.label}</span>
@@ -270,7 +270,7 @@ const CreateUserPage = ({ onBack }) => {
                                                 type="button"
                                                 onClick={() => toggleAllPermissions(tab.id)}
                                                 disabled={formData.user_type === 'superadmin'}
-                                                className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[a])
+                                                className={`px-3 py-1 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[a])
                                                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                                                     : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-200 text-slate-600'
                                                     } ${formData.user_type === 'superadmin' ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -278,7 +278,7 @@ const CreateUserPage = ({ onBack }) => {
                                                 ALL
                                             </button>
                                         </div>
-                                        <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${formData.permissions[tab.id]?.view ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                        <div className={`px-3 py-1 rounded-[5px] text-[9px] font-black uppercase tracking-widest ${formData.permissions[tab.id]?.view ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                                             {formData.permissions[tab.id]?.view ? 'Enabled' : 'Disabled'}
                                         </div>
                                     </div>
@@ -291,7 +291,7 @@ const CreateUserPage = ({ onBack }) => {
                                                     type="button"
                                                     disabled={formData.user_type === 'superadmin'}
                                                     onClick={() => handlePermissionChange(tab.id, action)}
-                                                    className={`py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id][action]
+                                                    className={`py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id][action]
                                                         ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20'
                                                         : isDarkMode ? 'bg-white/5 border-white/5 text-slate-500' : 'bg-white border-slate-200 text-slate-400'
                                                         } ${formData.user_type === 'superadmin' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
@@ -313,7 +313,7 @@ const CreateUserPage = ({ onBack }) => {
                                                                 type="button"
                                                                 onClick={() => toggleAllPermissions(tab.id, sub.id)}
                                                                 disabled={formData.user_type === 'superadmin'}
-                                                                className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[sub.id]?.[a])
+                                                                className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[sub.id]?.[a])
                                                                     ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
                                                                     : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500'
                                                                     } ${formData.user_type === 'superadmin' ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
@@ -332,7 +332,7 @@ const CreateUserPage = ({ onBack }) => {
                                                                 type="button"
                                                                 disabled={formData.user_type === 'superadmin'}
                                                                 onClick={() => handlePermissionChange(tab.id, action, sub.id)}
-                                                                className={`py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id]?.[sub.id]?.[action]
+                                                                className={`py-1.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id]?.[sub.id]?.[action]
                                                                     ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/20'
                                                                     : isDarkMode ? 'bg-white/5 border-white/5 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
                                                                     } ${formData.user_type === 'superadmin' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}

@@ -41,7 +41,7 @@ const UserManagementTable = ({
                                 </div>
                             </td>
                             <td className="py-5 px-4 text-sm font-bold opacity-70">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-tighter hover:scale-110 transition-transform cursor-default ${admin.user_type === 'superadmin' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
+                                <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter hover:scale-110 transition-transform cursor-default ${admin.user_type === 'superadmin' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
                                     'bg-blue-500/10 text-blue-500 border border-blue-500/20'
                                     }`}>
                                     {admin.user_type?.toUpperCase()}
@@ -59,7 +59,7 @@ const UserManagementTable = ({
                                     <button
                                         onClick={() => onToggleStatus(admin)}
                                         disabled={isActionLoading || admin.id === currentUserId}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all shadow-sm ${admin.is_active
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase transition-all shadow-sm ${admin.is_active
                                             ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white'
                                             : 'bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500 hover:text-white'
                                             } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -73,14 +73,14 @@ const UserManagementTable = ({
                                 <div className="flex justify-end items-center gap-2">
                                     <button
                                         onClick={() => onResetPassword(admin)}
-                                        className={`p-2 rounded-xl transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 border border-white/5' : 'bg-slate-100 text-slate-500 hover:bg-orange-600 hover:text-white border border-slate-200'}`}
+                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 border border-white/5' : 'bg-slate-100 text-slate-500 hover:bg-orange-600 hover:text-white border border-slate-200'}`}
                                         title="Change Password"
                                     >
                                         <Key size={16} strokeWidth={2.5} />
                                     </button>
                                     <button
                                         onClick={() => onEditPermissions(admin)}
-                                        className={`p-2 rounded-xl transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white border border-white/5' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white border border-slate-200'}`}
+                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white border border-white/5' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white border border-slate-200'}`}
                                         title="Edit User Permissions"
                                     >
                                         <Settings size={16} strokeWidth={2.5} />
@@ -88,7 +88,7 @@ const UserManagementTable = ({
                                     <button
                                         onClick={() => onDelete(admin)}
                                         disabled={isActionLoading || admin.id === currentUserId}
-                                        className={`p-2 rounded-xl transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100'} disabled:opacity-50`}
+                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 shadow-sm ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100'} disabled:opacity-50`}
                                         title="Delete User"
                                     >
                                         <Trash2 size={16} strokeWidth={2.5} />

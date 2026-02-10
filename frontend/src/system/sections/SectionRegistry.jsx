@@ -162,7 +162,7 @@ const SectionRegistry = () => {
     return (
         <div className="p-1 animate-fade-in">
             {/* Header Area */}
-            <div className={`flex items-center justify-between mb-8 p-6 rounded-2xl ${isDarkMode ? 'bg-[#10141D] border border-white/5' : 'bg-slate-50 shadow-sm border border-slate-100'}`}>
+            <div className={`flex items-center justify-between mb-8 p-6 rounded-[5px] ${isDarkMode ? 'bg-[#10141D] border border-white/5' : 'bg-slate-50 shadow-sm border border-slate-100'}`}>
                 <h1 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                     Section <span className="text-orange-500">List</span>
                 </h1>
@@ -173,7 +173,7 @@ const SectionRegistry = () => {
                         <input
                             type="text"
                             placeholder="Enter the test name"
-                            className={`w-full pl-12 pr-4 py-3 rounded-xl border transition-all outline-none font-medium
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-medium
                                 ${isDarkMode
                                     ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50'
                                     : 'bg-slate-50 border-slate-200 focus:border-orange-500/50 focus:bg-white focus:shadow-lg focus:shadow-orange-500/10'}`}
@@ -184,14 +184,14 @@ const SectionRegistry = () => {
 
                     <button
                         onClick={handleAddClick}
-                        className="px-6 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/10 active:scale-95 whitespace-nowrap"
+                        className="px-6 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-[5px] font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/10 active:scale-95 whitespace-nowrap"
                     >
                         <span>Add section +</span>
                     </button>
 
                     <button
                         onClick={handleRefresh}
-                        className={`p-3 rounded-xl border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-orange-500' : 'bg-white border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50'}`}
+                        className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-orange-500' : 'bg-white border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50'}`}
                     >
                         <RotateCcw size={20} />
                     </button>
@@ -199,7 +199,7 @@ const SectionRegistry = () => {
             </div>
 
             {/* Table Area */}
-            <div className={`rounded-3xl border overflow-hidden ${isDarkMode ? 'bg-[#0B0E14] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#0B0E14] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -215,7 +215,7 @@ const SectionRegistry = () => {
                             {isLoading ? (
                                 Array(5).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan="5" className="py-8 px-8"><div className={`h-4 rounded ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td colSpan="5" className="py-8 px-8"><div className={`h-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                     </tr>
                                 ))
                             ) : filteredSections.length > 0 ? filteredSections.map((section, index) => (
@@ -242,13 +242,13 @@ const SectionRegistry = () => {
                                         <div className="flex justify-end gap-2 outline-none">
                                             <button
                                                 onClick={() => handleEditClick(section)}
-                                                className={`p-2 rounded-lg transition-all transform hover:scale-110 ${isDarkMode ? 'bg-white/5 text-blue-400' : 'bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white'}`}
+                                                className={`p-2 rounded-[5px] transition-all transform hover:scale-110 ${isDarkMode ? 'bg-white/5 text-blue-400' : 'bg-blue-50 text-blue-500 hover:bg-blue-500 hover:text-white'}`}
                                             >
                                                 <Pencil size={18} strokeWidth={2.5} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(section.id)}
-                                                className={`p-2 rounded-lg transition-all transform hover:scale-110 ${isDarkMode ? 'bg-white/5 text-red-400' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
+                                                className={`p-2 rounded-[5px] transition-all transform hover:scale-110 ${isDarkMode ? 'bg-white/5 text-red-400' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
                                             >
                                                 <Trash2 size={18} strokeWidth={2.5} />
                                             </button>
@@ -278,7 +278,7 @@ const SectionRegistry = () => {
                         onClick={() => !isActionLoading && setShowModal(false)}
                     />
 
-                    <div className={`relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-scale-up ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
+                    <div className={`relative w-full max-w-md rounded-[5px] overflow-hidden shadow-2xl animate-scale-up ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
                         {/* Modal Header */}
                         <div className="bg-orange-500 p-6 flex items-center justify-between">
                             <h2 className="text-white text-lg font-black uppercase tracking-tight">Section Detail</h2>
@@ -335,7 +335,7 @@ const SectionRegistry = () => {
                                 <button
                                     type="submit"
                                     disabled={isActionLoading}
-                                    className="px-8 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-emerald-900/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                                    className="px-8 py-3 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all shadow-xl shadow-emerald-900/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
                                 >
                                     {isActionLoading ? <RefreshCw size={12} className="animate-spin" /> : (modalMode === 'edit' ? 'Update' : 'Add')}
                                 </button>
@@ -348,11 +348,11 @@ const SectionRegistry = () => {
             {/* Premium Custom Alert */}
             {alert.show && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
-                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success'
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success'
                         ? 'bg-emerald-500/90 border-emerald-400 text-white'
                         : 'bg-red-500/90 border-red-400 text-white'
                         }`}>
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                        <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
                         </div>
                         <div>

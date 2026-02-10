@@ -159,12 +159,12 @@ const TestQuestionManager = ({ test, onBack }) => {
     };
 
     const renderHeader = () => (
-        <div className={`mb-6 p-6 rounded-2xl border transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/5 shadow-2xl shadow-black/20' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'}`}>
+        <div className={`mb-6 p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/5 shadow-2xl shadow-black/20' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'}`}>
             <div className="flex flex-wrap justify-between items-center gap-6">
                 <div className="flex items-center gap-6">
                     <button
                         onClick={onBack}
-                        className={`p-4 rounded-2xl transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'}`}
+                        className={`p-4 rounded-[5px] transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'}`}
                     >
                         <ArrowLeft size={24} strokeWidth={3} />
                     </button>
@@ -190,7 +190,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={onBack}
-                        className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all flex items-center gap-3 active:scale-95"
+                        className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all flex items-center gap-3 active:scale-95"
                     >
                         Show ALL Test
                     </button>
@@ -200,7 +200,7 @@ const TestQuestionManager = ({ test, onBack }) => {
     );
 
     const renderTabs = () => (
-        <div className="flex flex-wrap gap-2 mb-8 items-center bg-black/5 p-2 rounded-2xl border border-white/5">
+        <div className="flex flex-wrap gap-2 mb-8 items-center bg-black/5 p-2 rounded-[5px] border border-white/5">
             <div className="px-4 py-2 mr-2">
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Sections</span>
             </div>
@@ -208,7 +208,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                 <button
                     key={section.id}
                     onClick={() => setActiveSectionId(section.id)}
-                    className={`px-5 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeSectionId === section.id
+                    className={`px-5 py-3 rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all ${activeSectionId === section.id
                         ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/30'
                         : isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white' : 'bg-white text-slate-500 hover:bg-slate-50 shadow-sm border border-slate-100'
                         }`}
@@ -220,7 +220,7 @@ const TestQuestionManager = ({ test, onBack }) => {
     );
 
     const renderContent = () => (
-        <div className={`rounded-3xl border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+        <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
             <div className="p-8 border-b border-inherit flex flex-wrap justify-between items-center gap-6">
                 <div>
                     <h4 className="text-lg font-black uppercase tracking-tight">Questions <span className="text-orange-500">List</span></h4>
@@ -235,14 +235,14 @@ const TestQuestionManager = ({ test, onBack }) => {
                             placeholder="Find question contents..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className={`pl-12 pr-6 py-3 rounded-xl border text-xs font-bold outline-none transition-all w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-orange-500/50 focus:bg-white/10' : 'bg-slate-50 border-slate-200 focus:border-orange-500/50 focus:bg-white hover:border-slate-300'
+                            className={`pl-12 pr-6 py-3 rounded-[5px] border text-xs font-bold outline-none transition-all w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-orange-500/50 focus:bg-white/10' : 'bg-slate-50 border-slate-200 focus:border-orange-500/50 focus:bg-white hover:border-slate-300'
                                 }`}
                         />
                     </div>
 
                     <button
                         onClick={() => setActiveView('selector')}
-                        className="px-6 py-3.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/10 transition-all flex items-center gap-3 active:scale-95 group"
+                        className="px-6 py-3.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/10 transition-all flex items-center gap-3 active:scale-95 group"
                     >
                         <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
                         Open Question Bank +
@@ -251,14 +251,14 @@ const TestQuestionManager = ({ test, onBack }) => {
                     <button
                         onClick={handleShuffleQuestions}
                         title="Shuffle Questions"
-                        className={`p-3.5 rounded-xl border transition-all hover:scale-110 active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-emerald-500' : 'bg-slate-50 border-slate-200 text-emerald-600 hover:bg-white hover:shadow-lg'}`}
+                        className={`p-3.5 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-emerald-500' : 'bg-slate-50 border-slate-200 text-emerald-600 hover:bg-white hover:shadow-lg'}`}
                     >
                         <Shuffle size={20} />
                     </button>
 
                     <button
                         onClick={fetchSectionQuestions}
-                        className={`p-3.5 rounded-xl border transition-all hover:scale-110 active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-orange-500' : 'bg-slate-50 border-slate-200 text-orange-600 hover:bg-white hover:shadow-lg'}`}
+                        className={`p-3.5 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-orange-500' : 'bg-slate-50 border-slate-200 text-orange-600 hover:bg-white hover:shadow-lg'}`}
                     >
                         <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                     </button>
@@ -280,7 +280,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                             Array(3).fill(0).map((_, i) => (
                                 <tr key={i} className="animate-pulse">
                                     <td colSpan="4" className="py-12 px-10">
-                                        <div className={`h-8 rounded-xl ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                                        <div className={`h-8 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                                     </td>
                                 </tr>
                             ))
@@ -298,7 +298,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                                 <td className="py-8 px-10">
                                     <div className="flex flex-col items-center">
                                         <span className={`text-[8px] font-black uppercase opacity-30 mb-1`}>Pos</span>
-                                        <span className={`w-8 h-8 flex items-center justify-center rounded-lg font-black text-xs ${isDarkMode ? 'bg-white/5 text-orange-500' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
+                                        <span className={`w-8 h-8 flex items-center justify-center rounded-[5px] font-black text-xs ${isDarkMode ? 'bg-white/5 text-orange-500' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
                                             {index + 1}
                                         </span>
                                     </div>
@@ -310,7 +310,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                                 <td className="py-8 px-10 text-center">
                                     <button
                                         onClick={() => { setSelectedQuestion(q); setShowDetailModal(true); }}
-                                        className={`px-5 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100'
+                                        className={`px-5 py-2 rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100'
                                             }`}
                                     >
                                         View Detail
@@ -322,14 +322,14 @@ const TestQuestionManager = ({ test, onBack }) => {
                                             <button
                                                 onClick={() => handleMoveQuestion(index, 'up')}
                                                 disabled={index === 0}
-                                                className={`p-1.5 rounded-md transition-all ${index === 0 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500'}`}
+                                                className={`p-1.5 rounded-[5px] transition-all ${index === 0 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500'}`}
                                             >
                                                 <ArrowUp size={14} strokeWidth={3} />
                                             </button>
                                             <button
                                                 onClick={() => handleMoveQuestion(index, 'down')}
                                                 disabled={index === filteredQuestions.length - 1}
-                                                className={`p-1.5 rounded-md transition-all ${index === filteredQuestions.length - 1 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500'}`}
+                                                className={`p-1.5 rounded-[5px] transition-all ${index === filteredQuestions.length - 1 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500'}`}
                                             >
                                                 <ArrowDown size={14} strokeWidth={3} />
                                             </button>
@@ -337,7 +337,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                                         <button
                                             onClick={() => handleRemoveQuestion(q.id)}
                                             disabled={isActionLoading}
-                                            className={`p-3 rounded-xl transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100'}`}
+                                            className={`p-3 rounded-[5px] transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100'}`}
                                         >
                                             <Trash2 size={18} />
                                         </button>
@@ -357,8 +357,8 @@ const TestQuestionManager = ({ test, onBack }) => {
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowDetailModal(false)} />
-                <div className={`relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
-                    <button onClick={() => setShowDetailModal(false)} className="absolute top-8 right-8 p-3 rounded-2xl hover:bg-red-500/10 text-red-500 transition-all active:scale-90">
+                <div className={`relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-[5px] p-10 shadow-2xl animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
+                    <button onClick={() => setShowDetailModal(false)} className="absolute top-8 right-8 p-3 rounded-[5px] hover:bg-red-500/10 text-red-500 transition-all active:scale-90">
                         <X size={24} strokeWidth={3} />
                     </button>
 
@@ -368,7 +368,7 @@ const TestQuestionManager = ({ test, onBack }) => {
                     </div>
 
                     <div className="space-y-10">
-                        <div className="p-8 rounded-3xl bg-black/5 border border-white/5">
+                        <div className="p-8 rounded-[5px] bg-black/5 border border-white/5">
                             <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 ml-1">Content</h4>
                             <div className={`prose prose-sm max-w-none ${isDarkMode ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
                         </div>
@@ -376,12 +376,12 @@ const TestQuestionManager = ({ test, onBack }) => {
                         {selectedQuestion.question_options && selectedQuestion.question_options.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {selectedQuestion.question_options.map((opt, i) => (
-                                    <div key={i} className={`p-5 rounded-2xl border transition-all ${opt.isCorrect
+                                    <div key={i} className={`p-5 rounded-[5px] border transition-all ${opt.isCorrect
                                         ? 'bg-emerald-500/10 border-emerald-500/50'
                                         : isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200'
                                         }`}>
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${opt.isCorrect ? 'bg-emerald-500 text-white' : 'bg-black/10'
+                                            <div className={`w-10 h-10 rounded-[5px] flex items-center justify-center font-black text-sm ${opt.isCorrect ? 'bg-emerald-500 text-white' : 'bg-black/10'
                                                 }`}>
                                                 {String.fromCharCode(65 + i)}
                                             </div>
@@ -400,11 +400,11 @@ const TestQuestionManager = ({ test, onBack }) => {
     if (activeView === 'selector') {
         return (
             <div className="animate-in slide-in-from-right-10 duration-500">
-                <div className={`mb-8 p-8 rounded-[2.5rem] border flex justify-between items-center ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                <div className={`mb-8 p-8 rounded-[5px] border flex justify-between items-center ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
                     <div className="flex items-center gap-6">
                         <button
                             onClick={() => setActiveView('list')}
-                            className={`p-4 rounded-2xl transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
+                            className={`p-4 rounded-[5px] transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}
                         >
                             <ArrowLeft size={24} strokeWidth={3} />
                         </button>
@@ -415,8 +415,8 @@ const TestQuestionManager = ({ test, onBack }) => {
                     </div>
                 </div>
 
-                <div className={`rounded-[3rem] border overflow-hidden p-8 ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
-                    <div className="mb-8 p-6 rounded-3xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center gap-6">
+                <div className={`rounded-[5px] border overflow-hidden p-8 ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className="mb-8 p-6 rounded-[5px] bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center gap-6">
                         <Database size={32} />
                         <div>
                             <p className="text-sm font-black uppercase tracking-widest">Repository Access</p>

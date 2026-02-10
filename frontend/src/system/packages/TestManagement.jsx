@@ -62,10 +62,10 @@ const TestManagement = ({ packageData, onBack }) => {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className={`p-8 rounded-3xl border shadow-xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="flex items-center gap-4">
-                        <button onClick={onBack} className={`p-3 rounded-2xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
+                        <button onClick={onBack} className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-600'}`}>
                             <ArrowLeft size={20} />
                         </button>
                         <div>
@@ -84,15 +84,15 @@ const TestManagement = ({ packageData, onBack }) => {
                                 placeholder="Enter the test name..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-2.5 rounded-xl border-2 outline-none font-bold transition-all focus:border-blue-500 ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100 text-slate-800'}`}
+                                className={`w-full pl-4 pr-10 py-2.5 rounded-[5px] border-2 outline-none font-bold transition-all focus:border-blue-500 ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100 text-slate-800'}`}
                             />
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 opacity-30" size={18} />
                         </div>
-                        <button className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-green-600/20">
+                        <button className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-green-600/20">
                             <Plus size={16} strokeWidth={3} />
                             <span>Add Test +</span>
                         </button>
-                        <button onClick={fetchTests} className={`p-2.5 rounded-xl transition-all ${isDarkMode ? 'text-blue-400 hover:bg-blue-400/10' : 'text-blue-600 hover:bg-blue-600/10'}`}>
+                        <button onClick={fetchTests} className={`p-2.5 rounded-[5px] transition-all ${isDarkMode ? 'text-blue-400 hover:bg-blue-400/10' : 'text-blue-600 hover:bg-blue-600/10'}`}>
                             <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
@@ -136,23 +136,23 @@ const TestManagement = ({ packageData, onBack }) => {
                                     <td className="py-4 px-4 text-sm font-bold opacity-70 text-center">{test.exam_type_details?.name || 'N/A'}</td>
                                     <td className="py-4 px-4">
                                         <div className="flex justify-center">
-                                            <button className="px-3 py-1.5 border-2 border-blue-500/30 text-blue-500 rounded-lg text-xs font-black hover:bg-blue-500 hover:text-white transition-all">
+                                            <button className="px-3 py-1.5 border-2 border-blue-500/30 text-blue-500 rounded-[5px] text-xs font-black hover:bg-blue-500 hover:text-white transition-all">
                                                 QuestionPaper
                                             </button>
                                         </div>
                                     </td>
                                     <td className="py-4 px-4 text-center">
-                                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
+                                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-[5px] text-xs font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
                                             Manage
                                         </button>
                                     </td>
                                     <td className="py-4 px-4 text-center">
-                                        <button className="p-2 rounded-xl text-blue-500 hover:bg-blue-500/10 transition-colors">
+                                        <button className="p-2 rounded-[5px] text-blue-500 hover:bg-blue-500/10 transition-colors">
                                             <Edit2 size={18} />
                                         </button>
                                     </td>
                                     <td className="py-4 px-4 text-center">
-                                        <button onClick={() => handleDelete(test.id || test._id)} className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors">
+                                        <button onClick={() => handleDelete(test.id || test._id)} className="p-2 rounded-[5px] text-red-500 hover:bg-red-500/10 transition-colors">
                                             <Trash2 size={18} />
                                         </button>
                                     </td>

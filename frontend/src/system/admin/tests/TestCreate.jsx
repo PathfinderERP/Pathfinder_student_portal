@@ -50,7 +50,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
     return (
         <div
             ref={containerRef}
-            className={`min-h-[60px] flex items-center justify-center p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+            className={`min-h-[60px] flex items-center justify-center p-4 rounded-[5px] border transition-all ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
         />
     );
 };
@@ -386,7 +386,7 @@ const TestCreate = () => {
     });
 
     const renderHeader = () => (
-        <div className={`p-8 rounded-[2.5rem] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+        <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
@@ -399,13 +399,13 @@ const TestCreate = () => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={fetchData}
-                        className={`p-3 rounded-2xl border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
+                        className={`p-3 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
                     >
                         <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                     </button>
                     <button
                         onClick={handleCreate}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-orange-600/30 active:scale-95"
+                        className="flex items-center gap-2 px-6 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-orange-600/30 active:scale-95"
                     >
                         <Plus size={16} strokeWidth={3} />
                         Add Test
@@ -416,7 +416,7 @@ const TestCreate = () => {
     );
 
     const renderContent = () => (
-        <div className={`p-8 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+        <div className={`p-8 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -425,7 +425,7 @@ const TestCreate = () => {
                         placeholder="Search tests..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
+                        className={`w-full pl-12 pr-4 py-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
                             }`}
                     />
                 </div>
@@ -434,7 +434,7 @@ const TestCreate = () => {
                     <div className="relative flex-1 md:flex-none">
                         <button
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all ${statusFilter !== 'all'
+                            className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-[5px] border font-black text-[10px] uppercase tracking-widest transition-all ${statusFilter !== 'all'
                                 ? 'bg-orange-500/10 border-orange-500/50 text-orange-500'
                                 : isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                                 }`}
@@ -447,12 +447,12 @@ const TestCreate = () => {
                         {isFilterOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)} />
-                                <div className={`absolute right-0 top-full mt-2 w-48 z-20 rounded-2xl border shadow-2xl p-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                <div className={`absolute right-0 top-full mt-2 w-48 z-20 rounded-[5px] border shadow-2xl p-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                     {['all', 'completed', 'pending'].map(f => (
                                         <button
                                             key={f}
                                             onClick={() => { setStatusFilter(f); setIsFilterOpen(false); }}
-                                            className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === f ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                            className={`w-full text-left px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === f ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                         >
                                             {f}
                                         </button>
@@ -527,7 +527,7 @@ const TestCreate = () => {
                                                     setManagementTest(item);
                                                     setActiveView('question-paper');
                                                 }}
-                                                className="px-4 py-1.5 rounded-md bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30"
+                                                className="px-4 py-1.5 rounded-[5px] bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30"
                                             >
                                                 QUESTIONPAPER
                                             </button>
@@ -540,7 +540,7 @@ const TestCreate = () => {
                                                     setManagementTest(item);
                                                     setActiveView('section-management');
                                                 }}
-                                                className="px-4 py-1.5 rounded-md bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+                                                className="px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30"
                                             >
                                                 Manage
                                             </button>
@@ -553,7 +553,7 @@ const TestCreate = () => {
                                                     setManagementTest(item);
                                                     setActiveView('question-management');
                                                 }}
-                                                className="px-4 py-1.5 rounded-md bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30"
+                                                className="px-4 py-1.5 rounded-[5px] bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30"
                                             >
                                                 Manage
                                             </button>
@@ -563,13 +563,13 @@ const TestCreate = () => {
                                         <div className="flex justify-end items-center gap-2">
                                             <button
                                                 onClick={() => handleEdit(item)}
-                                                className={`p-2 rounded-xl transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white'}`}
+                                                className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white'}`}
                                             >
                                                 <Edit2 size={16} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(item.id)}
-                                                className={`p-2 rounded-xl transition-all hover:scale-110 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white'}`}
+                                                className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white'}`}
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -660,7 +660,7 @@ const TestCreate = () => {
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
+                <div className={`relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
                     {/* Header */}
                     <div className="shrink-0 bg-orange-500 p-6 flex justify-between items-center z-10">
                         <h2 className="text-xl font-bold text-white tracking-tight">
@@ -680,7 +680,7 @@ const TestCreate = () => {
                                     <select
                                         value={formValues.session}
                                         onChange={e => setFormValues({ ...formValues, session: e.target.value, class_level: '', target_exam: '', exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
                                     >
                                         <option value="">Select Session</option>
                                         {availableSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -692,7 +692,7 @@ const TestCreate = () => {
                                         disabled={!formValues.session}
                                         value={formValues.class_level}
                                         onChange={e => setFormValues({ ...formValues, class_level: e.target.value, target_exam: '', exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
                                     >
                                         <option value="">Select Class</option>
                                         {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -704,7 +704,7 @@ const TestCreate = () => {
                                         disabled={!formValues.class_level}
                                         value={formValues.target_exam}
                                         onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
                                     >
                                         <option value="">Select Target</option>
                                         {availableTargetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -716,7 +716,7 @@ const TestCreate = () => {
                                         disabled={!formValues.target_exam}
                                         value={formValues.exam_type}
                                         onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-xl border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
                                     >
                                         <option value="">Select Type</option>
                                         {availableExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
@@ -733,7 +733,7 @@ const TestCreate = () => {
                                         required
                                         value={formValues.name}
                                         onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                        className={`w-full px-5 py-4 rounded-xl border font-semibold text-sm outline-none transition-all ${!isAllCriteriaSelected ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all ${!isAllCriteriaSelected ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                                     >
                                         <option value="">Select Exam Title</option>
                                         {availableTitles.map(title => (
@@ -748,7 +748,7 @@ const TestCreate = () => {
                                         placeholder="Exam Code *"
                                         value={formValues.code}
                                         onChange={e => setFormValues({ ...formValues, code: e.target.value })}
-                                        className={`w-full px-5 py-4 rounded-xl border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                                     />
                                 </div>
                             </div>
@@ -761,7 +761,7 @@ const TestCreate = () => {
                                         readOnly
                                         required
                                         value={formValues.duration}
-                                        className={`w-full px-5 py-4 rounded-xl border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                                     />
                                 </div>
                             </div>
@@ -837,7 +837,7 @@ const TestCreate = () => {
                                     modules={quillModules}
                                     formats={quillFormats}
                                     placeholder="Enter test instructions..."
-                                    className={`rounded-xl overflow-hidden border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}
+                                    className={`rounded-[5px] overflow-hidden border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}
                                 />
                                 <style>{`
                                     .dark-quill .ql-toolbar {
@@ -1000,7 +1000,7 @@ const TestCreate = () => {
                                 `}</style>
 
                                 {showMathTools && (
-                                    <div className={`mt-4 p-5 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                    <div className={`mt-4 p-5 rounded-[5px] border animate-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-orange-500 font-bold">Scientific Formula Editor</span>
                                             <button type="button" onClick={() => setShowMathTools(false)} className="opacity-40 hover:opacity-100 transition-opacity"><X size={14} /></button>
@@ -1014,12 +1014,12 @@ const TestCreate = () => {
                                                 onChange={(e) => setFormulaValue(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && insertFormula()}
                                                 placeholder="\sqrt{x}..."
-                                                className={`flex-1 px-4 py-2.5 rounded-xl border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                                className={`flex-1 px-4 py-2.5 rounded-[5px] border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                                             />
                                             <button
                                                 type="button"
                                                 onClick={insertFormula}
-                                                className="px-6 py-2.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-xl font-bold text-xs transition-all active:scale-95 shadow-lg shadow-green-900/10"
+                                                className="px-6 py-2.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-bold text-xs transition-all active:scale-95 shadow-lg shadow-green-900/10"
                                             >
                                                 Save
                                             </button>
@@ -1037,7 +1037,7 @@ const TestCreate = () => {
                                                     key={idx}
                                                     type="button"
                                                     onClick={() => setFormulaValue(prev => prev + s.tex)}
-                                                    className={`p-2 rounded-lg border text-[10px] font-medium transition-all hover:scale-105 ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-orange-500/50 hover:bg-orange-500/10' : 'bg-white border-slate-200 hover:border-orange-500/50 hover:bg-orange-50'}`}
+                                                    className={`p-2 rounded-[5px] border text-[10px] font-medium transition-all hover:scale-105 ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-orange-500/50 hover:bg-orange-500/10' : 'bg-white border-slate-200 hover:border-orange-500/50 hover:bg-orange-50'}`}
                                                 >
                                                     <div className="flex items-center justify-center italic font-serif opacity-80">{s.label}</div>
                                                 </button>
@@ -1070,7 +1070,7 @@ const TestCreate = () => {
                             <button
                                 type="submit"
                                 disabled={isActionLoading}
-                                className="px-10 py-4 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-xl font-bold text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                                className="px-10 py-4 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-bold text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                             >
                                 {isActionLoading ? <Loader2 className="animate-spin" /> : <>{modalMode === 'create' ? 'Add Test' : 'Update Test'}</>}
                             </button>
@@ -1086,7 +1086,7 @@ const TestCreate = () => {
         return (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsFormulaModalOpen(false)} />
-                <div className={`relative w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white border border-slate-200'}`}>
+                <div className={`relative w-full max-w-xl rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white border border-slate-200'}`}>
                     <div className="p-6 border-b border-inherit flex justify-between items-center">
                         <h3 className="font-bold text-lg flex items-center gap-2">
                             <Sigma className="text-orange-500" size={20} />
@@ -1107,11 +1107,11 @@ const TestCreate = () => {
                                     onChange={(e) => setFormulaValue(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && insertFormula()}
                                     placeholder="e.g. \sqrt{x^2 + y^2}"
-                                    className={`flex-1 px-4 py-3 rounded-xl border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                    className={`flex-1 px-4 py-3 rounded-[5px] border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                 />
                                 <button
                                     onClick={insertFormula}
-                                    className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-orange-600/20 active:scale-95"
+                                    className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-bold text-sm transition-all shadow-lg shadow-orange-600/20 active:scale-95"
                                 >
                                     Insert
                                 </button>
@@ -1125,7 +1125,7 @@ const TestCreate = () => {
                                     <button
                                         key={idx}
                                         onClick={() => setFormulaValue(prev => prev + s.tex)}
-                                        className={`p-3 rounded-xl border text-sm font-medium transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-orange-500/50 hover:bg-orange-500/5' : 'bg-white border-slate-200 hover:border-orange-500/50 hover:bg-orange-50/50'}`}
+                                        className={`p-3 rounded-[5px] border text-sm font-medium transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-orange-500/50 hover:bg-orange-500/5' : 'bg-white border-slate-200 hover:border-orange-500/50 hover:bg-orange-50/50'}`}
                                     >
                                         <div className="h-6 flex items-center justify-center italic font-serif opacity-80">{s.label}</div>
                                     </button>
@@ -1141,7 +1141,7 @@ const TestCreate = () => {
                                         <button
                                             key={idx}
                                             onClick={() => setFormulaValue(f)}
-                                            className={`px-3 py-1.5 rounded-lg border text-[10px] font-mono transition-all ${isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+                                            className={`px-3 py-1.5 rounded-[5px] border text-[10px] font-mono transition-all ${isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
                                         >
                                             {f}
                                         </button>

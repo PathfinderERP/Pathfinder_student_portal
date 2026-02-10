@@ -165,11 +165,11 @@ const StudentDashboard = () => {
     if (error || !studentData) {
         return (
             <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
-                <div className="text-center max-w-md p-8 rounded-3xl border border-red-500/20 bg-red-500/5">
+                <div className="text-center max-w-md p-8 rounded-[5px] border border-red-500/20 bg-red-500/5">
                     <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
                     <h2 className="text-2xl font-black mb-2">Profile Sync Issue</h2>
                     <p className="text-sm opacity-70 mb-6">{error || "Could not match your account with school records."}</p>
-                    <button onClick={logout} className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold text-sm">Logout</button>
+                    <button onClick={logout} className="px-6 py-2 bg-red-500 text-white rounded-[5px] font-bold text-sm">Logout</button>
                 </div>
             </div>
         );
@@ -197,8 +197,8 @@ const StudentDashboard = () => {
                 return <Grievances isDarkMode={isDarkMode} />;
             default:
                 return (
-                    <div className={`flex flex-col items-center justify-center h-[60vh] text-center p-8 rounded-[2.5rem] border ${isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-500' : 'bg-white border-slate-100 text-slate-400'}`}>
-                        <div className={`w-20 h-20 rounded-3xl mb-6 flex items-center justify-center ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                    <div className={`flex flex-col items-center justify-center h-[60vh] text-center p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-500' : 'bg-white border-slate-100 text-slate-400'}`}>
+                        <div className={`w-20 h-20 rounded-[5px] mb-6 flex items-center justify-center ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
                             <Book size={40} className="opacity-50" />
                         </div>
                         <h2 className={`text-2xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{activeTab}</h2>
@@ -254,14 +254,14 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             {/* Stats Row 1 */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 {stats.map((stat, i) => (
-                    <div key={i} className={`p-6 rounded-[2rem] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
+                    <div key={i} className={`p-6 rounded-[5px] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
                         ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/20' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
 
                         <div className={`mb-4 flex items-center justify-between`}>
                             <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                 {stat.label}
                             </h3>
-                            <div className={`p-2 rounded-lg ${stat.color === 'blue' ? 'bg-blue-500/10 text-blue-500' :
+                            <div className={`p-2 rounded-[5px] ${stat.color === 'blue' ? 'bg-blue-500/10 text-blue-500' :
                                 stat.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-500' :
                                     stat.color === 'orange' ? 'bg-orange-500/10 text-orange-500' :
                                         'bg-purple-500/10 text-purple-500'
@@ -309,7 +309,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             {/* Row 2: Insights */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Strong Subject */}
-                <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden
+                <div className={`p-8 rounded-[5px] border relative overflow-hidden
                     ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-emerald-900/5'}`}>
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                         <Zap size={120} />
@@ -318,7 +318,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Strong Subject</h3>
                         <div className="text-4xl font-black text-emerald-500 mb-2">CHEMISTRY</div>
                         <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Average: 88%</p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-lg w-fit">
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-[5px] w-fit">
                             <CheckSquare size={14} />
                             Consistently Excellent
                         </div>
@@ -326,7 +326,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                 </div>
 
                 {/* Needs Focus */}
-                <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden
+                <div className={`p-8 rounded-[5px] border relative overflow-hidden
                     ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-red-900/5'}`}>
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                         <Target size={120} />
@@ -335,7 +335,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Needs Focus</h3>
                         <div className="text-4xl font-black text-red-500 mb-2">MATHEMATICS</div>
                         <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Average: 78%</p>
-                        <div className="flex items-center gap-2 text-xs font-bold text-orange-600 bg-orange-500/10 px-3 py-1.5 rounded-lg w-fit">
+                        <div className="flex items-center gap-2 text-xs font-bold text-orange-600 bg-orange-500/10 px-3 py-1.5 rounded-[5px] w-fit">
                             <Brain size={14} />
                             AI recommends extra practice
                         </div>
@@ -344,7 +344,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             </div>
 
             {/* Row 3: Performance Trend (Simulated Chart) */}
-            <div className={`p-8 rounded-[2.5rem] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+            <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
                 <div className="flex items-center justify-between mb-8">
                     <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Performance Trend (Last 30 Days)</h3>
                 </div>
@@ -362,9 +362,9 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             </div>
 
             {/* Bottom: Announcements */}
-            <div className={`p-6 rounded-[2rem] border border-orange-500/20 bg-orange-50/50 dark:bg-orange-500/5`}>
+            <div className={`p-6 rounded-[5px] border border-orange-500/20 bg-orange-50/50 dark:bg-orange-500/5`}>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-500 text-white rounded-lg">
+                    <div className="p-2 bg-orange-500 text-white rounded-[5px]">
                         <AlertCircle size={18} />
                     </div>
                     <div>

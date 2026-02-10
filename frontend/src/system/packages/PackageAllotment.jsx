@@ -171,7 +171,7 @@ const PackageAllotment = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Area */}
-            <div className={`p-10 rounded-[2.5rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -191,7 +191,7 @@ const PackageAllotment = () => {
                         <button
                             onClick={fetchPackages}
                             disabled={loading}
-                            className={`p-3 rounded-xl transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`p-3 rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white border border-white/10' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                             title="Refresh Data"
                         >
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
@@ -208,7 +208,7 @@ const PackageAllotment = () => {
                             placeholder="Search by name or code..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            className={`w-full pl-12 pr-4 py-3 rounded-2xl border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border-2 outline-none font-bold transition-all focus:ring-4 ${isDarkMode
                                 ? 'bg-white/5 border-white/5 text-white focus:border-cyan-500/50 focus:ring-cyan-500/5'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/5'
                                 }`}
@@ -219,7 +219,7 @@ const PackageAllotment = () => {
                         <select
                             value={filterExam}
                             onChange={(e) => { setFilterExam(e.target.value); setCurrentPage(1); }}
-                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                            className={`px-4 py-3 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-cyan-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-cyan-500/50'
                                 }`}
@@ -233,7 +233,7 @@ const PackageAllotment = () => {
                         <select
                             value={filterSession}
                             onChange={(e) => { setFilterSession(e.target.value); setCurrentPage(1); }}
-                            className={`px-4 py-3 rounded-2xl border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
+                            className={`px-4 py-3 rounded-[5px] border-2 outline-none font-bold cursor-pointer transition-all ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-cyan-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-cyan-500/50'
                                 }`}
@@ -271,7 +271,7 @@ const PackageAllotment = () => {
                         <tbody className="">
                             {paginatedPackages.length > 0 ? paginatedPackages.map((pkg, index) => (
                                 <tr key={pkg._id} className={`group ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-slate-50 shadow-sm'} transition-all duration-300`}>
-                                    <td className="py-4 px-6 text-xs font-bold opacity-60 first:rounded-l-2xl">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                    <td className="py-4 px-6 text-xs font-bold opacity-60 first:rounded-l-[5px]">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-4 px-6 text-sm font-extrabold tracking-tight">{pkg.name}</td>
                                     <td className="py-4 px-6 text-sm font-bold opacity-70 uppercase tracking-widest">{pkg.code}</td>
                                     <td className="py-4 px-6 text-center">
@@ -298,10 +298,10 @@ const PackageAllotment = () => {
                                             </div>
                                         </button>
                                     </td>
-                                    <td className="py-4 px-6 text-center last:rounded-r-2xl">
+                                    <td className="py-4 px-6 text-center last:rounded-r-[5px]">
                                         <button
                                             onClick={() => handleOpenModal(pkg)}
-                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 mx-auto"
+                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2 mx-auto"
                                         >
                                             <Pencil size={12} />
                                             Edit
@@ -310,7 +310,7 @@ const PackageAllotment = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="8" className="py-32 text-center opacity-50 font-medium italic bg-white/5 rounded-[2.5rem]">
+                                    <td colSpan="8" className="py-32 text-center opacity-50 font-medium italic bg-white/5 rounded-[5px]">
                                         <div className="flex flex-col items-center gap-4">
                                             <Layers size={48} />
                                             <p className="font-black uppercase tracking-[0.2em] text-sm">No Packages found for allotment.</p>
@@ -329,7 +329,7 @@ const PackageAllotment = () => {
                         <select
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
-                            className={`px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
+                            className={`px-3 py-2 rounded-[5px] border-2 outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
                                 ? 'bg-[#1A1F2B] border-white/5 text-white focus:border-cyan-500/50 [&>option]:bg-[#1A1F2B]'
                                 : 'bg-white border-slate-100 text-slate-800 focus:border-cyan-500/50'
                                 }`}
@@ -345,16 +345,16 @@ const PackageAllotment = () => {
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
                         >
                             Prev
                         </button>
-                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+                        <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-[5px]">
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                                 <button
                                     key={page}
                                     onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 rounded-lg font-black text-[10px] transition-all ${currentPage === page
+                                    className={`w-8 h-8 rounded-[5px] font-black text-[10px] transition-all ${currentPage === page
                                         ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40'
                                         : 'hover:bg-white/10 opacity-50 hover:opacity-100'
                                         }`}
@@ -366,7 +366,7 @@ const PackageAllotment = () => {
                         <button
                             disabled={currentPage === totalPages}
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
                         >
                             Next
                         </button>
@@ -380,7 +380,7 @@ const PackageAllotment = () => {
                                 value={jumpPageInput}
                                 onChange={(e) => setJumpPageInput(e.target.value)}
                                 placeholder="Page #"
-                                className={`w-20 px-3 py-2 rounded-xl border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
+                                className={`w-20 px-3 py-2 rounded-[5px] border-2 outline-none font-black text-[10px] transition-all text-center ${isDarkMode
                                     ? 'bg-white/5 border-white/5 text-white focus:border-cyan-500/50'
                                     : 'bg-white border-slate-100 text-slate-800 focus:border-cyan-500/50'
                                     }`}
@@ -393,7 +393,7 @@ const PackageAllotment = () => {
             {/* Allotment Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className={`w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
+                    <div className={`w-full max-w-2xl rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
                         {/* Modal Header */}
                         <div className="bg-orange-500 p-8 flex justify-between items-center text-white">
                             <div>
@@ -416,7 +416,7 @@ const PackageAllotment = () => {
                                     placeholder="Search student sections..."
                                     value={sectionSearch}
                                     onChange={(e) => setSectionSearch(e.target.value)}
-                                    className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 outline-none font-bold transition-all focus:border-orange-500 ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100 text-slate-800'}`}
+                                    className={`w-full pl-12 pr-4 py-3.5 rounded-[5px] border-2 outline-none font-bold transition-all focus:border-orange-500 ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100 text-slate-800'}`}
                                 />
                             </div>
 
@@ -428,7 +428,7 @@ const PackageAllotment = () => {
                                         <div
                                             key={section.id}
                                             onClick={() => toggleSectionSelection(section.id)}
-                                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all active:scale-[0.98] ${isSelected
+                                            className={`p-4 rounded-[5px] border-2 cursor-pointer transition-all active:scale-[0.98] ${isSelected
                                                 ? 'bg-orange-500/10 border-orange-500 shadow-lg shadow-orange-500/10'
                                                 : isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20' : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300'
                                                 }`}
@@ -452,7 +452,7 @@ const PackageAllotment = () => {
                                 <button
                                     onClick={handleSaveAllotment}
                                     disabled={isActionLoading}
-                                    className="px-12 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-500/30 active:scale-95 transition-all flex items-center gap-3"
+                                    className="px-12 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest shadow-xl shadow-orange-500/30 active:scale-95 transition-all flex items-center gap-3"
                                 >
                                     {isActionLoading ? <RefreshCw size={16} className="animate-spin" /> : 'Confirm Allotment'}
                                 </button>
@@ -465,11 +465,11 @@ const PackageAllotment = () => {
             {/* Custom Alert */}
             {alert.show && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[3000] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
-                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success'
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success'
                         ? 'bg-emerald-500/90 border-emerald-400 text-white'
                         : 'bg-red-500/90 border-red-400 text-white'
                         }`}>
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                        <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
                         </div>
                         <div>

@@ -78,22 +78,22 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
 
     if (error) return (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-3xl flex items-center justify-center mb-6 border border-red-500/20 shadow-2xl shadow-red-500/10">
+            <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-[5px] flex items-center justify-center mb-6 border border-red-500/20 shadow-2xl shadow-red-500/10">
                 <AlertCircle size={40} strokeWidth={2.5} />
             </div>
             <h3 className="text-xl font-black uppercase tracking-tight mb-2">Sync Connection Failed</h3>
             <p className="text-sm font-medium opacity-50 max-w-xs mx-auto mb-8">{error}</p>
-            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all active:scale-95">Retry Sync</button>
+            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-[5px] font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all active:scale-95">Retry Sync</button>
         </div>
     );
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <div className={`p-10 rounded-[3rem] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
+            <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-orange-500/20">External ERP</div>
+                            <div className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/20">External ERP</div>
                             <h2 className="text-3xl font-black tracking-tight uppercase">Student <span className="text-orange-500">Registry</span></h2>
                         </div>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Pathfinder Admission System live data synchronization.</p>
@@ -116,7 +116,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                                 <tr key={i} onClick={() => setSelectedStudent(std)} className={`group cursor-pointer ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]`}>
                                     <td className="py-6 px-4">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 transition-all group-hover:scale-110 group-hover:rotate-3 ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-white/5 shadow-inner' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
+                                            <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center font-black text-sm border-2 transition-all group-hover:scale-110 group-hover:rotate-3 ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-white/5 shadow-inner' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
                                                 {(std.student?.studentsDetails?.[0]?.studentName || std.studentName || 'S').charAt(0).toUpperCase()}
                                             </div>
                                             <div>
@@ -143,13 +143,13 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                                         </div>
                                     </td>
                                     <td className="py-6 px-4 text-center">
-                                        <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/5 text-white/30 border border-white/5' : 'bg-slate-100 text-slate-400 border border-slate-200/50'}`}>
+                                        <span className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black tracking-widest ${isDarkMode ? 'bg-white/5 text-white/30 border border-white/5' : 'bg-slate-100 text-slate-400 border border-slate-200/50'}`}>
                                             #{std.admissionNumber?.slice(-6) || 'ERP-ID'}
                                         </span>
                                     </td>
                                     <td className="py-6 px-4 text-right">
                                         <div className="flex flex-col items-end gap-1">
-                                            <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-lg ${std.admissionStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-emerald-500/5' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'}`}>
+                                            <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-[5px] border shadow-lg ${std.admissionStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-emerald-500/5' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'}`}>
                                                 {std.admissionStatus || 'PENDING'}
                                             </span>
                                             <span className="text-[8px] font-bold opacity-30 mt-1 uppercase tracking-tighter">Sync: Just Now</span>

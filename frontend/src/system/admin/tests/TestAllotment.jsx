@@ -323,7 +323,7 @@ const TestAllotment = () => {
     return (
         <div className={`p-8 animate-in fade-in duration-500`}>
             {/* Header */}
-            <div className={`p-8 rounded-[2.5rem] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
@@ -340,7 +340,7 @@ const TestAllotment = () => {
                             <select
                                 value={filterSession}
                                 onChange={(e) => setFilterSession(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-3 rounded-2xl border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
+                                className={`w-full pl-4 pr-10 py-3 rounded-[5px] border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Sessions</option>
                                 {filteredSessionsForDropdown
@@ -357,7 +357,7 @@ const TestAllotment = () => {
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-3 rounded-2xl border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
+                                className={`w-full pl-4 pr-10 py-3 rounded-[5px] border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Status</option>
                                 <option value="allotted">Allotted Only</option>
@@ -374,7 +374,7 @@ const TestAllotment = () => {
                                 placeholder="Search tests..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full sm:w-64 pl-10 pr-4 py-3 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200'}`}
+                                className={`w-full sm:w-64 pl-10 pr-4 py-3 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200'}`}
                             />
                         </div>
                     </div>
@@ -382,7 +382,7 @@ const TestAllotment = () => {
             </div>
 
             {/* Table Card */}
-            <div className={`rounded-[2.5rem] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
@@ -423,7 +423,7 @@ const TestAllotment = () => {
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleManageSections(test)}
-                                            className="px-4 py-1.5 rounded-md bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all cursor-pointer">
+                                            className="px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all cursor-pointer">
                                             Sections
                                         </button>
                                     </td>
@@ -433,14 +433,14 @@ const TestAllotment = () => {
                                                 setSelectedTestForDetails(test);
                                                 setView('details');
                                             }}
-                                            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-md border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100'}`}>
+                                            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-[5px] border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100'}`}>
                                             {test.centres_count || 0} Centres
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleEditCentres(test)}
-                                            className="px-4 py-1.5 rounded-md bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                                            className="px-4 py-1.5 rounded-[5px] bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
                                         >
                                             Edit Centres
                                         </button>
@@ -448,7 +448,7 @@ const TestAllotment = () => {
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleRemoveAllotment(test)}
-                                            className={`p-2 rounded-lg transition-all hover:scale-110 ${isDarkMode ? 'text-slate-500 hover:text-red-500 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
+                                            className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'text-slate-500 hover:text-red-500 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
                                         >
                                             <Trash2 size={16} />
                                         </button>
@@ -463,7 +463,7 @@ const TestAllotment = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                    <div className={`relative w-full max-w-lg rounded-3xl shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-emerald-600 p-6 flex justify-between items-center text-white font-black">
                             <div>
                                 <h3 className="text-lg uppercase tracking-tight">Centres Allotment</h3>
@@ -481,14 +481,14 @@ const TestAllotment = () => {
                                     <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
                                         ERP Centre List
                                     </label>
-                                    <div className={`w-full p-4 rounded-xl border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
+                                    <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
                                         {selectedCentreIds.length > 0 ? (
                                             availableCentres
                                                 .filter(c => selectedCentreIds.includes(c.enterCode))
                                                 .map(c => (
                                                     <div
                                                         key={`sel-centre-${c.enterCode}`}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
                                                     >
                                                         <span>{c.centreName}</span>
                                                         <button
@@ -497,7 +497,7 @@ const TestAllotment = () => {
                                                                 e.stopPropagation();
                                                                 setSelectedCentreIds(prev => prev.filter(code => code !== c.enterCode));
                                                             }}
-                                                            className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
+                                                            className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
                                                         >
                                                             <X size={12} strokeWidth={4} />
                                                         </button>
@@ -521,7 +521,7 @@ const TestAllotment = () => {
                                         placeholder="Search centres by name or code..."
                                         value={centreSearchTerm}
                                         onChange={(e) => setCentreSearchTerm(e.target.value)}
-                                        className={`w-full pl-11 pr-4 py-3 rounded-2xl border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                        className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
                                     />
                                     {centreSearchTerm && (
                                         <button
@@ -551,11 +551,11 @@ const TestAllotment = () => {
                                                         if (isSelected) setSelectedCentreIds(prev => prev.filter(code => code !== centre.enterCode));
                                                         else setSelectedCentreIds(prev => [...prev, centre.enterCode]);
                                                     }}
-                                                    className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer border transition-all active:scale-[0.98] ${isSelected
+                                                    className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
                                                         ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
                                                         : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
                                                 >
-                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${isSelected
+                                                    <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
                                                         ? 'bg-blue-600 border-blue-600 scale-110'
                                                         : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
                                                         {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
@@ -586,14 +586,14 @@ const TestAllotment = () => {
                         <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
+                                className={`px-6 py-2.5 rounded-[5px] text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSaveAllotment}
                                 disabled={isActionLoading}
-                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
+                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
                             >
                                 {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Channels'}
                             </button>
@@ -605,7 +605,7 @@ const TestAllotment = () => {
             {isSectionModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSectionModalOpen(false)} />
-                    <div className={`relative w-full max-w-lg rounded-3xl shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-orange-600 p-6 flex justify-between items-center text-white font-black">
                             <div>
                                 <h3 className="text-lg uppercase tracking-tight">Add to Sections</h3>
@@ -623,14 +623,14 @@ const TestAllotment = () => {
                                     <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
                                         Section List
                                     </label>
-                                    <div className={`w-full p-4 rounded-xl border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
+                                    <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
                                         {selectedSectionIds.length > 0 ? (
                                             availableSections
                                                 .filter(s => selectedSectionIds.includes(s.id))
                                                 .map(s => (
                                                     <div
                                                         key={`sel-sec-${s.id}`}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
                                                     >
                                                         <span>{s.name}</span>
                                                         <button
@@ -639,7 +639,7 @@ const TestAllotment = () => {
                                                                 e.stopPropagation();
                                                                 setSelectedSectionIds(prev => prev.filter(id => id !== s.id));
                                                             }}
-                                                            className="p-0.5 hover:bg-white/20 rounded-md transition-colors"
+                                                            className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
                                                         >
                                                             <X size={12} strokeWidth={4} />
                                                         </button>
@@ -663,7 +663,7 @@ const TestAllotment = () => {
                                         placeholder="Search sections by name or code..."
                                         value={sectionSearchTerm}
                                         onChange={(e) => setSectionSearchTerm(e.target.value)}
-                                        className={`w-full pl-11 pr-4 py-3 rounded-2xl border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                        className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
                                     />
                                     {sectionSearchTerm && (
                                         <button
@@ -701,11 +701,11 @@ const TestAllotment = () => {
                                                             if (isSelected) setSelectedSectionIds(prev => prev.filter(id => id !== section.id));
                                                             else setSelectedSectionIds(prev => [...prev, section.id]);
                                                         }}
-                                                        className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer border transition-all active:scale-[0.98] ${isSelected
+                                                        className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
                                                             ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
                                                             : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
                                                     >
-                                                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${isSelected
+                                                        <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
                                                             ? 'bg-blue-600 border-blue-600 scale-110'
                                                             : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
                                                             {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
@@ -727,14 +727,14 @@ const TestAllotment = () => {
                         <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
                             <button
                                 onClick={() => setIsSectionModalOpen(false)}
-                                className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
+                                className={`px-6 py-2.5 rounded-[5px] text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSaveSectionAllotment}
                                 disabled={isActionLoading}
-                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
+                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
                             >
                                 {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save'}
                             </button>
@@ -745,11 +745,11 @@ const TestAllotment = () => {
             {/* Premium Custom Alert */}
             {alert.show && (
                 <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-10 duration-500">
-                    <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-md ${alert.type === 'success'
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success'
                         ? 'bg-emerald-500/90 border-emerald-400 text-white'
                         : 'bg-red-500/90 border-red-400 text-white'
                         }`}>
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner">
+                        <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
                         </div>
                         <div>
