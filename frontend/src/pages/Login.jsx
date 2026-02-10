@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, AlertCircle, GraduationCap, ArrowRight, BookOpen, Award, Users, Sparkles } from 'lucide-react';
+import { User, Lock, AlertCircle, GraduationCap, ArrowRight, BookOpen, Award, Users, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -11,6 +11,7 @@ const Login = () => {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [isSwapped, setIsSwapped] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -202,7 +203,7 @@ const Login = () => {
                                             type="text"
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            className="w-full bg-white/50 backdrop-blur-sm border-2 border-white/80 rounded-xl px-10 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
+                                            className="w-full bg-white/50 border-2 border-white/80 rounded-xl px-10 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
                                             placeholder="Your username"
                                             required
                                         />
@@ -216,13 +217,20 @@ const Login = () => {
                                             <Lock size={18} strokeWidth={2.5} />
                                         </div>
                                         <input
-                                            type="password"
+                                            type={showPassword ? "text" : "password"}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full bg-white/50 backdrop-blur-sm border-2 border-white/80 rounded-xl px-10 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
+                                            className="w-full bg-white/50 border-2 border-white/80 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-[#FF6B35]/10 focus:border-[#FF6B35]/50 focus:bg-white transition-all font-bold shadow-sm"
                                             placeholder="Your password"
                                             required
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#FF6B35] transition-colors focus:outline-none p-1"
+                                        >
+                                            {showPassword ? <EyeOff size={16} strokeWidth={2.5} /> : <Eye size={16} strokeWidth={2.5} />}
+                                        </button>
                                     </div>
                                 </div>
 
