@@ -89,3 +89,51 @@ class Grievance(models.Model):
 
     def __str__(self):
         return f"{self.subject} - {self.student_name}"
+
+class StudyTask(models.Model):
+    PRIORITY_CHOICES = (
+        ('Low', 'Low'),
+        ('Medium', 'Medium'),
+        ('High', 'High'),
+    )
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='study_tasks')
+    topic = models.CharField(max_length=255)
+    subject = models.CharField(max_length=100)
+    date = models.DateField()
+    time = models.TimeField()
+    duration = models.CharField(max_length=50) # e.g. "2h"
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='Medium')
+    completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'time']
+
+    def __str__(self):
+        return f"{self.topic} ({self.subject})"
+
+class Notice(models.Model):
+    CATEGORY_CHOICES = (
+        ('Exams', 'Exams'),
+        ('Admin', 'Admin'),
+        ('Resources', 'Resources'),
+        ('Workshop', 'Workshop'),
+        ('System', 'System'),
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='Admin')
+    date = models.DateField(auto_now_add=True)
+    is_pinned = models.BooleanField(default=False)
+    is_new = models.BooleanField(default=True)
+    attachment = models.CharField(max_length=255, null=True, blank=True)
+    link = models.URLField(max_length=500, null=True, blank=True)
+    
+    # Associate notice with a user if it's a private notification
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='notices', null=True, blank=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-date']
+
+    def __str__(self):
+        return self.title

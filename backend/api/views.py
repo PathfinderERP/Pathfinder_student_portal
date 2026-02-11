@@ -1,11 +1,11 @@
 from rest_framework import viewsets, permissions, generics, status, response
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import UploadedFile, CustomUser, LoginLog, Grievance
+from .models import UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice
 from .serializers import (
     UploadedFileSerializer, CustomTokenObtainPairSerializer, 
     UserSerializer, UserCreateSerializer, LoginLogSerializer,
-    GrievanceSerializer
+    GrievanceSerializer, StudyTaskSerializer, NoticeSerializer
 )
 
 class IsSuperAdmin(permissions.BasePermission):
@@ -108,4 +108,67 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                     extra_data['status'] = 'Pending'
         
         serializer.save(**extra_data)
+
+class StudyTaskViewSet(viewsets.ModelViewSet):
+    serializer_class = StudyTaskSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Only return tasks for the logged in user
+        return StudyTask.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class NoticeViewSet(viewsets.ModelViewSet):
+    queryset = Notice.objects.all()
+    serializer_class = NoticeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Return all public notices AND private notices for this user
+        from django.db.models import Q
+        return Notice.objects.filter(Q(user__isnull=True) | Q(user=self.request.user))
+
+    def list(self, request, *args, **kwargs):
+        # Check for upcoming tasks and generate notices
+        if request.user.user_type == 'student':
+            from datetime import datetime, timedelta
+            from django.utils import timezone
+            
+            # Simple timezone aware check
+            now = timezone.now()
+            # Look for tasks starting in the next 30-90 minutes
+            upcoming_tasks = StudyTask.objects.filter(
+                user=request.user,
+                date=now.date(),
+                completed=False
+            )
+            
+            for task in upcoming_tasks:
+                # Combine date and time to compare
+                task_dt = datetime.combine(task.date, task.time)
+                if timezone.is_aware(now):
+                    task_dt = timezone.make_aware(task_dt)
+                
+                # If task starts within 30-60 mins
+                time_diff = (task_dt - now).total_seconds() / 60
+                if 0 < time_diff <= 30:
+                    # Check if notice already exists
+                    exists = Notice.objects.filter(
+                        user=request.user,
+                        title=f"Reminder: {task.topic}",
+                        date=now.date()
+                    ).exists()
+                    
+                    if not exists:
+                        Notice.objects.create(
+                            user=request.user,
+                            title=f"Reminder: {task.topic}",
+                            content=f"Your study session for '{task.subject} - {task.topic}' starts in {int(time_diff)} minutes.",
+                            category='System',
+                            is_new=True
+                        )
+
+        return super().list(request, *args, **kwargs)
 

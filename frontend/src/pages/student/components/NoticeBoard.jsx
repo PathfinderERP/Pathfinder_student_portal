@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Bell, Calendar, Clock, ChevronRight,
     Link as LinkIcon, FileText, Megaphone,
@@ -6,57 +6,48 @@ import {
     AlertCircle, Info, Star, Bookmark
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../../context/AuthContext';
+import axios from 'axios';
 
 const NoticeBoard = ({ isDarkMode }) => {
+    const { getApiUrl, token } = useAuth();
     const [filter, setFilter] = useState('All');
     const [search, setSearch] = useState('');
+    const [notices, setNotices] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const notices = [
-        {
-            id: 1,
-            title: "WBJEE 2026 Mock Test Schedule Released",
-            content: "The first comprehensive mock test for WBJEE 2026 will be held on Feb 25th. Detailed syllabus and slot timings are attached below.",
-            date: "Feb 10, 2026",
-            category: "Exams",
-            isPinned: true,
-            isNew: true,
-            attachment: "mock_test_feb.pdf"
-        },
-        {
-            id: 2,
-            title: "Physics Workshop: Special Session on Wave Optics",
-            content: "Dr. A.K. Ray will be conducting a specialized workshop on Wave Optics this Sunday at 10:00 AM in the Main Seminar Hall.",
-            date: "Feb 08, 2026",
-            category: "Workshop",
-            isPinned: false,
-            isNew: false,
-            link: "https://zoom.us/j/example"
-        },
-        {
-            id: 3,
-            title: "Holiday Notice: Saraswati Puja",
-            content: "The institute will remain closed on Feb 14th on the occasion of Saraswati Puja. Online support will be available for emergency queries.",
-            date: "Feb 05, 2026",
-            category: "Admin",
-            isPinned: false,
-            isNew: false
-        },
-        {
-            id: 4,
-            title: "Smart Study Materials Updated - Maths",
-            content: "New revision modules for Integral Calculus and Vector Algebra have been uploaded to the Digital Library section.",
-            date: "Feb 02, 2026",
-            category: "Resources",
-            isPinned: false,
-            isNew: false
+    const fetchNotices = async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/notices/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setNotices(response.data);
+        } catch (error) {
+            console.error('Failed to fetch notices:', error);
+        } finally {
+            setLoading(false);
         }
-    ];
+    };
+
+    useEffect(() => {
+        fetchNotices();
+        // Poll for notices every 2 minutes to catch new updates
+        const interval = setInterval(fetchNotices, 120000);
+        return () => clearInterval(interval);
+    }, []);
 
     const filteredNotices = notices.filter(n => {
         const matchesFilter = filter === 'All' || n.category === filter;
         const matchesSearch = n.title.toLowerCase().includes(search.toLowerCase()) || n.content.toLowerCase().includes(search.toLowerCase());
         return matchesFilter && matchesSearch;
     });
+
+    const categories = [
+        { label: 'New Notices', val: notices.filter(n => n.is_new).length, icon: Bell, color: 'orange' },
+        { label: 'Exams', val: notices.filter(n => n.category === 'Exams').length, icon: Calendar, color: 'indigo' },
+        { label: 'Resources', val: notices.filter(n => n.category === 'Resources').length, icon: FileText, color: 'indigo' }
+    ];
 
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
@@ -78,7 +69,7 @@ const NoticeBoard = ({ isDarkMode }) => {
                     </div>
 
                     <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-[5px]">
-                        {['All', 'Exams', 'Admin', 'Resources'].map((cat) => (
+                        {['All', 'Exams', 'Admin', 'Resources', 'System'].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => setFilter(cat)}
@@ -116,11 +107,7 @@ const NoticeBoard = ({ isDarkMode }) => {
                     <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'} space-y-6`}>
                         <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>Weekly Roundup</h4>
                         <div className="space-y-4">
-                            {[
-                                { label: 'New Notices', val: '02', icon: Bell, color: 'orange' },
-                                { label: 'Upcoming Tests', val: '01', icon: Calendar, color: 'indigo' },
-                                { label: 'Resources Added', val: '12', icon: FileText, color: 'indigo' }
-                            ].map((s, i) => (
+                            {categories.map((s, i) => (
                                 <div key={i} className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-[5px] flex items-center justify-center ${s.color === 'orange' ? 'bg-orange-500/10 text-orange-500' : 'bg-indigo-500/10 text-indigo-500'}`}>
@@ -128,7 +115,7 @@ const NoticeBoard = ({ isDarkMode }) => {
                                         </div>
                                         <span className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{s.label}</span>
                                     </div>
-                                    <span className="font-black text-xs">{s.val}</span>
+                                    <span className="font-black text-xs">{s.val.toString().padStart(2, '0')}</span>
                                 </div>
                             ))}
                         </div>
@@ -153,12 +140,12 @@ const NoticeBoard = ({ isDarkMode }) => {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     key={notice.id}
-                                    className={`group p-8 rounded-[5px] border transition-all duration-300 relative ${notice.isPinned
+                                    className={`group p-8 rounded-[5px] border transition-all duration-300 relative ${notice.is_pinned
                                         ? (isDarkMode ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 shadow-indigo-100/50 shadow-lg')
                                         : (isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200 shadow-slate-200/50')
                                         }`}
                                 >
-                                    {notice.isPinned && (
+                                    {notice.is_pinned && (
                                         <div className="absolute top-4 right-4 text-indigo-500">
                                             <Pin size={16} strokeWidth={3} className="rotate-45" />
                                         </div>
@@ -169,7 +156,7 @@ const NoticeBoard = ({ isDarkMode }) => {
                                             <div className="px-3 py-1 rounded-[5px] bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20">
                                                 {notice.category}
                                             </div>
-                                            {notice.isNew && (
+                                            {notice.is_new && (
                                                 <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                                             )}
                                             <div className="flex items-center gap-2 opacity-30 text-[10px] font-black uppercase tracking-widest ml-auto">
