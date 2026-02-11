@@ -54,3 +54,38 @@ class LoginLog(models.Model):
 
     def __str__(self):
         return f"{self.username or 'Unknown'} - {self.ip_address} - {self.created_at}"
+
+class Grievance(models.Model):
+    PRIORITY_CHOICES = (
+        ('Low', 'Low'),
+        ('Medium', 'Medium'),
+        ('High', 'High'),
+    )
+    STATUS_CHOICES = (
+        ('Pending', 'Pending'),
+        ('Unassigned', 'Unassigned'),
+        ('Assign', 'Assign'),
+        ('Resolved', 'Resolved'),
+        ('Rejected', 'Rejected'),
+    )
+    student_name = models.CharField(max_length=255)
+    student_id = models.CharField(max_length=100, null=True, blank=True)
+    subject = models.CharField(max_length=255)
+    category = models.CharField(max_length=100)
+    description = models.TextField()
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='Medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    date = models.DateTimeField(auto_now_add=True)
+    
+    # Assignment details
+    teacher_name = models.CharField(max_length=255, null=True, blank=True)
+    teacher_id = models.CharField(max_length=100, null=True, blank=True)
+    assign_date = models.DateTimeField(null=True, blank=True)
+    solved_date = models.DateTimeField(null=True, blank=True)
+    solution_description = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.subject} - {self.student_name}"

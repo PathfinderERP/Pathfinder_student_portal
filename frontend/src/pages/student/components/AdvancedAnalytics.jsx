@@ -42,7 +42,7 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                                 Intelligence Engine
                             </div>
                         </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Advanced Analytics
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -56,8 +56,8 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                                 key={opt}
                                 onClick={() => setSelectedTimeframe(opt)}
                                 className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${selectedTimeframe === opt
-                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                        : 'text-slate-500 hover:text-orange-500'
+                                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                                    : 'text-slate-500 hover:text-orange-500'
                                     }`}
                             >
                                 {opt}
@@ -157,9 +157,9 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                                             animate={{ width: `${prof.score}%` }}
                                             transition={{ duration: 1.5, delay: i * 0.1, ease: "easeOut" }}
                                             className={`h-full rounded-r-[5px] bg-gradient-to-r ${prof.subject === 'Physics' ? 'from-blue-500 to-indigo-600' :
-                                                    prof.subject === 'Chemistry' ? 'from-orange-500 to-red-600' :
-                                                        prof.subject === 'Mathematics' ? 'from-indigo-500 to-purple-600' :
-                                                            'from-emerald-500 to-green-600'
+                                                prof.subject === 'Chemistry' ? 'from-orange-500 to-red-600' :
+                                                    prof.subject === 'Mathematics' ? 'from-indigo-500 to-purple-600' :
+                                                        'from-emerald-500 to-green-600'
                                                 }`}
                                         />
                                     </div>

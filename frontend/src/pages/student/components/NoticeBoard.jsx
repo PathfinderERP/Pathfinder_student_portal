@@ -69,7 +69,7 @@ const NoticeBoard = ({ isDarkMode }) => {
                                 Communications
                             </div>
                         </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Digital Notice Board
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -83,8 +83,8 @@ const NoticeBoard = ({ isDarkMode }) => {
                                 key={cat}
                                 onClick={() => setFilter(cat)}
                                 className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${filter === cat
-                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                        : 'text-slate-500 hover:text-orange-500'
+                                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                                    : 'text-slate-500 hover:text-orange-500'
                                     }`}
                             >
                                 {cat}
@@ -107,14 +107,14 @@ const NoticeBoard = ({ isDarkMode }) => {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className={`w-full pl-12 pr-4 py-4 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode
-                                    ? 'bg-[#10141D] border-white/5 text-white focus:border-orange-500/30'
-                                    : 'bg-white border-slate-100 text-slate-800 focus:border-orange-500/30 shadow-sm'
+                                ? 'bg-[#10141D] border-white/5 text-white focus:border-orange-500/30'
+                                : 'bg-white border-slate-100 text-slate-800 focus:border-orange-500/30 shadow-sm'
                                 }`}
                         />
                     </div>
 
                     <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'} space-y-6`}>
-                        <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Weekly Roundup</h4>
+                        <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>Weekly Roundup</h4>
                         <div className="space-y-4">
                             {[
                                 { label: 'New Notices', val: '02', icon: Bell, color: 'orange' },
@@ -154,8 +154,8 @@ const NoticeBoard = ({ isDarkMode }) => {
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     key={notice.id}
                                     className={`group p-8 rounded-[5px] border transition-all duration-300 relative ${notice.isPinned
-                                            ? (isDarkMode ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 shadow-indigo-100/50 shadow-lg')
-                                            : (isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200 shadow-slate-200/50')
+                                        ? (isDarkMode ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 shadow-indigo-100/50 shadow-lg')
+                                        : (isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200 shadow-slate-200/50')
                                         }`}
                                 >
                                     {notice.isPinned && (

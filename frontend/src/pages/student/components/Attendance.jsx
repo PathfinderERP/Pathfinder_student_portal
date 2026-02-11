@@ -17,7 +17,25 @@ const Attendance = ({ isDarkMode }) => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 animate-fade-in-up pb-10">
+            {/* Attendance Hero */}
+            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                            Performance Tracking
+                        </div>
+                    </div>
+                    <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Attendance Logs
+                    </h2>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Comprehensive breakdown of your academic presence and session participation.
+                    </p>
+                </div>
+                <Calendar size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
+            </div>
+
             {/* Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard
@@ -52,7 +70,7 @@ const Attendance = ({ isDarkMode }) => {
 
             {/* Monthly Breakdown */}
             <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-6">
+                <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     Monthly Breakdown
                 </h3>
                 <div className="space-y-4">
@@ -74,11 +92,11 @@ const Attendance = ({ isDarkMode }) => {
                             <div className="grid grid-cols-2 gap-4 text-xs">
                                 <div className="flex items-center gap-2">
                                     <CheckCircle size={14} className="text-indigo-500" />
-                                    <span className="font-bold opacity-70">Present: {month.present}</span>
+                                    <span className={`font-bold ${isDarkMode ? 'text-white/70' : 'text-slate-700'}`}>Present: {month.present}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <XCircle size={14} className="text-red-500" />
-                                    <span className="font-bold opacity-70">Absent: {month.absent}</span>
+                                    <span className={`font-bold ${isDarkMode ? 'text-white/70' : 'text-slate-700'}`}>Absent: {month.absent}</span>
                                 </div>
                             </div>
                             {/* Progress Bar */}
@@ -111,7 +129,7 @@ const StatCard = ({ title, value, icon: Icon, color, isDark }) => {
                     <Icon size={24} className="text-white" strokeWidth={2.5} />
                 </div>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">{title}</p>
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-white/60' : 'text-slate-900/60'}`}>{title}</p>
             <p className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{value}</p>
         </div>
     );

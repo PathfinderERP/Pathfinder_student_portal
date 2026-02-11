@@ -69,7 +69,7 @@ const SWOTAnalysis = ({ isDarkMode }) => {
                         <Brain size={40} className="text-white" />
                     </div>
                     <div className="text-center md:text-left">
-                        <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-2xl md:text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Academic SWOT Analysis
                         </h2>
                         <p className={`text-sm font-medium max-w-2xl ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
@@ -105,7 +105,7 @@ const SWOTAnalysis = ({ isDarkMode }) => {
                             AI Recommendation
                         </div>
                     </div>
-                    <h3 className="text-xl md:text-2xl font-black mb-4 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                    <h3 className={`text-xl md:text-2xl font-black mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         Personalized Strategy for WBJEE Success
                     </h3>
                     <div className="space-y-4 max-w-3xl">

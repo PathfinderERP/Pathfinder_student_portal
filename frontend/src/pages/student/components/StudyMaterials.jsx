@@ -61,7 +61,7 @@ const StudyMaterials = ({ isDarkMode }) => {
                                 Digital Library
                             </div>
                         </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Study Materials
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -71,11 +71,11 @@ const StudyMaterials = ({ isDarkMode }) => {
 
                     <div className="flex gap-4">
                         <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Total Resources</p>
+                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Total Resources</p>
                             <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{materials.length}</p>
                         </div>
                         <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-1">Subjects</p>
+                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Subjects</p>
                             <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{subjects.length - 1}</p>
                         </div>
                     </div>

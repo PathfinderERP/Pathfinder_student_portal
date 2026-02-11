@@ -13,11 +13,40 @@ const SolveDoubt = () => {
     const [teachers, setTeachers] = useState([]);
 
     // Mock Doubts State
-    const [doubts, setDoubts] = useState([
-        { id: 1, student: 'ABHISHEK BANERJEE', subject: 'Physics', assignDate: '16/9/2024, 6:35:43 pm', status: 'Assign', teacherId: '1', teacherName: 'Rohan Singh', description: 'Doubt about Quantum Mechanics' },
-        { id: 2, student: 'ABHISHEK BANERJEE', subject: 'Physics', assignDate: '16/9/2024, 6:41:07 pm', status: 'Assign', teacherId: '1', teacherName: 'Rohan Singh', description: 'Kinematics question' },
-        { id: 3, student: 'SNEHA GUPTA', subject: 'Chemistry', assignDate: '22/4/2025, 10:00:00 am', status: 'Solve', teacherId: '2', teacherName: 'Amit Varma', solvedDate: '23/4/2025, 05:30:00 pm', description: 'Organic Chemistry doubt' },
-    ]);
+    const [doubts, setDoubts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchDoubts = async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/grievances/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            // Map the data to the format expected by the table
+            const mappedDoubts = response.data.map(d => ({
+                id: d.id,
+                student: d.student_name,
+                studentId: d.student_id,
+                subject: d.subject + (d.category === 'Doubt Session' ? ' (Doubt)' : ''),
+                date: new Date(d.date).toLocaleString(),
+                status: d.status,
+                description: d.description,
+                teacherId: d.teacher_id,
+                teacherName: d.teacher_name,
+                assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
+                solvedDate: d.solved_date ? new Date(d.solved_date).toLocaleString() : null
+            }));
+            setDoubts(mappedDoubts);
+        } catch (error) {
+            console.error('Failed to fetch doubts:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDoubts();
+    }, []);
 
     // Custom "Show Doubt" Modal State
     const [isShowDoubtModalOpen, setIsShowDoubtModalOpen] = useState(false);
@@ -54,18 +83,25 @@ const SolveDoubt = () => {
     ];
 
     const filteredDoubts = doubts.filter(d =>
-        (d.status === activeTab) &&
+        ((activeTab === 'Unsolve' && d.status === 'Assign') || (activeTab === 'Solve' && d.status === 'Resolved')) &&
         (String(d.teacherId) === String(selectedTeacherId)) &&
         (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
             d.subject.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const handleSolveClick = (doubtId) => {
-        setDoubts(prev => prev.map(d =>
-            d.id === doubtId
-                ? { ...d, status: 'Solve', solvedDate: new Date().toLocaleString() }
-                : d
-        ));
+    const handleSolveClick = async (doubtId) => {
+        try {
+            const apiUrl = getApiUrl();
+            await axios.patch(`${apiUrl}/api/grievances/${doubtId}/`, {
+                status: 'Resolved',
+                solved_date: new Date().toISOString()
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchDoubts();
+        } catch (error) {
+            console.error('Failed to mark as solved:', error);
+        }
     };
 
     const handleShowDoubtClick = (doubt) => {
@@ -158,8 +194,10 @@ const SolveDoubt = () => {
                                     }`}
                             />
                         </div>
-                        <button className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/10' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
-                            <RefreshCw size={20} />
+                        <button
+                            onClick={fetchDoubts}
+                            className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/10' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
+                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
                 </div>
@@ -188,7 +226,10 @@ const SolveDoubt = () => {
                                             </span>
                                         </td>
                                         <td className="py-4 px-6">
-                                            <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
+                                            </div>
                                         </td>
                                         <td className="py-4 px-6">
                                             <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
@@ -280,6 +321,7 @@ const SolveDoubt = () => {
                                 <div>
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student</p>
                                     <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.student}</p>
+                                    <p className={`text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {selectedDoubtForView.studentId || 'N/A'}</p>
                                 </div>
                                 <div>
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subject</p>

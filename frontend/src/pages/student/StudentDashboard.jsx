@@ -210,10 +210,10 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                    <h1 className={`text-3xl md:text-4xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         Welcome Back, {student.studentName.split(' ')[0]}!
                     </h1>
-                    <p className={`text-sm md:text-base font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <p className={`text-sm md:text-base font-medium ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
                         Here's your comprehensive learning snapshot & AI-powered insights for today
                     </p>
                 </div>
@@ -235,7 +235,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/20' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
 
                         <div className={`mb-4 flex items-center justify-between`}>
-                            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
                                 {stat.label}
                             </h3>
                             <div className={`p-2 rounded-[5px] ${stat.color === 'blue' ? 'bg-blue-500/10 text-blue-500' :
@@ -309,7 +309,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         <Target size={120} />
                     </div>
                     <div className="relative z-10">
-                        <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Needs Focus</h3>
+                        <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>Needs Focus</h3>
                         <div className="text-4xl font-black text-red-500 mb-2">MATHEMATICS</div>
                         <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Average: 78%</p>
                         <div className="flex items-center gap-2 text-xs font-bold text-orange-600 bg-orange-500/10 px-3 py-1.5 rounded-[5px] w-fit">
@@ -323,7 +323,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             {/* Row 3: Performance Trend (Simulated Chart) */}
             <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
                 <div className="flex items-center justify-between mb-8">
-                    <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Performance Trend (Last 30 Days)</h3>
+                    <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>Performance Trend (Last 30 Days)</h3>
                 </div>
                 <div className="h-32 flex items-end justify-between gap-4">
                     {[30, 45, 35, 60, 50, 75, 55, 80].map((h, i) => (

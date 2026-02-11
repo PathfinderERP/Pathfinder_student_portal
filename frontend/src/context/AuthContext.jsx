@@ -129,14 +129,30 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
+    const logout = useCallback(() => {
         setToken(null);
         setUser(null);
         setLastUsername(null);
         setLastPassword(null);
         localStorage.removeItem('auth_token');
         delete axios.defaults.headers.common['Authorization'];
-    };
+    }, []);
+
+    // Global Axios Interceptor for 401 errors
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 401) {
+                    console.warn("Unauthorized request detected, logging out...");
+                    logout();
+                }
+                return Promise.reject(error);
+            }
+        );
+        return () => axios.interceptors.response.eject(interceptor);
+    }, [logout]);
+
 
     return (
         <AuthContext.Provider value={{ token, user, login, updateProfile, logout, loading, isAuthenticated: !!user, getApiUrl, normalizeUser, lastUsername, lastPassword }}>

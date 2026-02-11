@@ -36,7 +36,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                                 Time Management
                             </div>
                         </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Study Planner
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -73,8 +73,8 @@ const StudyPlanner = ({ isDarkMode }) => {
                                 <button
                                     key={d}
                                     className={`aspect-square rounded-[5px] text-xs font-bold flex items-center justify-center transition-all ${d === 14
-                                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                            : 'hover:bg-slate-100 dark:hover:bg-white/5 opacity-60'
+                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                                        : 'hover:bg-slate-100 dark:hover:bg-white/5 opacity-60'
                                         }`}
                                 >
                                     {d}
@@ -146,8 +146,8 @@ const StudyPlanner = ({ isDarkMode }) => {
                                 transition={{ delay: i * 0.1 }}
                                 key={task.id}
                                 className={`group p-6 rounded-[5px] border transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-6 ${task.completed
-                                        ? (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100')
-                                        : (isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-indigo-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-indigo-200 shadow-slate-200/50')
+                                    ? (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100')
+                                    : (isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-indigo-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-indigo-200 shadow-slate-200/50')
                                     }`}
                             >
                                 <div className="flex items-center gap-6">
@@ -162,9 +162,9 @@ const StudyPlanner = ({ isDarkMode }) => {
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[5px] ${task.subject === 'Maths' ? 'bg-blue-500/10 text-blue-500' :
-                                                    task.subject === 'Physics' ? 'bg-purple-500/10 text-purple-600' :
-                                                        task.subject === 'Chemistry' ? 'bg-orange-500/10 text-orange-500' :
-                                                            'bg-slate-500/10 text-slate-500'
+                                                task.subject === 'Physics' ? 'bg-purple-500/10 text-purple-600' :
+                                                    task.subject === 'Chemistry' ? 'bg-orange-500/10 text-orange-500' :
+                                                        'bg-slate-500/10 text-slate-500'
                                                 }`}>
                                                 {task.subject}
                                             </span>

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import UploadedFile, CustomUser
+from .models import UploadedFile, CustomUser, Grievance
 import json
 
 class UserSerializer(serializers.ModelSerializer):
@@ -147,7 +147,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     user_agent = str(request.META.get('HTTP_USER_AGENT', 'Unknown Browser'))
                 
                 print(f"Bypassing ORM: Logging {username_to_log} directly to Mongo")
-                log_login_direct(user.id, username_to_log, ip, user_agent)
+                log_login_direct(user.pk, username_to_log, ip, user_agent)
             else:
                 print("CRITICAL LOGIN DEBUG: No user object found after validation")
         except Exception as e:
@@ -167,3 +167,12 @@ class LoginLogSerializer(serializers.Serializer):
     status = serializers.CharField()
     time = serializers.CharField()
     user_agent = serializers.CharField()
+
+class GrievanceSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='pk', read_only=True)
+    
+    class Meta:
+        model = Grievance
+        fields = '__all__'
+        read_only_fields = ['student_name', 'student_id']
+

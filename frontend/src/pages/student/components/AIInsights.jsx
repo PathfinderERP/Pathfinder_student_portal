@@ -67,7 +67,7 @@ const AIInsights = ({ isDarkMode }) => {
                                 Cognitive Analysis
                             </div>
                         </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             AI Insights & Coach
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -169,8 +169,8 @@ const AIInsights = ({ isDarkMode }) => {
                                             {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                                         </div>
                                         <div className={`p-4 rounded-[5px] text-xs font-bold leading-relaxed shadow-sm ${msg.role === 'user'
-                                                ? (isDarkMode ? 'bg-indigo-600 text-white shadow-indigo-600/10' : 'bg-indigo-600 text-white shadow-indigo-600/20')
-                                                : (isDarkMode ? 'bg-white/[0.03] text-slate-300 border border-white/5' : 'bg-slate-50 text-slate-700 border border-slate-100')
+                                            ? (isDarkMode ? 'bg-indigo-600 text-white shadow-indigo-600/10' : 'bg-indigo-600 text-white shadow-indigo-600/20')
+                                            : (isDarkMode ? 'bg-white/[0.03] text-slate-300 border border-white/5' : 'bg-slate-50 text-slate-700 border border-slate-100')
                                             }`}>
                                             {msg.text}
                                         </div>
@@ -189,8 +189,8 @@ const AIInsights = ({ isDarkMode }) => {
                                 onChange={(e) => setInput(e.target.value)}
                                 placeholder="Ask your AI coach anything about your studies..."
                                 className={`flex-grow px-5 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode
-                                        ? 'bg-[#0A0D12] border-white/5 text-white focus:border-indigo-500/50'
-                                        : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500/50'
+                                    ? 'bg-[#0A0D12] border-white/5 text-white focus:border-indigo-500/50'
+                                    : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500/50'
                                     }`}
                             />
                             <button

@@ -1,8 +1,12 @@
 from rest_framework import viewsets, permissions, generics, status, response
 from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import UploadedFile, CustomUser, LoginLog
-from .serializers import UploadedFileSerializer, CustomTokenObtainPairSerializer, UserSerializer, UserCreateSerializer, LoginLogSerializer
+from .models import UploadedFile, CustomUser, LoginLog, Grievance
+from .serializers import (
+    UploadedFileSerializer, CustomTokenObtainPairSerializer, 
+    UserSerializer, UserCreateSerializer, LoginLogSerializer,
+    GrievanceSerializer
+)
 
 class IsSuperAdmin(permissions.BasePermission):
     """
@@ -72,3 +76,36 @@ class FileViewSet(viewsets.ModelViewSet):
     queryset = UploadedFile.objects.all()
     serializer_class = UploadedFileSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class GrievanceViewSet(viewsets.ModelViewSet):
+    queryset = Grievance.objects.all()
+    serializer_class = GrievanceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Grievance.objects.all()
+        category = self.request.query_params.get('category')
+        status = self.request.query_params.get('status')
+        if category:
+            queryset = queryset.filter(category=category)
+        if status:
+            queryset = queryset.filter(status=status)
+        return queryset
+
+    def perform_create(self, serializer):
+        # Automatically set student info if they are a student
+        extra_data = {}
+        if self.request.user.user_type == 'student':
+            extra_data['student_name'] = f"{self.request.user.first_name} {self.request.user.last_name}" if self.request.user.first_name else self.request.user.username
+            extra_data['student_id'] = str(self.request.user.pk)
+            
+            # If status not provided, default based on category
+            if 'status' not in self.request.data:
+                category = self.request.data.get('category', 'Academic')
+                if category in ['Academic', 'Doubt Session']:
+                    extra_data['status'] = 'Unassigned'
+                else:
+                    extra_data['status'] = 'Pending'
+        
+        serializer.save(**extra_data)
+

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Send, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, AlertCircle, CheckCircle } from 'lucide-react';
+import axios from 'axios';
+import { useAuth } from '../../../context/AuthContext';
 
 const Grievances = ({ isDarkMode }) => {
     const [formData, setFormData] = useState({
@@ -9,31 +11,84 @@ const Grievances = ({ isDarkMode }) => {
         priority: 'Medium'
     });
 
-    const [grievances, setGrievances] = useState([
-        { id: 1, subject: 'Lab Equipment Issue', category: 'Facility', status: 'Resolved', date: '2026-01-05', priority: 'High' },
-        { id: 2, subject: 'Doubt Session Request', category: 'Academic', status: 'In Progress', date: '2026-01-08', priority: 'Medium' },
-        { id: 3, subject: 'Library Book Availability', category: 'Library', status: 'Pending', date: '2026-01-10', priority: 'Low' },
-    ]);
+    const { getApiUrl, token } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
 
-    const handleSubmit = (e) => {
+    const [grievances, setGrievances] = useState([]);
+
+    const fetchGrievances = async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/grievances/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setGrievances(response.data);
+        } catch (error) {
+            console.error('Failed to fetch grievances:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchGrievances();
+    }, []);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Add API call here
-        console.log('Submitting grievance:', formData);
-        // Reset form
-        setFormData({ subject: '', category: 'Academic', description: '', priority: 'Medium' });
+        setLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            // If category is academic or doubt, it's unassigned for management
+            const status = (formData.category === 'Academic' || formData.category === 'Doubt Session') ? 'Unassigned' : 'Pending';
+
+            await axios.post(`${apiUrl}/api/grievances/`, {
+                ...formData,
+                status: status
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            setSuccess(true);
+            setFormData({ subject: '', category: 'Academic', description: '', priority: 'Medium' });
+            fetchGrievances();
+            setTimeout(() => setSuccess(false), 3000);
+        } catch (error) {
+            console.error('Failed to submit grievance:', error);
+            alert('Failed to submit. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 animate-fade-in-up pb-10">
+            {/* Grievances Hero */}
+            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                            Student Support
+                        </div>
+                    </div>
+                    <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Help & Support
+                    </h2>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Submit concerns, request doubt sessions, or report facility issues for quick resolution.
+                    </p>
+                </div>
+                <AlertCircle size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
+            </div>
+
             {/* Submit New Grievance */}
             <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     <Send size={14} className="text-orange-500" /> Submit New Grievance
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-50">Subject</label>
+                            <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Subject</label>
                             <input
                                 type="text"
                                 value={formData.subject}
@@ -45,13 +100,14 @@ const Grievances = ({ isDarkMode }) => {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-50">Category</label>
+                            <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Category</label>
                             <select
                                 value={formData.category}
                                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                 className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
                                     ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                                 <option>Academic</option>
+                                <option>Doubt Session</option>
                                 <option>Facility</option>
                                 <option>Library</option>
                                 <option>Transport</option>
@@ -60,7 +116,7 @@ const Grievances = ({ isDarkMode }) => {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest opacity-50">Priority</label>
+                        <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Priority</label>
                         <select
                             value={formData.priority}
                             onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
@@ -72,7 +128,7 @@ const Grievances = ({ isDarkMode }) => {
                         </select>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest opacity-50">Description</label>
+                        <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Description</label>
                         <textarea
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -87,15 +143,20 @@ const Grievances = ({ isDarkMode }) => {
                         type="submit"
                         className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2">
                         <Send size={16} />
-                        Submit Grievance
+                        {loading ? 'Submitting...' : 'Submit Grievance'}
                     </button>
+                    {success && (
+                        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-[5px] flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
+                            <CheckCircle size={16} /> Submitted Successfully
+                        </div>
+                    )}
                 </form>
             </div>
 
             {/* Previous Grievances */}
             <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
-                    <AlertCircle size={14} className="text-blue-500" /> Your Grievances
+                <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <AlertCircle size={14} className="text-orange-500" /> Your Grievances
                 </h3>
                 <div className="space-y-4">
                     {grievances.map((item) => (
@@ -105,7 +166,9 @@ const Grievances = ({ isDarkMode }) => {
                                     <h4 className={`font-black text-sm mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                         {item.subject}
                                     </h4>
-                                    <p className="text-xs font-bold opacity-50">{item.category} • {item.date}</p>
+                                    <p className={`text-xs font-bold ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>
+                                        {item.category} • {new Date(item.date).toLocaleDateString()}
+                                    </p>
                                 </div>
                                 <div className="flex gap-2">
                                     <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest

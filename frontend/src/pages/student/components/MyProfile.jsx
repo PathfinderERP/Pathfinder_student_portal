@@ -7,7 +7,25 @@ const MyProfile = ({ isDarkMode, studentData }) => {
     const examSchema = studentData?.student?.examSchema || [];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 animate-fade-in-up pb-10">
+            {/* Profile Hero */}
+            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                            Account Settings
+                        </div>
+                    </div>
+                    <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        My Digital Profile
+                    </h2>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Manage your personal data, guardian contact information, and academic history.
+                    </p>
+                </div>
+                <User size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
+            </div>
+
             {/* Profile Header Card */}
             <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                 <div className="flex flex-col md:flex-row items-center gap-6">
@@ -15,7 +33,7 @@ const MyProfile = ({ isDarkMode, studentData }) => {
                         {(details.studentName || 'S').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 text-center md:text-left">
-                        <h2 className="text-3xl font-black uppercase tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             {details.studentName || 'Student Name'}
                         </h2>
                         <div className="flex flex-wrap justify-center md:justify-start gap-2">
@@ -34,7 +52,7 @@ const MyProfile = ({ isDarkMode, studentData }) => {
 
             {/* Personal Information */}
             <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
+                <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     <User size={14} className="text-orange-500" /> Personal Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,7 +71,7 @@ const MyProfile = ({ isDarkMode, studentData }) => {
             {/* Guardian Information */}
             {guardians.length > 0 && (
                 <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
+                    <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         <User size={14} className="text-blue-500" /> Guardian Information
                     </h3>
                     <div className="space-y-6">
@@ -76,7 +94,7 @@ const MyProfile = ({ isDarkMode, studentData }) => {
             {/* Academic Records */}
             {examSchema.length > 0 && (
                 <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                    <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         <Award size={14} className="text-orange-500" /> Previous Academic Records
                     </h3>
                     <div className="space-y-4">
@@ -100,7 +118,7 @@ const MyProfile = ({ isDarkMode, studentData }) => {
 
 const InfoField = ({ label, value, icon: Icon, isDark, isFullWidth = false }) => (
     <div className={`space-y-1.5 ${isFullWidth ? 'col-span-full' : ''}`}>
-        <label className="text-[9px] font-black uppercase tracking-widest opacity-40 flex items-center gap-1.5">
+        <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-slate-900/30'} flex items-center gap-1.5`}>
             {Icon && <Icon size={10} />} {label}
         </label>
         <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>

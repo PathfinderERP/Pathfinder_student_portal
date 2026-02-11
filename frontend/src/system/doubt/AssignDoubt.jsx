@@ -13,14 +13,39 @@ const AssignDoubt = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Initial Data State (Only Unassigned Doubts initially)
-    const [doubts, setDoubts] = useState([
-        { id: 1, student: 'DEBOJYOTI DAS', subject: 'Physics', date: '16/9/2024, 6:35:43 pm', status: 'Unassigned', description: 'একটি কণার গতিবেগ, v = At + B * t ^ 2; যেখানে A এবং B ধ্রুবক। 1s এবং 2s -এর মধ্যে কণাটির অতিক্রান্ত দূরত্ব' },
-        { id: 2, student: 'DEBOJYOTI DAS', subject: 'Physics', date: '16/9/2024, 6:41:07 pm', status: 'Unassigned', description: 'একটি কণার গতিবেগ, v = At + B * t ^ 2; যেখানে A এবং B ধ্রুবক। 1s এবং 2s -এর মধ্যে কণাটির অতিক্রান্ত দূরত্ব' },
-        { id: 3, student: 'DEBOJYOTI DAS', subject: 'Physics', date: '16/9/2024, 7:01:12 pm', status: 'Unassigned', description: 'একটি কণার গতিবেগ, v = At + B * t ^ 2; যেখানে A এবং B ধ্রুবক। 1s এবং 2s -এর মধ্যে কণাটির অতিক্রান্ত দূরত্ব' },
-        { id: 4, student: 'SK SAJID', subject: 'Mathematics', date: '16/9/2024, 9:29:54 pm', status: 'Unassigned', description: 'Integration of x^2 dx from 0 to 1' },
-        { id: 5, student: 'SK SAJID', subject: 'Mathematics', date: '17/9/2024, 7:17:04 am', status: 'Unassigned', description: 'Solve for x: 2x + 5 = 15' },
-        { id: 6, student: 'ANANYA GIRI', subject: 'Biology', date: '24/9/2024, 12:28:22 pm', status: 'Unassigned', description: 'Draw a labelled diagram of a plant cell.' },
-    ]);
+    const [doubts, setDoubts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchDoubts = async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/grievances/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            // Map the data to the format expected by the table
+            const mappedDoubts = response.data.map(d => ({
+                id: d.id,
+                student: d.student_name,
+                studentId: d.student_id,
+                subject: d.subject + (d.category === 'Doubt Session' ? ' (Doubt)' : ''),
+                date: new Date(d.date).toLocaleString(),
+                status: d.status,
+                description: d.description,
+                teacherName: d.teacher_name,
+                assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
+                solvedDate: d.solved_date ? new Date(d.solved_date).toLocaleString() : null
+            }));
+            setDoubts(mappedDoubts);
+        } catch (error) {
+            console.error('Failed to fetch doubts:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDoubts();
+    }, []);
 
     const tabs = [
         { id: 'Unassigned', label: 'UN (ASSIGN/SOLVE DOUBTS)' },
@@ -86,38 +111,57 @@ const AssignDoubt = () => {
         setSelectedDoubtForView(null);
     };
 
-    const handleConfirmAssign = () => {
+    const handleConfirmAssign = async () => {
         if (!selectedTeacher || !selectedDoubtForAssignment) return;
 
         const teacher = teachers.find(t => String(t.id) === String(selectedTeacher));
         const teacherName = teacher?.name || 'Teacher';
 
-        // Update doubt status to 'Assign' and set teacher details
-        setDoubts(prevDoubts => prevDoubts.map(d =>
-            d.id === selectedDoubtForAssignment.id
-                ? { ...d, status: 'Assign', teacherName: teacherName, assignDate: new Date().toLocaleString() }
-                : d
-        ));
+        try {
+            const apiUrl = getApiUrl();
+            await axios.patch(`${apiUrl}/api/grievances/${selectedDoubtForAssignment.id}/`, {
+                status: 'Assign',
+                teacher_name: teacherName,
+                teacher_id: selectedTeacher,
+                assign_date: new Date().toISOString()
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-        // alert(`Assigned ${selectedDoubtForAssignment.student}'s doubt to ${teacherName}`);
-        handleCloseModal();
+            fetchDoubts();
+            handleCloseModal();
+        } catch (error) {
+            console.error('Failed to assign doubt:', error);
+            alert('Failed to assign doubt.');
+        }
     };
 
-    const handleRejectDoubt = (doubtId) => {
-        // Typically you might want to ask for a rejection reason here
-        setDoubts(prevDoubts => prevDoubts.map(d =>
-            d.id === doubtId
-                ? { ...d, status: 'Rejected' } // Keep description as is, or prompt for a reason
-                : d
-        ));
+    const handleRejectDoubt = async (doubtId) => {
+        try {
+            const apiUrl = getApiUrl();
+            await axios.patch(`${apiUrl}/api/grievances/${doubtId}/`, {
+                status: 'Rejected'
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchDoubts();
+        } catch (error) {
+            console.error('Failed to reject doubt:', error);
+        }
     };
 
-    const handleRestoreDoubt = (doubtId) => {
-        setDoubts(prevDoubts => prevDoubts.map(d =>
-            d.id === doubtId
-                ? { ...d, status: 'Unassigned' }
-                : d
-        ));
+    const handleRestoreDoubt = async (doubtId) => {
+        try {
+            const apiUrl = getApiUrl();
+            await axios.patch(`${apiUrl}/api/grievances/${doubtId}/`, {
+                status: 'Unassigned'
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchDoubts();
+        } catch (error) {
+            console.error('Failed to restore doubt:', error);
+        }
     };
 
     return (
@@ -173,8 +217,10 @@ const AssignDoubt = () => {
                                     }`}
                             />
                         </div>
-                        <button className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
-                            <RefreshCw size={20} />
+                        <button
+                            onClick={fetchDoubts}
+                            className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
+                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
                 </div>
@@ -235,7 +281,10 @@ const AssignDoubt = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
-                                                    <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                        <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
+                                                    </div>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
@@ -259,7 +308,10 @@ const AssignDoubt = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
-                                                    <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                        <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
+                                                    </div>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
@@ -291,7 +343,10 @@ const AssignDoubt = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-4 px-2">
-                                                    <span className="font-bold text-sm tracking-tight">{doubt.student}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                        <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
+                                                    </div>
                                                 </td>
                                                 <td className="py-4 px-2">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
@@ -421,9 +476,24 @@ const AssignDoubt = () => {
 
                         {/* Modal Body */}
                         <div className={`p-8 min-h-[300px] max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-[#1e293b] text-slate-200' : 'bg-white text-slate-700'}`}>
-                            <p className="font-bold text-sm leading-relaxed whitespace-pre-wrap">
-                                {selectedDoubtForView.description}
-                            </p>
+                            <div className="mb-6">
+                                <p className={`text-[10px] font-black uppercase tracking-widest text-orange-500 mb-2`}>Student Query</p>
+                                <p className="font-bold text-sm leading-relaxed whitespace-pre-wrap italic">
+                                    "{selectedDoubtForView.description}"
+                                </p>
+                            </div>
+
+                            <div className={`grid grid-cols-2 gap-4 p-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student</p>
+                                    <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.student}</p>
+                                    <p className={`text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {selectedDoubtForView.studentId || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subject</p>
+                                    <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.subject}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
