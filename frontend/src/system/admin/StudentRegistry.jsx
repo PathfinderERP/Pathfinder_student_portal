@@ -180,7 +180,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <div className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/20">External ERP</div>
-                            <h2 className="text-3xl font-black tracking-tight uppercase">Student <span className="text-orange-500">Registry</span></h2>
+                            <h2 className="text-3xl font-black tracking-tight uppercase bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">Student Registry</h2>
                         </div>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             Pathfinder Admission System live data synchronization.

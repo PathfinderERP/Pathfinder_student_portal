@@ -4,7 +4,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut
+    Target, Book, Zap, Award, LogOut, Bell
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,13 @@ import Attendance from './components/Attendance';
 import Exams from './components/Exams';
 import Performance from './components/Performance';
 import Grievances from './components/Grievances';
+import SWOTAnalysis from './components/SWOTAnalysis';
+import StudyMaterials from './components/StudyMaterials';
+import AdvancedAnalytics from './components/AdvancedAnalytics';
+import AIInsights from './components/AIInsights';
+import StudyPlanner from './components/StudyPlanner';
+import NoticeBoard from './components/NoticeBoard';
+
 
 import PortalLayout from '../../components/common/PortalLayout';
 
@@ -92,7 +99,7 @@ const StudentDashboard = () => {
         { name: 'Advanced Analytics', icon: BarChart2 },
         { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
-        { name: 'Parent Portal', icon: Users },
+        { name: 'Notice Board', icon: Bell },
     ];
 
     const sidebarItems = navItems.map(item => ({
@@ -152,6 +159,19 @@ const StudentDashboard = () => {
                 return <Performance isDarkMode={isDarkMode} />;
             case 'Grievances':
                 return <Grievances isDarkMode={isDarkMode} />;
+            case 'SWOT Analysis':
+                return <SWOTAnalysis isDarkMode={isDarkMode} />;
+            case 'Study Materials':
+                return <StudyMaterials isDarkMode={isDarkMode} />;
+            case 'Advanced Analytics':
+                return <AdvancedAnalytics isDarkMode={isDarkMode} />;
+            case 'AI Insights':
+                return <AIInsights isDarkMode={isDarkMode} />;
+            case 'Study Planner':
+                return <StudyPlanner isDarkMode={isDarkMode} />;
+            case 'Notice Board':
+                return <NoticeBoard isDarkMode={isDarkMode} />;
+
             default:
                 return (
                     <div className={`flex flex-col items-center justify-center h-[60vh] text-center p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-500' : 'bg-white border-slate-100 text-slate-400'}`}>
@@ -180,7 +200,7 @@ const StudentDashboard = () => {
 const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
     const stats = [
         { label: 'ATTENDANCE RATE', value: '92%', subtext: '37 of 40 classes | 3 absences', trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity },
-        { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'emerald', icon: GraduationCap },
+        { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
         { label: 'NEXT EXAM', value: 'PHYSICS', subtext: '5 days | 10:00 AM - 1:00 PM', pill: 'Preparation: 75%', color: 'orange', icon: CalendarDays },
         { label: 'STUDY STREAK', value: '12 days', subtext: 'Keep it up!', pill: 'Avg: 2.5 hrs/day', color: 'purple', icon: Flame },
     ];
@@ -190,19 +210,19 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
                 <div>
-                    <h1 className={`text-3xl md:text-4xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Welcome Back, {student.studentName.split(' ')[0]}! 👋
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                        Welcome Back, {student.studentName.split(' ')[0]}!
                     </h1>
                     <p className={`text-sm md:text-base font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                         Here's your comprehensive learning snapshot & AI-powered insights for today
                     </p>
                 </div>
-                <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border shadow-lg backdrop-blur-md
+                <div className={`flex items-center gap-3 px-5 py-2.5 rounded-[5px] border shadow-lg backdrop-blur-md
                     ${isDarkMode ? 'bg-[#151A25]/80 border-white/10 text-slate-300' : 'bg-white/80 border-slate-200 text-slate-600'}`}>
                     <span className="font-bold">{className}</span>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
+                    <span className={`w-1.5 h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
                     <span className="text-sm">Roll: {rollNo.slice(-3)}</span>
-                    <div className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
+                    <div className={`ml-2 w-8 h-8 rounded-[5px] flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
                         {student.studentName.match(/\b(\w)/g).join('')}
                     </div>
                 </div>
@@ -219,7 +239,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                                 {stat.label}
                             </h3>
                             <div className={`p-2 rounded-[5px] ${stat.color === 'blue' ? 'bg-blue-500/10 text-blue-500' :
-                                stat.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-500' :
+                                stat.color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500' :
                                     stat.color === 'orange' ? 'bg-orange-500/10 text-orange-500' :
                                         'bg-purple-500/10 text-purple-500'
                                 }`}>
@@ -228,7 +248,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         </div>
 
                         <div className={`text-3xl font-black tracking-tight mb-2 ${stat.color === 'blue' ? 'text-blue-500' :
-                            stat.color === 'emerald' ? 'text-emerald-500' :
+                            stat.color === 'indigo' ? 'text-indigo-500' :
                                 stat.color === 'orange' ? 'text-orange-500' :
                                     'text-purple-500'
                             }`}>
@@ -255,8 +275,8 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
 
                         {/* Progress Bar for Attendance/GPA */}
                         {(i === 0 || i === 1) && (
-                            <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${i === 0 ? 'bg-blue-500 w-[92%]' : 'bg-emerald-500 w-[85%]'}`}></div>
+                            <div className="mt-4 h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-[5px] overflow-hidden">
+                                <div className={`h-full rounded-[5px] ${i === 0 ? 'bg-blue-500 w-[92%]' : 'bg-emerald-500 w-[85%]'}`}></div>
                             </div>
                         )}
                     </div>
@@ -309,8 +329,8 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                     {[30, 45, 35, 60, 50, 75, 55, 80].map((h, i) => (
                         <div key={i} className="flex-1 flex flex-col justify-end group">
                             <div
-                                className={`w-full rounded-t-xl transition-all duration-500 hover:opacity-80
-                                ${isDarkMode ? 'bg-cyan-700' : 'bg-[#2A7E8F]'}`}
+                                className={`w-full rounded-t-[5px] transition-all duration-500 hover:opacity-80
+                                ${isDarkMode ? 'bg-indigo-700' : 'bg-indigo-600'}`}
                                 style={{ height: `${h}%` }}
                             ></div>
                         </div>
@@ -328,7 +348,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         <h4 className={`font-bold text-sm ${isDarkMode ? 'text-orange-400' : 'text-orange-900'}`}>Physics Exam Countdown</h4>
                         <p className={`text-xs ${isDarkMode ? 'text-orange-400/70' : 'text-orange-800/70'}`}>Upcoming on Monday, 10:00 AM</p>
                     </div>
-                    <div className="ml-auto px-3 py-1 bg-orange-500 text-white text-[10px] font-bold rounded-full">
+                    <div className="ml-auto px-3 py-1 bg-orange-500 text-white text-[10px] font-bold rounded-[5px]">
                         5 Days Left
                     </div>
                 </div>

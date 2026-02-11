@@ -53,16 +53,16 @@ const Performance = ({ isDarkMode }) => {
             </div>
 
             {/* Subject-wise Performance */}
-            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-6">
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
                     Subject-wise Performance
                 </h3>
                 <div className="space-y-4">
                     {subjects.map((subject, idx) => (
-                        <div key={idx} className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div key={idx} className={`p-5 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getColorGradient(subject.color)} flex items-center justify-center shadow-lg`}>
+                                    <div className={`w-10 h-10 rounded-[5px] bg-gradient-to-br ${getColorGradient(subject.color)} flex items-center justify-center shadow-lg`}>
                                         <span className="text-white font-black text-sm">{subject.name[0]}</span>
                                     </div>
                                     <div>
@@ -82,7 +82,7 @@ const Performance = ({ isDarkMode }) => {
                                 </div>
                             </div>
                             {/* Progress Bar */}
-                            <div className={`h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}>
+                            <div className={`h-2 rounded-[5px] overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}>
                                 <div
                                     className={`h-full bg-gradient-to-r ${getColorGradient(subject.color)}`}
                                     style={{ width: `${subject.score}%` }}
@@ -105,9 +105,9 @@ const StatCard = ({ title, value, icon: Icon, color, isDark }) => {
     };
 
     return (
-        <div className={`p-6 rounded-[2rem] border ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+        <div className={`p-6 rounded-[5px] border ${isDark ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
             <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center shadow-lg`}>
+                <div className={`w-12 h-12 rounded-[5px] bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center shadow-lg`}>
                     <Icon size={24} className="text-white" strokeWidth={2.5} />
                 </div>
             </div>

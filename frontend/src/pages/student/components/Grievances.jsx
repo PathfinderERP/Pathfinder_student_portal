@@ -26,8 +26,8 @@ const Grievances = ({ isDarkMode }) => {
     return (
         <div className="space-y-6">
             {/* Submit New Grievance */}
-            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
                     <Send size={14} className="text-orange-500" /> Submit New Grievance
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -38,7 +38,7 @@ const Grievances = ({ isDarkMode }) => {
                                 type="text"
                                 value={formData.subject}
                                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                                className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all
+                                className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
                                     ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                 placeholder="Enter subject"
                                 required
@@ -49,7 +49,7 @@ const Grievances = ({ isDarkMode }) => {
                             <select
                                 value={formData.category}
                                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all
+                                className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
                                     ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                                 <option>Academic</option>
                                 <option>Facility</option>
@@ -64,7 +64,7 @@ const Grievances = ({ isDarkMode }) => {
                         <select
                             value={formData.priority}
                             onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all
+                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                             <option>Low</option>
                             <option>Medium</option>
@@ -77,7 +77,7 @@ const Grievances = ({ isDarkMode }) => {
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             rows={4}
-                            className={`w-full p-3 rounded-xl border font-bold text-sm outline-none transition-all resize-none
+                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none
                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                             placeholder="Describe your concern in detail..."
                             required
@@ -85,7 +85,7 @@ const Grievances = ({ isDarkMode }) => {
                     </div>
                     <button
                         type="submit"
-                        className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2">
+                        className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2">
                         <Send size={16} />
                         Submit Grievance
                     </button>
@@ -93,13 +93,13 @@ const Grievances = ({ isDarkMode }) => {
             </div>
 
             {/* Previous Grievances */}
-            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
                     <AlertCircle size={14} className="text-blue-500" /> Your Grievances
                 </h3>
                 <div className="space-y-4">
                     {grievances.map((item) => (
-                        <div key={item.id} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div key={item.id} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex items-start justify-between mb-2">
                                 <div>
                                     <h4 className={`font-black text-sm mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -108,14 +108,14 @@ const Grievances = ({ isDarkMode }) => {
                                     <p className="text-xs font-bold opacity-50">{item.category} • {item.date}</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
+                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest
                                         ${item.priority === 'High' ? 'bg-red-500/10 text-red-500' :
                                             item.priority === 'Medium' ? 'bg-orange-500/10 text-orange-500' :
                                                 'bg-blue-500/10 text-blue-500'}`}>
                                         {item.priority}
                                     </span>
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
-                                        ${item.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-500' :
+                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest
+                                        ${item.status === 'Resolved' ? 'bg-indigo-500/10 text-indigo-500' :
                                             item.status === 'In Progress' ? 'bg-orange-500/10 text-orange-500' :
                                                 'bg-slate-500/10 text-slate-500'}`}>
                                         {item.status}

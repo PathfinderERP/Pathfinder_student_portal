@@ -18,13 +18,13 @@ const Exams = ({ isDarkMode }) => {
     return (
         <div className="space-y-6">
             {/* Upcoming Exams */}
-            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
                     <Calendar size={14} className="text-orange-500" /> Upcoming Exams
                 </h3>
                 <div className="space-y-4">
                     {upcomingExams.map((exam, idx) => (
-                        <div key={idx} className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div key={idx} className={`p-5 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex items-start justify-between mb-3">
                                 <div>
                                     <h4 className={`font-black text-base mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -32,7 +32,7 @@ const Exams = ({ isDarkMode }) => {
                                     </h4>
                                     <p className="text-xs font-bold opacity-50">{exam.syllabus}</p>
                                 </div>
-                                <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                <span className="px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest bg-orange-500/10 text-orange-500 border border-orange-500/20">
                                     Upcoming
                                 </span>
                             </div>
@@ -56,13 +56,13 @@ const Exams = ({ isDarkMode }) => {
             </div>
 
             {/* Recent Results */}
-            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
-                    <Award size={14} className="text-emerald-500" /> Recent Results
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">
+                    <Award size={14} className="text-orange-500" /> Recent Results
                 </h3>
                 <div className="space-y-4">
                     {completedExams.map((exam, idx) => (
-                        <div key={idx} className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div key={idx} className={`p-5 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex items-center justify-between mb-3">
                                 <div>
                                     <h4 className={`font-black text-base mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -85,7 +85,7 @@ const Exams = ({ isDarkMode }) => {
                                     <span className="text-xs font-black opacity-70">Rank: #{exam.rank}</span>
                                 </div>
                                 {/* Progress Bar */}
-                                <div className={`flex-1 ml-4 h-2 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}>
+                                <div className={`flex-1 ml-4 h-2 rounded-[5px] overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}>
                                     <div
                                         className="h-full bg-gradient-to-r from-emerald-500 to-green-400"
                                         style={{ width: `${(exam.marks / exam.total) * 100}%` }}
