@@ -127,48 +127,98 @@ class NoticeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Return all public notices AND private notices for this user
-        from django.db.models import Q
-        return Notice.objects.filter(Q(user__isnull=True) | Q(user=self.request.user))
+        # SIMPLIFICATION: usage of Q objects (OR) triggers RecursionError in some Djongo versions.
+        # We will fetch potentially more data and filter in memory if needed, or just prioritize safety.
+        try:
+             # Try the standard OR query first
+            from django.db.models import Q
+            return Notice.objects.filter(Q(user__isnull=True) | Q(user=self.request.user))
+        except Exception:
+            # Fallback: just return all and let the serializer/frontend handle it, 
+            # or return just user's notices to be safe.
+            print("NoticeViewSet: Q-object query failed, falling back to simple filter")
+            return Notice.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
         # Check for upcoming tasks and generate notices
-        if request.user.user_type == 'student':
-            from datetime import datetime, timedelta
-            from django.utils import timezone
-            
-            # Simple timezone aware check
-            now = timezone.now()
-            # Look for tasks starting in the next 30-90 minutes
-            upcoming_tasks = StudyTask.objects.filter(
-                user=request.user,
-                date=now.date(),
-                completed=False
-            )
-            
-            for task in upcoming_tasks:
-                # Combine date and time to compare
-                task_dt = datetime.combine(task.date, task.time)
-                if timezone.is_aware(now):
-                    task_dt = timezone.make_aware(task_dt)
+        try:
+            if request.user.user_type == 'student':
+                from datetime import datetime
+                from django.utils import timezone
                 
-                # If task starts within 30-60 mins
-                time_diff = (task_dt - now).total_seconds() / 60
-                if 0 < time_diff <= 30:
-                    # Check if notice already exists
-                    exists = Notice.objects.filter(
-                        user=request.user,
-                        title=f"Reminder: {task.topic}",
-                        date=now.date()
-                    ).exists()
+                now = timezone.now()
+                # Use a simpler query to avoid Djongo recursion issues
+                # Fetch tasks by date and user first
+                date_tasks = StudyTask.objects.filter(
+                    user=request.user,
+                    date=now.date()
+                )
+                
+                # In-memory filtering (safe from Djongo parser bugs)
+                upcoming_tasks = [t for t in date_tasks if not t.completed]
+                
+                for task in upcoming_tasks:
+                    # Combine date and time to compare
+                    task_dt = datetime.combine(task.date, task.time)
+                    if timezone.is_aware(now):
+                        try:
+                            # Try to make it timezone aware, assuming simple default
+                            from django.utils.timezone import make_aware
+                            task_dt = make_aware(task_dt)
+                        except:
+                            # Fallback if already aware or other issue
+                            pass
                     
-                    if not exists:
-                        Notice.objects.create(
+                    # Calculate difference in minutes
+                    # Ensure both are offset-aware or offset-naive before subtracting
+                    if task_dt.tzinfo is None and now.tzinfo is not None:
+                         # Make task_dt aware
+                         from django.utils.timezone import make_aware
+                         # Provide a default timezone if unexpected
+                         task_dt = make_aware(task_dt, timezone.get_current_timezone())
+                    elif task_dt.tzinfo is not None and now.tzinfo is None:
+                         # removing tz from task_dt
+                         task_dt = task_dt.replace(tzinfo=None)
+                         
+                    time_diff = (task_dt - now).total_seconds() / 60
+                    
+                    if 0 < time_diff <= 30:
+                        # Check if notice already exists
+                        exists = Notice.objects.filter(
                             user=request.user,
                             title=f"Reminder: {task.topic}",
-                            content=f"Your study session for '{task.subject} - {task.topic}' starts in {int(time_diff)} minutes.",
-                            category='System',
-                            is_new=True
-                        )
+                            date=now.date()
+                        ).exists()
+                        
+                        if not exists:
+                            Notice.objects.create(
+                                user=request.user,
+                                title=f"Reminder: {task.topic}",
+                                content=f"Your study session for '{task.subject} - {task.topic}' starts in {int(time_diff)} minutes.",
+                                category='System',
+                                is_new=True
+                            )
+        except Exception as e:
+            # Catch errors silently so the notice board still loads even if reminder gen fails
+            print(f"Error generating study reminders: {e}")
 
-        return super().list(request, *args, **kwargs)
-
+        # MANUALLY COMBINE PUBLIC AND PRIVATE NOTICES
+        # This avoids the OR query (Q objects) which triggers RecursionError in Djongo
+        try:
+            public_notices = list(Notice.objects.filter(user__isnull=True))
+            user_notices = list(Notice.objects.filter(user=request.user))
+            all_notices = public_notices + user_notices
+            
+            # Sort manually if needed (e.g. by created_at desc)
+            # Assuming created_at exists, otherwise skip sort or inspect model
+            try:
+                all_notices.sort(key=lambda x: x.created_at, reverse=True)
+            except AttributeError:
+                pass # Model might not have created_at
+            
+            serializer = self.get_serializer(all_notices, many=True)
+            return response.Response(serializer.data)
+        except Exception as e:
+            # Last resort fallback if manual combo fails
+            print(f"Error manually combining notices: {e}")
+            return response.Response([])

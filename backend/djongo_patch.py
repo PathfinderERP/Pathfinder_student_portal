@@ -3,14 +3,12 @@ import re
 import logging
 
 # Configure logging to see what's happening
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR) # Changed to ERROR to reduce noise, but ensure errors are seen
 logger = logging.getLogger(__name__)
 
 def apply_djongo_patches():
     """
     Djongo Monkeypatches for Django 4.x + MongoDB Compatibility.
-    Fixes the 'RETURNING' clause issue and values being incorrectly parsed as None.
-    Also handles UPDATE queries where table alias prefixes cause issues.
     """
     try:
         import djongo.cursor as djongo_cursor
@@ -18,7 +16,7 @@ def apply_djongo_patches():
     except ImportError:
         return
 
-    # Store the original execute method if not already stored
+    # Store the original execute method
     Cursor = djongo_cursor.Cursor
     if not hasattr(Cursor, '_original_execute'):
         Cursor._original_execute = Cursor.execute
@@ -26,53 +24,52 @@ def apply_djongo_patches():
     _original_execute = Cursor._original_execute
 
     def patched_execute(self, sql, params=None):
+        # 0. Tuple Unwrapping for SQL
+        # Sometimes Django/Djongo/Wrappers pass SQL as a single-item tuple ('UPDATE...', )
+        if isinstance(sql, (list, tuple)) and len(sql) > 0:
+            # logger.warning(f"SQL passed as tuple/list: {type(sql)}")
+            sql = sql[0] # Unwrap it
+
         if isinstance(sql, str):
-            # 1. Basic Cleanup: Remove quotes and backticks
+            # 1. Basic Cleanup
             sql = sql.replace('"', '').replace('`', '')
-            
-            # 2. Remove RETURNING clause (common in Django 4.x)
             sql = re.sub(r'\s+RETURNING\s+.*$', '', sql, flags=re.IGNORECASE)
             
-            # 3. Handle UDPATE queries specifically
+            # 3. Handle UPDATE queries
             if sql.strip().upper().startswith('UPDATE'):
-                # PROBLEM 1: Table Aliasing in WHERE clause
-                # Django 4.x: WHERE "api_studytask"."id" = %s
-                # Djongo 1.3.6: Expected WHERE "id" = %s
-                # Fix: Remove table prefix before .id
+                # Strip table aliases in WHERE: WHERE api_studytask.id = ... -> WHERE id = ...
                 sql = re.sub(r'WHERE\s+[\w\d_]+\.id\s*=', 'WHERE id =', sql, flags=re.IGNORECASE)
-                
-            # 4. Handle Placeholder Syntax Mismatch
-            # Django sometimes generates %(0)s placeholders, but we receive tuple params
-            # Convert %(0)s, %(1)s... to %s
-            if re.search(r'%\(\d+\)s', sql):
+
+            # 4. Handle Placeholder Syntax Mismatch (%(0)s -> %s)
+            has_named_placeholders = bool(re.search(r'%\(\d+\)s', sql))
+            if has_named_placeholders:
                 sql = re.sub(r'%\(\d+\)s', '%s', sql)
-                
+
             # 5. Normalize whitespace
             sql = ' '.join(sql.split())
 
-        # 6. Handle Parameter Nesting Issue
-        # Sometimes Django wraps the params tuple inside another tuple (params=((val1, val2...),))
-        # But if we converted placeholders to %s, we need a flat tuple: (val1, val2...)
-        if params and isinstance(params, (list, tuple)) and len(params) == 1 and isinstance(params[0], (list, tuple)):
-            # Check if the inner tuple has multiple items, suggesting it was wrapped
-            if len(params[0]) > 1:
-                # Unwrap it
-                params = params[0]
-            
+        # 6. Handle Parameter Nesting
+        # Un-nest params if they are wrapped in an extra tuple: ((a,b,c),) -> (a,b,c)
+        if params and isinstance(params, (list, tuple)) and len(params) == 1:
+            first_item = params[0]
+            if isinstance(first_item, (list, tuple)):
+                # It's an inner sequence. Use it as params.
+                params = first_item
+        
         try:
             return _original_execute(self, sql, params)
         except Exception as e:
-            logger.error(f"Djongo Execution Failed: {e}")
-            logger.error(f"Failed SQL: {sql}")
-            logger.error(f"Params type: {type(params)}")
-            logger.error(f"Params: {params}")
+            # Explicitly print to stderr because logger might be configured weirdly in Django
+            # err_msg = f"\n[DJONGO PATCH ERROR]\nSQL: {sql}\nParams: {params}\nError: {e}\n"
+            # sys.stderr.write(err_msg)
+            
+            # Still raise it so Django knows something failed
             raise e
             
-    # Apply the patch
     Cursor.execute = patched_execute
-    print("Djongo Cursor patch successfully applied (Aggressive Mode v2)")
+    print("Djongo Cursor patch successfully applied (Tuple Fix v4)")
 
-    # 2. Patch InsertQuery to correctly extract columns and values
+    # Patch InsertQuery
     InsertQuery = djongo_query.InsertQuery
     if not hasattr(InsertQuery, '_is_patched'):
         def robust_columns(self, statement):
