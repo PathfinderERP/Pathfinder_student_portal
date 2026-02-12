@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Filter, BookOpen, Download, Eye, FileText, ChevronRight, GraduationCap, Loader2, X, Maximize2, Minimize2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -15,11 +15,7 @@ const StudyMaterials = ({ isDarkMode }) => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
 
-    useEffect(() => {
-        fetchMaterials();
-    }, []);
-
-    const fetchMaterials = async () => {
+    const fetchMaterials = useCallback(async () => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
@@ -40,15 +36,23 @@ const StudyMaterials = ({ isDarkMode }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [getApiUrl, token]);
 
-    const subjects = ['All', ...new Set(materials.map(m => m.subject_name).filter(Boolean))];
+    useEffect(() => {
+        fetchMaterials();
+    }, [fetchMaterials]);
 
-    const filteredMaterials = materials.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesSubject = activeSubject === 'All' || item.subject_name === activeSubject;
-        return matchesSearch && matchesSubject;
-    });
+    const subjects = useMemo(() => {
+        return ['All', ...new Set(materials.map(m => m.subject_name).filter(Boolean))];
+    }, [materials]);
+
+    const filteredMaterials = useMemo(() => {
+        return materials.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSubject = activeSubject === 'All' || item.subject_name === activeSubject;
+            return matchesSearch && matchesSubject;
+        });
+    }, [materials, searchQuery, activeSubject]);
 
     return (
         <div className="space-y-8 animate-fade-in-up">
