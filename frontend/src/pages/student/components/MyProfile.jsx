@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award, CreditCard, CheckCircle, Activity } from 'lucide-react';
 
 const MyProfile = ({ isDarkMode, studentData }) => {
     const details = studentData?.student?.studentsDetails?.[0] || {};
@@ -112,6 +112,81 @@ const MyProfile = ({ isDarkMode, studentData }) => {
                     </div>
                 </div>
             )}
+
+            {/* Course & Admission Details */}
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <BookOpen size={14} className="text-indigo-500" /> Current Course
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InfoField label="Course Name" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth />
+                    <InfoField label="Session" value={studentData?.course?.courseSession} icon={Calendar} isDark={isDarkMode} />
+                    <InfoField label="Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} />
+                    <InfoField label="Admission No" value={studentData?.admissionNumber} icon={Award} isDark={isDarkMode} />
+                    <InfoField label="Admission Date" value={studentData?.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A'} icon={Calendar} isDark={isDarkMode} />
+                    <InfoField label="Status" value={studentData?.admissionStatus} icon={CheckCircle} isDark={isDarkMode} />
+                </div>
+            </div>
+
+            {/* Fee & Payment Details */}
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <CreditCard size={14} className="text-emerald-500" /> Fee Payment Status
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Total Fees</p>
+                        <p className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            ₹{Math.round(studentData?.totalFees || 0).toLocaleString()}
+                        </p>
+                    </div>
+                    <div className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Paid Amount</p>
+                        <p className={`text-xl font-black ${isDarkMode ? 'text-emerald-500' : 'text-emerald-700'}`}>
+                            ₹{Math.round(studentData?.totalPaidAmount || 0).toLocaleString()}
+                        </p>
+                    </div>
+                    <div className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>Detailed Balance</p>
+                        <p className={`text-xl font-black ${isDarkMode ? 'text-red-500' : 'text-red-700'}`}>
+                            ₹{Math.round(studentData?.remainingAmount || 0).toLocaleString()}
+                        </p>
+                    </div>
+                </div>
+
+                {studentData?.paymentBreakdown?.length > 0 && (
+                    <div className="space-y-4">
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Installment Breakdown</h4>
+                        {studentData.paymentBreakdown.map((inst, idx) => (
+                            <div key={idx} className={`p-4 rounded-[5px] border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Installment {inst.installmentNumber}</span>
+                                        <span className={`text-[8px] px-2 py-0.5 rounded-[3px] font-black uppercase ${inst.status === 'PAID'
+                                            ? (isDarkMode ? 'bg-emerald-500/20 text-emerald-500' : 'bg-emerald-100 text-emerald-700')
+                                            : (isDarkMode ? 'bg-orange-500/20 text-orange-500' : 'bg-orange-100 text-orange-700')
+                                            }`}>
+                                            {inst.status}
+                                        </span>
+                                    </div>
+                                    <p className={`text-[10px] font-medium ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>
+                                        Due: {new Date(inst.dueDate).toLocaleDateString()}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>₹{inst.amount.toLocaleString()}</p>
+                                    {inst.paidDate && (
+                                        <p className={`text-[10px] font-medium ${isDarkMode ? 'text-emerald-500' : 'text-emerald-600'}`}>
+                                            Paid on {new Date(inst.paidDate).toLocaleDateString()}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import MyProfile from './components/MyProfile';
 import Attendance from './components/Attendance';
+import Classes from './components/Classes';
 import Exams from './components/Exams';
 import Performance from './components/Performance';
 import Grievances from './components/Grievances';
@@ -35,33 +36,23 @@ const StudentDashboard = () => {
     // Fetch Student Data from backend API (which proxies to ERP)
     useEffect(() => {
         const fetchStudentData = async () => {
-            // Wait for auth to finish loading
             if (authLoading) return;
-
             if (!user) {
                 setLoading(false);
                 return;
             }
-
             setLoading(true);
             setError(null);
-
             try {
                 const apiUrl = getApiUrl();
-
                 if (!token) {
                     setError("Authentication required. Please log in again.");
                     setLoading(false);
                     return;
                 }
-
-                // Call our backend API which handles ERP communication
                 const response = await axios.get(`${apiUrl}/api/student/erp-data/`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-
                 if (response.data) {
                     setStudentData(response.data);
                 } else {
@@ -69,7 +60,6 @@ const StudentDashboard = () => {
                 }
             } catch (err) {
                 console.error("Error fetching student data:", err);
-
                 if (err.response?.status === 404) {
                     setError("Your student record could not be found. Please contact support.");
                 } else if (err.response?.status === 503) {
@@ -83,13 +73,13 @@ const StudentDashboard = () => {
                 setLoading(false);
             }
         };
-
         fetchStudentData();
     }, [user, token, getApiUrl, authLoading]);
 
     const navItems = [
         { name: 'Dashboard', icon: LayoutDashboard },
         { name: 'My Profile', icon: User },
+        { name: 'Classes', icon: CalendarDays },
         { name: 'Attendance', icon: CheckSquare },
         { name: 'Exams', icon: FileText },
         { name: 'Performance', icon: TrendingUp },
@@ -140,7 +130,6 @@ const StudentDashboard = () => {
     }
 
     // Extract Details safely
-    // Since we found the admission object, we grab basic info
     const basicInfo = studentData.student.studentsDetails.find(d => (user.email && d.studentEmail?.toLowerCase() === user.email.toLowerCase()) || d.studentEmail?.toLowerCase() === user.username.toLowerCase()) || studentData.student.studentsDetails[0];
     const rollNo = studentData.admissionNumber || "N/A";
     const classNameValue = studentData.class?.name || "N/A";
@@ -151,6 +140,8 @@ const StudentDashboard = () => {
                 return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} />;
             case 'My Profile':
                 return <MyProfile isDarkMode={isDarkMode} studentData={studentData} />;
+            case 'Classes':
+                return <Classes isDarkMode={isDarkMode} />;
             case 'Attendance':
                 return <Attendance isDarkMode={isDarkMode} />;
             case 'Exams':
