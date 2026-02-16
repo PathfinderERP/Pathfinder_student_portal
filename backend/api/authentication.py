@@ -27,92 +27,102 @@ class ERPStudentBackend(BaseBackend):
         except CustomUser.DoesNotExist:
             user = None
 
-        # 2. ERP Authentication Logic
         try:
-            # A. Login as SuperAdmin to get Token (to search students)
-            erp_url = "https://pathfinder-5ri2.onrender.com" # Should useenv variable
-            # Use hardcoded superadmin for now as per previous context
+            import os
+            from django.core.cache import cache
+
+            # Clean inputs
+            if username:
+                username = username.strip().lower()
+            if password:
+                password = password.strip()
+
+            print(f"Attempting ERP Student Login for: {username}")
+            erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in')
+            
+            # Payload for Student Portal Login
+            # Based on testing, 'username' and 'password' work
             auth_payload = {
-                "email": "atanu@gmail.com",
-                "password": "000000"
+                "username": username,
+                "password": password
             }
             
-            # Simple timeout to prevent hanging
-            token_resp = requests.post(f"{erp_url}/api/superAdmin/login", json=auth_payload, timeout=10)
-            
-            if token_resp.status_code != 200:
-                print(f"ERP Admin Login Failed: {token_resp.status_code}")
-                return None
+            # Try login
+            login_url = f"{erp_url}/api/student-portal/login"
+            try:
+                # Login directly as student
+                resp = requests.post(login_url, json=auth_payload, timeout=20)
                 
-            token = token_resp.json().get('token')
-            if not token:
-                return None
-
-            # B. Fetch Admission List
-            headers = {"Authorization": f"Bearer {token}"}
-            # Note: Fetching all is inefficient, but 'api/admission' is what we have.
-            valid_student = None
-            
-            # We need to loop because we don't know if pagination exists, 
-            # but assuming the endpoint returns full list or we just check first page.
-            # If the user list is huge, we really need a search endpoint.
-            # Assuming 'api/admission' returns list.
-            
-            admission_resp = requests.get(f"{erp_url}/api/admission", headers=headers, timeout=15)
-            
-            if admission_resp.status_code == 200:
-                admissions = admission_resp.json()
-                
-                # C. Find Student
-                # Logic: student.studentsDetails[0].studentEmail == username (ignoring case)
-                for admission in admissions:
-                    student_info = admission.get('student', {})
-                    details_list = student_info.get('studentsDetails', [])
+                if resp.status_code == 200:
+                    data = resp.json()
+                    erp_token = data.get('token')
+                    student_data = data.get('student', {})
                     
-                    found = False
-                    for detail in details_list:
-                        email = detail.get('studentEmail', '')
-                        if email and email.lower() == username.lower():
-                            found = True
-                            # D. Verify Password (Admission Number)
-                            # The 'password' arg passed to this function is what the user typed.
-                            # We expect it to match admission.admissionNumber
-                            
-                            erp_admission_number = admission.get('admissionNumber')
-                            
-                            if erp_admission_number == password:
-                                valid_student = {
-                                    'username': email,
-                                    'first_name': detail.get('studentName', '').split(' ')[0],
-                                    'last_name': ' '.join(detail.get('studentName', '').split(' ')[1:]),
-                                    'password': password # Use admission number as local password too
-                                }
-                            break
-                    if valid_student:
-                        break
+                    if erp_token:
+                        print(f"ERP Login Successful for {username}")
+                        
+                        # Extract Name if available
+                        first_name = 'Student'
+                        last_name = ''
+                        try:
+                            details = student_data.get('studentsDetails', [])
+                            if details and hasattr(details, '__iter__') and len(details) > 0:
+                                name = details[0].get('studentName', '')
+                                if name:
+                                    parts = name.strip().split(' ')
+                                    first_name = parts[0]
+                                    last_name = ' '.join(parts[1:])
+                        except Exception as e:
+                            print(f"Error parsing name: {e}")
 
-            # 3. Create or Update Local User
-            if valid_student:
-                if user:
-                    # Update existing user's password to match ERP (so next time ModelBackend works)
-                    user.set_password(valid_student['password'])
-                    user.save()
+                        # Create or Update Local User
+                        try:
+                            user = CustomUser.objects.get(username=username)
+                            # Update password logic is handled by ModelBackend usually, 
+                            # but we ensure it matches ERP here
+                            if not user.check_password(password):
+                                user.set_password(password)
+                                user.save()
+                                print(f"Updated local password for {username}")
+                        except CustomUser.DoesNotExist:
+                            print(f"Creating new local user for {username}")
+                            user = CustomUser.objects.create_user(
+                                username=username,
+                                email=username,
+                                password=password,
+                                first_name=first_name,
+                                last_name=last_name,
+                                user_type='student'
+                            )
+                        
+                        # CACHE THE TOKEN for use in views
+                        cache_key = f"erp_token_{user.pk}"
+                        # Cache for 24 hours (86400s)
+                        cache.set(cache_key, erp_token, timeout=86400)
+                        print(f"Cached ERP token for user {user.pk}")
+                        
+                        return user
                 else:
-                    # Create new user
-                    user = CustomUser.objects.create_user(
-                        username=valid_student['username'],
-                        email=valid_student['username'],
-                        password=valid_student['password'],
-                        first_name=valid_student['first_name'],
-                        last_name=valid_student['last_name'],
-                        user_type='student'
-                    )
-                return user
+                    print(f"ERP Login Failed: {resp.status_code} - {resp.text[:100]}")
+                    return None
 
+            except Exception as e:
+                print(f"Error during ERP login request: {e}")
+                return None
+                
         except Exception as e:
             print(f"ERP Backend Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+                
+        except Exception as e:
+            print(f"ERP Backend Error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
+        print(f"Authentication failed for username: {username}")
         return None
 
     def get_user(self, user_id):

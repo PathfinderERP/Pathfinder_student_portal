@@ -33,6 +33,11 @@ const StudentDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Data Caching for Tabs
+    const [classesCache, setClassesCache] = useState({ data: [], loaded: false });
+    const [attendanceCache, setAttendanceCache] = useState({ data: null, loaded: false });
+    const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
+
     // Fetch Student Data from backend API (which proxies to ERP)
     useEffect(() => {
         const fetchStudentData = async () => {
@@ -141,9 +146,9 @@ const StudentDashboard = () => {
             case 'My Profile':
                 return <MyProfile isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Classes':
-                return <Classes isDarkMode={isDarkMode} />;
+                return <Classes isDarkMode={isDarkMode} cache={classesCache} setCache={setClassesCache} />;
             case 'Attendance':
-                return <Attendance isDarkMode={isDarkMode} />;
+                return <Attendance isDarkMode={isDarkMode} cache={attendanceCache} setCache={setAttendanceCache} />;
             case 'Exams':
                 return <Exams isDarkMode={isDarkMode} />;
             case 'Performance':
@@ -153,7 +158,7 @@ const StudentDashboard = () => {
             case 'SWOT Analysis':
                 return <SWOTAnalysis isDarkMode={isDarkMode} />;
             case 'Study Materials':
-                return <StudyMaterials isDarkMode={isDarkMode} />;
+                return <StudyMaterials isDarkMode={isDarkMode} cache={studyMaterialsCache} setCache={setStudyMaterialsCache} />;
             case 'Advanced Analytics':
                 return <AdvancedAnalytics isDarkMode={isDarkMode} />;
             case 'AI Insights':

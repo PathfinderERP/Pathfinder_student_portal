@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Filter, BookOpen, Download, Eye, FileText, ChevronRight, GraduationCap, Loader2, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, Filter, BookOpen, Download, Eye, FileText, ChevronRight, GraduationCap, Loader2, X, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
-const StudyMaterials = ({ isDarkMode }) => {
+const StudyMaterials = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
-    const [materials, setMaterials] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+
+    // Initialize from cache if available
+    const [materials, setMaterials] = useState(cache?.loaded ? cache.data : []);
+    const [isLoading, setIsLoading] = useState(!cache?.loaded);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSubject, setActiveSubject] = useState('All');
 
@@ -15,32 +18,64 @@ const StudyMaterials = ({ isDarkMode }) => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
 
-    const fetchMaterials = useCallback(async () => {
-        setIsLoading(true);
+    const fetchMaterials = useCallback(async (isBackground = false) => {
+        if (!isBackground) setIsLoading(true);
+
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/master-data/library/`, {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
             });
-            setMaterials(response.data);
+
+            const data = response.data;
+
+            // Deep compare to avoid unnecessary re-renders
+            const prevData = cache?.loaded ? cache.data : materials;
+            if (JSON.stringify(data) !== JSON.stringify(prevData)) {
+                setMaterials(data);
+                if (setCache) {
+                    setCache({ data: data, loaded: true });
+                }
+            }
+
         } catch (error) {
             console.error("Failed to fetch study materials", error);
             // Fallback to mock data if API fails or for demo
-            setMaterials([
+
+            const mockData = [
                 { id: 1, name: 'Physics Module: Kinematics', subject_name: 'Physics', description: 'Comprehensive guide covering 1D and 2D motion with practice problems.', thumbnail: null, pdf_file: '#' },
                 { id: 2, name: 'Organic Chemistry: Basics', subject_name: 'Chemistry', description: 'Introduction to carbon compounds and functional groups.', thumbnail: null, pdf_file: '#' },
                 { id: 3, name: 'Calculus: Integration Techniques', subject_name: 'Mathematics', description: 'Advanced methods for solving complex integrals.', thumbnail: null, pdf_file: '#' },
                 { id: 4, name: 'Biology: Cell Structure', subject_name: 'Biology', description: 'Detailed analysis of plant and animal cell components.', thumbnail: null, pdf_file: '#' },
                 { id: 5, name: 'Modern Physics Notes', subject_name: 'Physics', description: 'Key concepts of quantum mechanics and relativity.', thumbnail: null, pdf_file: '#' },
-            ]);
+            ];
+
+            const prevData = cache?.loaded ? cache.data : materials;
+            if (JSON.stringify(mockData) !== JSON.stringify(prevData)) {
+                setMaterials(mockData);
+                if (setCache) {
+                    setCache({ data: mockData, loaded: true });
+                }
+            }
+
+            if (!isBackground) {
+                // Only show toast error on manual refresh, not background sync
+                // toast.error("Loaded demo content");
+            }
+
         } finally {
-            setIsLoading(false);
+            if (!isBackground) setIsLoading(false);
         }
-    }, [getApiUrl, token]);
+    }, [getApiUrl, token, cache, setCache, materials]);
 
     useEffect(() => {
-        fetchMaterials();
-    }, [fetchMaterials]);
+        if (!cache?.loaded) {
+            fetchMaterials(false);
+        } else {
+            // Background sync on mount
+            fetchMaterials(true);
+        }
+    }, [fetchMaterials, cache?.loaded]);
 
     const subjects = useMemo(() => {
         return ['All', ...new Set(materials.map(m => m.subject_name).filter(Boolean))];
@@ -73,15 +108,19 @@ const StudyMaterials = ({ isDarkMode }) => {
                         </p>
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 items-center">
                         <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                             <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Total Resources</p>
                             <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{materials.length}</p>
                         </div>
-                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Subjects</p>
-                            <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{subjects.length - 1}</p>
-                        </div>
+                        <button
+                            onClick={() => fetchMaterials(false)}
+                            disabled={isLoading}
+                            className={`p-4 rounded-[5px] transition-all active:scale-95 border ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700'}`}
+                            title="Sync Library"
+                        >
+                            <RefreshCw size={24} className={isLoading ? "animate-spin" : ""} />
+                        </button>
                     </div>
                 </div>
 

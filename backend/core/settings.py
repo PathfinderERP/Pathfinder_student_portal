@@ -146,8 +146,8 @@ else:
 
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
     'api.authentication.ERPStudentBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 # Password validation
