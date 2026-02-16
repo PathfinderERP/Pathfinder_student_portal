@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-    Database, AlertCircle, MapPin, Mail, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye
+    Database, AlertCircle, MapPin, Mail, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Search, Filter, X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -27,6 +27,22 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
     const [loadedCount, setLoadedCount] = useState(0);
     const INITIAL_LOAD = 50;
     const LOAD_INCREMENT = 50;
+
+    // Search and Filter state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        course: '',
+        status: '',
+        centre: ''
+    });
+    const [showFilters, setShowFilters] = useState(false);
+    const [filteredStudents, setFilteredStudents] = useState([]);
+
+    // Drag to scroll state
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+    const tableRef = React.useRef(null);
 
     // Handle items per page change
     const handleItemsPerPageChange = (newItemsPerPage) => {
@@ -117,8 +133,67 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [isLoadingMore, loadedCount, allStudents.length, loadMoreData]);
 
+    // Apply search and filters
+    useEffect(() => {
+        let result = [...allStudents];
+
+        // Apply search query
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            result = result.filter(std => {
+                const name = (std.student?.studentsDetails?.[0]?.studentName || std.studentName || '').toLowerCase();
+                const email = (std.student?.studentsDetails?.[0]?.studentEmail || '').toLowerCase();
+                const enrollmentNum = (std.admissionNumber || '').toLowerCase();
+                const mobile = (std.student?.studentsDetails?.[0]?.mobileNum || '').toLowerCase();
+
+                return name.includes(query) ||
+                    email.includes(query) ||
+                    enrollmentNum.includes(query) ||
+                    mobile.includes(query);
+            });
+        }
+
+        // Apply course filter
+        if (filters.course) {
+            result = result.filter(std =>
+                (std.course?.courseName || '').toLowerCase().includes(filters.course.toLowerCase())
+            );
+        }
+
+        // Apply status filter
+        if (filters.status) {
+            result = result.filter(std =>
+                (std.admissionStatus || '').toLowerCase() === filters.status.toLowerCase()
+            );
+        }
+
+        // Apply centre filter
+        if (filters.centre) {
+            result = result.filter(std =>
+                (std.centre || '').toLowerCase().includes(filters.centre.toLowerCase())
+            );
+        }
+
+        setFilteredStudents(result);
+        setCurrentPage(1); // Reset to first page when filters change
+        setTotalPages(Math.ceil(result.length / itemsPerPage));
+    }, [searchQuery, filters, allStudents, itemsPerPage]);
+
+    // Get unique values for filter dropdowns
+    const uniqueCourses = [...new Set(allStudents.map(std => std.course?.courseName).filter(Boolean))];
+    const uniqueStatuses = [...new Set(allStudents.map(std => std.admissionStatus).filter(Boolean))];
+    const uniqueCentres = [...new Set(allStudents.map(std => std.centre).filter(Boolean))];
+
+    // Clear all filters
+    const clearFilters = () => {
+        setSearchQuery('');
+        setFilters({ course: '', status: '', centre: '' });
+    };
+
+    const hasActiveFilters = searchQuery || filters.course || filters.status || filters.centre;
+
     // Paginate displayed students
-    const paginatedStudents = displayedStudents.slice(
+    const paginatedStudents = filteredStudents.slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
@@ -145,6 +220,38 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
             goToPage(page);
             setJumpToPage('');
         }
+    };
+
+    // Drag to scroll handlers
+    const handleMouseDown = (e) => {
+        if (!tableRef.current) return;
+        setIsDragging(true);
+        setStartX(e.pageX - tableRef.current.offsetLeft);
+        setScrollLeft(tableRef.current.scrollLeft);
+        tableRef.current.style.cursor = 'grabbing';
+        tableRef.current.style.userSelect = 'none';
+    };
+
+    const handleMouseLeave = () => {
+        if (!tableRef.current) return;
+        setIsDragging(false);
+        tableRef.current.style.cursor = 'grab';
+        tableRef.current.style.userSelect = 'auto';
+    };
+
+    const handleMouseUp = () => {
+        if (!tableRef.current) return;
+        setIsDragging(false);
+        tableRef.current.style.cursor = 'grab';
+        tableRef.current.style.userSelect = 'auto';
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging || !tableRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - tableRef.current.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll speed multiplier
+        tableRef.current.scrollLeft = scrollLeft - walk;
     };
 
     if (isLoading) return (
@@ -196,7 +303,131 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto custom-scrollbar">
+                {/* Search and Filter Section */}
+                <div className="mb-8 space-y-4">
+                    {/* Search Bar */}
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1 relative">
+                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
+                            <input
+                                type="text"
+                                placeholder="Search by name, email, enrollment number, or mobile..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`w-full pl-12 pr-4 py-3 rounded-[5px] text-sm font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-slate-600' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'}`}
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className={`absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full transition-all hover:scale-110 ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                                >
+                                    <X size={16} className="opacity-50" />
+                                </button>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`px-6 py-3 rounded-[5px] text-sm font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${showFilters ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' : isDarkMode ? 'bg-white/5 text-white hover:bg-white/10 border border-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
+                        >
+                            <Filter size={16} />
+                            Filters
+                            {hasActiveFilters && !showFilters && (
+                                <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-[10px]">
+                                    {[searchQuery, filters.course, filters.status, filters.centre].filter(Boolean).length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Filter Dropdowns */}
+                    {showFilters && (
+                        <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Course Filter */}
+                                <div>
+                                    <label className={`block text-xs font-bold mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                        Course
+                                    </label>
+                                    <select
+                                        value={filters.course}
+                                        onChange={(e) => setFilters({ ...filters, course: e.target.value })}
+                                        className={`w-full px-4 py-2.5 rounded-[5px] text-sm font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white [&>option]:bg-[#10141D] [&>option]:text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                    >
+                                        <option value="">All Courses</option>
+                                        {uniqueCourses.map((course, idx) => (
+                                            <option key={idx} value={course}>{course}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Status Filter */}
+                                <div>
+                                    <label className={`block text-xs font-bold mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                        Status
+                                    </label>
+                                    <select
+                                        value={filters.status}
+                                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                        className={`w-full px-4 py-2.5 rounded-[5px] text-sm font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white [&>option]:bg-[#10141D] [&>option]:text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                    >
+                                        <option value="">All Statuses</option>
+                                        {uniqueStatuses.map((status, idx) => (
+                                            <option key={idx} value={status}>{status}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Centre Filter */}
+                                <div>
+                                    <label className={`block text-xs font-bold mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                        Centre
+                                    </label>
+                                    <select
+                                        value={filters.centre}
+                                        onChange={(e) => setFilters({ ...filters, centre: e.target.value })}
+                                        className={`w-full px-4 py-2.5 rounded-[5px] text-sm font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${isDarkMode ? 'bg-white/5 border-white/10 text-white [&>option]:bg-[#10141D] [&>option]:text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                    >
+                                        <option value="">All Centres</option>
+                                        {uniqueCentres.map((centre, idx) => (
+                                            <option key={idx} value={centre}>{centre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Clear Filters Button */}
+                            {hasActiveFilters && (
+                                <div className="flex justify-end pt-2">
+                                    <button
+                                        onClick={clearFilters}
+                                        className={`px-4 py-2 rounded-[5px] text-xs font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'}`}
+                                    >
+                                        <X size={14} />
+                                        Clear All Filters
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Results Summary */}
+                    {hasActiveFilters && (
+                        <div className={`px-4 py-2 rounded-[5px] text-sm font-medium flex items-center gap-2 ${isDarkMode ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>
+                            <Database size={16} />
+                            Showing {filteredStudents.length} of {allStudents.length} students
+                        </div>
+                    )}
+                </div>
+
+                <div
+                    ref={tableRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                    className="overflow-x-auto custom-scrollbar cursor-grab active:cursor-grabbing"
+                    style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                >
                     <table className="w-full text-left">
                         <thead>
                             <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
@@ -299,8 +530,13 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                             {/* Page Info */}
                             <div className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                 Showing <span className="text-orange-500 font-black">{((currentPage - 1) * itemsPerPage) + 1}</span> to{' '}
-                                <span className="text-orange-500 font-black">{Math.min(currentPage * itemsPerPage, displayedStudents.length)}</span> of{' '}
-                                <span className="text-orange-500 font-black">{allStudents.length}</span> records
+                                <span className="text-orange-500 font-black">{Math.min(currentPage * itemsPerPage, filteredStudents.length)}</span> of{' '}
+                                <span className="text-orange-500 font-black">{filteredStudents.length}</span> records
+                                {hasActiveFilters && (
+                                    <span className={`ml-2 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        (filtered from {allStudents.length})
+                                    </span>
+                                )}
                             </div>
                         </div>
 

@@ -1,11 +1,18 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { X, User, MapPin, Phone, Mail, BookOpen, Calendar, DollarSign, Activity, FileText, Layers, Award, Clock } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 const StudentDetailView = ({ student, onClose }) => {
     const { isDarkMode } = useTheme();
 
-    if (!student) return null;
+    // Debug logging
+    console.log('StudentDetailView - Received student data:', student);
+
+    if (!student) {
+        console.warn('StudentDetailView - No student data provided');
+        return null;
+    }
 
     // Helper to extract nested data safely
     const details = student?.student?.studentsDetails?.[0] || {};
@@ -13,11 +20,18 @@ const StudentDetailView = ({ student, onClose }) => {
     const paymentBreakdown = student?.paymentBreakdown || [];
     const feeStructure = student?.feesStructure || student?.feeStructureSnapshot || [];
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
+    console.log('StudentDetailView - Extracted details:', { details, course, paymentBreakdown, feeStructure });
 
-            <div className={`relative w-full max-w-5xl h-[90vh] overflow-hidden rounded-[5px] border shadow-2xl flex flex-col animate-in zoom-in duration-300
+    const modalContent = (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+            {/* Backdrop */}
+            <div
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+                onClick={onClose}
+            />
+
+            {/* Modal Content */}
+            <div className={`relative z-10 w-full max-w-5xl h-[90vh] overflow-hidden rounded-[5px] border shadow-2xl flex flex-col animate-in zoom-in duration-300
                 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
 
                 {/* Header */}
@@ -179,6 +193,8 @@ const StudentDetailView = ({ student, onClose }) => {
             </div>
         </div>
     );
+
+    return ReactDOM.createPortal(modalContent, document.body);
 };
 
 // Simple reusable Info Row
