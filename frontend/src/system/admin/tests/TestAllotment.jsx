@@ -104,42 +104,30 @@ const TestAllotment = () => {
 
         try {
             const apiUrl = getApiUrl();
-            const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-            const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
-            const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
 
-            // Concurrent fetch: ERP Centres, Local Centres, and ERP Token
-            const [loginRes, localCentresRes] = await Promise.all([
-                axios.post(`${erpUrl}/api/superAdmin/login`, { email: erpIdentifier, password: erpPassword }),
+            // Fetch ERP Centres (via Backend Proxy) and Local Centres concurrently
+            const [erpCentresRes, localCentresRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/admin/erp-centres/`, getAuthConfig()),
                 axios.get(`${apiUrl}/api/centres/`, getAuthConfig())
             ]);
 
-            const erpToken = loginRes.data.token;
-            const erpCentresRes = await axios.get(`${erpUrl}/api/centre`, {
-                headers: { 'Authorization': `Bearer ${erpToken}` }
-            });
-
-            const erpData = erpCentresRes.data?.data || (Array.isArray(erpCentresRes.data) ? erpCentresRes.data : []);
-            const localData = localCentresRes.data;
+            const erpData = erpCentresRes.data || [];
+            const localData = localCentresRes.data || [];
 
             // Map ERP centres to available list
             setAvailableCentres(erpData);
-            setLocalCentres(localData); // We need this in state to check for sync during save
+            setLocalCentres(localData);
 
-            // Map the test's existing allotted local IDs back to ERP codes to set initial selection
-            // We'll store the logic for matching here
+            // Map the test's existing allotted local IDs back to ERP codes
             const alreadyAllottedCodes = localData
                 .filter(lc => test.centres?.includes(lc.id))
                 .map(lc => lc.code);
 
-            // Actually, let's keep selectedCentreIds as ERP codes for simplicity during UI selection
-            // and map them back to local IDs only upon saving.
             setSelectedCentreIds(alreadyAllottedCodes);
-
             setIsModalOpen(true);
         } catch (err) {
             console.error("❌ Allotment Sync Error:", err);
-            alert('Failed to load ERP centre registry: ' + err.message);
+            triggerAlert('Failed to load ERP centre registry: ' + (err.response?.data?.error || err.message), 'error');
         } finally {
             setIsActionLoading(false);
         }

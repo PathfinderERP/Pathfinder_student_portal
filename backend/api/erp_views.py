@@ -100,14 +100,19 @@ def get_student_erp_data(request):
 def get_all_students_erp_data(request):
     """
     Fetch all students from ERP for admin users.
-    This endpoint acts as a proxy to avoid CORS issues.
-    Caches data for 5 minutes to improve performance.
+    This endpoint acts as a proxy to avoid CORS issues and authentication hurdles for staff.
     """
     try:
-        # Check if user is admin/staff
-        if not (request.user.is_staff or request.user.is_superuser or request.user.user_type == 'admin'):
+        # Inclusive check for any administrative role
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            request.user.user_type in ['admin', 'superadmin', 'staff']
+        )
+        
+        if not is_admin:
             return Response(
-                {"error": "Permission denied. Admin access required."},
+                {"error": "Permission denied. Administrative access required."},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -132,23 +137,18 @@ def get_all_students_erp_data(request):
         
         if login_resp.status_code != 200:
             return Response(
-                {"error": "Failed to authenticate with ERP system"},
+                {"error": "Failed to authenticate with ERP system using admin credentials"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         
         erp_token = login_resp.json().get('token')
-        if not erp_token:
-            return Response(
-                {"error": "No token received from ERP"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
         
         # Fetch admissions data
         headers = {"Authorization": f"Bearer {erp_token}"}
         admissions_resp = requests.get(
             f"{erp_url}/api/admission",
             headers=headers,
-            timeout=60  # Longer timeout for large dataset
+            timeout=60
         )
         
         if admissions_resp.status_code != 200:
@@ -159,22 +159,65 @@ def get_all_students_erp_data(request):
         
         admissions = admissions_resp.json()
         
-        # Cache the data for 5 minutes (300 seconds)
+        # Cache for 5 minutes
         cache.set(cache_key, admissions, 300)
         
-        # Return all admissions data
         return Response(admissions, status=status.HTTP_200_OK)
         
     except requests.RequestException as e:
-        return Response(
-            {"error": f"Network error connecting to ERP: {str(e)}"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE
-        )
+        return Response({"error": f"ERP Network Error: {str(e)}"}, status=503)
     except Exception as e:
-        return Response(
-            {"error": f"Internal server error: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_centres_erp_data(request):
+    """
+    Fetch all centres from ERP for admin users via proxy.
+    """
+    try:
+        is_admin = (
+            request.user.is_staff or 
+            request.user.is_superuser or 
+            request.user.user_type in ['admin', 'superadmin', 'staff']
         )
+        
+        if not is_admin:
+            return Response({"error": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+        
+        cache_key = 'erp_all_centres_data'
+        cached_data = cache.get(cache_key)
+        if cached_data and not request.GET.get('refresh'):
+            return Response(cached_data, status=status.HTTP_200_OK)
+        
+        erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in')
+        erp_admin_email = os.getenv('ERP_ADMIN_EMAIL', 'atanu@gmail.com')
+        erp_admin_password = os.getenv('ERP_ADMIN_PASSWORD', '000000')
+        
+        login_resp = requests.post(
+            f"{erp_url}/api/superAdmin/login",
+            json={"email": erp_admin_email, "password": erp_admin_password},
+            timeout=10
+        )
+        
+        if login_resp.status_code != 200:
+            return Response({"error": "ERP Auth Failed"}, status=503)
+        
+        erp_token = login_resp.json().get('token')
+        headers = {"Authorization": f"Bearer {erp_token}"}
+        centres_resp = requests.get(f"{erp_url}/api/centre", headers=headers, timeout=30)
+        
+        if centres_resp.status_code != 200:
+            return Response({"error": "Failed to fetch centres"}, status=503)
+        
+        centres = centres_resp.json()
+        centres_data = centres.get('data') if isinstance(centres, dict) else centres
+        
+        cache.set(cache_key, centres_data, 300)
+        return Response(centres_data, status=200)
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_attendance(request):

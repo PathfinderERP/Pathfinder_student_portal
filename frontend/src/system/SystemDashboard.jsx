@@ -232,34 +232,22 @@ const SystemDashboard = () => {
         syncAttempted.current = true;
 
         try {
-            const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-            const erpIdentifier = (user?.email && user.email.includes('@')) ? user.email : (import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com");
+            const apiUrl = getApiUrl();
 
-            let loginRes;
-            try {
-                loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: erpIdentifier,
-                    password: lastPassword
-                });
-            } catch (err) {
-                loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com",
-                    password: import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000"
-                });
-            }
-
-            const admissionRes = await axios.get(`${erpUrl}/api/admission`, {
-                headers: { 'Authorization': `Bearer ${loginRes.data.token}` }
+            // Call backend proxy for students
+            const admissionRes = await axios.get(`${apiUrl}/api/admin/erp-students/`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+                params: { refresh: forceRefresh }
             });
-
-            const erpData = admissionRes.data?.student?.studentsDetails || admissionRes.data?.data || (Array.isArray(admissionRes.data) ? admissionRes.data : []);
+            const erpData = admissionRes.data || [];
             setErpStudents(erpData);
 
-            // Fetch Centres
-            const centreRes = await axios.get(`${erpUrl}/api/centre`, {
-                headers: { 'Authorization': `Bearer ${loginRes.data.token}` }
+            // Fetch Centres using backend proxy
+            const centreRes = await axios.get(`${apiUrl}/api/admin/erp-centres/`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+                params: { refresh: forceRefresh }
             });
-            const centreData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
+            const centreData = centreRes.data || [];
             setErpCentres(centreData);
         } catch (err) {
             console.error("ERP Sync Failed:", err.message);

@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import FileViewSet, CustomTokenObtainPairView, ProfileView, UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, StudyTaskViewSet, NoticeViewSet
-from .erp_views import get_student_erp_data, get_all_students_erp_data, get_student_attendance, get_student_classes
+from .erp_views import get_student_erp_data, get_all_students_erp_data, get_student_attendance, get_student_classes, get_all_centres_erp_data
 
 router = DefaultRouter()
 router.register(r'files', FileViewSet)
@@ -21,5 +21,6 @@ urlpatterns = [
     path('student/attendance/', get_student_attendance, name='student-attendance'),
     path('student/classes/', get_student_classes, name='student-classes'),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
+    path('admin/erp-centres/', get_all_centres_erp_data, name='admin-erp-centres'),
     path('', include(router.urls)),
 ]
