@@ -22,18 +22,24 @@ class ERPStudentBackend(BaseBackend):
         if password:
             password = password.strip()
 
-        print(f"Attempting ERP Student Login for: {username}")
+        print(f"🔐 Attempting ERP Student Login for: {username}")
         erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in')
         
-        # Check if local user exists (for later update/deactivation)
+        # Check if local user exists (can be username or email)
+        from django.db.models import Q
         local_user = None
         try:
-            local_user = CustomUser.objects.get(username=username)
-            # If user exists but is NOT a student, skip ERP validation
-            if local_user.user_type != 'student':
-                print(f"User {username} is not a student, skipping ERP validation")
-                return None  # Let ModelBackend handle admin/staff
-        except CustomUser.DoesNotExist:
+            local_user = CustomUser.objects.filter(Q(username=username) | Q(email=username)).first()
+            if local_user:
+                print(f"✓ Found local user: {local_user.username}, type: {local_user.user_type}, active: {local_user.is_active}")
+                # If user exists but is NOT a student, skip ERP validation
+                if local_user.user_type != 'student':
+                    print(f"→ User {local_user.username} is not a student, skipping ERP validation (letting ModelBackend handle)")
+                    return None  # Let ModelBackend handle admin/staff
+            else:
+                print(f"ℹ No local user found for {username}, will create if ERP validates")
+        except Exception as e:
+            print(f"⚠ Error searching for local user: {e}")
             pass
 
         try:
@@ -144,9 +150,11 @@ class ERPStudentBackend(BaseBackend):
                     print(f"⚠ Authentication failed for {username} (likely wrong password)")
                 
                 # Cache the error message for the serializer to retrieve
-                if user_facing_message:
+                # Only cache if this was actually a student attempting ERP login
+                if user_facing_message and (local_user is None or local_user.user_type == 'student'):
                     error_cache_key = f"auth_error_{username}"
                     cache.set(error_cache_key, user_facing_message, timeout=10)  # 10 seconds
+                    print(f"📝 Cached error message for {username}")
                 
                 # Handle local user based on failure reason
                 if local_user and local_user.user_type == 'student':
@@ -195,6 +203,44 @@ class ERPStudentBackend(BaseBackend):
                     return CustomUser.objects.get(pk=ObjectId(user_id))
             
             # Fallback for other types or standard lookup
+            return CustomUser.objects.get(pk=user_id)
+        except (CustomUser.DoesNotExist, Exception):
+            return None
+
+class LocalUserBackend(BaseBackend):
+    """
+    Authenticate non-student users (Admin, Staff, Superadmin) 
+    using either Username OR Email.
+    """
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        if not username or not password:
+            return None
+            
+        from django.db.models import Q
+        try:
+            # Find user by username or email
+            user = CustomUser.objects.filter(
+                Q(username__iexact=username) | Q(email__iexact=username)
+            ).first()
+            
+            if user and user.user_type != 'student':
+                if user.check_password(password):
+                    if user.is_active:
+                        print(f"✓ Local Login Successful for {user.username} ({user.user_type})")
+                        return user
+                    else:
+                        print(f"✗ Local Login Failed: Account {user.username} is inactive")
+            return None
+        except Exception as e:
+            print(f"⚠ Local Auth Error: {e}")
+            return None
+
+    def get_user(self, user_id):
+        try:
+            if isinstance(user_id, str):
+                from bson import ObjectId
+                if ObjectId.is_valid(user_id):
+                    return CustomUser.objects.get(pk=ObjectId(user_id))
             return CustomUser.objects.get(pk=user_id)
         except (CustomUser.DoesNotExist, Exception):
             return None
