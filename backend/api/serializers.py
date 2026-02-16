@@ -120,8 +120,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        # We must call super().validate first to authenticate the user
-        data = super().validate(attrs)
+        from rest_framework.exceptions import AuthenticationFailed
+        from django.core.cache import cache
+        
+        # Store the error message from authentication backend
+        error_cache_key = f"auth_error_{attrs.get('username', '')}"
+        
+        try:
+            # We must call super().validate first to authenticate the user
+            data = super().validate(attrs)
+        except AuthenticationFailed as e:
+            # Check if there's a specific error message from the backend
+            cached_error = cache.get(error_cache_key)
+            if cached_error:
+                cache.delete(error_cache_key)  # Clean up
+                # Raise with the specific error message
+                raise AuthenticationFailed(cached_error)
+            # Otherwise, raise the original error
+            raise
         
         # Log the login session with full context using direct DB access
         try:

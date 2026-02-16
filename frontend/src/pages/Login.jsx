@@ -29,7 +29,8 @@ const Login = () => {
                 navigate('/');
             }
         } catch (err) {
-            setError('Invalid username or password');
+            // Display the specific error message from backend
+            setError(err.message || 'Invalid username or password');
         } finally {
             setIsLoading(false);
         }

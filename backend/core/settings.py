@@ -79,6 +79,7 @@ MIDDLEWARE = [
     'core.csrf_middleware.DisableCSRFMiddleware',  # Custom CSRF exemption
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'api.middleware.StudentActiveCheckMiddleware',  # Check student status on every request
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

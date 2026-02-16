@@ -92,7 +92,37 @@ export const AuthProvider = ({ children }) => {
             return decoded;
         } catch (error) {
             console.error("Login failed", error);
-            throw error;
+
+            // Extract specific error message from backend
+            let errorMessage = 'Invalid username or password';
+
+            if (error.response?.data) {
+                const data = error.response.data;
+
+                // Check for specific error messages
+                if (data.detail) {
+                    errorMessage = data.detail;
+                } else if (data.error) {
+                    errorMessage = data.error;
+                } else if (data.message) {
+                    errorMessage = data.message;
+                }
+
+                // Check for deactivation-specific errors
+                // Only show deactivation message if explicitly mentioned
+                if (errorMessage.toLowerCase().includes('account has been deactivated') ||
+                    errorMessage.toLowerCase().includes('contact administration')) {
+                    errorMessage = 'Your account has been deactivated. Please contact administration.';
+                } else if (errorMessage.toLowerCase().includes('no active account')) {
+                    // Django's default error for wrong credentials - keep it generic
+                    errorMessage = 'Invalid username or password';
+                }
+            }
+
+            // Throw error with specific message
+            const customError = new Error(errorMessage);
+            customError.response = error.response;
+            throw customError;
         }
     };
 
