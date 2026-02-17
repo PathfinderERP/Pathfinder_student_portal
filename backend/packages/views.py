@@ -11,7 +11,17 @@ class PackageViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Package.objects.all()
+        user = self.request.user
+        queryset = Package.objects.filter(is_active=True)
+        
+        if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
+            queryset = queryset.filter(is_published=True)
+            exam_section = getattr(user, 'exam_section', None)
+            if exam_section:
+                queryset = queryset.filter(
+                    Q(allotted_sections__name=exam_section) | Q(allotted_sections__isnull=True)
+                ).distinct()
+        return queryset
 
     def get_object(self):
         """
@@ -34,8 +44,8 @@ class PackageViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         # Handle the custom list logic here to bypass Djongo's boolean filter bug
-        all_packages = list(Package.objects.all())
-        active_packages = [pkg for pkg in all_packages if pkg.is_active]
+        queryset = self.get_queryset()
+        active_packages = list(queryset)
         
         search = self.request.query_params.get('search', None)
         if search:

@@ -4,7 +4,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell
+    Target, Book, Zap, Award, LogOut, Bell, Beaker
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,7 @@ import AdvancedAnalytics from './components/AdvancedAnalytics';
 import AIInsights from './components/AIInsights';
 import StudyPlanner from './components/StudyPlanner';
 import NoticeBoard from './components/NoticeBoard';
+import Scholarlab from './components/Scholarlab';
 
 
 import PortalLayout from '../../components/common/PortalLayout';
@@ -91,6 +92,7 @@ const StudentDashboard = () => {
         { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
         { name: 'Study Materials', icon: BookOpen },
+        { name: 'Scholarlab', icon: Beaker },
         { name: 'Advanced Analytics', icon: BarChart2 },
         { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
@@ -159,6 +161,8 @@ const StudentDashboard = () => {
                 return <SWOTAnalysis isDarkMode={isDarkMode} />;
             case 'Study Materials':
                 return <StudyMaterials isDarkMode={isDarkMode} cache={studyMaterialsCache} setCache={setStudyMaterialsCache} />;
+            case 'Scholarlab':
+                return <Scholarlab isDarkMode={isDarkMode} />;
             case 'Advanced Analytics':
                 return <AdvancedAnalytics isDarkMode={isDarkMode} />;
             case 'AI Insights':

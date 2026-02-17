@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import FileViewSet, CustomTokenObtainPairView, ProfileView, UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, StudyTaskViewSet, NoticeViewSet
 from .erp_views import get_student_erp_data, get_all_students_erp_data, get_student_attendance, get_student_classes, get_all_centres_erp_data
+from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
 
 router = DefaultRouter()
 router.register(r'files', FileViewSet)
@@ -22,5 +23,7 @@ urlpatterns = [
     path('student/classes/', get_student_classes, name='student-classes'),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
     path('admin/erp-centres/', get_all_centres_erp_data, name='admin-erp-centres'),
+    path('student/scholarlab/simulations/', get_scholarlab_simulations, name='scholarlab-simulations'),
+    path('student/scholarlab/initialize/', initialize_scholarlab_simulation, name='scholarlab-initialize'),
     path('', include(router.urls)),
 ]

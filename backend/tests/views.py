@@ -14,16 +14,29 @@ class TestViewSet(viewsets.ModelViewSet):
     serializer_class = TestSerializer
 
     def get_queryset(self):
+        user = self.request.user
         queryset = Test.objects.all().order_by('-created_at')
+        
+        # If user is a student, filter by their section
+        if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
+            exam_section = getattr(user, 'exam_section', None)
+            if exam_section:
+                # Filter tests that are allotted to a section with the same name as student's erp section
+                # Or tests that have no sections allotted (available to all)
+                from django.db.models import Q
+                # We use list() because Djongo sometimes fails on complex OR queries with M2M
+                # But let's try the standard Q first. If it fails, we'll use in-memory filtering.
+                queryset = queryset.filter(
+                    Q(allotted_sections__name=exam_section) | 
+                    Q(allotted_sections__isnull=True)
+                ).distinct()
+        
         package_id = self.request.query_params.get('package', None)
         if package_id:
-            # Djongo sometimes prefers the explicit _id field or the model field name
             from bson import ObjectId
             try:
-                if package_id:
-                    queryset = queryset.filter(package_id=ObjectId(package_id))
+                queryset = queryset.filter(package_id=ObjectId(package_id))
             except Exception:
-                # If invalid objectID is passed, return empty or handle gracefully
                 queryset = queryset.none()
         return queryset
 

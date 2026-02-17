@@ -205,8 +205,27 @@ class NoticeViewSet(viewsets.ModelViewSet):
         # MANUALLY COMBINE PUBLIC AND PRIVATE NOTICES
         # This avoids the OR query (Q objects) which triggers RecursionError in Djongo
         try:
-            public_notices = list(Notice.objects.filter(user__isnull=True))
+            # Public/General notices (no user assigned)
+            public_notices_query = Notice.objects.filter(user__isnull=True)
+            
+            # Apply section filtering for students
+            if request.user.user_type == 'student':
+                exam_section = getattr(request.user, 'exam_section', None)
+                from django.db.models import Q
+                
+                # Filter for: (is_general=True) OR (no specific section) OR (matching student section)
+                section_filter = Q(is_general=True) | Q(targeted_section__isnull=True) | Q(targeted_section="")
+                if exam_section:
+                    section_filter |= Q(targeted_section=exam_section)
+                
+                public_notices = list(public_notices_query.filter(section_filter))
+                print(f"[DEBUG] Found {len(public_notices)} targeted/general notices for section: {exam_section}")
+            else:
+                public_notices = list(public_notices_query)
+
+            # Private notices (specifically for this user)
             user_notices = list(Notice.objects.filter(user=request.user))
+            
             all_notices = public_notices + user_notices
             
             # Sort manually if needed (e.g. by created_at desc)

@@ -28,6 +28,12 @@ class CustomUser(AbstractUser):
     
     # Track who created this user (storing username directly to avoid ForeignKey issues with Djongo)
     created_by_username = models.CharField(max_length=150, blank=True, null=True)
+    
+    # Section information from ERP (for students)
+    exam_section = models.CharField(max_length=255, null=True, blank=True, help_text="Exam section from ERP (e.g., 'jeee 2023')")
+    study_section = models.CharField(max_length=255, null=True, blank=True, help_text="Study section from ERP")
+    omr_code = models.CharField(max_length=100, null=True, blank=True, help_text="OMR code from ERP")
+    rm_code = models.CharField(max_length=100, null=True, blank=True, help_text="RM code from ERP")
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"
@@ -128,6 +134,10 @@ class Notice(models.Model):
     is_new = models.BooleanField(default=True)
     attachment = models.CharField(max_length=255, null=True, blank=True)
     link = models.URLField(max_length=500, null=True, blank=True)
+    
+    # Targeting
+    is_general = models.BooleanField(default=True, help_text="Visible to all students if True")
+    targeted_section = models.CharField(max_length=255, null=True, blank=True, help_text="Target ERP exam section (e.g. 'jeee 2023')")
     
     # Associate notice with a user if it's a private notification
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='notices', null=True, blank=True)
