@@ -4,58 +4,60 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 import requests
 import os
-import traceback
 from django.core.cache import cache
 
 def _get_erp_admin_token():
     """
-    Resilient admin token fetch with aggressive 24h caching.
+    Resilient admin token fetch. 
+    Intentionally uses a longer timeout specifically for the login handshake.
     """
-    cache_key = 'erp_admin_auth_token_v5'
+    cache_key = 'erp_admin_auth_token_v6'
     token = cache.get(cache_key)
     if token:
         return token
 
+    # CRITICAL: These must be set in Render dashboard environment variables!
     erp_url = (os.getenv('ERP_API_URL') or 'https://pfndrerp.in').strip('/')
     admin_email = os.getenv('ERP_ADMIN_EMAIL', 'atanu@gmail.com')
     admin_pass = os.getenv('ERP_ADMIN_PASSWORD', '000000')
 
     try:
-        # Tight timeout to avoid blocking the whole portal
+        # Increase handshake timeout to 25s specifically for the initial login
         resp = requests.post(
             f"{erp_url}/api/superAdmin/login",
             json={"email": admin_email, "password": admin_pass},
-            timeout=10 
+            timeout=25 
         )
         if resp.status_code == 200:
             token = resp.json().get('token')
             if token:
                 cache.set(cache_key, token, 86400) # 24 Hours
                 return token
+        else:
+            print(f"[ERP] Admin Login Rejected: {resp.status_code}")
     except Exception as e:
-        print(f"[ERP] Admin Handshake Failed: {e}")
+        print(f"[ERP] Admin Handshake Timeout (25s exceeded): {e}")
     return None
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_erp_data(request):
     """
-    High-Resilience Dashboard Sync.
-    If ERP is down/slow, falls back to local data instead of returning 503/504.
+    Render-Optimized Resilient Dashboard Sync.
+    Prioritizes Student Token and Local Fallback to avoid Gunicorn 30s kills.
     """
     user = request.user
     search_email = (user.email or user.username).strip().lower()
     
-    # 1. Immediate Cache/Local Return (Fastest Path)
-    cache_key = f"erp_student_data_v5_{user.pk}"
+    # 1. Quick Cache Check
+    cache_key = f"erp_student_data_v6_{user.pk}"
     if not request.GET.get('refresh'):
         cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data, status=status.HTTP_200_OK)
 
-    # 2. Prepare Local Fallback Data
-    # This ensures that even if ERP fails, the student sees their current info.
-    local_fallback = {
+    # 2. Local Fallback Structure
+    local_data = {
         "sectionAllotment": {
             "examSection": user.exam_section,
             "studySection": user.study_section,
@@ -65,45 +67,33 @@ def get_student_erp_data(request):
         "student": {
             "studentsDetails": [{"studentEmail": search_email, "studentName": f"{user.first_name} {user.last_name}"}]
         },
-        "is_offline_data": True
+        "is_offline": True
     }
 
     erp_url = (os.getenv('ERP_API_URL') or 'https://pfndrerp.in').strip('/')
     
-    # 3. Attempt ERP Sync (Strictly limited to 15s)
+    # 3. Resilient Multi-Strategy Sync
     try:
         student_erp_token = cache.get(f"erp_token_{user.pk}")
         
-        # Strategy A: Direct Student Fetch
+        # Strategy A: Direct Student Access (Fast)
         if student_erp_token:
-            headers = {"Authorization": f"Bearer {student_erp_token}"}
-            resp = requests.get(f"{erp_url}/api/admission", headers=headers, timeout=12)
+            resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {student_erp_token}"}, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
-                # Find current student in list
-                target = None
+                target = data if isinstance(data, dict) else None
                 if isinstance(data, list):
-                    for item in data:
-                        details = item.get('student', {}).get('studentsDetails', [])
-                        if any(d and d.get('studentEmail', '').lower() == search_email for d in details):
-                            target = item
-                            break
-                elif isinstance(data, dict):
-                    target = data
-
+                    target = next((i for i in data if any(d.get('studentEmail', '').lower() == search_email for d in i.get('student', {}).get('studentsDetails', []))), None)
+                
                 if target:
                     _sync_user_to_erp(user, target)
                     cache.set(cache_key, target, 3600)
                     return Response(target, status=200)
 
-        # Strategy B: Admin Search
+        # Strategy B: Admin Proxy Sync (Strict 12s cap to prevent Render kill)
         erp_admin_token = _get_erp_admin_token()
         if erp_admin_token:
-            resp = requests.get(
-                f"{erp_url}/api/admission",
-                headers={"Authorization": f"Bearer {erp_admin_token}"},
-                timeout=15 
-            )
+            resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {erp_admin_token}"}, timeout=12)
             if resp.status_code == 200:
                 admissions = resp.json()
                 if isinstance(admissions, list):
@@ -115,19 +105,16 @@ def get_student_erp_data(request):
                             return Response(admission, status=200)
 
     except Exception as e:
-        print(f"[ERP] Sync Warning: ERP is slow/down. Using local data. ({e})")
+        print(f"[ERP] Resilient Mode: Handled sync failure ({e})")
 
-    # 4. FINAL FALLBACK: Return local data instead of 503
-    # This prevents the "AxiosError" on the frontend.
-    print(f"[ERP] Returning LOCAL Fallback for {search_email}")
-    return Response(local_fallback, status=status.HTTP_200_OK)
+    # 4. SILENT SUCCESS: Return local data if ERP sync fails
+    return Response(local_data, status=status.HTTP_200_OK)
 
 def _sync_user_to_erp(user, admission_data):
-    """Safely update local user model."""
     if not isinstance(admission_data, dict): return
     try:
         sec = admission_data.get('sectionAllotment', {})
-        if sec and isinstance(sec, dict):
+        if isinstance(sec, dict):
             user.exam_section = sec.get('examSection')
             user.study_section = sec.get('studySection')
             user.omr_code = sec.get('omrCode')
@@ -140,19 +127,16 @@ def _sync_user_to_erp(user, admission_data):
 def get_all_students_erp_data(request):
     try:
         erp_token = _get_erp_admin_token()
-        if not erp_token: return Response({"error": "ERP Gateway Busy"}, status=503)
-        base_url = (os.getenv('ERP_API_URL') or 'https://pfndrerp.in').strip('/')
-        resp = requests.get(f"{base_url}/api/admission", headers={"Authorization": f"Bearer {erp_token}"}, timeout=25)
-        return Response(resp.json() if resp.status_code == 200 else [], status=resp.status_code)
-    except: return Response([], status=200) # Safe empty return
+        resp = requests.get(f"{os.getenv('ERP_API_URL')}/api/admission", headers={"Authorization": f"Bearer {erp_token}"}, timeout=25)
+        return Response(resp.json() if resp.status_code == 200 else [], status=200)
+    except: return Response([], status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_centres_erp_data(request):
     try:
         erp_token = _get_erp_admin_token()
-        base_url = (os.getenv('ERP_API_URL') or 'https://pfndrerp.in').strip('/')
-        resp = requests.get(f"{base_url}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+        resp = requests.get(f"{os.getenv('ERP_API_URL')}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
         return Response(resp.json() if resp.status_code == 200 else [], status=200)
     except: return Response([], status=200)
 
@@ -160,11 +144,8 @@ def get_all_centres_erp_data(request):
 @permission_classes([IsAuthenticated])
 def get_student_attendance(request):
     try:
-        user = request.user
-        erp_token = cache.get(f"erp_token_{user.pk}")
-        if not erp_token: return Response([], status=200)
-        base_url = (os.getenv('ERP_API_URL') or 'https://pfndrerp.in').strip('/')
-        resp = requests.get(f"{base_url}/api/student-portal/attendance", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+        erp_token = cache.get(f"erp_token_{request.user.pk}")
+        resp = requests.get(f"{os.getenv('ERP_API_URL')}/api/student-portal/attendance", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
         return Response(resp.json() if resp.status_code == 200 else [], status=200)
     except: return Response([], status=200)
 
@@ -172,10 +153,7 @@ def get_student_attendance(request):
 @permission_classes([IsAuthenticated])
 def get_student_classes(request):
     try:
-        user = request.user
-        erp_token = cache.get(f"erp_token_{user.pk}")
-        if not erp_token: return Response([], status=200)
-        base_url = (os.getenv('ERP_API_URL') or 'https://pfndrerp.in').strip('/')
-        resp = requests.get(f"{base_url}/api/student-portal/classes", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+        erp_token = cache.get(f"erp_token_{request.user.pk}")
+        resp = requests.get(f"{os.getenv('ERP_API_URL')}/api/student-portal/classes", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
         return Response(resp.json() if resp.status_code == 200 else [], status=200)
     except: return Response([], status=200)
