@@ -59,8 +59,8 @@ def get_scholarlab_simulations(request):
         user_email = (request.user.email or f"{request.user.username}@pathfinder.com").strip().lower()
         user_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
 
-        # Cache key — bump version to invalidate old caches
-        cache_key = f"scholarlab_sim_v400_{access_token[:20]}"
+        # Cache key — bump version to invalidate old caches (v420 for new key)
+        cache_key = f"scholarlab_sim_v420_{access_token[:20]}"
         cached_data = cache.get(cache_key)
         if cached_data and not request.GET.get('refresh'):
             return Response(cached_data, status=status.HTTP_200_OK)
@@ -219,12 +219,20 @@ def initialize_scholarlab_simulation(request):
             print(f"[SCHOLARLAB] GetInitKey error: {str(e)}, using Option B fallback")
 
         # Step 3: Build final URL
-        # Per docs: https://WEBGL-URL?userName=<init_user>&uID=<init_key>
+        # IMPORTANT: If webgl_url is a directory (doesn't end in .html/etc)
+        # and doesn't have a trailing slash, CloudFront redirects to folder/.
+        # That redirect will STRIP our query params. So we must ensure a slash.
+        final_base = webgl_url
+        if not '?' in final_base:
+            if not any(ext in final_base.lower() for ext in ['.html', '.php', '.asp', '.aspx', '.jsp']):
+                if not final_base.endswith('/'):
+                    final_base += '/'
+
         def q(v):
             return quote(str(v).strip(), safe='')
 
-        separator = '&' if '?' in webgl_url else '?'
-        final_url = f"{webgl_url}{separator}userName={q(init_user)}&uID={q(init_key)}"
+        separator = '&' if '?' in final_base else '?'
+        final_url = f"{final_base}{separator}userName={q(init_user)}&uID={q(init_key)}"
 
         print(f"[SCHOLARLAB] Final URL: {final_url}")
         return Response({"simulation_url": final_url}, status=status.HTTP_200_OK)
