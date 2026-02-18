@@ -59,6 +59,7 @@ const Scholarlab = () => {
                 `${apiUrl}/api/student/scholarlab/initialize/`,
                 {
                     webgl_url: simulation.webgl_url,
+                    web_url: simulation.web_url || '',
                     sim_id: simulation.id
                 },
                 {
@@ -69,10 +70,22 @@ const Scholarlab = () => {
             );
 
             const simulationUrl = response.data.simulation_url;
+            const warning = response.data.warning;
+
+            if (warning) {
+                // Backend flagged this as a download URL
+                const proceed = window.confirm(
+                    `⚠️ This simulation requires a desktop download.\n\nWould you like to download it anyway?\n\n(${simulationUrl})`
+                );
+                if (proceed) {
+                    window.open(simulationUrl, '_blank');
+                }
+                return;
+            }
 
             if (simulationUrl) {
                 // Open simulation in new window
-                window.open(simulationUrl, '_blank', 'width=1200,height=800');
+                window.open(simulationUrl, '_blank', 'width=1200,height=800,noopener,noreferrer');
             } else {
                 alert('Failed to get simulation URL. Please try again.');
             }
@@ -247,35 +260,25 @@ const Scholarlab = () => {
                                 }`}
                             onClick={() => initializeSimulation(simulation)}
                         >
-                            {/* Grade/Subject Badge */}
-                            <div className="absolute top-4 right-4 flex gap-2">
-                                <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[10px] font-black uppercase tracking-tighter border border-purple-500/20">
-                                    {simulation.subject}
-                                </span>
-                                {simulation.grade !== 'All' && (
-                                    <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-tighter border border-blue-500/20">
-                                        Grade {simulation.grade}
+                            {/* Grade/Subject Badges - Top Right */}
+                            <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
+                                {simulation.subject && simulation.subject !== 'General Science' && (
+                                    <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[9px] font-black uppercase tracking-tighter border border-purple-500/20">
+                                        {simulation.subject}
+                                    </span>
+                                )}
+                                {simulation.grade && simulation.grade !== 'All' && (
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[9px] font-black uppercase tracking-tighter border border-blue-500/20">
+                                        Gr. {simulation.grade}
                                     </span>
                                 )}
                             </div>
 
                             {/* Simulation Icon */}
-                            <div className="mb-6 relative">
-                                {simulation.icon_url ? (
-                                    <img
-                                        src={simulation.icon_url}
-                                        alt={simulation.name}
-                                        className="w-20 h-20 rounded-2xl object-cover shadow-md group-hover:scale-110 transition-transform duration-500"
-                                    />
-                                ) : (
-                                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-110 transition-transform duration-500">
-                                        <GraduationCap className="w-10 h-10 text-white" />
-                                    </div>
-                                )}
-                            </div>
+                            <SimIcon simulation={simulation} isDarkMode={isDarkMode} />
 
                             {/* Simulation Info */}
-                            <h3 className={`text-xl font-black mb-2 uppercase tracking-tighter leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                            <h3 className={`text-xl font-black mb-2 uppercase tracking-tighter leading-tight pr-16 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                 {simulation.name}
                             </h3>
 
@@ -286,7 +289,7 @@ const Scholarlab = () => {
                             )}
 
                             {/* Launch Button */}
-                            <div className={`mt-auto py-3 px-4 rounded-xl font-black text-[11px] uppercase tracking-2xl transition-all flex items-center justify-center gap-2 border-2 ${isDarkMode
+                            <div className={`mt-auto py-3 px-4 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border-2 ${isDarkMode
                                 ? 'bg-purple-600/10 border-purple-600/50 text-purple-400 group-hover:bg-purple-600 group-hover:text-white'
                                 : 'bg-purple-50 border-purple-200 text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600'
                                 }`}>
@@ -322,5 +325,31 @@ const SearchIcon = ({ className }) => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
     </svg>
 );
+
+// Handles image display with graceful fallback if URL is broken
+const SimIcon = ({ simulation, isDarkMode }) => {
+    const [imgError, setImgError] = React.useState(false);
+
+    if (simulation.icon_url && !imgError) {
+        return (
+            <div className="mb-6">
+                <img
+                    src={simulation.icon_url}
+                    alt={simulation.name}
+                    className="w-20 h-20 rounded-2xl object-cover shadow-md group-hover:scale-110 transition-transform duration-500"
+                    onError={() => setImgError(true)}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="mb-6">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-110 transition-transform duration-500">
+                <Beaker className="w-10 h-10 text-white" />
+            </div>
+        </div>
+    );
+};
 
 export default Scholarlab;
