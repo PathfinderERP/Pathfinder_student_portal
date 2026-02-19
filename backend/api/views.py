@@ -1,5 +1,5 @@
-from rest_framework import viewsets, permissions, generics, status, response
-from rest_framework.decorators import action
+from rest_framework import viewsets, permissions, generics, status, response, views
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice
 from .serializers import (
@@ -241,3 +241,28 @@ class NoticeViewSet(viewsets.ModelViewSet):
             # Last resort fallback if manual combo fails
             print(f"Error manually combining notices: {e}")
             return response.Response([])
+
+class UserSearchView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get('q', '')
+        if len(query) < 2:
+            return response.Response([])
+
+        from django.db.models import Q
+        users = CustomUser.objects.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        ).exclude(pk=request.user.pk)[:10]
+
+        data = [{
+            'id': str(u.pk),
+            'username': u.username,
+            'name': f"{u.first_name} {u.last_name}".strip() or u.username,
+            'user_type': u.user_type
+        } for u in users]
+
+        return response.Response(data)

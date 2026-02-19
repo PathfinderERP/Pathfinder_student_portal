@@ -22,6 +22,8 @@ import AIInsights from './components/AIInsights';
 import StudyPlanner from './components/StudyPlanner';
 import NoticeBoard from './components/NoticeBoard';
 import Scholarlab from './components/Scholarlab';
+import Chat from './components/Chat';
+import { MessageCircle as ChatIcon } from 'lucide-react';
 
 
 import PortalLayout from '../../components/common/PortalLayout';
@@ -97,6 +99,7 @@ const StudentDashboard = () => {
         { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
         { name: 'Notice Board', icon: Bell },
+        { name: 'Messages', icon: ChatIcon },
     ];
 
     const sidebarItems = navItems.map(item => ({
@@ -171,6 +174,8 @@ const StudentDashboard = () => {
                 return <StudyPlanner isDarkMode={isDarkMode} />;
             case 'Notice Board':
                 return <NoticeBoard isDarkMode={isDarkMode} />;
+            case 'Messages':
+                return <Chat isDarkMode={isDarkMode} />;
 
             default:
                 return (
