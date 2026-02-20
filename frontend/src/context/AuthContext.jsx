@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     const getApiUrl = useCallback(() => {
-        let defaultUrl = 'https://pathfinder-student-portal.onrender.com';
+        let defaultUrl = 'https://api.studypathportal.in';
         if (import.meta.env.MODE === 'development') {
             defaultUrl = 'http://127.0.0.1:3001';
         }

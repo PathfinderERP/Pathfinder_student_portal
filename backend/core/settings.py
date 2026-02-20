@@ -21,6 +21,10 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3001',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://www.studypathportal.in',
+    'https://studypathportal.in',
+    'https://api.studypathportal.in',
+    'https://chat.studypathportal.in',
 ]
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
@@ -41,6 +45,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+if 'api.studypathportal.in' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('api.studypathportal.in')
+    ALLOWED_HOSTS.append('studypathportal.in')
+    ALLOWED_HOSTS.append('chat.studypathportal.in')
 
 
 # Application definition
@@ -240,6 +248,10 @@ else:
 # CORS
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+_prod_origins = ['https://www.studypathportal.in', 'https://studypathportal.in']
+for origin in _prod_origins:
+    if origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
 CORS_ALLOW_CREDENTIALS = True  # Required for CSRF cookies to work
 
 # Email Configuration
