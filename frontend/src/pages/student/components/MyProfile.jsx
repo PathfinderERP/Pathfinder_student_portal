@@ -62,7 +62,7 @@ const MyProfile = ({ isDarkMode, studentData }) => {
                     <InfoField label="Date of Birth" value={details.dateOfBirth} icon={Calendar} isDark={isDarkMode} />
                     <InfoField label="School" value={details.schoolName} icon={BookOpen} isDark={isDarkMode} />
                     <InfoField label="Centre" value={details.centre} icon={MapPin} isDark={isDarkMode} />
-                    <InfoField label="State" value={details.state} icon={MapPin} isDark={isDarkMode} />
+                    <InfoField label="State" value={details.state || (details.board === 'WB' ? 'West Bengal' : '')} icon={MapPin} isDark={isDarkMode} />
                     <InfoField label="Pincode" value={details.pincode} icon={MapPin} isDark={isDarkMode} />
                     <InfoField label="Address" value={details.address} icon={MapPin} isDark={isDarkMode} isFullWidth />
                 </div>

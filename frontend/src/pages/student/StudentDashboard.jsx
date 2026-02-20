@@ -49,7 +49,12 @@ const StudentDashboard = () => {
                 setLoading(false);
                 return;
             }
-            setLoading(true);
+
+            // Only show loader if we don't have data yet
+            if (!studentData) {
+                setLoading(true);
+            }
+
             setError(null);
             try {
                 const apiUrl = getApiUrl();
@@ -61,21 +66,33 @@ const StudentDashboard = () => {
                 const response = await axios.get(`${apiUrl}/api/student/erp-data/`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+
                 if (response.data) {
-                    setStudentData(response.data);
+                    // Prevent overwriting rich data with offline fallback
+                    const isNewDataOffline = response.data.is_offline;
+                    const hasExistingData = studentData && !studentData.is_offline;
+
+                    if (hasExistingData && isNewDataOffline) {
+                        console.warn("Skipping update: Prevented overwriting valid data with offline fallback");
+                    } else {
+                        setStudentData(response.data);
+                    }
                 } else {
-                    setError("No student data received from server.");
+                    if (!studentData) setError("No student data received from server.");
                 }
             } catch (err) {
                 console.error("Error fetching student data:", err);
-                if (err.response?.status === 404) {
-                    setError("Your student record could not be found. Please contact support.");
-                } else if (err.response?.status === 503) {
-                    setError("Unable to connect to Student Records System. Please try again later.");
-                } else if (err.response?.status === 401) {
-                    setError("Session expired. Please log in again.");
-                } else {
-                    setError(err.response?.data?.error || "Failed to load student profile.");
+                // Only set visible error if we don't have data
+                if (!studentData) {
+                    if (err.response?.status === 404) {
+                        setError("Your student record could not be found. Please contact support.");
+                    } else if (err.response?.status === 503) {
+                        setError("Unable to connect to Student Records System. Please try again later.");
+                    } else if (err.response?.status === 401) {
+                        setError("Session expired. Please log in again.");
+                    } else {
+                        setError(err.response?.data?.error || "Failed to load student profile.");
+                    }
                 }
             } finally {
                 setLoading(false);
@@ -111,16 +128,34 @@ const StudentDashboard = () => {
 
     if (loading) {
         return (
-            <div className={`min-h-screen flex flex-col items-center justify-center space-y-8 ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
-                <div className="relative">
-                    <div className="w-24 h-24 border-8 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <Zap size={32} className="text-orange-500 animate-pulse" />
+            <div className={`min-h-screen flex flex-col items-center justify-center space-y-6 ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-white text-slate-900'}`}>
+                {/* Logo Container */}
+                <div className="flex flex-col items-center animate-fade-in-up">
+                    {/* Small Screen Logo (Favicon) */}
+                    <img
+                        src="/images/icon/favicon.svg"
+                        alt="Pathfinder"
+                        className="w-16 h-16 md:hidden mb-4 animate-pulse"
+                    />
+                    {/* Large Screen Logo */}
+                    <img
+                        src="/images/icon/logo-1.svg"
+                        alt="Pathfinder"
+                        className="hidden md:block h-20 mb-6"
+                    />
+
+                    {/* Dot Loading Animation */}
+                    <div className="flex items-center space-x-1.5 mt-2">
+                        <div className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
                 </div>
-                <div className="text-center">
-                    <p className="font-black uppercase tracking-[0.4em] text-sm text-orange-500 mb-2">Syncing ERP Data</p>
-                    <p className="text-xs font-bold opacity-40">Authenticating with Pathfinder ERP Systems...</p>
+
+                <div className="text-center space-y-3 max-w-2xl px-6">
+                    <p className={`text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Loading Resources...
+                    </p>
                 </div>
             </div>
         );

@@ -77,32 +77,49 @@ def get_student_erp_data(request):
         student_erp_token = cache.get(f"erp_token_{user.pk}")
         
         # Strategy A: Direct Student Access (Fast)
+        # Strategy A: Direct Student Access (Fast)
         if student_erp_token:
-            resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {student_erp_token}"}, timeout=15)
-            if resp.status_code == 200:
-                data = resp.json()
-                target = data if isinstance(data, dict) else None
-                if isinstance(data, list):
-                    target = next((i for i in data if any(d.get('studentEmail', '').lower() == search_email for d in i.get('student', {}).get('studentsDetails', []))), None)
-                
-                if target:
-                    _sync_user_to_erp(user, target)
-                    cache.set(cache_key, target, 3600)
-                    return Response(target, status=200)
+            try:
+                resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {student_erp_token}"}, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    target = data if isinstance(data, dict) else None
+                    if isinstance(data, list):
+                        target = next((
+                            i for i in data 
+                            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email 
+                                   for d in i.get('student', {}).get('studentsDetails', []))
+                        ), None)
+                    
+                    if target:
+                        _sync_user_to_erp(user, target)
+                        cache.set(cache_key, target, 3600)
+                        return Response(target, status=200)
+            except Exception as e:
+                print(f"[ERP WARNING] Strategy A failed: {e}")
 
         # Strategy B: Admin Proxy Sync (Strict 12s cap to prevent Render kill)
         erp_admin_token = _get_erp_admin_token()
         if erp_admin_token:
-            resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {erp_admin_token}"}, timeout=12)
+            print(f"[ERP DEBUG] Token obtained. Searching for: {search_email}")
+            resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {erp_admin_token}"}, timeout=25)
             if resp.status_code == 200:
                 admissions = resp.json()
+                print(f"[ERP DEBUG] Fetched {len(admissions) if isinstance(admissions, list) else 0} records.")
+                
                 if isinstance(admissions, list):
                     for admission in admissions:
                         details = admission.get('student', {}).get('studentsDetails', [])
-                        if any(d and d.get('studentEmail', '').lower() == search_email for d in details):
+                        # SAFE COMPARISON: Handle None/Null values
+                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
+                            print(f"[ERP DEBUG] Found match for {search_email}")
                             _sync_user_to_erp(user, admission)
                             cache.set(cache_key, admission, 3600)
                             return Response(admission, status=200)
+                    
+                    print(f"[ERP DEBUG] No match found for {search_email}")
+            else:
+                print(f"[ERP DEBUG] API Error: {resp.status_code}")
 
     except Exception as e:
         print(f"[ERP] Resilient Mode: Handled sync failure ({e})")
