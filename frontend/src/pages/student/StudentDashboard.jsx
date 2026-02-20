@@ -128,7 +128,7 @@ const StudentDashboard = () => {
 
     if (loading) {
         return (
-            <div className={`min-h-screen flex flex-col items-center justify-center space-y-6 ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-white text-slate-900'}`}>
+            <div className={`min-h-screen flex flex-col items-center justify-center space-y-6 bg-white text-slate-900`}>
                 {/* Logo Container */}
                 <div className="flex flex-col items-center animate-fade-in-up">
                     {/* Small Screen Logo (Favicon) */}
@@ -153,7 +153,7 @@ const StudentDashboard = () => {
                 </div>
 
                 <div className="text-center space-y-3 max-w-2xl px-6">
-                    <p className={`text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <p className={`text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] text-slate-400`}>
                         Loading Resources...
                     </p>
                 </div>
