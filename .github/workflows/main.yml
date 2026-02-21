@@ -1,0 +1,41 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy project on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/Pathfinder_student_portal
+            git pull origin main
+
+            echo "Updating backend..."
+            cd backend
+            source venv/bin/activate
+            pip install -r requirements.txt
+            python manage.py migrate
+            python manage.py collectstatic --noinput
+
+            echo "Updating frontend..."
+            cd ../frontend
+            npm install
+            npm run build
+            sudo rm -rf /var/www/frontend/*
+            sudo cp -r dist/* /var/www/frontend/
+
+            echo "Restarting services..."
+            sudo systemctl restart gunicorn
+            sudo systemctl restart nginx
+
+            echo "Deployment completed!"
