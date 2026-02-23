@@ -266,20 +266,6 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
 
     if (isLoading) return (
         <div className="animate-pulse">
-            <div className="flex flex-col items-center justify-center py-12 mb-8 space-y-4">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <Database size={20} className="text-orange-500 animate-pulse" />
-                    </div>
-                </div>
-                <div className="text-center">
-                    <p className="font-black uppercase tracking-[0.3em] text-[10px] text-orange-500 mb-1">ERP Gateway</p>
-                    <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Downloading 15,000+ Student Records...</p>
-                    <p className={`text-[10px] mt-2 opacity-30 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>First load takes ~30 seconds. Cached for 1 hour after.</p>
-                </div>
-            </div>
-
             <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -371,33 +357,6 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
             <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
-                {/* <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/20">External ERP</div>
-                            <h2 className="text-3xl font-black tracking-tight uppercase bg-gradient-to-r from-orange-500 to-indigo-500 bg-clip-text text-transparent">Student Registry</h2>
-                        </div>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Pathfinder Admission System live data synchronization.
-                            <span className="ml-2 font-black text-orange-500">
-                                {allStudents.length} Total Records
-                            </span>
-                            {loadedCount < allStudents.length && (
-                                <span className={`ml-2 text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    (Loaded: {loadedCount})
-                                </span>
-                            )}
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => loadERPData(true)}
-                        className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10 border border-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
-                    >
-                        <RotateCcw size={12} className={isLoading ? 'animate-spin' : ''} />
-                        Sync Registry
-                    </button>
-                </div> */}
-
                 {/* Search and Filter Section */}
                 <div className="mb-8 space-y-4">
                     {/* Search Bar */}

@@ -466,10 +466,24 @@ const TestCreate = () => {
 
             <div className="overflow-x-auto custom-scrollbar">
                 {isLoading ? (
-                    <div className="py-24 flex flex-col items-center justify-center space-y-4">
-                        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
-                        <p className="text-sm font-bold opacity-40 uppercase tracking-[0.2em]">Synchronizing Tests...</p>
-                    </div>
+                    Array(5).fill(0).map((_, i) => (
+                        <tr key={i} className="animate-pulse">
+                            <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4">
+                                <div className="space-y-2">
+                                    <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                </div>
+                            </td>
+                            <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                            <td className="py-5 px-4 text-right"><div className={`h-8 w-16 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                        </tr>
+                    ))
                 ) : (
                     <table className="w-full text-left">
                         <thead>

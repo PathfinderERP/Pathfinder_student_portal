@@ -188,7 +188,13 @@ const CommunityRegistry = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {isLoading ? (
                     Array(4).fill(0).map((_, i) => (
-                        <div key={i} className={`h-64 rounded-[5px] animate-pulse border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}></div>
+                        <div key={i} className={`rounded-[5px] border overflow-hidden animate-pulse ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <div className={`h-40 ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                            <div className="p-4 space-y-3">
+                                <div className={`h-6 w-3/4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                <div className={`h-4 w-1/2 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                            </div>
+                        </div>
                     ))
                 ) : filteredCommunities.length > 0 ? (
                     filteredCommunities.map((community) => (

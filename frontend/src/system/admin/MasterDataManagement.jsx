@@ -1231,10 +1231,6 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     ))}
                                 </tbody>
                             </table>
-                            <div className="py-12 flex flex-col items-center justify-center space-y-4">
-                                <Loader2 className="w-8 h-8 text-orange-500 animate-spin opacity-20" />
-                                <p className="text-[10px] font-bold opacity-20 uppercase tracking-[0.2em]">Synchronizing Master Data...</p>
-                            </div>
                         </div>
                     ) : error ? (
                         <div className="py-24 flex flex-col items-center justify-center space-y-4 text-red-500">

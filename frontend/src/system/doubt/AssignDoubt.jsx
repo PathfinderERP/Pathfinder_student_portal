@@ -270,7 +270,36 @@ const AssignDoubt = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {filteredDoubts.length > 0 ? (
+                            {loading ? (
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-4 px-2 text-center">
+                                            <div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-2">
+                                            <div className="flex flex-col gap-2">
+                                                <div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-2.5 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-2">
+                                            <div className={`h-5 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-2">
+                                            <div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-2 text-center">
+                                            <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-2 text-center">
+                                            <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-2 text-center">
+                                            <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : filteredDoubts.length > 0 ? (
                                 filteredDoubts.map((doubt) => (
                                     <tr key={doubt.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         {activeTab === 'Assign' || activeTab === 'Solve' ? (

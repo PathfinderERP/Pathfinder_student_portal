@@ -470,14 +470,38 @@ const HomeworkRegistry = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5 border-t border-white/5">
                             {isLoading ? (
-                                <tr>
-                                    <td colSpan={10} className="py-20 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <Loader2 size={40} className="animate-spin text-orange-500" />
-                                            <p className="font-bold text-lg opacity-50 uppercase tracking-widest">Loading homework...</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-5 px-6"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6">
+                                            <div className="flex flex-col gap-2">
+                                                <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className="flex gap-2">
+                                                    <div className={`h-3 w-12 rounded-[10px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                    <div className={`h-3 w-12 rounded-[10px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-6 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-4 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6">
+                                            <div className="flex flex-col gap-1">
+                                                <div className={`h-3 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-3 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6">
+                                            <div className="flex flex-col gap-1">
+                                                <div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-10 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-10 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    </tr>
+                                ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
                                     <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>

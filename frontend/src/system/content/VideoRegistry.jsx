@@ -389,9 +389,31 @@ const VideoRegistry = () => {
                 {/* Table */}
                 <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#1a1f2e] border-white/5' : 'bg-white border-slate-200'}`}>
                     {isLoading ? (
-                        <div className="flex items-center justify-center py-20">
-                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent"></div>
-                        </div>
+                        <table className="w-full">
+                            <tbody>
+                                {Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-5 px-6"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6"><div className={`h-5 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6"><div className={`h-4 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6"><div className={`h-6 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className="flex flex-col gap-1 items-center">
+                                                <div className={`h-4 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-3 w-12 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6"><div className={`h-4 w-32 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className={`h-8 w-8 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-8 w-8 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     ) : paginatedVideos.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20">
                             <Video size={48} className="text-slate-400 mb-4" />

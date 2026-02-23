@@ -124,7 +124,14 @@ const TopicSubTopicManagement = ({ topicData, onBack, breadcrumbs }) => {
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {loading ? (
-                                    <tr><td colSpan="4" className="py-12 text-center font-bold animate-pulse">Loading Subtopics...</td></tr>
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="py-6 px-6"><div className={`h-10 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        </tr>
+                                    ))
                                 ) : filtered.map((sub, idx) => (
                                     <tr key={sub.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-6 px-6 font-bold text-sm tracking-tight">
@@ -289,7 +296,15 @@ const ChapterTopicManagement = ({ chapterData, onNavigate, onBack, breadcrumbs }
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {loading ? (
-                                    <tr><td colSpan="5" className="py-12 text-center font-bold animate-pulse">Loading Topics...</td></tr>
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="py-6 px-6 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6"><div className={`h-10 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        </tr>
+                                    ))
                                 ) : filtered.map((topic, idx) => (
                                     <tr key={topic.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-6 px-6 text-center text-xs font-bold opacity-50">{topic.order || idx + 1}</td>
@@ -458,7 +473,15 @@ const SubjectChapterManagement = ({ subjectData, onNavigate, onBack, breadcrumbs
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {loading ? (
-                                    <tr><td colSpan="5" className="py-12 text-center font-bold animate-pulse">Loading Chapters...</td></tr>
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="py-6 px-6 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6"><div className={`h-10 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-6 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        </tr>
+                                    ))
                                 ) : filtered.map((chap, idx) => (
                                     <tr key={chap.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-6 px-6 text-center text-xs font-bold opacity-50">{chap.order || idx + 1}</td>
@@ -955,7 +978,18 @@ const PackageAddCourse = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {paginatedPackages.map((pkg, index) => (
+                                {loading ? (
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="py-8 px-6 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-8 px-6"><div className={`h-6 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-8 px-6 text-center"><div className={`h-4 w-20 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-8 px-6 text-center"><div className={`h-8 w-32 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-8 px-6 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-8 px-6 text-center last:rounded-r-[5px]"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        </tr>
+                                    ))
+                                ) : paginatedPackages.map((pkg, index) => (
                                     <tr key={pkg.id || pkg._id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-8 px-6 text-center text-xs font-bold opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                         <td className="py-8 px-6"><p className="font-black text-sm">{pkg.name}</p></td>

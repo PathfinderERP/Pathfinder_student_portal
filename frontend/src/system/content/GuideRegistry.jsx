@@ -225,14 +225,25 @@ const GuideRegistry = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5 border-t border-white/5">
                             {isLoading ? (
-                                <tr>
-                                    <td colSpan={8} className="py-20 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <Loader2 size={40} className="animate-spin text-orange-500" />
-                                            <p className="font-bold text-lg opacity-50 uppercase tracking-widest">Loading guides...</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-4 px-6 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-4 w-56 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6 text-center"><div className={`h-4 w-20 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6">
+                                            <div className={`w-24 h-14 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-6 text-center"><div className={`h-7 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`h-3 w-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-6 text-center"><div className={`h-5 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6 text-center"><div className={`h-5 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    </tr>
+                                ))
                             ) : filteredGuides.length > 0 ? (
                                 filteredGuides.map((guide, index) => (
                                     <tr key={guide.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>

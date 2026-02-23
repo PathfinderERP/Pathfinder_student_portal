@@ -1132,9 +1132,30 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 </div>
 
                 {isLoadingQuestions ? (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                        <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-4" />
-                        <span className="text-xs font-black uppercase tracking-widest">Loading Repository...</span>
+                    <div className="flex flex-col gap-4 mt-8 animate-pulse">
+                        {Array(5).fill(0).map((_, i) => (
+                            <div key={i} className={`p-8 rounded-[5px] border flex flex-col lg:flex-row gap-6 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <div className={`w-12 h-12 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                <div className="flex-1 space-y-4">
+                                    <div className="flex flex-wrap gap-2">
+                                        <div className={`h-6 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        <div className={`h-6 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        <div className={`h-6 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className={`h-4 w-full rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        <div className={`h-4 w-3/4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-3 lg:min-w-[170px] border-l border-dashed border-slate-200/20 pl-8">
+                                    <div className={`h-3 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    <div className="flex gap-3 mt-auto">
+                                        <div className={`h-10 w-10 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        <div className={`h-10 w-10 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : filteredQuestions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-30">

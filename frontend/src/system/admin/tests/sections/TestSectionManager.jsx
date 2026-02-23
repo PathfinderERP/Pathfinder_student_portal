@@ -241,12 +241,19 @@ const TestSectionManager = ({ test, onBack }) => {
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
                             {isLoading ? (
-                                <tr>
-                                    <td colSpan="9" className="py-20 text-center">
-                                        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-4" />
-                                        <div className="text-xs font-bold opacity-40 uppercase tracking-widest">Loading Sections...</div>
-                                    </td>
-                                </tr>
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-4 px-2 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2"><div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2 text-center"><div className={`h-4 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2 text-center"><div className={`h-4 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2 text-center"><div className={`h-4 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2 text-center"><div className={`h-8 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-2 text-center"><div className={`h-4 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    </tr>
+                                ))
                             ) : filteredSections.length === 0 ? (
                                 <tr>
                                     <td colSpan="9" className="py-20 text-center opacity-40">No sections found</td>

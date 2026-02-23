@@ -192,19 +192,6 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     if (isLoading || isERPLoading) {
         return (
             <div className="animate-pulse">
-                {/* <div className="flex flex-col items-center justify-center py-12 mb-8 space-y-4">
-                    <div className="relative">
-                        <div className="w-16 h-16 border-4 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <MapPin size={20} className="text-orange-500 animate-pulse" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <p className="font-black uppercase tracking-[0.3em] text-[10px] text-orange-500 mb-1">Centre Gateway</p>
-                        <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Synchronizing Live Nodes...</p>
-                    </div>
-                </div> */}
-
                 <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/40'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">

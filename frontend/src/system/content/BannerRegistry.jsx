@@ -188,14 +188,15 @@ const BannerRegistry = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5 border-t border-white/5">
                             {isLoading ? (
-                                <tr>
-                                    <td colSpan={5} className="py-20 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <Loader2 size={40} className="animate-spin text-orange-500" />
-                                            <p className="font-bold text-lg opacity-50 uppercase tracking-widest">Loading banners...</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                Array(3).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-5 px-6 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6"><div className={`h-16 w-48 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-6 w-11 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-10 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-10 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    </tr>
+                                ))
                             ) : banners.length > 0 ? (
                                 banners.map((banner, index) => (
                                     <tr key={banner.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>

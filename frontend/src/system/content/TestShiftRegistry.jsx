@@ -93,9 +93,20 @@ const TestShiftRegistry = () => {
                 </h1>
 
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20">
-                        <Loader2 size={48} className="animate-spin text-blue-600 mb-4" />
-                        <p className="font-bold opacity-50 uppercase tracking-widest text-sm">Loading Data...</p>
+                    <div className="space-y-12 animate-pulse">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                                <div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                <div className={`h-14 w-full rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                            </div>
+                            <div className="space-y-4">
+                                <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                <div className={`h-14 w-full rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                            </div>
+                        </div>
+                        <div className="flex justify-center pt-8">
+                            <div className={`h-14 w-60 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                        </div>
                     </div>
                 ) : (
                     <div className="space-y-12">
