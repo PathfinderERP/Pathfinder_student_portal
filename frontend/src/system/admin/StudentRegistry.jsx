@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-    Database, AlertCircle, MapPin, Mail, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Search, Filter, X
+    Database, AlertCircle, MapPin, Mail, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Search, Filter, X, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -15,6 +15,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState(null);
+    const [erpUnavailable, setErpUnavailable] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
 
     // Pagination state
@@ -71,7 +72,16 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            const erpData = response.data || [];
+            const erpData = response.data?.data || (Array.isArray(response.data) ? response.data : []);
+
+            // If ERP returned empty (server sleeping/unavailable), show retry UI
+            if (erpData.length === 0) {
+                setErpUnavailable(true);
+                setIsLoading(false);
+                return;
+            }
+
+            setErpUnavailable(false);
             setAllStudents(erpData);
 
             // Initially load first 50 records
@@ -264,7 +274,8 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
             </div>
             <div className="text-center">
                 <p className="font-black uppercase tracking-[0.3em] text-[10px] text-orange-500 mb-1">ERP Gateway</p>
-                <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Synchronizing Live Student Registry...</p>
+                <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Downloading 15,000+ Student Records...</p>
+                <p className={`text-[10px] mt-2 opacity-30 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>First load takes ~30 seconds. Cached for 1 hour after.</p>
             </div>
         </div>
     );
@@ -277,6 +288,28 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
             <h3 className="text-xl font-black uppercase tracking-tight mb-2">Sync Connection Failed</h3>
             <p className="text-sm font-medium opacity-50 max-w-xs mx-auto mb-8">{error}</p>
             <button onClick={() => loadERPData(true)} className="px-6 py-3 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-[5px] font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all active:scale-95">Retry Sync</button>
+        </div>
+    );
+
+    if (erpUnavailable) return (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className={`w-20 h-20 rounded-[5px] flex items-center justify-center mb-6 border shadow-2xl ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-500/10' : 'bg-orange-50 text-orange-500 border-orange-200'}`}>
+                <Database size={40} strokeWidth={2} />
+            </div>
+            <h3 className="text-xl font-black uppercase tracking-tight mb-2">ERP Server Waking Up</h3>
+            <p className={`text-sm font-medium max-w-sm mx-auto mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                The ERP server is starting up (Render cold-start). This happens after ~15 min of inactivity.
+            </p>
+            <p className={`text-xs mb-8 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                Wait 30–60 seconds, then click Retry.
+            </p>
+            <button
+                onClick={() => { setErpUnavailable(false); setIsLoading(true); loadERPData(true); }}
+                className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-orange-500/30"
+            >
+                <RotateCcw size={14} />
+                Retry Sync
+            </button>
         </div>
     );
 
@@ -301,6 +334,13 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                             )}
                         </p>
                     </div>
+                    <button
+                        onClick={() => loadERPData(true)}
+                        className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10 border border-white/10' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}`}
+                    >
+                        <RotateCcw size={12} className={isLoading ? 'animate-spin' : ''} />
+                        Sync Registry
+                    </button>
                 </div>
 
                 {/* Search and Filter Section */}

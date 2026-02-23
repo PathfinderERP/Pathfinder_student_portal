@@ -144,20 +144,11 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
 
             let erpData = centresData;
             if (!erpData || erpData.length === 0) {
-                const erpUrl = import.meta.env.VITE_ERP_API_URL || 'https://pathfinder-5ri2.onrender.com';
-                const erpIdentifier = import.meta.env.VITE_ERP_ADMIN_EMAIL || "atanu@gmail.com";
-                const erpPassword = import.meta.env.VITE_ERP_ADMIN_PASSWORD || "000000";
-
-                const loginRes = await axios.post(`${erpUrl}/api/superAdmin/login`, {
-                    email: erpIdentifier,
-                    password: erpPassword
+                // Call backend API which proxies to ERP to avoid CORS issues
+                const response = await axios.get(`${apiUrl}/api/admin/erp-centres/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-
-                const erpToken = loginRes.data.token;
-                const centreRes = await axios.get(`${erpUrl}/api/centre`, {
-                    headers: { 'Authorization': `Bearer ${erpToken}` }
-                });
-                erpData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
+                erpData = response.data?.data || (Array.isArray(response.data) ? response.data : []);
             }
             setCentres(erpData);
 

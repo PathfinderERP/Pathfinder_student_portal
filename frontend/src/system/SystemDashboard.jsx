@@ -226,7 +226,7 @@ const SystemDashboard = () => {
     const syncAttempted = useRef(false);
     const syncERP = useCallback(async (isManual = false) => {
         if (!isManual && syncAttempted.current) return;
-        if (!lastPassword || !lastUsername) return;
+        if (authLoading || !token) return;
 
         setIsERPLoading(true);
         syncAttempted.current = true;
@@ -237,24 +237,28 @@ const SystemDashboard = () => {
             // Call backend proxy for students
             const admissionRes = await axios.get(`${apiUrl}/api/admin/erp-students/`, {
                 headers: { 'Authorization': `Bearer ${token}` },
-                params: { refresh: forceRefresh }
+                params: { refresh: isManual }
             });
-            const erpData = admissionRes.data || [];
+            const erpData = admissionRes.data?.data || (Array.isArray(admissionRes.data) ? admissionRes.data : []);
             setErpStudents(erpData);
 
             // Fetch Centres using backend proxy
             const centreRes = await axios.get(`${apiUrl}/api/admin/erp-centres/`, {
                 headers: { 'Authorization': `Bearer ${token}` },
-                params: { refresh: forceRefresh }
+                params: { refresh: isManual }
             });
-            const centreData = centreRes.data || [];
+            const centreData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
             setErpCentres(centreData);
         } catch (err) {
-            console.error("ERP Sync Failed:", err.message);
+            console.error("❌ ERP Sync Failed:", err);
+            if (err.response) {
+                console.error("Response data:", err.response.data);
+                console.error("Status:", err.response.status);
+            }
         } finally {
             setIsERPLoading(false);
         }
-    }, [lastPassword, lastUsername, user?.email]);
+    }, [token, getApiUrl, user?.email]);
 
     useEffect(() => {
         syncERP();
