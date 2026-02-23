@@ -265,17 +265,72 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
     };
 
     if (isLoading) return (
-        <div className="flex flex-col items-center justify-center py-24 space-y-6">
-            <div className="relative">
-                <div className="w-16 h-16 border-4 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <Database size={20} className="text-orange-500 animate-pulse" />
+        <div className="animate-pulse">
+            <div className="flex flex-col items-center justify-center py-12 mb-8 space-y-4">
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <Database size={20} className="text-orange-500 animate-pulse" />
+                    </div>
+                </div>
+                <div className="text-center">
+                    <p className="font-black uppercase tracking-[0.3em] text-[10px] text-orange-500 mb-1">ERP Gateway</p>
+                    <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Downloading 15,000+ Student Records...</p>
+                    <p className={`text-[10px] mt-2 opacity-30 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>First load takes ~30 seconds. Cached for 1 hour after.</p>
                 </div>
             </div>
-            <div className="text-center">
-                <p className="font-black uppercase tracking-[0.3em] text-[10px] text-orange-500 mb-1">ERP Gateway</p>
-                <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Downloading 15,000+ Student Records...</p>
-                <p className={`text-[10px] mt-2 opacity-30 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>First load takes ~30 seconds. Cached for 1 hour after.</p>
+
+            <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                                <th className="pb-6 px-4">Student Profile</th>
+                                <th className="pb-6 px-4">Course / Center</th>
+                                <th className="pb-6 px-4">Contact Info</th>
+                                <th className="pb-6 px-4 text-center">Form ID</th>
+                                <th className="pb-6 px-4 text-center">Status</th>
+                                <th className="pb-6 px-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-transparent">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <tr key={i}>
+                                    <td className="py-6 px-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            <div className="space-y-2">
+                                                <div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-2.5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="py-6 px-4">
+                                        <div className="space-y-2">
+                                            <div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            <div className={`h-2.5 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </div>
+                                    </td>
+                                    <td className="py-6 px-4">
+                                        <div className="space-y-2">
+                                            <div className={`h-4 w-28 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            <div className={`h-2.5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </div>
+                                    </td>
+                                    <td className="py-6 px-4">
+                                        <div className={`h-6 w-20 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    </td>
+                                    <td className="py-6 px-4">
+                                        <div className={`h-6 w-16 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    </td>
+                                    <td className="py-6 px-4 text-right">
+                                        <div className={`h-9 w-24 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

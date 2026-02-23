@@ -64,6 +64,7 @@ const SystemDashboard = () => {
     const [activeTab, setActiveTab] = useState('Dashboard');
     const [isUploading, setIsUploading] = useState(false);
     const [usersList, setUsersList] = useState([]);
+    const [isUsersLoading, setIsUsersLoading] = useState(true);
     const [successMessage, setSuccessMessage] = useState('');
     const [passwordModalOpen, setPasswordModalOpen] = useState(false);
     const [selectedUserForPass, setSelectedUserForPass] = useState(null);
@@ -73,6 +74,7 @@ const SystemDashboard = () => {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
     const [loginHistory, setLoginHistory] = useState([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const [erpStudents, setErpStudents] = useState([]);
     const [erpCentres, setErpCentres] = useState([]);
     const [isERPLoading, setIsERPLoading] = useState(false);
@@ -183,9 +185,9 @@ const SystemDashboard = () => {
         if (activeTab.startsWith('Admin')) {
             const fetchUsers = async () => {
                 if (authLoading) return;
+                setIsUsersLoading(true);
                 try {
                     const apiUrl = getApiUrl();
-                    const authToken = token;
                     const response = await axios.get(`${apiUrl}/api/users/`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -198,30 +200,34 @@ const SystemDashboard = () => {
                     setUsersList(data.map(u => normalizeUser(u)));
                 } catch (error) {
                     console.error("Failed to fetch users", error);
+                } finally {
+                    setIsUsersLoading(false);
                 }
             };
             fetchUsers();
         }
-    }, [activeTab, getApiUrl, normalizeUser]);
+    }, [activeTab, getApiUrl, normalizeUser, authLoading, token]);
 
     useEffect(() => {
-        if (activeTab === 'Dashboard') {
+        if (activeTab === 'Dashboard' || activeTab.startsWith('Admin')) {
             const fetchLoginHistory = async () => {
                 if (authLoading) return;
+                setIsHistoryLoading(true);
                 try {
                     const apiUrl = getApiUrl();
-                    const authToken = token;
                     const response = await axios.get(`${apiUrl}/api/login-history/?_t=${Date.now()}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     setLoginHistory(response.data);
                 } catch (error) {
                     console.error("Failed to fetch login history", error);
+                } finally {
+                    setIsHistoryLoading(false);
                 }
             };
             fetchLoginHistory();
         }
-    }, [activeTab, getApiUrl]);
+    }, [activeTab, getApiUrl, authLoading, token]);
 
     const syncAttempted = useRef(false);
     const syncERP = useCallback(async (isManual = false) => {
@@ -369,7 +375,7 @@ const SystemDashboard = () => {
     const renderPage = (tabName) => {
         switch (tabName) {
             case 'Dashboard':
-                return <DashboardOverview isDarkMode={isDarkMode} syncERP={syncERP} isERPLoading={isERPLoading} erpStudentsCount={erpStudents.length} setActiveTab={setActiveTab} />;
+                return <DashboardOverview isDarkMode={isDarkMode} syncERP={syncERP} isLoading={isERPLoading} erpStudentsCount={erpStudents.length} setActiveTab={setActiveTab} />;
             case 'Create User':
                 return isSuperAdmin ? <CreateUserPage onBack={() => setActiveTab('Admin System')} /> : null;
             case 'Admin System':
@@ -393,6 +399,7 @@ const SystemDashboard = () => {
                             <UserManagementTable
                                 users={usersList}
                                 isDarkMode={isDarkMode}
+                                isLoading={isUsersLoading}
                                 onToggleStatus={handleToggleStatus}
                                 onResetPassword={(admin) => { setSelectedUserForPass(admin); setPasswordModalOpen(true); }}
                                 onEditPermissions={(admin) => { setSelectedUserForEdit(admin); setEditModalOpen(true); }}
@@ -401,7 +408,11 @@ const SystemDashboard = () => {
                                 isActionLoading={isActionLoading}
                             />
                         </div>
-                        <LoginHistory loginHistory={loginHistory} isDarkMode={isDarkMode} />
+                        <LoginHistory
+                            loginHistory={loginHistory}
+                            isDarkMode={isDarkMode}
+                            isLoading={isHistoryLoading}
+                        />
                     </div>
                 );
             case 'Admin Student':

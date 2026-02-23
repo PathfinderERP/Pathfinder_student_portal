@@ -359,7 +359,23 @@ const PackageRegistry = ({ onBack }) => {
                             </tr>
                         </thead>
                         <tbody className="">
-                            {paginatedPackages.length > 0 ? paginatedPackages.map((pkg, index) => (
+                            {loadingData ? (
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-4 px-6"><div className={`h-3 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-4 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-4 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`w-8 h-8 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-5 w-5 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-5 w-5 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-5 w-10 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-4 px-6 last:rounded-r-2xl"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    </tr>
+                                ))
+                            ) : paginatedPackages.length > 0 ? paginatedPackages.map((pkg, index) => (
                                 <tr key={pkg._id} className={`group ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-slate-50 shadow-sm'} transition-all duration-300`}>
                                     <td className="py-4 px-6 text-xs font-bold opacity-60 first:rounded-l-2xl">{(currentPage - 1) * itemsPerPage + index + 1}</td>
 

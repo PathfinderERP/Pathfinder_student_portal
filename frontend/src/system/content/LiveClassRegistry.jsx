@@ -475,14 +475,40 @@ const LiveClassRegistry = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5 border-t border-white/5">
                             {isLoading ? (
-                                <tr>
-                                    <td colSpan={6} className="py-20 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <Loader2 size={40} className="animate-spin text-amber-500" />
-                                            <p className="font-bold text-lg opacity-50 text-slate-500 uppercase tracking-widest">Fetching Live Classes...</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-3 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-5 px-6">
+                                            <div className="space-y-2">
+                                                <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-2.5 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-3 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-3 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-6 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-2.5 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-9 w-9 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-9 w-9 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                    </tr>
+                                ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
                                     <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>

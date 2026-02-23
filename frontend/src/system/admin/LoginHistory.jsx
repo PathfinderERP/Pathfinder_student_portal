@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
 
-const LoginHistory = ({ loginHistory, isDarkMode }) => {
+const LoginHistory = ({ loginHistory, isDarkMode, isLoading }) => {
     return (
         <div className={`p-10 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-100 border-slate-200 shadow-slate-200/50'}`}>
             <div className="flex items-center gap-3 mb-8">
@@ -11,7 +11,19 @@ const LoginHistory = ({ loginHistory, isDarkMode }) => {
                 <h3 className="text-xl font-black uppercase tracking-tight">Recent Login <span className="text-orange-500">History</span></h3>
             </div>
             <div className="space-y-4">
-                {loginHistory.length > 0 ? loginHistory.map((log, i) => (
+                {isLoading ? (
+                    [1, 2, 3].map((i) => (
+                        <div key={i} className={`flex items-center justify-between p-4 rounded-[5px] border animate-pulse ${isDarkMode ? 'bg-white/[0.03] border-white/5' : 'bg-white border-slate-100'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                <div>
+                                    <div className={`h-5 w-32 mb-2 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                    <div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : loginHistory.length > 0 ? loginHistory.map((log, i) => (
                     <div key={i} className={`flex items-center justify-between p-4 rounded-[5px] border transition-all group ${isDarkMode ? 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]' : 'bg-slate-100 border-slate-200/50 hover:bg-slate-200'}`}>
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-[5px] bg-orange-500/10 flex items-center justify-center text-orange-500 shadow-lg shadow-orange-500/5">

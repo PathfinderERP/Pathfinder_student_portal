@@ -1165,9 +1165,76 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
 
                 <div className="overflow-x-auto custom-scrollbar">
                     {isLoading ? (
-                        <div className="py-24 flex flex-col items-center justify-center space-y-4">
-                            <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
-                            <p className="text-sm font-bold opacity-40 uppercase tracking-[0.2em]">Synchronizing Master Data...</p>
+                        <div className="animate-pulse">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className={`border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                                        {activeSubTab === 'Exam Details' ? (
+                                            <>
+                                                {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <th key={i} className="pb-4 px-4"><div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>)}
+                                            </>
+                                        ) : activeSubTab === 'Chapter' || activeSubTab === 'Topic' ? (
+                                            <>
+                                                {[1, 2, 3, 4, 5].map(i => <th key={i} className="pb-4 px-4"><div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>)}
+                                            </>
+                                        ) : (
+                                            <>
+                                                {[1, 2, 3].map(i => <th key={i} className="pb-4 px-4"><div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>)}
+                                            </>
+                                        )}
+                                        <th className="pb-4 px-4"><div className={`h-3 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
+                                        <th className="pb-4 px-4"><div className={`h-3 w-16 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-transparent">
+                                    {[1, 2, 3, 4, 5].map((row) => (
+                                        <tr key={row}>
+                                            {activeSubTab === 'Exam Details' ? (
+                                                <>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-10 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                </>
+                                            ) : activeSubTab === 'Chapter' || activeSubTab === 'Topic' ? (
+                                                <>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td className="py-5 px-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                            <div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                        </div>
+                                                    </td>
+                                                    {activeSubTab === 'Exam Type' && <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>}
+                                                    <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                                </>
+                                            )}
+                                            <td className="py-5 px-4"><div className={`h-6 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                            <td className="py-5 px-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <div className={`h-8 w-8 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                    <div className={`h-8 w-8 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                                <Loader2 className="w-8 h-8 text-orange-500 animate-spin opacity-20" />
+                                <p className="text-[10px] font-bold opacity-20 uppercase tracking-[0.2em]">Synchronizing Master Data...</p>
+                            </div>
                         </div>
                     ) : error ? (
                         <div className="py-24 flex flex-col items-center justify-center space-y-4 text-red-500">

@@ -4,6 +4,7 @@ import { Power, Key, Settings, Trash2 } from 'lucide-react';
 const UserManagementTable = ({
     users,
     isDarkMode,
+    isLoading,
     onToggleStatus,
     onResetPassword,
     onEditPermissions,
@@ -11,6 +12,50 @@ const UserManagementTable = ({
     currentUserId,
     isActionLoading
 }) => {
+    if (isLoading) {
+        return (
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                            <th className="pb-4 px-4 font-black">User</th>
+                            <th className="pb-4 px-4 font-black">Role</th>
+                            <th className="pb-4 px-4 font-black">Email</th>
+                            <th className="pb-4 px-4 font-black">Created By</th>
+                            <th className="pb-4 px-4 font-black">Creation Time</th>
+                            <th className="pb-4 px-4 font-black text-center">Status</th>
+                            <th className="pb-4 px-4 text-right font-black">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <tr key={i} className="animate-pulse">
+                                <td className="py-5 px-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                        <div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                    </div>
+                                </td>
+                                <td className="py-5 px-4"><div className={`h-5 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div></td>
+                                <td className="py-5 px-4"><div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div></td>
+                                <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div></td>
+                                <td className="py-5 px-4"><div className={`h-4 w-28 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div></td>
+                                <td className="py-5 px-4 flex justify-center mt-3"><div className={`h-7 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div></td>
+                                <td className="py-5 px-4">
+                                    <div className="flex justify-end gap-2">
+                                        <div className={`h-9 w-9 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                        <div className={`h-9 w-9 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                        <div className={`h-9 w-9 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    }
+
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -26,7 +71,7 @@ const UserManagementTable = ({
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-transparent">
-                    {users.map((admin, i) => (
+                    {users.length > 0 ? users.map((admin, i) => (
                         <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-200/50'} transition-colors`}>
                             <td className="py-5 px-4">
                                 <div className="flex items-center gap-3">
@@ -96,7 +141,11 @@ const UserManagementTable = ({
                                 </div>
                             </td>
                         </tr>
-                    ))}
+                    )) : (
+                        <tr>
+                            <td colSpan="7" className="py-12 text-center opacity-30 font-bold">No users found</td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>

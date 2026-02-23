@@ -191,16 +191,58 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
 
     if (isLoading || isERPLoading) {
         return (
-            <div className="flex flex-col items-center justify-center py-24 space-y-6">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-orange-500/10 border-t-orange-500 rounded-full animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <MapPin size={20} className="text-orange-500 animate-pulse" />
+            <div className="animate-pulse">
+
+
+                <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/40'}`}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                                    <th className="pb-6 px-4">Sl No.</th>
+                                    <th className="pb-6 px-4">Centre Identity</th>
+                                    <th className="pb-6 px-4">Location & Logistics</th>
+                                    <th className="pb-6 px-4">Communication</th>
+                                    <th className="pb-6 px-4 text-center">No. of Tests</th>
+                                    <th className="pb-6 px-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-transparent">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <tr key={i}>
+                                        <td className="py-6 px-4"><div className={`h-3 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-6 px-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className="space-y-2">
+                                                    <div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                    <div className={`h-2.5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-6 px-4">
+                                            <div className="space-y-2">
+                                                <div className={`h-2.5 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-2.5 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-6 px-4">
+                                            <div className="space-y-2">
+                                                <div className={`h-2.5 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-2.5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-6 px-4 text-center">
+                                            <div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-6 px-4 text-right">
+                                            <div className={`h-9 w-20 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-                <div className="text-center">
-                    <p className="font-black uppercase tracking-[0.3em] text-[10px] text-orange-500 mb-1">Centre Gateway</p>
-                    <p className={`text-xs font-bold opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Synchronizing Live Nodes...</p>
                 </div>
             </div>
         );
