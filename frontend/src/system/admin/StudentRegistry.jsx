@@ -371,7 +371,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
             <div className={`p-10 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200/60 shadow-slate-200/40'}`}>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                {/* <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <div className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/20">External ERP</div>
@@ -396,7 +396,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                         <RotateCcw size={12} className={isLoading ? 'animate-spin' : ''} />
                         Sync Registry
                     </button>
-                </div>
+                </div> */}
 
                 {/* Search and Filter Section */}
                 <div className="mb-8 space-y-4">
