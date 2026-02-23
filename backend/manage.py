@@ -7,13 +7,6 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-    
-    # Apply Djongo patches BEFORE Django setup
-    try:
-        from djongo_patch import apply_djongo_patches
-        apply_djongo_patches()
-    except ImportError:
-        pass
 
     try:
         from django.core.management import execute_from_command_line

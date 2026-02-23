@@ -9,9 +9,18 @@ class ApiConfig(AppConfig):
     name = 'api'
 
     def ready(self):
+        # Apply Djongo patches
+        try:
+            from djongo_patch import apply_djongo_patches
+            apply_djongo_patches()
+            print("[PATCH] Djongo cursor patches applied in api.apps.ready()")
+        except Exception as e:
+            print(f"[PATCH ERROR] Failed to apply Djongo patches: {e}")
+
         # Database connection check for local development
         if 'runserver' in sys.argv:
             try:
+                # We need to make sure the patch above didn't break things
                 db_conn = connections['default']
                 db_conn.cursor()
                 print("\n[OK] Successfully connected to MongoDB Atlas!\n")
