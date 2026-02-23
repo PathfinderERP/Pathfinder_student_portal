@@ -57,8 +57,8 @@ const MyProfile = ({ isDarkMode, studentData }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InfoField label="Email" value={details.studentEmail} icon={Mail} isDark={isDarkMode} />
-                    <InfoField label="Mobile" value={`+91 ${details.mobileNum}`} icon={Phone} isDark={isDarkMode} />
-                    <InfoField label="WhatsApp" value={`+91 ${details.whatsappNumber}`} icon={Phone} isDark={isDarkMode} />
+                    <InfoField label="Mobile" value={details.mobileNum ? `+91 ${details.mobileNum}` : null} icon={Phone} isDark={isDarkMode} />
+                    <InfoField label="WhatsApp" value={details.whatsappNumber ? `+91 ${details.whatsappNumber}` : null} icon={Phone} isDark={isDarkMode} />
                     <InfoField label="Date of Birth" value={details.dateOfBirth} icon={Calendar} isDark={isDarkMode} />
                     <InfoField label="School" value={details.schoolName} icon={BookOpen} isDark={isDarkMode} />
                     <InfoField label="Centre" value={details.centre} icon={MapPin} isDark={isDarkMode} />

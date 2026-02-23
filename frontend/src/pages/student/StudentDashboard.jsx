@@ -175,9 +175,14 @@ const StudentDashboard = () => {
     }
 
     // Extract Details safely
-    const basicInfo = studentData.student.studentsDetails.find(d => (user.email && d.studentEmail?.toLowerCase() === user.email.toLowerCase()) || d.studentEmail?.toLowerCase() === user.username.toLowerCase()) || studentData.student.studentsDetails[0];
-    const rollNo = studentData.admissionNumber || "N/A";
-    const classNameValue = studentData.class?.name || "N/A";
+    const detailsList = studentData?.student?.studentsDetails || [];
+    const basicInfo = detailsList.find(d =>
+        (user?.email && d?.studentEmail?.toLowerCase() === user.email.toLowerCase()) ||
+        d?.studentEmail?.toLowerCase() === user?.username?.toLowerCase()
+    ) || detailsList[0] || {};
+
+    const rollNo = studentData?.admissionNumber || "N/A";
+    const classNameValue = studentData?.class?.name || "N/A";
 
     const renderContent = () => {
         switch (activeTab) {
@@ -251,7 +256,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
                 <div>
                     <h1 className={`text-3xl md:text-4xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Welcome Back, {student.studentName.split(' ')[0]}!
+                        Welcome Back, {(student?.studentName || "Student").split(' ')[0]}!
                     </h1>
                     <p className={`text-sm md:text-base font-medium ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
                         Here's your comprehensive learning snapshot & AI-powered insights for today
@@ -261,9 +266,9 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                     ${isDarkMode ? 'bg-[#151A25]/80 border-white/10 text-slate-300' : 'bg-white/80 border-slate-200 text-slate-600'}`}>
                     <span className="font-bold">{className}</span>
                     <span className={`w-1.5 h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
-                    <span className="text-sm">Roll: {rollNo.slice(-3)}</span>
+                    <span className="text-sm">Roll: {String(rollNo || "").slice(-6)}</span>
                     <div className={`ml-2 w-8 h-8 rounded-[5px] flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
-                        {student.studentName.match(/\b(\w)/g).join('')}
+                        {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
                     </div>
                 </div>
             </div>

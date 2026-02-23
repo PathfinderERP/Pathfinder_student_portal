@@ -75,19 +75,17 @@ class ERPStudentBackend(BaseBackend):
                     except Exception as e:
                         print(f"Error parsing name: {e}")
 
-                    # Create or Update Local User
+                    # Update or Create Local User
                     if local_user:
-                        # User exists - update and ensure active
                         print(f"Updating existing user {username}")
                         if not local_user.check_password(password):
                             local_user.set_password(password)
-                        local_user.is_active = True  # Reactivate if was deactivated
+                        local_user.is_active = True
                         local_user.first_name = first_name
                         local_user.last_name = last_name
                         local_user.save()
                         user = local_user
                     else:
-                        # Create new user
                         print(f"Creating new local user for {username}")
                         user = CustomUser.objects.create_user(
                             username=username,
@@ -98,11 +96,21 @@ class ERPStudentBackend(BaseBackend):
                             user_type='student',
                             is_active=True
                         )
+
+                    # CACHE THE FULL ERP RESPONSE for the profile view
+                    # We remove the token to keep the cache clean, but keep the rest
+                    profile_cache_data = data.copy()
+                    if 'token' in profile_cache_data:
+                        profile_cache_data.pop('token')
                     
-                    # CACHE THE TOKEN for use in views
+                    student_cache_key = f"erp_student_data_v6_{user.pk}"
+                    cache.set(student_cache_key, profile_cache_data, timeout=3600)  # 1 hour
+                    print(f"✓ Cached full ERP profile data for {username}")
+
+                    # CACHE THE TOKEN for use in other views
                     cache_key = f"erp_token_{user.pk}"
                     cache.set(cache_key, erp_token, timeout=86400)  # 24 hours
-                    print(f"Cached ERP token for user {user.pk}")
+                    print(f"✓ Cached ERP token for user {user.pk}")
                     
                     return user
                     

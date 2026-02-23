@@ -53,20 +53,14 @@ def _get_erp_admin_token(force_refresh=False):
 @permission_classes([IsAuthenticated])
 def get_student_erp_data(request):
     """
-    Render-Optimized Resilient Dashboard Sync.
-    Prioritizes Student Token and Local Fallback to avoid Gunicorn 30s kills.
+    Fast per-student ERP data lookup with multi-strategy resilience.
     """
     user = request.user
     search_email = (user.email or user.username).strip().lower()
-    
-    # 1. Quick Cache Check
-    cache_key = f"erp_student_data_v6_{user.pk}"
-    if not request.GET.get('refresh'):
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            return Response(cached_data, status=status.HTTP_200_OK)
+    search_username = user.username.strip().upper() # Often the Admission Number
+    erp_url = _get_erp_url()
 
-    # 2. Local Fallback Structure
+    # Local DB fallback structure
     local_data = {
         "sectionAllotment": {
             "examSection": user.exam_section,
@@ -75,79 +69,115 @@ def get_student_erp_data(request):
             "rm": user.rm_code
         },
         "student": {
-            "studentsDetails": [{"studentEmail": search_email, "studentName": f"{user.first_name} {user.last_name}"}]
+            "studentsDetails": [{
+                "studentEmail": search_email, 
+                "studentName": f"{user.first_name} {user.last_name}",
+                "mobileNum": "—", # Avoid 'undefined' in frontend
+                "dateOfBirth": "—",
+                "schoolName": "Loading...",
+                "board": "—"
+            }]
         },
-        "is_offline": True
+        "is_offline": True,
+        "sync_status": "pending"
     }
 
-    erp_url = _get_erp_url()
-    
-    # 3. Resilient Multi-Strategy Sync
-    try:
-        student_erp_token = cache.get(f"erp_token_{user.pk}")
-        
-        # Strategy A: Direct Student Access (Fast)
-        # Strategy A: Direct Student Access (Fast)
-        if student_erp_token:
-            try:
-                resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {student_erp_token}"}, timeout=15)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    target = data if isinstance(data, dict) else None
-                    if isinstance(data, list):
-                        target = next((
-                            i for i in data 
-                            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email 
-                                   for d in i.get('student', {}).get('studentsDetails', []))
-                        ), None)
-                    
-                    if target:
-                        _sync_user_to_erp(user, target)
-                        cache.set(cache_key, target, 3600)
-                        return Response(target, status=200)
-            except Exception as e:
-                print(f"[ERP WARNING] Strategy A failed: {e}")
+    # ── Quick Check: Is our individual cache rich enough? ─────────────────────
+    student_cache_key = f"erp_student_data_v6_{user.pk}"
+    cached = cache.get(student_cache_key)
+    if not request.GET.get('refresh') and cached and isinstance(cached, dict):
+        details = cached.get('student', {}).get('studentsDetails', [])
+        # If we have mobile Num, the cache is 'rich' — use it immediately
+        if details and details[0].get('mobileNum'):
+            print(f"[ERP] Strategy 1 HIT: Serving rich data for {search_email} from cache.")
+            _sync_user_to_erp(user, cached)
+            return Response(cached, status=200)
 
-        # Strategy B: Admin Proxy Sync (Strict 12s cap to prevent Render kill)
-        erp_admin_token = _get_erp_admin_token()
-        if erp_admin_token:
-            print(f"[ERP DEBUG] Token obtained. Searching for: {search_email}")
-            resp = requests.get(f"{erp_url}/api/admission", headers={"Authorization": f"Bearer {erp_admin_token}"}, timeout=25)
-            if resp.status_code == 200:
-                admissions = resp.json()
-                print(f"[ERP DEBUG] Fetched {len(admissions) if isinstance(admissions, list) else 0} records.")
+    # ── Strategy 2: Admin Bulk Cache Search (THE FIX: Get rich data from 20k list) ──
+    bulk_cache = cache.get('erp_all_students_v1')
+    if bulk_cache and isinstance(bulk_cache, list):
+        print(f"[ERP] Strategy 2: Enriching {search_email} from bulk cache...")
+        for admission in bulk_cache:
+            details = admission.get('student', {}).get('studentsDetails', [])
+            admission_num = str(admission.get('admissionNumber') or '').strip().upper()
+            
+            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details) or \
+               admission_num == search_username or admission_num == user.username.upper():
                 
-                if isinstance(admissions, list):
-                    for admission in admissions:
+                print(f"[ERP] Strategy 2 HIT: Rich data found for {search_email}.")
+                _sync_user_to_erp(user, admission)
+                cache.set(student_cache_key, admission, 3600)
+                return Response(admission, status=200)
+    
+    # ── Strategy 1 Fallback: Serve the 'thin' cache if bulk search failed ─────
+    if cached:
+        print(f"[ERP] Strategy 1 Fallback: Serving existing (possibly thin) data for {search_email}.")
+        return Response(cached, status=200)
+
+    # ── Strategy 3: Student-Token Direct Call ─────────────────────────────────
+    student_erp_token = cache.get(f"erp_token_{user.pk}")
+    if student_erp_token:
+        try:
+            print(f"[ERP] Strategy 3: Using student token for {search_email}...")
+            # 60s timeout for cold starts
+            resp = requests.get(
+                f"{erp_url}/api/admission",
+                headers={"Authorization": f"Bearer {student_erp_token}"},
+                timeout=60,
+                stream=True
+            )
+            if resp.status_code == 200:
+                data = resp.json() if not resp.content else __import__('json').loads(resp.content)
+                
+                target_record = None
+                if isinstance(data, dict) and data.get('student'):
+                    target_record = data
+                elif isinstance(data, list):
+                    for admission in data:
                         details = admission.get('student', {}).get('studentsDetails', [])
-                        # SAFE COMPARISON: Handle None/Null values
-                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
-                            print(f"[ERP DEBUG] Found match for {search_email}")
-                            _sync_user_to_erp(user, admission)
-                            cache.set(cache_key, admission, 3600)
-                            return Response(admission, status=200)
-                    
-                    print(f"[ERP DEBUG] No match found for {search_email}")
-            else:
-                print(f"[ERP DEBUG] API Error: {resp.status_code}")
+                        admission_num = str(admission.get('admissionNumber') or '').strip().upper()
+                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details) or admission_num == search_username:
+                            target_record = admission
+                            break
+                
+                if target_record:
+                    print(f"[ERP] Strategy 3 HIT: Obtained Profile.")
+                    _sync_user_to_erp(user, target_record)
+                    cache.set(student_cache_key, target_record, 3600)
+                    return Response(target_record, status=200)
+        except Exception as e:
+            print(f"[ERP ERROR] Strategy 3 failed: {e}")
 
-    except Exception as e:
-        print(f"[ERP] Resilient Mode: Handled sync failure ({e})")
+    # ── Strategy 4: Fallback ──────────────────────────────────────────────────
+    print(f"[ERP] Strategy 4 (Fallback) for {search_email}.")
+    return Response(local_data, status=200)
 
-    # 4. SILENT SUCCESS: Return local data if ERP sync fails
-    return Response(local_data, status=status.HTTP_200_OK)
 
 def _sync_user_to_erp(user, admission_data):
+    """Updates local user fields with fresh data from ERP."""
     if not isinstance(admission_data, dict): return
     try:
+        # 1. Sync Section/Codes
         sec = admission_data.get('sectionAllotment', {})
         if isinstance(sec, dict):
             user.exam_section = sec.get('examSection')
             user.study_section = sec.get('studySection')
             user.omr_code = sec.get('omrCode')
             user.rm_code = sec.get('rm')
-            user.save()
-    except: pass
+        
+        # 2. Sync Names
+        details = admission_data.get('student', {}).get('studentsDetails', [])
+        if details and isinstance(details, list) and len(details) > 0:
+            name = details[0].get('studentName', '')
+            if name:
+                parts = name.strip().split(' ')
+                user.first_name = parts[0]
+                user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+        
+        user.save()
+        print(f"✓ Synced user {user.username} with ERP data.")
+    except Exception as e:
+        print(f"⚠ Failed to sync user {user.username}: {e}")
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
