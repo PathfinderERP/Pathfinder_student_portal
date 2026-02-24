@@ -17,18 +17,11 @@ const ParentDashboard = () => {
         { icon: Users, label: 'My Children' },
         { icon: BookOpen, label: 'Academic Reports' },
         { icon: DollarSign, label: 'Fee Payments' },
-        { icon: MessageCircle, label: 'Communications' },
         { icon: Calendar, label: 'School Calendar' },
         { icon: Clock, label: 'Attendance' },
     ];
 
-    const headerActions = (
-        <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50
-            ${isDarkMode ? 'bg-slate-800/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-            <MessageCircle size={14} />
-            <span>Contact Academy</span>
-        </div>
-    );
+    const headerActions = null;
 
     return (
         <PortalLayout
@@ -90,7 +83,6 @@ const ParentDashboard = () => {
                 {[
                     { label: 'FEE STATUS', value: '$1,200', icon: DollarSign, color: 'orange', trend: 'Due in 5 days' },
                     { label: 'ATTENDANCE', value: '94%', icon: Clock, color: 'emerald', trend: 'Class average 90%' },
-                    { label: 'MESSAGES', value: '3', icon: MessageCircle, color: 'blue', trend: 'From class teacher' },
                     { label: 'AWARDS', value: '5', icon: Award, color: 'purple', trend: 'Earned this term' },
                 ].map((stat, i) => (
                     <div key={i} className={`p-8 rounded-[5px] border transition-all duration-300 group hover:-translate-y-2

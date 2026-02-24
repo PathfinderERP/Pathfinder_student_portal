@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Calendar, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, TrendingUp, Award, Target, BarChart3, PieChart } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -130,7 +130,10 @@ const AttendanceAreaChart = ({ data, isDarkMode }) => {
 
 const Attendance = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
-    const [rawData, setRawData] = useState(cache?.loaded ? cache.data : null);
+
+    // Use a ref for comparison to avoid the infinite loop in dependency arrays
+    const rawDataRef = useRef(cache?.loaded ? cache.data : null);
+    const [rawData, setRawData] = useState(rawDataRef.current);
     const [loading, setLoading] = useState(!cache?.loaded);
     const [error, setError] = useState(null);
     const [timePeriod, setTimePeriod] = useState('all');
@@ -145,10 +148,18 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = response.data;
-            const prevData = cache?.loaded ? cache.data : rawData;
-            if (JSON.stringify(data) !== JSON.stringify(prevData)) {
+
+            // Compare with current ref value to determine if state update is needed
+            const isDataSame = JSON.stringify(data) === JSON.stringify(rawDataRef.current);
+
+            if (!isDataSame) {
+                console.log("Attendance updated from ERP");
+                rawDataRef.current = data;
                 setRawData(data);
-                if (setCache) setCache({ data: data, loaded: true });
+
+                if (setCache) {
+                    setCache({ data: data, loaded: true });
+                }
             }
             if (!isBackground) setLoading(false);
         } catch (err) {
@@ -156,7 +167,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             if (!isBackground) setError(err.response?.data?.error || 'Failed to load attendance records');
             if (!isBackground) setLoading(false);
         }
-    }, [getApiUrl, token, cache, setCache, rawData]);
+    }, [getApiUrl, token, setCache]);
 
     useEffect(() => {
         if (!cache?.loaded) fetchAttendance(false);

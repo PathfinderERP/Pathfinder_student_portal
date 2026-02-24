@@ -7,8 +7,9 @@ import { toast } from 'react-hot-toast';
 const StudyMaterials = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
-    // Initialize from cache if available
-    const [materials, setMaterials] = useState(cache?.loaded ? cache.data : []);
+    // Use a ref for comparison to avoid the infinite loop in dependency arrays
+    const materialsRef = useRef(cache?.loaded ? cache.data : []);
+    const [materials, setMaterials] = useState(materialsRef.current);
     const [isLoading, setIsLoading] = useState(!cache?.loaded);
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -29,9 +30,10 @@ const StudyMaterials = ({ isDarkMode, cache, setCache }) => {
 
             const data = response.data;
 
-            // Deep compare to avoid unnecessary re-renders
-            const prevData = cache?.loaded ? cache.data : materials;
-            if (JSON.stringify(data) !== JSON.stringify(prevData)) {
+            // Use materialsRef.current instead of materials from state closure
+            const isDataSame = JSON.stringify(data) === JSON.stringify(materialsRef.current);
+            if (!isDataSame) {
+                materialsRef.current = data;
                 setMaterials(data);
                 if (setCache) {
                     setCache({ data: data, loaded: true });
@@ -50,23 +52,18 @@ const StudyMaterials = ({ isDarkMode, cache, setCache }) => {
                 { id: 5, name: 'Modern Physics Notes', subject_name: 'Physics', description: 'Key concepts of quantum mechanics and relativity.', thumbnail: null, pdf_file: '#' },
             ];
 
-            const prevData = cache?.loaded ? cache.data : materials;
-            if (JSON.stringify(mockData) !== JSON.stringify(prevData)) {
+            const isDataSame = JSON.stringify(mockData) === JSON.stringify(materialsRef.current);
+            if (!isDataSame) {
+                materialsRef.current = mockData;
                 setMaterials(mockData);
                 if (setCache) {
                     setCache({ data: mockData, loaded: true });
                 }
             }
-
-            if (!isBackground) {
-                // Only show toast error on manual refresh, not background sync
-                // toast.error("Loaded demo content");
-            }
-
         } finally {
             if (!isBackground) setIsLoading(false);
         }
-    }, [getApiUrl, token, cache, setCache, materials]);
+    }, [getApiUrl, token, setCache]);
 
     useEffect(() => {
         if (!cache?.loaded) {

@@ -171,6 +171,26 @@ def apply_djongo_patches():
         InsertQuery._is_patched = True
         print("Djongo InsertQuery patch successfully applied (Pro v3 - MultiValue Support)")
 
+    # 3. Patch DRF JSONEncoder to handle ObjectId
+    try:
+        from rest_framework.utils import encoders
+        from bson import ObjectId
+        
+        if not hasattr(encoders.JSONEncoder, '_is_patched'):
+            original_default = encoders.JSONEncoder.default
+            
+            def patched_default(self, obj):
+                if isinstance(obj, ObjectId):
+                    return str(obj)
+                return original_default(self, obj)
+            
+            encoders.JSONEncoder.default = patched_default
+            encoders.JSONEncoder._is_patched = True
+            print("DRF JSONEncoder patch successfully applied (ObjectId Support)")
+    except ImportError:
+        # rest_framework might not be installed in all environments
+        pass
+
 if __name__ == "__main__":
     apply_djongo_patches()
 

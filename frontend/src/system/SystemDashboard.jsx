@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
-    MessageSquare, Image, CircleDot
+    MessageSquare, Image, CircleDot, Compass
 } from 'lucide-react';
 
 // Common
@@ -316,7 +316,7 @@ const SystemDashboard = () => {
             ]
         },
         {
-            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
+            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Nexus Hub', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
             subItems: [
                 { id: 'library', label: 'Library', active: activeTab === 'Library', onClick: () => setActiveTab('Library') },
                 { id: 'solution_dpp_rpp', label: 'Solution To Dpp Rpp', active: activeTab === 'Solution To Dpp Rpp', onClick: () => setActiveTab('Solution To Dpp Rpp') },
@@ -325,7 +325,7 @@ const SystemDashboard = () => {
                 { id: 'video_mgmt', label: 'Video Management', active: activeTab === 'Video Management', onClick: () => setActiveTab('Video Management') },
                 { id: 'pen_paper_test', label: 'Pen Paper Test', active: activeTab === 'Pen Paper Test', onClick: () => setActiveTab('Pen Paper Test') },
                 { id: 'homework', label: 'Homework', active: activeTab === 'Homework', onClick: () => setActiveTab('Homework') },
-                { id: 'community', label: 'Community', icon: MessageSquare, active: activeTab === 'Community', onClick: () => setActiveTab('Community') },
+                { id: 'nexus_hub', label: 'Nexus Hub', icon: Compass, active: activeTab === 'Nexus Hub', onClick: () => setActiveTab('Nexus Hub') },
                 { id: 'banner', label: 'Banner', icon: Image, active: activeTab === 'Banner', onClick: () => setActiveTab('Banner') },
                 { id: 'seminar', label: 'Seminar', icon: CircleDot, active: activeTab === 'Seminar', onClick: () => setActiveTab('Seminar') },
                 { id: 'test_shift', label: 'Test Shift', icon: CircleDot, active: activeTab === 'Test Shift', onClick: () => setActiveTab('Test Shift') },
@@ -479,7 +479,7 @@ const SystemDashboard = () => {
                 return <TestShiftRegistry />;
             case 'Guide':
                 return <GuideRegistry />;
-            case 'Community':
+            case 'Nexus Hub':
                 return <CommunityRegistry />;
             case 'Profile':
                 return (

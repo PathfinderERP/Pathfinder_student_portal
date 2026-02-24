@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Clock, MapPin, User, Video, AlertCircle, BookOpen, RefreshCw, X, FileText, Info, Hash } from 'lucide-react';
 import axios from 'axios';
@@ -7,8 +7,9 @@ import { useAuth } from '../../../context/AuthContext';
 const Classes = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
-    // Use cached data if available, otherwise local state
-    const [classes, setClasses] = useState(cache?.loaded ? cache.data : []);
+    // Use a ref for comparison to avoid the infinite loop in dependency arrays
+    const classesRef = useRef(cache?.loaded ? cache.data : []);
+    const [classes, setClasses] = useState(classesRef.current);
     const [loading, setLoading] = useState(!cache?.loaded);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
@@ -36,12 +37,12 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                 data = response.data.schedule;
             }
 
-            // Deep compare to avoid unnecessary updates
-            const prevData = cache?.loaded ? cache.data : classes;
-            const isDataSame = JSON.stringify(data) === JSON.stringify(prevData);
+            // Compare with current ref value to determine if state update is needed
+            const isDataSame = JSON.stringify(data) === JSON.stringify(classesRef.current);
 
             if (!isDataSame) {
                 console.log("Classes updated from ERP");
+                classesRef.current = data;
                 setClasses(data);
 
                 // Update parent cache only if changed
@@ -56,8 +57,8 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             console.error("Error fetching classes:", err);
             // Don't show error immediately if it's just empty or 404 (no classes yet)
             if (err.response?.status === 404) {
-                const isDataSame = JSON.stringify([]) === JSON.stringify(cache?.data || []);
-                if (!isDataSame) {
+                if (classesRef.current.length !== 0) {
+                    classesRef.current = [];
                     setClasses([]);
                     if (setCache) setCache({ data: [], loaded: true });
                 }
@@ -66,7 +67,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             }
             if (!isBackground) setLoading(false);
         }
-    }, [getApiUrl, token, cache, setCache, classes]);
+    }, [getApiUrl, token, setCache]);
 
     useEffect(() => {
         if (!cache?.loaded) {
@@ -195,9 +196,9 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
 
                                 <div className="flex items-center gap-4 md:self-center self-end">
                                     <div className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${cls.status === 'Completed' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600') :
-                                            cls.status === 'Cancelled' ? (isDarkMode ? 'bg-red-500/10 text-red-500' : 'bg-red-50 text-red-600') :
-                                                cls.status === 'Ongoing' ? (isDarkMode ? 'bg-orange-500/10 text-orange-500 animate-pulse' : 'bg-orange-50 text-orange-600 animate-pulse') :
-                                                    (isDarkMode ? 'bg-blue-500/10 text-blue-500' : 'bg-blue-50 text-blue-600')
+                                        cls.status === 'Cancelled' ? (isDarkMode ? 'bg-red-500/10 text-red-500' : 'bg-red-50 text-red-600') :
+                                            cls.status === 'Ongoing' ? (isDarkMode ? 'bg-orange-500/10 text-orange-500 animate-pulse' : 'bg-orange-50 text-orange-600 animate-pulse') :
+                                                (isDarkMode ? 'bg-blue-500/10 text-blue-500' : 'bg-blue-50 text-blue-600')
                                         }`}>
                                         {cls.status || 'SCHEDULED'}
                                     </div>
@@ -263,9 +264,9 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                             <span className="text-[10px] font-black uppercase tracking-widest">Status</span>
                                         </div>
                                         <p className={`font-bold text-sm ${selectedClass.status === 'Completed' ? 'text-emerald-500' :
-                                                selectedClass.status === 'Ongoing' ? 'text-orange-500' :
-                                                    selectedClass.status === 'Cancelled' ? 'text-red-500' :
-                                                        'text-blue-500'
+                                            selectedClass.status === 'Ongoing' ? 'text-orange-500' :
+                                                selectedClass.status === 'Cancelled' ? 'text-red-500' :
+                                                    'text-blue-500'
                                             }`}>
                                             {selectedClass.status || 'Scheduled'}
                                         </p>
