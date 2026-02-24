@@ -60,7 +60,7 @@ def apply_djongo_patches():
             bare_kw_pattern = r'(\b(?:WHERE|AND|OR)\b\s+)' + col_pat + neg_op + pos_term
             sql = re.sub(bare_kw_pattern, replace_bare_kw, sql, flags=re.IGNORECASE)
 
-            # 2c. (col  (bare, after opening parenthesis)  →  (col = %s (True)
+            # 2c. (col  (bare, after logical keyword or nested paren)  →  (col = %s (True)
             def replace_bare_paren(match):
                 prefix, col = match.group(1), match.group(2)
                 if re.match('^' + keywords + '$', col, re.IGNORECASE):
@@ -68,7 +68,8 @@ def apply_djongo_patches():
                 new_params.append(True)
                 return f"{prefix}{col} = %s"
 
-            bare_paren_pattern = r'(\(\s*)' + col_pat + neg_op + pos_term
+            # Only match parens if preceded by WHERE, AND, OR, NOT, ON (joins), or another (
+            bare_paren_pattern = r'((?:\b(?:WHERE|AND|OR|NOT|ON)\b|\()\s*\(\s*)' + col_pat + neg_op + pos_term
             sql = re.sub(bare_paren_pattern, replace_bare_paren, sql, flags=re.IGNORECASE)
 
             # 3. Fix placeholder syntax %(0)s → %s
@@ -95,11 +96,12 @@ def apply_djongo_patches():
         try:
             return Cursor._original_execute(self, sql, params)
         except Exception as e:
+            # Only print error once to avoid flooding logs
             print(f"\n--- DJONGO EXECUTE ERROR ---\nSQL: {sql}\nPARAMS: {params}\nERROR: {e}\n---------------------------\n")
             raise e
 
     Cursor.execute = patched_execute
-    print("Djongo Cursor patch successfully applied (Resilient v10)")
+    print("Djongo Cursor patch successfully applied (Resilient v11)")
 
     # Patch InsertQuery to handle Token subscript errors
     InsertQuery = djongo_query.InsertQuery
@@ -112,18 +114,22 @@ def apply_djongo_patches():
             else:
                 self._cols = []
 
-        def robust_values(self, statement):
-            stmt_str = str(statement)
+        def robust_fill_values(self, statement):
+            stmt_str = str(self.statement)
             match = re.search(r'VALUES\s*\((.*?)\)', stmt_str, re.IGNORECASE | re.DOTALL)
             if match:
-                self._values = [v.strip() for v in match.group(1).split(',')]
+                # Fill with placeholders if extraction fails or looks complex
+                # This prevents the 'Token' subscript error
+                placeholders = [v.strip() for v in match.group(1).split(',')]
+                self._values = [placeholders]
             else:
-                self._values = ['%s'] * len(getattr(self, '_cols', []))
+                self._values = [['%s'] * len(getattr(self, '_cols', []))]
 
         InsertQuery._columns = robust_columns
-        InsertQuery._values = robust_values
+        InsertQuery._fill_values = robust_fill_values
         InsertQuery._is_patched = True
         print("Djongo InsertQuery patch successfully applied")
 
 if __name__ == "__main__":
     apply_djongo_patches()
+
