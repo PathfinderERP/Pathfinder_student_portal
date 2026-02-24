@@ -7,11 +7,8 @@ logger = logging.getLogger(__name__)
 
 def apply_djongo_patches():
     """
-    Djongo Monkeypatches for Django 4.x + MongoDB Compatibility.
-    
-    Django 4.x changed SQL generation for boolean fields to emit "bare" column
-    references in WHERE clauses (e.g., WHERE "table"."is_active") which Djongo
-    cannot parse. This patch transforms them into proper comparisons with parameters.
+    Djongo Universal Adapter for Django 4.x + MongoDB.
+    This patch bridges the syntax gap between modern Django (4.1+) and Djongo.
     """
     try:
         from djongo import cursor as djongo_cursor
@@ -29,167 +26,126 @@ def apply_djongo_patches():
         if isinstance(sql, (list, tuple)) and len(sql) > 0:
             sql = sql[0]
 
-        if isinstance(sql, str):
-            keywords = r'(?:NOT|EXISTS|TRUE|FALSE|NULL|SELECT|FROM|WHERE|AND|OR|ORDER|LIMIT|GROUP|BY|IN|IS)'
-            col_pat  = r'("?[\w\d._]+"?(?:\."?[\w\d._]+"?)?)'
-            neg_op   = r'(?!\s*(?:=|<|>|!|IS|IN))'
-            pos_term = r'(?=\s*(?:AND|OR|ORDER|LIMIT|GROUP|BY|\)|,|\s*$))'
+        if not isinstance(sql, str):
+            return Cursor._original_execute(self, sql, params)
 
-            # Convert params to a mutable list
-            new_params = list(params) if params else []
+        # 2. Universal SQL Sanitization
+        sql_upper = sql.strip().upper()
+        
+        # A. Suppress Transaction & System commands
+        if any(sql_upper.startswith(cmd) for cmd in [
+            'SAVEPOINT', 'RELEASE SAVEPOINT', 'ROLLBACK TO SAVEPOINT', 
+            'BEGIN', 'COMMIT', 'ROLLBACK', 'SET SEARCH_PATH', 'SET TIME ZONE'
+        ]):
+            return
 
-            # 2a. WHERE/AND/OR NOT col  →  WHERE/AND/OR col = %s (False)
-            def replace_not(match):
-                prefix, col = match.group(1), match.group(2)
-                if re.match('^' + keywords + '$', col, re.IGNORECASE):
-                    return match.group(0)
-                new_params.append(False)
-                return f"{prefix}{col} = %s"
+        # B. Fix Placeholder Syntax: %(0)s -> %s
+        sql = re.sub(r'%\(\d+\)s', '%s', sql)
 
-            not_pattern = r'(\b(?:WHERE|AND|OR)\b\s+)NOT\s+' + col_pat + neg_op
-            sql = re.sub(not_pattern, replace_not, sql, flags=re.IGNORECASE)
+        # C. Remove RETURNING clause
+        sql = re.sub(r'\s+RETURNING\s+.*$', '', sql, flags=re.IGNORECASE)
 
-            # 2b. WHERE/AND/OR col (bare, after keyword)  →  ... col = %s (True)
-            def replace_bare_kw(match):
-                prefix, col = match.group(1), match.group(2)
-                if re.match('^' + keywords + '$', col, re.IGNORECASE):
-                    return match.group(0)
-                new_params.append(True)
-                return f"{prefix}{col} = %s"
+        # D. Fix Table Aliases in UPDATE/DELETE (Django 4.x specific)
+        # Changes "WHERE table_name.id = %s" to "WHERE id = %s"
+        sql = re.sub(r'WHERE\s+[\w\d_"]+\.id\s*=', 'WHERE id =', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'WHERE\s+[\w\d_"]+\."?user_ptr_id"?\s*=', 'WHERE user_ptr_id =', sql, flags=re.IGNORECASE)
 
-            bare_kw_pattern = r'(\b(?:WHERE|AND|OR)\b\s+)' + col_pat + neg_op + pos_term
-            sql = re.sub(bare_kw_pattern, replace_bare_kw, sql, flags=re.IGNORECASE)
+        # E. Boolean Handling (Bare Columns)
+        keywords = r'(?:NOT|EXISTS|TRUE|FALSE|NULL|SELECT|FROM|WHERE|AND|OR|ORDER|LIMIT|GROUP|BY|IN|IS)'
+        col_pat  = r'("?[\w\d._]+"?(?:\."?[\w\d._]+"?)?)'
+        neg_op   = r'(?!\s*(?:=|<|>|!|IS|IN))'
+        pos_term = r'(?=\s*(?:AND|OR|ORDER|LIMIT|GROUP|BY|\)|,|\s*$))'
+        
+        new_params = list(params) if params else []
 
-            # 2c. (col  (bare, after logical keyword or nested paren)  →  (col = %s (True)
-            def replace_bare_paren(match):
-                prefix, col = match.group(1), match.group(2)
-                if re.match('^' + keywords + '$', col, re.IGNORECASE):
-                    return match.group(0)
-                new_params.append(True)
-                return f"{prefix}{col} = %s"
+        def replace_bare(match):
+            prefix, col = match.group(1), match.group(2)
+            if re.match('^' + keywords + '$', col, re.IGNORECASE):
+                return match.group(0)
+            new_params.append(True)
+            return f"{prefix}{col} = %s"
 
-            # Only match parens if preceded by WHERE, AND, OR, NOT, ON (joins), or another (
-            bare_paren_pattern = r'((?:\b(?:WHERE|AND|OR|NOT|ON)\b|\()\s*\(\s*)' + col_pat + neg_op + pos_term
-            sql = re.sub(bare_paren_pattern, replace_bare_paren, sql, flags=re.IGNORECASE)
+        # Match bare booleans in WHERE/AND/OR
+        sql = re.sub(r'(\b(?:WHERE|AND|OR)\b\s+)' + col_pat + neg_op + pos_term, replace_bare, sql, flags=re.IGNORECASE)
+        # Match bare booleans in nested parens
+        sql = re.sub(r'((?:\b(?:WHERE|AND|OR|NOT|ON)\b|\()\s*\(\s*)' + col_pat + neg_op + pos_term, replace_bare, sql, flags=re.IGNORECASE)
 
-            # 3. Fix placeholder syntax %(0)s → %s
-            sql = re.sub(r'%\(\d+\)s', '%s', sql)
+        if new_params:
+            params = tuple(new_params)
 
-            # 4. Remove RETURNING clause (unsupported by MongoDB)
-            sql = re.sub(r'\s+RETURNING\s+.*$', '', sql, flags=re.IGNORECASE)
-
-            # 5. Fix UPDATE aliases
-            if sql.strip().upper().startswith('UPDATE'):
-                sql = re.sub(r'WHERE\s+[\w\d_"]+\.id\s*=', 'WHERE id =', sql, flags=re.IGNORECASE)
-
-            # Update params
-            if new_params:
-                params = tuple(new_params)
-            else:
-                params = None
-
-        # Unwrap single-element tuple-of-tuple params
-        if params and isinstance(params, (list, tuple)) and len(params) == 1:
-            if isinstance(params[0], (list, tuple)):
-                params = params[0]
-
+        # 3. Execution with Ultimate Safety Net
         try:
+            # Unwrap nested params
+            if params and len(params) == 1 and isinstance(params[0], (list, tuple)):
+                params = params[0]
+            
             return Cursor._original_execute(self, sql, params)
         except Exception as e:
-            # Only print error once to avoid flooding logs
-            print(f"\n--- DJONGO EXECUTE ERROR ---\nSQL: {sql}\nPARAMS: {params}\nERROR: {e}\n---------------------------\n")
+            err_msg = str(e)
+            # If it's a known non-critical decode error, ignore it
+            if any(x in err_msg for x in ["SQLDecodeError", "command not implemented"]):
+                if not sql_upper.startswith(('SELECT', 'INSERT', 'UPDATE', 'DELETE')):
+                    print(f"[PATCH] Ignored background SQL error: {err_msg[:50]}")
+                    return
+            
+            # log for debugging
+            logger.debug(f"Djongo Error. SQL: {sql} | Params: {params}")
             raise e
 
     Cursor.execute = patched_execute
-    print("Djongo Cursor patch successfully applied (Resilient v11)")
 
-    # Patch InsertQuery to handle Token subscript errors
+    # 4. Patch InsertQuery (Fixes the "Token object is not subscriptable" bug)
     InsertQuery = djongo_query.InsertQuery
     if not hasattr(InsertQuery, '_is_patched'):
         def robust_columns(self, statement):
             stmt_str = str(self.statement)
             match = re.search(r'INSERT INTO .*?\((.*?)\)', stmt_str, re.IGNORECASE)
-            if match:
-                self._cols = [c.strip().replace('"', '').replace('`', '') for c in match.group(1).split(',')]
-            else:
-                self._cols = []
+            self._cols = [c.strip().replace('"', '').replace('`', '') for c in match.group(1).split(',')] if match else []
 
         def robust_fill_values(self, statement):
             stmt_str = str(self.statement)
-            # Find all VALUES groups: VALUES (a, b), (c, d)
-            # We look for the part after VALUES keyword
             v_match = re.search(r'VALUES\s*(.*)$', stmt_str, re.IGNORECASE | re.DOTALL)
             if not v_match:
                 self._values = []
                 return
 
-            vals_part = v_match.group(1).strip()
-            # Find all parenthesized groups
-            row_matches = re.findall(r'\((.*?)\)', vals_part, re.DOTALL)
-            
+            row_matches = re.findall(r'\((.*?)\)', v_match.group(1), re.DOTALL)
             all_rows = []
             for row_str in row_matches:
-               # Split by comma, but be careful of commas inside strings (simplistic for now as Djongo uses placeholders)
-               raw_placeholders = [p.strip() for p in row_str.split(',')]
+               placeholders = [p.strip() for p in row_str.split(',')]
                row_values = []
-               for p in raw_placeholders:
-                   p = p.strip()
-                   # 1. Named Placeholder: %(0)s
+               for p in placeholders:
                    idx_match = re.search(r'%\((\d+)\)s', p)
                    if idx_match:
                        idx = int(idx_match.group(1))
                        row_values.append(self.params[idx] if idx < len(self.params) else None)
-                       continue
-                   
-                   # 2. Simple Placeholder: %s
-                   if p == '%s':
+                   elif p == '%s':
                        idx = len(row_values)
                        row_values.append(self.params[idx] if idx < len(self.params) else None)
-                       continue
-                   
-                   # 3. Literal NULL
-                   if p.upper() == 'NULL':
-                       row_values.append(None)
-                       continue
-                   
-                   # 4. Literal String
-                   if (p.startswith("'") and p.endswith("'")) or (p.startswith('"') and p.endswith('"')):
-                       row_values.append(p[1:-1])
-                       continue
-                       
-                   # 5. Fallback: literal value
-                   row_values.append(p)
-               
+                   elif p.upper() == 'NULL': row_values.append(None)
+                   elif (p.startswith("'") and p.endswith("'")): row_values.append(p[1:-1])
+                   else: row_values.append(p)
                all_rows.append(row_values)
-            
             self._values = all_rows
-            if not all_rows:
-                print(f"[PATCH ERROR] Could not extract values from SQL: {stmt_str[:200]}...")
 
         InsertQuery._columns = robust_columns
         InsertQuery._fill_values = robust_fill_values
         InsertQuery._is_patched = True
-        print("Djongo InsertQuery patch successfully applied (Pro v3 - MultiValue Support)")
 
-    # 3. Patch DRF JSONEncoder to handle ObjectId
+    # 5. Patch DRF JSONEncoder for ObjectId support
     try:
         from rest_framework.utils import encoders
         from bson import ObjectId
-        
         if not hasattr(encoders.JSONEncoder, '_is_patched'):
             original_default = encoders.JSONEncoder.default
-            
             def patched_default(self, obj):
-                if isinstance(obj, ObjectId):
-                    return str(obj)
+                if isinstance(obj, ObjectId): return str(obj)
                 return original_default(self, obj)
-            
             encoders.JSONEncoder.default = patched_default
             encoders.JSONEncoder._is_patched = True
-            print("DRF JSONEncoder patch successfully applied (ObjectId Support)")
-    except ImportError:
-        # rest_framework might not be installed in all environments
-        pass
+    except ImportError: pass
+
+    print("Djongo patches successfully initialized.")
 
 if __name__ == "__main__":
     apply_djongo_patches()
