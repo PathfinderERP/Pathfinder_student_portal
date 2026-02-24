@@ -42,62 +42,65 @@ const StudentDashboard = () => {
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
 
     // Fetch Student Data from backend API (which proxies to ERP)
-    useEffect(() => {
-        const fetchStudentData = async () => {
-            if (authLoading) return;
-            if (!user) {
+    const fetchStudentData = async (forceRefresh = false) => {
+        if (authLoading) return;
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        // Only show loader if we don't have data yet or forced
+        if (!studentData || forceRefresh) {
+            setLoading(true);
+        }
+
+        setError(null);
+        try {
+            const apiUrl = getApiUrl();
+            if (!token) {
+                setError("Authentication required. Please log in again.");
                 setLoading(false);
                 return;
             }
 
-            // Only show loader if we don't have data yet
-            if (!studentData) {
-                setLoading(true);
-            }
+            const url = forceRefresh ? `${apiUrl}/api/student/erp-data/?refresh=true` : `${apiUrl}/api/student/erp-data/`;
+            const response = await axios.get(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-            setError(null);
-            try {
-                const apiUrl = getApiUrl();
-                if (!token) {
-                    setError("Authentication required. Please log in again.");
-                    setLoading(false);
-                    return;
-                }
-                const response = await axios.get(`${apiUrl}/api/student/erp-data/`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+            if (response.data) {
+                // Prevent overwriting rich data with offline fallback
+                const isNewDataOffline = response.data.is_offline;
+                const hasExistingData = studentData && !studentData.is_offline;
 
-                if (response.data) {
-                    // Prevent overwriting rich data with offline fallback
-                    const isNewDataOffline = response.data.is_offline;
-                    const hasExistingData = studentData && !studentData.is_offline;
-
-                    if (hasExistingData && isNewDataOffline) {
-                        console.warn("Skipping update: Prevented overwriting valid data with offline fallback");
-                    } else {
-                        setStudentData(response.data);
-                    }
+                if (hasExistingData && isNewDataOffline && !forceRefresh) {
+                    console.warn("Skipping update: Prevented overwriting valid data with offline fallback");
                 } else {
-                    if (!studentData) setError("No student data received from server.");
+                    setStudentData(response.data);
                 }
-            } catch (err) {
-                console.error("Error fetching student data:", err);
-                // Only set visible error if we don't have data
-                if (!studentData) {
-                    if (err.response?.status === 404) {
-                        setError("Your student record could not be found. Please contact support.");
-                    } else if (err.response?.status === 503) {
-                        setError("Unable to connect to Student Records System. Please try again later.");
-                    } else if (err.response?.status === 401) {
-                        setError("Session expired. Please log in again.");
-                    } else {
-                        setError(err.response?.data?.error || "Failed to load student profile.");
-                    }
-                }
-            } finally {
-                setLoading(false);
+            } else {
+                if (!studentData) setError("No student data received from server.");
             }
-        };
+        } catch (err) {
+            console.error("Error fetching student data:", err);
+            // Only set visible error if we don't have data
+            if (!studentData) {
+                if (err.response?.status === 404) {
+                    setError("Your student record could not be found. Please contact support.");
+                } else if (err.response?.status === 503) {
+                    setError("Unable to connect to Student Records System. Please try again later.");
+                } else if (err.response?.status === 401) {
+                    setError("Session expired. Please log in again.");
+                } else {
+                    setError(err.response?.data?.error || "Failed to load student profile.");
+                }
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchStudentData();
     }, [user, token, getApiUrl, authLoading]);
 
@@ -187,7 +190,7 @@ const StudentDashboard = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
-                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} />;
+                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} />;
             case 'My Profile':
                 return <MyProfile isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Classes':
@@ -242,7 +245,8 @@ const StudentDashboard = () => {
 };
 
 // -- DASHBOARD HOME COMPONENT --
-const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
+const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData }) => {
+    const isPending = studentData?.sync_status === 'pending';
     const stats = [
         { label: 'ATTENDANCE RATE', value: '92%', subtext: '37 of 40 classes | 3 absences', trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
@@ -252,6 +256,23 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
 
     return (
         <div className="space-y-8 animate-fade-in-up">
+            {isPending && (
+                <div className={`p-4 rounded-[5px] border border-blue-500/20 bg-blue-500/5 flex items-center justify-between`}>
+                    <div className="flex items-center gap-3">
+                        <Activity size={18} className="text-blue-500 animate-pulse" />
+                        <p className={`text-xs font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-800'}`}>
+                            Your full profile is being synchronized from school records. Some details might be missing temporarily.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => onSync(true)}
+                        className="px-4 py-1.5 bg-blue-500 text-white text-[10px] font-bold rounded-[3px] hover:bg-blue-600 transition-colors"
+                    >
+                        Sync Now
+                    </button>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
                 <div>
@@ -262,13 +283,22 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className }) => {
                         Here's your comprehensive learning snapshot & AI-powered insights for today
                     </p>
                 </div>
-                <div className={`flex items-center gap-3 px-5 py-2.5 rounded-[5px] border shadow-lg backdrop-blur-md
-                    ${isDarkMode ? 'bg-[#151A25]/80 border-white/10 text-slate-300' : 'bg-white/80 border-slate-200 text-slate-600'}`}>
-                    <span className="font-bold">{className}</span>
-                    <span className={`w-1.5 h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
-                    <span className="text-sm">Roll: {String(rollNo || "").slice(-6)}</span>
-                    <div className={`ml-2 w-8 h-8 rounded-[5px] flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
-                        {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
+                <div className="flex flex-col items-end gap-3">
+                    <button
+                        onClick={() => onSync(true)}
+                        className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border transition-all
+                            ${isDarkMode ? 'border-white/10 text-white/40 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+                    >
+                        Force ERP Refresh
+                    </button>
+                    <div className={`flex items-center gap-3 px-5 py-2.5 rounded-[5px] border shadow-lg backdrop-blur-md
+                        ${isDarkMode ? 'bg-[#151A25]/80 border-white/10 text-slate-300' : 'bg-white/80 border-slate-200 text-slate-600'}`}>
+                        <span className="font-bold">{(student?.studentName || "Student").split(' ')[0]}</span>
+                        <span className={`w-1.5 h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
+                        <span className="text-sm font-medium">ID: {rollNo}</span>
+                        <div className={`ml-2 w-8 h-8 rounded-[5px] flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
+                            {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
+                        </div>
                     </div>
                 </div>
             </div>

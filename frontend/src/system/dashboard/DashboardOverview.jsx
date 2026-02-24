@@ -23,7 +23,7 @@ const DashboardOverview = ({
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div>
                         <h2 className="text-4xl font-black tracking-tight mb-3">
-                            DASHBOARD <span className="text-orange-500 tracking-wider">OVERVIEWy</span>
+                            DASHBOARD <span className="text-orange-500 tracking-wider">OVERVIEW</span>
                         </h2>
                         <p className={`text-sm font-medium max-w-xl leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                             Welcome back. Here is your daily activity summary and system health check.

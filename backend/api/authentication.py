@@ -81,9 +81,6 @@ class ERPStudentBackend(BaseBackend):
                         if not local_user.check_password(password):
                             local_user.set_password(password)
                         local_user.is_active = True
-                        local_user.first_name = first_name
-                        local_user.last_name = last_name
-                        local_user.save()
                         user = local_user
                     else:
                         print(f"Creating new local user for {username}")
@@ -91,11 +88,32 @@ class ERPStudentBackend(BaseBackend):
                             username=username,
                             email=username,
                             password=password,
-                            first_name=first_name,
-                            last_name=last_name,
-                            user_type='student',
-                            is_active=True
+                            user_type='student'
                         )
+                    
+                    # Perform full sync from student_data
+                    try:
+                        # 1. Sync Section/Codes
+                        sec = student_data.get('sectionAllotment', {})
+                        if isinstance(sec, dict):
+                            user.exam_section = sec.get('examSection')
+                            user.study_section = sec.get('studySection')
+                            user.omr_code = sec.get('omrCode')
+                            user.rm_code = sec.get('rm')
+                        
+                        # 2. Sync Names
+                        details = student_data.get('studentsDetails', [])
+                        if details and hasattr(details, '__iter__') and len(details) > 0:
+                            name = details[0].get('studentName', '')
+                            if name:
+                                parts = name.strip().split(' ')
+                                user.first_name = parts[0]
+                                user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                        
+                        user.save()
+                        print(f"✓ Fully synced {username} from ERP login response")
+                    except Exception as e:
+                        print(f"⚠ Minor error during login sync for {username}: {e}")
 
                     # CACHE THE FULL ERP RESPONSE for the profile view
                     # We remove the token to keep the cache clean, but keep the rest
@@ -105,7 +123,7 @@ class ERPStudentBackend(BaseBackend):
                     
                     student_cache_key = f"erp_student_data_v6_{user.pk}"
                     cache.set(student_cache_key, profile_cache_data, timeout=3600)  # 1 hour
-                    print(f"✓ Cached full ERP profile data for {username}")
+                    print(f"✓ Cached rich ERP profile data for {username}")
 
                     # CACHE THE TOKEN for use in other views
                     cache_key = f"erp_token_{user.pk}"

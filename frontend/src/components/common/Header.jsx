@@ -33,7 +33,12 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                 <div className={`flex items-center gap-3 pl-6 border-l h-8 ${isDarkMode ? 'border-white/20' : 'border-slate-200'}`}>
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden sm:block">
-                            <div className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{user?.username}</div>
+                            <div className={`text-xs font-black leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : user?.username}
+                            </div>
+                            <div className={`text-[9px] font-bold uppercase tracking-wider mb-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                {user?.user_type === 'student' ? `ID: ${user?.username}` : ''}
+                            </div>
                             <div className={`text-[10px] font-black uppercase tracking-tighter ${user?.user_type === 'superadmin' ? 'text-orange-600' :
                                 user?.user_type === 'admin' ? 'text-orange-400' :
                                     user?.user_type === 'student' ? 'text-blue-500' :
