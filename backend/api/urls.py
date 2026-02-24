@@ -26,5 +26,11 @@ urlpatterns = [
     path('student/scholarlab/simulations/', get_scholarlab_simulations, name='scholarlab-simulations'),
     path('student/scholarlab/initialize/', initialize_scholarlab_simulation, name='scholarlab-initialize'),
     path('chat/search/', UserSearchView.as_view(), name='chat-search'),
+    path('admin/temp-cleanup/', include([
+        path('grievances/', 
+             __import__('api.views', fromlist=['temporary_cleanup_view']).temporary_cleanup_view),
+        path('duplicate-users/', 
+             __import__('api.views', fromlist=['cleanup_duplicate_users_view']).cleanup_duplicate_users_view),
+    ])),
     path('', include(router.urls)),
 ]

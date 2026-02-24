@@ -107,7 +107,7 @@ def apply_djongo_patches():
     InsertQuery = djongo_query.InsertQuery
     if not hasattr(InsertQuery, '_is_patched'):
         def robust_columns(self, statement):
-            stmt_str = str(statement)
+            stmt_str = str(self.statement)
             match = re.search(r'INSERT INTO .*?\((.*?)\)', stmt_str, re.IGNORECASE)
             if match:
                 self._cols = [c.strip().replace('"', '').replace('`', '') for c in match.group(1).split(',')]
@@ -116,19 +116,60 @@ def apply_djongo_patches():
 
         def robust_fill_values(self, statement):
             stmt_str = str(self.statement)
-            match = re.search(r'VALUES\s*\((.*?)\)', stmt_str, re.IGNORECASE | re.DOTALL)
-            if match:
-                # Fill with placeholders if extraction fails or looks complex
-                # This prevents the 'Token' subscript error
-                placeholders = [v.strip() for v in match.group(1).split(',')]
-                self._values = [placeholders]
-            else:
-                self._values = [['%s'] * len(getattr(self, '_cols', []))]
+            # Find all VALUES groups: VALUES (a, b), (c, d)
+            # We look for the part after VALUES keyword
+            v_match = re.search(r'VALUES\s*(.*)$', stmt_str, re.IGNORECASE | re.DOTALL)
+            if not v_match:
+                self._values = []
+                return
+
+            vals_part = v_match.group(1).strip()
+            # Find all parenthesized groups
+            row_matches = re.findall(r'\((.*?)\)', vals_part, re.DOTALL)
+            
+            all_rows = []
+            for row_str in row_matches:
+               # Split by comma, but be careful of commas inside strings (simplistic for now as Djongo uses placeholders)
+               raw_placeholders = [p.strip() for p in row_str.split(',')]
+               row_values = []
+               for p in raw_placeholders:
+                   p = p.strip()
+                   # 1. Named Placeholder: %(0)s
+                   idx_match = re.search(r'%\((\d+)\)s', p)
+                   if idx_match:
+                       idx = int(idx_match.group(1))
+                       row_values.append(self.params[idx] if idx < len(self.params) else None)
+                       continue
+                   
+                   # 2. Simple Placeholder: %s
+                   if p == '%s':
+                       idx = len(row_values)
+                       row_values.append(self.params[idx] if idx < len(self.params) else None)
+                       continue
+                   
+                   # 3. Literal NULL
+                   if p.upper() == 'NULL':
+                       row_values.append(None)
+                       continue
+                   
+                   # 4. Literal String
+                   if (p.startswith("'") and p.endswith("'")) or (p.startswith('"') and p.endswith('"')):
+                       row_values.append(p[1:-1])
+                       continue
+                       
+                   # 5. Fallback: literal value
+                   row_values.append(p)
+               
+               all_rows.append(row_values)
+            
+            self._values = all_rows
+            if not all_rows:
+                print(f"[PATCH ERROR] Could not extract values from SQL: {stmt_str[:200]}...")
 
         InsertQuery._columns = robust_columns
         InsertQuery._fill_values = robust_fill_values
         InsertQuery._is_patched = True
-        print("Djongo InsertQuery patch successfully applied")
+        print("Djongo InsertQuery patch successfully applied (Pro v3 - MultiValue Support)")
 
 if __name__ == "__main__":
     apply_djongo_patches()

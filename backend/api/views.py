@@ -266,3 +266,70 @@ class UserSearchView(views.APIView):
         } for u in users]
 
         return response.Response(data)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def temporary_cleanup_view(request):
+    """Temporary admin tool to wipe corrupted %(0 entries"""
+    if not request.user.is_staff and request.user.user_type != 'student':
+        return response.Response({"error": "Unauthorized"}, status=403)
+        
+    from .models import Grievance
+    count1 = Grievance.objects.filter(student_name__icontains='%').delete()[0]
+    count2 = Grievance.objects.filter(student_name='%(0').delete()[0]
+    count3 = Grievance.objects.filter(subject__isnull=True).delete()[0]
+    count4 = Grievance.objects.filter(subject='').delete()[0]
+    
+    return response.Response({
+        "status": "success",
+        "deleted_count": count1 + count2 + count3 + count4,
+        "details": {
+            "percent_matches": count1,
+            "literal_matches": count2,
+            "null_subjects": count3,
+            "empty_subjects": count4
+        }
+    })
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def cleanup_duplicate_users_view(request):
+    """Admin tool to resolve 'MultipleObjectsReturned' by wiping duplicate usernames"""
+    if not request.user.is_staff and not request.user.is_superuser:
+         return response.Response({"error": "Unauthorized. Staff only."}, status=403)
+
+    from .models import CustomUser
+    from django.db.models import Count
+    
+    # Simple Python-side lookup to be safe with Djongo
+    all_users = list(CustomUser.objects.all())
+    from collections import Counter
+    counts = Counter([u.username for u in all_users])
+    duplicates = [name for name, count in counts.items() if count > 1 and name]
+    
+    report = []
+    total_deleted = 0
+    
+    for username in duplicates:
+        # Keep the most recently updated/created one
+        user_list = list(CustomUser.objects.filter(username=username).order_by('-pk')) 
+        keep = user_list[0]
+        to_delete = user_list[1:]
+        
+        del_count = 0
+        for dupe in to_delete:
+            dupe.delete()
+            del_count += 1
+            total_deleted += 1
+            
+        report.append({
+            "username": username,
+            "kept_id": str(keep.pk),
+            "deleted_count": del_count
+        })
+        
+    return response.Response({
+        "status": "success",
+        "total_deleted": total_deleted,
+        "duplicates_processed": report
+    })
