@@ -80,6 +80,10 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                         if (item.onClick) {
                                             item.onClick();
                                         }
+                                        // Close sidebar on mobile when clicking a leaf item
+                                        if (!hasSubItems && window.innerWidth < 1024) {
+                                            setOpen(false);
+                                        }
                                     }}
                                     className={`w-full flex items-center py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group 
                                     ${isOpen ? "px-4" : "px-2 justify-center"} 
@@ -125,6 +129,10 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                                         onClick={() => {
                                                             if (hasNestedSubs) toggleExpand(subItem.label);
                                                             if (subItem.onClick) subItem.onClick();
+                                                            // Close sidebar on mobile when clicking a leaf item
+                                                            if (!hasNestedSubs && window.innerWidth < 1024) {
+                                                                setOpen(false);
+                                                            }
                                                         }}
                                                         className={`w-full flex items-center gap-3 py-2 text-sm font-medium rounded-lg transition-all duration-200
                                                         ${subItem.active
@@ -155,7 +163,13 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                                             {subItem.subItems.map((nestedItem, nestedIndex) => (
                                                                 <button
                                                                     key={nestedIndex}
-                                                                    onClick={() => nestedItem.onClick && nestedItem.onClick()}
+                                                                    onClick={() => {
+                                                                        if (nestedItem.onClick) nestedItem.onClick();
+                                                                        // Close sidebar on mobile
+                                                                        if (window.innerWidth < 1024) {
+                                                                            setOpen(false);
+                                                                        }
+                                                                    }}
                                                                     className={`w-full flex items-center py-1.5 text-xs font-medium rounded-md transition-all duration-200
                                                                     ${nestedItem.active
                                                                             ? (isDarkMode ? "text-orange-400" : "text-orange-500")

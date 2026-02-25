@@ -9,6 +9,44 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }
     const { isDarkMode, toggleTheme } = useTheme();
     const [isSidebarOpen, setSidebarOpen] = useState(true);
 
+    // Swipe gesture handling for mobile
+    React.useEffect(() => {
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        const handleTouchStart = (e) => {
+            touchStartX = e.targetTouches[0].clientX;
+        };
+
+        const handleTouchMove = (e) => {
+            touchEndX = e.targetTouches[0].clientX;
+        };
+
+        const handleTouchEnd = () => {
+            const swipeDistance = touchEndX - touchStartX;
+            const threshold = 100; // minimum distance for swipe
+            const edgeThreshold = 50; // must start near left edge
+
+            if (swipeDistance > threshold && touchStartX < edgeThreshold && !isSidebarOpen) {
+                setSidebarOpen(true);
+            }
+
+            // Re-reset values
+            touchStartX = 0;
+            touchEndX = 0;
+        };
+
+        window.addEventListener('touchstart', handleTouchStart);
+        window.addEventListener('touchmove', handleTouchMove);
+        window.addEventListener('touchend', handleTouchEnd);
+
+        return () => {
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [isSidebarOpen]);
+
     return (
         <div className={`flex h-screen font-sans overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0E14] text-white' : 'bg-white text-slate-800'}`}>
             <Sidebar
@@ -19,6 +57,14 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }
                 isDarkMode={isDarkMode}
                 logout={logout}
             />
+
+            {/* Backdrop for mobile */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
 
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? "lg:ml-64" : "lg:ml-20"}`}>
                 <Header
