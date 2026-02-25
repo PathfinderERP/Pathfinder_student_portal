@@ -83,31 +83,170 @@ class GrievanceViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Grievance.objects.all()
-        category = self.request.query_params.get('category')
-        status = self.request.query_params.get('status')
-        if category:
-            queryset = queryset.filter(category=category)
-        if status:
-            queryset = queryset.filter(status=status)
-        return queryset
+        # Minimal queryset needed for DRF routing — actual data served by list() override
+        return Grievance.objects.all()
+
+    def _format_doc(self, doc):
+        """Convert a raw MongoDB document to a clean dict for JSON response."""
+        def safe_str(val):
+            return str(val) if val is not None else None
+
+        date_val = doc.get('date')
+        if date_val and hasattr(date_val, 'isoformat'):
+            date_val = date_val.isoformat()
+
+        return {
+            'id':                   safe_str(doc.get('id')),
+            'student_name':         doc.get('student_name'),
+            'student_id':           doc.get('student_id'),
+            'subject':              doc.get('subject'),
+            'category':             doc.get('category'),
+            'description':          doc.get('description'),
+            'priority':             doc.get('priority'),
+            'status':               doc.get('status'),
+            'date':                 date_val,
+            'teacher_name':         doc.get('teacher_name'),
+            'teacher_id':           doc.get('teacher_id'),
+            'assign_date':          safe_str(doc.get('assign_date')),
+            'solved_date':          safe_str(doc.get('solved_date')),
+            'solution_description': doc.get('solution_description'),
+        }
+
+    def list(self, request, *args, **kwargs):
+        """
+        Bypass Djongo ORM completely for listing — use PyMongo directly.
+        Djongo cannot read CharField values back from MongoDB reliably.
+        """
+        from .db_utils import get_db
+        user = request.user
+        user_type = getattr(user, 'user_type', '')
+        db = get_db()
+
+        if db is None:
+            return response.Response([], status=200)
+
+        try:
+            collection = db['api_grievance']
+
+            if user_type in ('admin', 'staff', 'superadmin'):
+                docs = list(collection.find().sort('date', -1))
+            else:
+                student_id_str = str(user.pk)
+                docs = list(collection.find({'student_id': student_id_str}).sort('date', -1))
+                print(f"[GrievanceViewSet] PyMongo list: found {len(docs)} for student_id={student_id_str}")
+
+            formatted = [self._format_doc(doc) for doc in docs]
+            return response.Response(formatted)
+
+        except Exception as e:
+            print(f"[GrievanceViewSet] PyMongo list failed: {e}")
+            return response.Response([], status=200)
+
 
     def perform_create(self, serializer):
         # Automatically set student info if they are a student
         extra_data = {}
+        student_name = None
+        student_id_str = None
+
         if self.request.user.user_type == 'student':
-            extra_data['student_name'] = f"{self.request.user.first_name} {self.request.user.last_name}" if self.request.user.first_name else self.request.user.username
-            extra_data['student_id'] = str(self.request.user.pk)
-            
-            # If status not provided, default based on category
+            student_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() if self.request.user.first_name else self.request.user.username
+            student_id_str = str(self.request.user.pk)
+            extra_data['student_name'] = student_name
+            extra_data['student_id'] = student_id_str
+
+            # Default status based on category if not provided
             if 'status' not in self.request.data:
                 category = self.request.data.get('category', 'Academic')
                 if category in ['Academic', 'Doubt Session']:
                     extra_data['status'] = 'Unassigned'
                 else:
                     extra_data['status'] = 'Pending'
-        
-        serializer.save(**extra_data)
+
+        instance = serializer.save(**extra_data)
+
+        # Djongo silently drops ALL CharField/TextField values on save.
+        # Patch the full document via PyMongo to write every field correctly.
+        try:
+            from .db_utils import get_db
+            from datetime import datetime
+            db = get_db()
+            if db is not None:
+                # Build the complete document payload from request + extra_data
+                payload = {
+                    'subject':      self.request.data.get('subject', ''),
+                    'category':     self.request.data.get('category', 'Academic'),
+                    'description':  self.request.data.get('description', ''),
+                    'priority':     self.request.data.get('priority', 'Medium'),
+                    'status':       extra_data.get('status', self.request.data.get('status', 'Pending')),
+                }
+                if student_id_str:
+                    payload['student_id'] = student_id_str
+                if student_name:
+                    payload['student_name'] = student_name
+
+                result = db['api_grievance'].update_one(
+                    {'id': instance.pk},
+                    {'$set': payload}
+                )
+                print(f"[GrievanceViewSet] PyMongo full patch on pk={instance.pk}, matched={result.matched_count}, fields={list(payload.keys())}")
+        except Exception as e:
+            print(f"[GrievanceViewSet] PyMongo patch failed: {e}")
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a grievance directly via PyMongo.
+        Uses the same lookup strategy as list() — find by student_id, 
+        match id in Python, then delete by MongoDB _id.
+        """
+        from .db_utils import get_db
+        pk = kwargs.get('pk')           # string e.g. '84'
+        user = request.user
+        user_type = getattr(user, 'user_type', '')
+
+        db = get_db()
+        if db is not None:
+            try:
+                collection = db['api_grievance']
+
+                if user_type in ('admin', 'staff', 'superadmin'):
+                    # Admin: find all docs, match by id string comparison
+                    all_docs = list(collection.find())
+                    target = next(
+                        (d for d in all_docs if str(d.get('id', '')) == str(pk)),
+                        None
+                    )
+                else:
+                    # Student: only search within their own docs (same as list())
+                    student_id_str = str(user.pk)
+                    student_docs = list(collection.find({'student_id': student_id_str}))
+                    target = next(
+                        (d for d in student_docs if str(d.get('id', '')) == str(pk)),
+                        None
+                    )
+                    print(f"[GrievanceViewSet] Delete search: student has {len(student_docs)} docs, looking for id={pk!r}, found={target is not None}")
+
+                if target is None:
+                    return response.Response({'detail': 'Not found.'}, status=404)
+
+                # Delete by MongoDB _id — always unique and reliable
+                result = collection.delete_one({'_id': target['_id']})
+                print(f"[GrievanceViewSet] Deleted pk={pk} by _id={target['_id']}, deleted_count={result.deleted_count}")
+
+                # Cleanup ORM record (safe to fail)
+                try:
+                    Grievance.objects.get(pk=pk).delete()
+                except Exception:
+                    pass
+
+                return response.Response(status=204)
+
+            except Exception as e:
+                print(f"[GrievanceViewSet] PyMongo delete failed: {e}")
+                return response.Response({'detail': str(e)}, status=500)
+
+        return super().destroy(request, *args, **kwargs)
+
 
 class StudyTaskViewSet(viewsets.ModelViewSet):
     serializer_class = StudyTaskSerializer
