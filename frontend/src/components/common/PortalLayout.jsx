@@ -7,7 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }) => {
     const { user, logout } = useAuth();
     const { isDarkMode, toggleTheme } = useTheme();
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
+    const [isSidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
 
     // Swipe gesture handling for mobile
     React.useEffect(() => {
