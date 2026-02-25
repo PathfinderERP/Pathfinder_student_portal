@@ -272,29 +272,29 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             )}
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 pb-4 md:pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
                 <div>
-                    <h1 className={`text-3xl md:text-4xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <h1 className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tight mb-1 sm:mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         Welcome Back, {(student?.studentName || "Student").split(' ')[0]}!
                     </h1>
-                    <p className={`text-sm md:text-base font-medium ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
+                    <p className={`text-xs sm:text-sm md:text-base font-medium ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
                         Here's your comprehensive learning snapshot & AI-powered insights for today
                     </p>
                 </div>
-                <div className="flex flex-col items-end gap-3">
+                <div className="flex flex-col items-start md:items-end gap-3">
                     <button
                         onClick={() => onSync(true)}
-                        className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border transition-all
+                        className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border transition-all
                             ${isDarkMode ? 'border-white/10 text-white/40 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
                     >
                         Force ERP Refresh
                     </button>
-                    <div className={`flex items-center gap-3 px-5 py-2.5 rounded-[5px] border shadow-lg backdrop-blur-md
+                    <div className={`flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-5 sm:py-2.5 rounded-[5px] border shadow-lg backdrop-blur-md
                         ${isDarkMode ? 'bg-[#151A25]/80 border-white/10 text-slate-300' : 'bg-white/80 border-slate-200 text-slate-600'}`}>
-                        <span className="font-bold">{(student?.studentName || "Student").split(' ')[0]}</span>
-                        <span className={`w-1.5 h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
-                        <span className="text-sm font-medium">ID: {rollNo}</span>
-                        <div className={`ml-2 w-8 h-8 rounded-[5px] flex items-center justify-center text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
+                        <span className="font-bold sm:text-base text-sm">{(student?.studentName || "Student").split(' ')[0]}</span>
+                        <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
+                        <span className="text-xs sm:text-sm font-medium">ID: {rollNo}</span>
+                        <div className={`ml-1 sm:ml-2 w-6 h-6 sm:w-8 sm:h-8 rounded-[5px] flex items-center justify-center text-[10px] sm:text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
                             {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
                         </div>
                     </div>
@@ -302,9 +302,9 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             </div>
 
             {/* Stats Row 1 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
                 {stats.map((stat, i) => (
-                    <div key={i} className={`p-6 rounded-[5px] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
+                    <div key={i} className={`p-4 sm:p-6 rounded-[5px] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
                         ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/20' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
 
                         <div className={`mb-4 flex items-center justify-between`}>

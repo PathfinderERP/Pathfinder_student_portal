@@ -79,8 +79,8 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }
                     actions={headerActions}
                 />
 
-                <main className="flex-1 overflow-auto p-8 scrollbar-thin">
-                    <div className="max-w-[1400px] mx-auto space-y-8 animate-fade-in-up">
+                <main className="flex-1 overflow-auto px-2 py-4 sm:px-4 sm:py-6 lg:p-8 scrollbar-thin">
+                    <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up">
                         {children}
                     </div>
                 </main>

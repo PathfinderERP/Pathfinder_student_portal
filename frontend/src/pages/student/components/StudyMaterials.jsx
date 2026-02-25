@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Search, Filter, BookOpen, Download, Eye, FileText, ChevronRight, GraduationCap, Loader2, X, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -89,62 +89,62 @@ const StudyMaterials = ({ isDarkMode, cache, setCache }) => {
     return (
         <div className="space-y-8 animate-fade-in-up">
             {/* Header section with Stats */}
-            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className={`p-5 sm:p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-3">
-                            <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                            <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em]">
                                 Digital Library
                             </div>
                         </div>
-                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        <h2 className={`text-2xl sm:text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Study Materials
                         </h2>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <p className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             Access premium revision modules, practice sets, and detailed subject notes.
                         </p>
                     </div>
 
-                    <div className="flex gap-4 items-center">
-                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Total Resources</p>
-                            <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{materials.length}</p>
+                    <div className="flex gap-4 items-center w-full md:w-auto">
+                        <div className={`flex-1 md:flex-none px-4 sm:px-6 py-3 sm:py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Total Resources</p>
+                            <p className={`text-xl sm:text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{materials.length}</p>
                         </div>
                         <button
                             onClick={() => fetchMaterials(false)}
                             disabled={isLoading}
-                            className={`p-4 rounded-[5px] transition-all active:scale-95 border ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700'}`}
+                            className={`p-3.5 sm:p-4 rounded-[5px] transition-all active:scale-95 border ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700'}`}
                             title="Sync Library"
                         >
-                            <RefreshCw size={24} className={isLoading ? "animate-spin" : ""} />
+                            <RefreshCw size={20} sm={24} className={isLoading ? "animate-spin" : ""} />
                         </button>
                     </div>
                 </div>
 
                 {/* Decorative background element */}
-                <BookOpen size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
+                <BookOpen size={160} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12 hidden sm:block" />
             </div>
 
             {/* Filter and Search Bar */}
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1 group">
-                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-orange-500' : 'text-slate-400 group-focus-within:text-orange-500'}`} size={18} />
+                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-orange-500' : 'text-slate-400 group-focus-within:text-orange-500'}`} size={16} sm={18} />
                     <input
                         type="text"
-                        placeholder="Search materials by title or keyword..."
+                        placeholder="Search materials..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className={`w-full pl-12 pr-4 py-4 rounded-[5px] border-2 outline-none font-bold text-sm transition-all
+                        className={`w-full pl-11 pr-4 py-3 sm:py-4 rounded-[5px] border-2 outline-none font-bold text-xs sm:text-sm transition-all
                             ${isDarkMode ? 'bg-white/[0.02] border-white/5 text-white focus:border-orange-500/50' : 'bg-white border-slate-100 text-slate-800 focus:border-orange-500'}`}
                     />
                 </div>
 
-                <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2 no-scrollbar">
+                <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2 no-scrollbar scroll-smooth">
                     {subjects.map(subject => (
                         <button
                             key={subject}
                             onClick={() => setActiveSubject(subject)}
-                            className={`px-6 py-4 rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
+                            className={`px-4 sm:px-6 py-2.5 sm:py-4 rounded-[5px] font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
                                 ${activeSubject === subject
                                     ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20 scale-105'
                                     : (isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:border-orange-200 hover:text-orange-600')}`}

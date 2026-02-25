@@ -313,31 +313,31 @@ const SocialFeed = () => {
                 className={`group rounded-[1.5rem] shadow-xl overflow-hidden mb-8 border ${isDarkMode ? 'bg-[#0A0D14] border-white/5 hover:border-indigo-500/30' : 'bg-white border-slate-100 hover:border-indigo-500/10'} transition-all duration-700`}
             >
                 {/* Header */}
-                <div className="p-8 pb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-5">
+                <div className="p-4 sm:p-8 sm:pb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 sm:gap-5">
                         <div className="relative">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-xl font-black text-white shadow-lg relative z-10">
+                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-indigo-600 flex items-center justify-center text-sm sm:text-xl font-black text-white shadow-lg relative z-10">
                                 {post.author?.name?.charAt(0) || '?'}
                             </div>
                             <div className="absolute inset-0 bg-indigo-500 rounded-2xl blur-lg opacity-20 animate-pulse" />
                         </div>
                         <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h4 className="text-base font-black uppercase tracking-tight">{post.author?.name}</h4>
-                                <CheckCircle size={14} className="text-indigo-500" fill="currentColor" />
+                            <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                                <h4 className="text-sm sm:text-base font-black uppercase tracking-tight truncate max-w-[120px] sm:max-w-none">{post.author?.name}</h4>
+                                <CheckCircle size={12} className="text-indigo-500 flex-shrink-0" fill="currentColor" />
                             </div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-indigo-500/10 text-indigo-500 rounded-full">{post.author?.role}</span>
-                                <span className="text-[10px] font-bold opacity-30 flex items-center gap-1.5 uppercase tracking-tighter"><Clock size={12} /> {new Date(post.createdAt).toLocaleDateString()}</span>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest px-2 sm:px-3 py-0.5 sm:py-1 bg-indigo-500/10 text-indigo-500 rounded-full">{post.author?.role}</span>
+                                <span className="text-[8px] sm:text-[10px] font-bold opacity-30 flex items-center gap-1 uppercase tracking-tighter"><Clock size={10} /> {new Date(post.createdAt).toLocaleDateString()}</span>
                             </div>
                         </div>
                     </div>
-                    <button className={`p-3 rounded-2xl transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}><MoreHorizontal size={22} /></button>
+                    <button className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}><MoreHorizontal size={18} sm={22} /></button>
                 </div>
 
                 {/* Content */}
-                <div className="px-8 py-6">
-                    <p className={`text-lg font-bold leading-relaxed mb-8 whitespace-pre-wrap ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                <div className="px-5 sm:px-8 py-4 sm:py-6">
+                    <p className={`text-base sm:text-lg font-bold leading-relaxed mb-6 sm:mb-8 whitespace-pre-wrap ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
                         {post.content.split(' ').map((word, i) => word.startsWith('@') ? <span key={i} className="text-indigo-500 cursor-pointer hover:underline">{word} </span> : word + ' ')}
                     </p>
 
@@ -346,12 +346,12 @@ const SocialFeed = () => {
 
                     {/* Poll */}
                     {post.poll && post.poll.options.length > 0 && (
-                        <div className={`mt-8 p-6 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                            <div className="flex items-center gap-3 mb-6">
-                                <BarChart2 className="text-indigo-500" />
-                                <h5 className="text-sm font-black uppercase tracking-widest">{post.poll.question}</h5>
+                        <div className={`mt-6 sm:mt-8 p-4 sm:p-6 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                                <BarChart2 size={18} className="text-indigo-500" />
+                                <h5 className="text-xs sm:text-sm font-black uppercase tracking-widest">{post.poll.question}</h5>
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-3 sm:space-y-4">
                                 {post.poll.options.map((opt) => {
                                     const percentage = totalVotes === 0 ? 0 : Math.round((opt.votes.length / totalVotes) * 100);
                                     const isSelected = opt.votes.includes(String(user.user_id));
@@ -360,13 +360,13 @@ const SocialFeed = () => {
                                             <button
                                                 disabled={hasVoted}
                                                 onClick={() => handleVote(post._id, opt._id)}
-                                                className={`w-full p-5 rounded-2xl border relative z-10 flex items-center justify-between transition-all duration-500 overflow-hidden ${isSelected ? 'border-indigo-500 bg-indigo-500/10' : (isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-200 hover:bg-white')}`}
+                                                className={`w-full p-4 sm:p-5 rounded-xl sm:rounded-2xl border relative z-10 flex items-center justify-between transition-all duration-500 overflow-hidden ${isSelected ? 'border-indigo-500 bg-indigo-500/10' : (isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-200 hover:bg-white')}`}
                                             >
-                                                <div className="flex items-center gap-4">
-                                                    <span className={`text-sm font-black uppercase tracking-tight ${isSelected ? 'text-indigo-500' : ''}`}>{opt.text}</span>
-                                                    {isSelected && <CheckCircle size={16} className="text-indigo-500" />}
+                                                <div className="flex items-center gap-3 sm:gap-4">
+                                                    <span className={`text-xs sm:text-sm font-black uppercase tracking-tight ${isSelected ? 'text-indigo-500' : ''}`}>{opt.text}</span>
+                                                    {isSelected && <CheckCircle size={14} className="text-indigo-500" />}
                                                 </div>
-                                                <span className={`text-xs font-black ${isSelected ? 'text-indigo-500' : 'opacity-40'}`}>{percentage}%</span>
+                                                <span className={`text-[10px] sm:text-xs font-black ${isSelected ? 'text-indigo-500' : 'opacity-40'}`}>{percentage}%</span>
                                                 <motion.div
                                                     initial={{ width: 0 }} animate={{ width: `${percentage}%` }}
                                                     className={`absolute left-0 top-0 bottom-0 opacity-10 ${isSelected ? 'bg-indigo-500' : (isDarkMode ? 'bg-white' : 'bg-indigo-500')}`}
@@ -374,14 +374,14 @@ const SocialFeed = () => {
                                             </button>
                                             {opt.votes.length > 0 && (
                                                 <div
-                                                    className="absolute -right-2 -top-2 flex -space-x-2 z-20 cursor-pointer"
+                                                    className="absolute -right-1 sm:-right-2 -top-1 sm:-top-2 flex -space-x-2 z-20 cursor-pointer"
                                                     onClick={() => { setActiveVoterIds(opt.votes); setIsVotersModalOpen(true); }}
                                                 >
                                                     {opt.votes.slice(0, 3).map(vid => (
                                                         <VoterAvatar key={vid} voterId={vid} users={taggableUsers} />
                                                     ))}
                                                     {opt.votes.length > 3 && (
-                                                        <div className="w-6 h-6 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[7px] font-black text-white">+ {opt.votes.length - 3}</div>
+                                                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[7px] font-black text-white">+ {opt.votes.length - 3}</div>
                                                     )}
                                                 </div>
                                             )}
@@ -389,38 +389,38 @@ const SocialFeed = () => {
                                     );
                                 })}
                             </div>
-                            <div className="mt-6 flex items-center justify-between px-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-30">{totalVotes} Total Votes</p>
-                                {hasVoted && <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1.5"><Shield size={10} /> Vote Recorded</p>}
+                            <div className="mt-4 sm:mt-6 flex items-center justify-between px-1 sm:px-2">
+                                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-30">{totalVotes} Total Votes</p>
+                                {hasVoted && <p className="text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1.5"><Shield size={10} /> Vote Recorded</p>}
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Footer Controls */}
-                <div className="px-8 pb-8 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                <div className="px-5 sm:px-8 pb-5 sm:pb-8 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
                         <button
                             onClick={() => handleLike(post._id)}
-                            className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30' : (isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-indigo-500 hover:text-white')}`}
+                            className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all ${isLiked ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30' : (isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-indigo-500 hover:text-white')}`}
                         >
-                            <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
-                            {post.likes?.length || 0} Likes
+                            <Heart size={14} sm={16} fill={isLiked ? "currentColor" : "none"} />
+                            {post.likes?.length || 0}
                         </button>
                         <button
                             onClick={() => setShowComments(!showComments)}
-                            className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-indigo-500 hover:text-white'}`}
+                            className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-indigo-500 hover:text-white'}`}
                         >
-                            <MessageCircle size={16} />
+                            <MessageCircle size={14} sm={16} />
                             {post.comments?.length || 0}
                         </button>
-                        <button className={`p-3 rounded-2xl ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-indigo-500 hover:text-white'}`}><Share2 size={16} /></button>
+                        <button className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-indigo-500 hover:text-white'}`}><Share2 size={14} sm={16} /></button>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex -space-x-3">
+                    <div className="flex items-center gap-3 sm:gap-4 ml-auto">
+                        <div className="flex -space-x-2 sm:-space-x-3">
                             {post.views?.slice(0, 3).map(vid => <VoterAvatar key={vid} voterId={vid} users={taggableUsers} />)}
                         </div>
-                        <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">{post.views?.length || 0} Views</span>
+                        <span className="text-[9px] sm:text-[10px] font-black opacity-30 uppercase tracking-widest">{post.views?.length || 0} Views</span>
                     </div>
                 </div>
 
@@ -521,20 +521,20 @@ const SocialFeed = () => {
     };
 
     return (
-        <div className={`min-h-screen ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F8FAFC] text-slate-900'} transition-colors duration-700 custom-scrollbar overflow-y-auto px-4 py-8 md:px-10`}>
+        <div className={`min-h-screen ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F8FAFC] text-slate-900'} transition-colors duration-700 custom-scrollbar overflow-y-auto px-2 py-6 sm:p-8 md:px-10`}>
             <style>{styles}</style>
 
-            <div className="mb-12 flex items-center justify-between">
+            <div className="mb-8 md:mb-12 flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight flex items-center gap-4">
-                        <Compass className="text-indigo-600" size={32} />
+                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight flex items-center gap-3 md:gap-4">
+                        <Compass className="text-indigo-600" size={28} />
                         Nexus Hub
                     </h1>
-                    <p className="text-sm font-bold opacity-40 uppercase tracking-widest mt-1">Discovery & Global Collaboration</p>
+                    <p className="text-[10px] sm:text-sm font-bold opacity-40 uppercase tracking-widest mt-1">Discovery & Global Collaboration</p>
                 </div>
             </div>
 
-            <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
 
                 {/* Left Sidebar: Profile & Community Index */}
                 <div className="hidden lg:block lg:col-span-3 space-y-8 h-fit sticky top-8">
@@ -543,69 +543,69 @@ const SocialFeed = () => {
                 </div>
 
                 {/* Main Feed */}
-                <div className="lg:col-span-6 space-y-8 pb-20">
+                <div className="lg:col-span-6 space-y-6 md:space-y-8 pb-20">
 
                     {/* Create Post Hub */}
-                    <div className={`p-8 rounded-[1.5rem] shadow-xl border ${isDarkMode ? 'bg-[#0A0D14] border-white/5' : 'bg-white border-slate-100'}`}>
-                        <div className="flex items-start gap-6 mb-6">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center font-black text-white flex-none shadow-lg">{user.username.charAt(0)}</div>
+                    <div className={`p-5 sm:p-8 rounded-[1.5rem] shadow-xl border ${isDarkMode ? 'bg-[#0A0D14] border-white/5' : 'bg-white border-slate-100'}`}>
+                        <div className="flex items-start gap-4 sm:gap-6 mb-4 sm:mb-6">
+                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-indigo-600 flex items-center justify-center font-black text-white text-sm sm:text-xl flex-none shadow-lg">{user.username.charAt(0)}</div>
                             <textarea
                                 value={newPostContent}
                                 onChange={(e) => setNewPostContent(e.target.value)}
                                 placeholder="Broadcast your breakthrough..."
-                                className={`w-full bg-transparent border-none outline-none text-base font-bold resize-none min-h-[100px] pt-4 ${isDarkMode ? 'placeholder:text-white/10' : 'placeholder:text-slate-300'}`}
+                                className={`w-full bg-transparent border-none outline-none text-sm sm:text-base font-bold resize-none min-h-[80px] sm:min-h-[100px] pt-2 sm:pt-4 ${isDarkMode ? 'placeholder:text-white/10' : 'placeholder:text-slate-300'}`}
                             />
                         </div>
 
                         {selectedFiles.length > 0 && (
-                            <div className="grid grid-cols-3 gap-6 mb-8">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
                                 {selectedFiles.map((file, i) => (
-                                    <div key={i} className="relative group aspect-square rounded-[1.5rem] overflow-hidden shadow-xl ring-1 ring-white/10">
+                                    <div key={i} className="relative group aspect-square rounded-[1rem] sm:rounded-[1.5rem] overflow-hidden shadow-xl ring-1 ring-white/10">
                                         <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="Preview" />
-                                        <button onClick={() => removeFile(i)} className="absolute top-3 right-3 p-2 bg-red-500 text-white rounded-xl shadow-2xl scale-0 group-hover:scale-100 transition-all"><X size={16} /></button>
+                                        <button onClick={() => removeFile(i)} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg shadow-2xl transition-all sm:scale-0 sm:group-hover:scale-100"><X size={14} /></button>
                                     </div>
                                 ))}
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-6 border-t border-white/5">
-                            <div className="flex items-center gap-1">
-                                <label className={`p-3 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-all group relative`}>
-                                    <ImageIcon size={18} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                        <div className="flex items-center justify-between pt-4 sm:pt-6 border-t border-white/5">
+                            <div className="flex items-center gap-0.5 sm:gap-1">
+                                <label className={`p-2 sm:p-3 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-all group relative`}>
+                                    <ImageIcon size={16} className="text-indigo-500 group-hover:scale-110 transition-transform" />
                                     <input type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => setSelectedFiles([...selectedFiles, ...Array.from(e.target.files)])} />
-                                    <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[8px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest shadow-xl">Media</span>
+                                    <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[8px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block whitespace-nowrap uppercase tracking-widest shadow-xl">Media</span>
                                 </label>
-                                <button onClick={() => setPollModal(true)} className={`p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all group relative`}>
-                                    <BarChart2 size={18} className="text-indigo-500 group-hover:scale-110 transition-transform" />
-                                    <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[8px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest shadow-xl">Poll</span>
+                                <button onClick={() => setPollModal(true)} className={`p-2 sm:p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all group relative`}>
+                                    <BarChart2 size={16} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                                    <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[8px] font-black px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block whitespace-nowrap uppercase tracking-widest shadow-xl">Poll</span>
                                 </button>
-                                <button className={`p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all group relative`}>
-                                    <Hash size={18} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                                <button className={`p-2 sm:p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all group relative`}>
+                                    <Hash size={16} className="text-indigo-500 group-hover:scale-110 transition-transform" />
                                 </button>
                             </div>
                             <button
                                 onClick={handleCreatePost}
                                 disabled={isPosting || (!newPostContent.trim() && selectedFiles.length === 0)}
-                                className="px-12 py-4 bg-indigo-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/30 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 transition-all flex items-center gap-3"
+                                className="px-6 sm:px-12 py-3 sm:py-4 bg-indigo-600 text-white rounded-[1rem] sm:rounded-[1.5rem] text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] shadow-2xl shadow-indigo-600/30 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 transition-all flex items-center gap-2 sm:gap-3"
                             >
-                                {isPosting ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                                {isPosting ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
                                 {isPosting ? 'Broadcasting...' : 'Broadcast'}
                             </button>
                         </div>
                     </div>
 
                     {/* Feed Display */}
-                    <div className="space-y-12">
+                    <div className="space-y-8 md:space-y-12">
                         {loading ? (
                             <div className="py-20 flex flex-col items-center justify-center opacity-20">
-                                <Loader2 size={48} className="animate-spin text-indigo-500 mb-6" />
-                                <p className="text-xs font-black uppercase tracking-[0.5em]">Syncing Feed...</p>
+                                <Loader2 size={40} className="animate-spin text-indigo-500 mb-6" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Syncing Feed...</p>
                             </div>
                         ) : posts.length === 0 ? (
-                            <div className="py-32 text-center opacity-20">
-                                <Zap size={64} className="mx-auto mb-8" />
-                                <h3 className="text-2xl font-black uppercase tracking-tighter">Silence in the Nexus</h3>
-                                <p className="text-xs font-bold uppercase tracking-widest mt-2">Broadcast the first breakthrough</p>
+                            <div className="py-32 text-center opacity-20 px-4">
+                                <Zap size={56} className="mx-auto mb-8" />
+                                <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter">Silence in the Nexus</h3>
+                                <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-2">Broadcast the first breakthrough</p>
                             </div>
                         ) : (
                             posts.map(post => <PostCard key={post._id} post={post} />)
