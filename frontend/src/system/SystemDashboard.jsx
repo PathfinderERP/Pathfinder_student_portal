@@ -20,6 +20,8 @@ import SectionRegistry from './sections/SectionRegistry';
 import CreateUserPage from './admin/CreateUserPage';
 import CenterAdminManagement from './admin/CenterAdminManagement';
 import HeadOfficeAdminManagement from './admin/HeadOfficeAdminManagement';
+import OMRResultGenerate from './omr/OMRResultGenerate';
+import OMRResult from './omr/OMRResult';
 import ProfilePage from './profile/ProfilePage';
 import SettingsPage from './settings/SettingsPage';
 import UserManagementTable from './admin/UserManagementTable';
@@ -303,19 +305,12 @@ const SystemDashboard = () => {
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
         {
             id: 'omr_mgmt', icon: FileText, label: 'OMR Management',
-            active: (activeTab === 'Admin Master Data' && masterSubTab === 'Section Management') || activeTab.startsWith('Test') || activeTab === 'Question Bank' || activeTab === 'Merge Test Result',
+            active: activeTab === 'OMR Result Generate' || activeTab === 'OMR Result',
             subItems: [
-                { id: 'section_mgmt', icon: Layers, label: 'Section-Management', active: activeTab === 'Admin Master Data' && masterSubTab === 'Section Management', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Section Management'); } },
-                { id: 'test_management', icon: BookOpen, label: 'Test Management', active: activeTab === 'Test Create', onClick: () => setActiveTab('Test Create') },
-                { id: 'test_sets', icon: LayoutGrid, label: 'Test Sets', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
-                { id: 'test_allotment_omr', icon: LayoutDashboard, label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
-                { id: 'result_generate', icon: RefreshCw, label: 'Result Generate', active: activeTab === 'Merge Test Result', onClick: () => setActiveTab('Merge Test Result') },
-                { id: 'result', icon: PieChart, label: 'Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') },
-                { id: 'question_bank_omr', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') }
+                { id: 'result_generate', icon: RefreshCw, label: 'Result Generate', active: activeTab === 'OMR Result Generate', onClick: () => setActiveTab('OMR Result Generate') },
+                { id: 'result', icon: PieChart, label: 'Result', active: activeTab === 'OMR Result', onClick: () => setActiveTab('OMR Result') }
             ].filter(sub => {
-                if (sub.id === 'section_mgmt') return hasPermission('admin_mgmt', 'admin_master_data');
-                if (sub.id.startsWith('question_bank')) return hasPermission('question_bank');
-                return hasPermission('test_mgmt', sub.id.replace('_omr', '').replace('test_management', 'test_create').replace('test_sets', 'test_responses').replace('result_generate', 'merge_test_result').replace('result', 'test_result'));
+                return hasPermission('test_mgmt', sub.id.replace('result_generate', 'merge_test_result').replace('result', 'test_result'));
             })
         },
         {
@@ -456,6 +451,10 @@ const SystemDashboard = () => {
                         onBack={previousTab ? () => { setActiveTab(previousTab); setPreviousTab(null); } : null}
                     />
                 );
+            case 'OMR Result Generate':
+                return <OMRResultGenerate />;
+            case 'OMR Result':
+                return <OMRResult />;
             case 'Question Bank':
                 return <QuestionBank onNavigate={(tab, subTab) => {
                     setPreviousTab(activeTab);
