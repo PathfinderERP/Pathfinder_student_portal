@@ -3,7 +3,8 @@ import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
-    MessageSquare, Image, CircleDot, Compass
+    MessageSquare, Image, CircleDot, Compass,
+    Contact, Home, LayoutGrid, PieChart, BookOpen
 } from 'lucide-react';
 
 // Common
@@ -17,6 +18,8 @@ import StudentRegistry from './admin/StudentRegistry';
 import CentreRegistry from './admin/CentreRegistry';
 import SectionRegistry from './sections/SectionRegistry';
 import CreateUserPage from './admin/CreateUserPage';
+import CenterAdminManagement from './admin/CenterAdminManagement';
+import HeadOfficeAdminManagement from './admin/HeadOfficeAdminManagement';
 import ProfilePage from './profile/ProfilePage';
 import SettingsPage from './settings/SettingsPage';
 import UserManagementTable from './admin/UserManagementTable';
@@ -299,6 +302,23 @@ const SystemDashboard = () => {
         },
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
         {
+            id: 'omr_mgmt', icon: FileText, label: 'OMR Management',
+            active: (activeTab === 'Admin Master Data' && masterSubTab === 'Section Management') || activeTab.startsWith('Test') || activeTab === 'Question Bank' || activeTab === 'Merge Test Result',
+            subItems: [
+                { id: 'section_mgmt', icon: Layers, label: 'Section-Management', active: activeTab === 'Admin Master Data' && masterSubTab === 'Section Management', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Section Management'); } },
+                { id: 'test_management', icon: BookOpen, label: 'Test Management', active: activeTab === 'Test Create', onClick: () => setActiveTab('Test Create') },
+                { id: 'test_sets', icon: LayoutGrid, label: 'Test Sets', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
+                { id: 'test_allotment_omr', icon: LayoutDashboard, label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
+                { id: 'result_generate', icon: RefreshCw, label: 'Result Generate', active: activeTab === 'Merge Test Result', onClick: () => setActiveTab('Merge Test Result') },
+                { id: 'result', icon: PieChart, label: 'Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') },
+                { id: 'question_bank_omr', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') }
+            ].filter(sub => {
+                if (sub.id === 'section_mgmt') return hasPermission('admin_mgmt', 'admin_master_data');
+                if (sub.id.startsWith('question_bank')) return hasPermission('question_bank');
+                return hasPermission('test_mgmt', sub.id.replace('_omr', '').replace('test_management', 'test_create').replace('test_sets', 'test_responses').replace('result_generate', 'merge_test_result').replace('result', 'test_result'));
+            })
+        },
+        {
             id: 'package_mgmt', icon: Package, label: 'Package Management', active: activeTab.startsWith('Package') || activeTab.startsWith('Add Test') || activeTab.startsWith('Add Course') || activeTab.startsWith('Test Analysis'),
             subItems: [
                 { id: 'create_package', label: 'Create Package', active: activeTab === 'Create Package', onClick: () => setActiveTab('Create Package') },
@@ -333,11 +353,13 @@ const SystemDashboard = () => {
             ]
         },
         {
-            id: 'admin_mgmt', icon: ShieldCheck, label: 'Admin Management', active: activeTab.startsWith('Admin'),
+            id: 'admin_mgmt', icon: ShieldCheck, label: 'Admin Management', active: activeTab.startsWith('Admin') || activeTab === 'Center Admin Management' || activeTab === 'Head Office Admin',
             subItems: [
                 { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
                 { id: 'admin_student', label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
                 { id: 'admin_parent', label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
+                { id: 'center_admin_mgmt', label: 'Center Admin Management', active: activeTab === 'Center Admin Management', onClick: () => setActiveTab('Center Admin Management') },
+                { id: 'head_office_admin', label: 'Head Office Admin', active: activeTab === 'Head Office Admin', onClick: () => setActiveTab('Head Office Admin') },
                 {
                     id: 'admin_master_data',
                     label: 'Master Data',
@@ -359,7 +381,10 @@ const SystemDashboard = () => {
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
-            ].filter(sub => hasPermission('admin_mgmt', sub.id))
+            ].filter(sub => {
+                if (sub.id === 'center_admin_mgmt' || sub.id === 'head_office_admin') return true;
+                return hasPermission('admin_mgmt', sub.id);
+            })
         },
         { id: 'profile', icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
     ].filter(item => ['dashboard', 'profile'].includes(item.id) || hasPermission(item.id)), [activeTab, masterSubTab, user?.permissions]);
@@ -417,6 +442,10 @@ const SystemDashboard = () => {
                 );
             case 'Admin Student':
                 return <StudentRegistry studentsData={erpStudents} isERPLoading={isERPLoading} />;
+            case 'Center Admin Management':
+                return <CenterAdminManagement />;
+            case 'Head Office Admin':
+                return <HeadOfficeAdminManagement />;
             case 'Centre Management':
                 return <CentreRegistry centresData={erpCentres} isERPLoading={isERPLoading} />;
             case 'Admin Master Data':

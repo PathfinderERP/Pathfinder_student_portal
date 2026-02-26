@@ -149,7 +149,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout }) => {
                                                                     }`}
                                                             />
                                                         )}
-                                                        <span className="flex-1 text-left">{subItem.label}</span>
+                                                        <span className="flex-1 text-left whitespace-nowrap">{subItem.label}</span>
                                                         {hasNestedSubs && (
                                                             <ChevronDown
                                                                 size={14}
