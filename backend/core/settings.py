@@ -156,6 +156,7 @@ else:
 
 AUTHENTICATION_BACKENDS = [
     'api.authentication.ERPStudentBackend',
+    'api.authentication.ERPTeacherBackend',
     'api.authentication.LocalUserBackend', # Support Username/Email login for Admin/Staff
     'django.contrib.auth.backends.ModelBackend',
 ]

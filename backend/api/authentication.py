@@ -218,19 +218,159 @@ class ERPStudentBackend(BaseBackend):
         print(f"Authentication failed for username: {username}")
         return None
 
+class ERPTeacherBackend(BaseBackend):
+    """
+    Authenticate against the External ERP System for Teachers/Employees.
+    Uses the /api/hr/employee/login endpoint.
+    """
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        import os
+        from django.core.cache import cache
+        from django.db.models import Q
+
+        if username:
+            username = username.strip().lower()
+        if password:
+            password = password.strip()
+
+        print(f"👨‍🏫 Attempting ERP Teacher Login for: {username}")
+        erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in')
+
+        local_user = None
+        try:
+            local_user = CustomUser.objects.filter(Q(username=username) | Q(email=username)).first()
+            if local_user and local_user.user_type not in ['teacher', 'faculty']:
+                print(f"→ User {username} exists but is not a teacher, skipping ERP teacher validation")
+                return None
+        except Exception as e:
+            print(f"⚠ Error searching for local teacher: {e}")
+
+        try:
+            # Payload for standard Teacher Login
+            auth_payload = {
+                "email": username,
+                "username": username,
+                "password": password
+            }
+            
+            # Step 1: Try Standard ERP Login (if user set a real password in ERP)
+            login_url = f"{erp_url}/api/hr/employee/login"
+            print(f"[ERP TEACHER] Trying standard login: {login_url}")
+            resp = requests.post(login_url, json=auth_payload, timeout=15)
+            
+            erp_token = None
+            employee_data = {}
+
+            if resp.status_code == 200:
+                data = resp.json()
+                erp_token = data.get('token')
+                employee_data = data.get('employee') or data.get('user') or {}
+                print(f"✓ ERP Teacher Login Successful for {username}")
+            
+            # Step 2: Presence-Based Authentication (Verification via Admin Token)
+            # If standard login fails, we check if the teacher exists with Email and Employee ID
+            if not erp_token:
+                print(f"[ERP TEACHER] Standard login failed, trying presence-based lookup for {username}")
+                
+                # Fetch Admin Token to look up master records
+                from .erp_views import _get_erp_admin_token
+                admin_token = _get_erp_admin_token()
+                
+                if admin_token:
+                    # We check the master registries
+                    endpoints = [
+                        f"{erp_url}/api/student-portal/teachers?limit=2000",
+                        f"{erp_url}/api/hr/employee?limit=2000"
+                    ]
+                    
+                    found_teacher = None
+                    for url in endpoints:
+                        try:
+                            t_resp = requests.get(url, headers={"Authorization": f"Bearer {admin_token}"}, timeout=15)
+                            if t_resp.status_code == 200:
+                                t_data = t_resp.json()
+                                t_list = t_data if isinstance(t_data, list) else (t_data.get('data') or t_data.get('employees') or [])
+                                
+                                for t in t_list:
+                                    t_email = str(t.get('email') or '').lower().strip()
+                                    # password field in our portal is the employeeId in ERP
+                                    t_code = str(t.get('employeeId') or t.get('code') or '').strip()
+                                    
+                                    if t_email == username and t_code == password:
+                                        found_teacher = t
+                                        print(f"✓ ERP Presence Match: Found {username} with code {password}")
+                                        break
+                            if found_teacher: break
+                        except Exception as e:
+                            print(f"Warning: Teacher lookup failed for endpoint {url}: {e}")
+                    
+                    if found_teacher:
+                        employee_data = found_teacher
+                        # We use the admin token as a fallback or simply create a local token
+                        erp_token = admin_token 
+                    else:
+                        print(f"✗ Teacher {username} not found in ERP with the provided ID.")
+            
+            if erp_token and employee_data:
+                # Update or Create Local User
+                    if local_user:
+                        print(f"Updating existing teacher {username}")
+                        if not local_user.check_password(password):
+                            local_user.set_password(password)
+                        local_user.is_active = True
+                        user = local_user
+                    else:
+                        print(f"Creating new local teacher for {username}")
+                        # Extract name if possible
+                        name = employee_data.get('name') or employee_data.get('teacherName') or 'Teacher'
+                        parts = name.split(' ')
+                        f_name = parts[0]
+                        l_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                        
+                        user = CustomUser.objects.create_user(
+                            username=username,
+                            email=username,
+                            password=password,
+                            user_type='teacher',
+                            first_name=f_name,
+                            last_name=l_name
+                        )
+                    
+                    # Store ERP token for subsequent ERP API calls
+                    cache_key = f"erp_token_{user.pk}"
+                    cache.set(cache_key, erp_token, timeout=86400)
+                    
+                    user.save()
+                    return user
+            else:
+                # Handle failure reasons
+                error_message = "Invalid credentials"
+                try:
+                    error_data = resp.json()
+                    error_message = error_data.get('message', error_data.get('error', 'Authentication failed'))
+                except:
+                    pass
+                
+                print(f"✗ ERP Teacher Login Failed for {username}: {error_message}")
+                
+                # Cache error for display
+                error_cache_key = f"auth_error_{username}"
+                cache.set(error_cache_key, error_message, timeout=10)
+                
+                return None
+
+        except Exception as e:
+            print(f"ERP Teacher Auth Backend Error: {e}")
+            return None
+
     def get_user(self, user_id):
         try:
-            # Django session framework passes user_id (often as string).
-            # If using ObjectId, we must ensure it's compatible.
             if isinstance(user_id, str):
                 from bson import ObjectId
-                # Only try to convert if it looks like a valid ObjectId
                 if ObjectId.is_valid(user_id):
                     return CustomUser.objects.get(pk=ObjectId(user_id))
-            
-            # Fallback for other types or standard lookup
             return CustomUser.objects.get(pk=user_id)
-        except (CustomUser.DoesNotExist, Exception):
+        except:
             return None
 
 class LocalUserBackend(BaseBackend):

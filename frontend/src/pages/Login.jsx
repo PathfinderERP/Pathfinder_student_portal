@@ -25,6 +25,8 @@ const Login = () => {
                 navigate('/student');
             } else if (user.user_type === 'parent') {
                 navigate('/parent');
+            } else if (user.user_type === 'teacher') {
+                navigate('/teacher');
             } else {
                 navigate('/');
             }

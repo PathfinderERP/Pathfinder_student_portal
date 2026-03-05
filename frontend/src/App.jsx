@@ -8,6 +8,7 @@ import Register from './pages/Register';
 import SystemDashboard from './system/SystemDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
 import ParentDashboard from './pages/parent/ParentDashboard';
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
 
@@ -31,6 +32,10 @@ function App() {
 
             <Route element={<PrivateRoute roles={['parent']} />}>
               <Route path="/parent/*" element={<ParentDashboard />} />
+            </Route>
+
+            <Route element={<PrivateRoute roles={['teacher']} />}>
+              <Route path="/teacher/*" element={<TeacherDashboard />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />
