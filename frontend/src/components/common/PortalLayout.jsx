@@ -4,7 +4,7 @@ import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }) => {
+const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, accentColor = 'orange' }) => {
     const { user, logout } = useAuth();
     const { isDarkMode, toggleTheme } = useTheme();
     const [isSidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
@@ -56,6 +56,7 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }
                 setOpen={setSidebarOpen}
                 isDarkMode={isDarkMode}
                 logout={logout}
+                accentColor={accentColor}
             />
 
             {/* Backdrop for mobile */}
@@ -77,6 +78,7 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions }
                     user={user}
                     logout={logout}
                     actions={headerActions}
+                    accentColor={accentColor}
                 />
 
                 <main className="flex-1 overflow-auto px-2 py-4 sm:px-4 sm:py-6 lg:p-8 scrollbar-thin">
