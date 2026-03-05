@@ -21,7 +21,7 @@ const subTabs = [
     { id: 'Exam Type', icon: Layers, label: 'Exam Type', endpoint: 'exam-types' },
     { id: 'Exam Details', icon: Database, label: 'Exam Details', endpoint: 'exam-details' },
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
-    { id: 'Teacher', icon: GraduationCap, label: 'Teacher', endpoint: 'teachers' }
+    { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' }
 ];
 
 const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {

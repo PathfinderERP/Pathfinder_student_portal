@@ -15,6 +15,7 @@ import { useTheme } from '../context/ThemeContext';
 // Components
 import DashboardOverview from './dashboard/DashboardOverview';
 import StudentRegistry from './admin/StudentRegistry';
+import TeacherRegistry from './admin/TeacherRegistry';
 import CentreRegistry from './admin/CentreRegistry';
 import SectionRegistry from './sections/SectionRegistry';
 import CreateUserPage from './admin/CreateUserPage';
@@ -81,6 +82,7 @@ const SystemDashboard = () => {
     const [loginHistory, setLoginHistory] = useState([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const [erpStudents, setErpStudents] = useState([]);
+    const [erpTeachers, setErpTeachers] = useState([]);
     const [erpCentres, setErpCentres] = useState([]);
     const [isERPLoading, setIsERPLoading] = useState(false);
     const [masterSubTab, setMasterSubTab] = useState('Session');
@@ -245,21 +247,20 @@ const SystemDashboard = () => {
         try {
             const apiUrl = getApiUrl();
 
-            // Call backend proxy for students
-            const admissionRes = await axios.get(`${apiUrl}/api/admin/erp-students/`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-                params: { refresh: isManual }
-            });
-            const erpData = admissionRes.data?.data || (Array.isArray(admissionRes.data) ? admissionRes.data : []);
-            setErpStudents(erpData);
+            const [studentsResp, centresResp, teachersResp] = await Promise.all([
+                axios.get(`${apiUrl}/api/admin/erp-students/`, { headers: { 'Authorization': `Bearer ${token}` }, params: { refresh: isManual } }),
+                axios.get(`${apiUrl}/api/admin/erp-centres/`, { headers: { 'Authorization': `Bearer ${token}` }, params: { refresh: isManual } }),
+                axios.get(`${apiUrl}/api/admin/erp-teachers/`, { headers: { 'Authorization': `Bearer ${token}` }, params: { refresh: isManual } })
+            ]);
 
-            // Fetch Centres using backend proxy
-            const centreRes = await axios.get(`${apiUrl}/api/admin/erp-centres/`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-                params: { refresh: isManual }
-            });
-            const centreData = centreRes.data?.data || (Array.isArray(centreRes.data) ? centreRes.data : []);
-            setErpCentres(centreData);
+            const students = Array.isArray(studentsResp.data?.data) ? studentsResp.data.data : (Array.isArray(studentsResp.data) ? studentsResp.data : []);
+            const centres = Array.isArray(centresResp.data?.data) ? centresResp.data.data : (Array.isArray(centresResp.data) ? centresResp.data : []);
+            const teachers = Array.isArray(teachersResp.data?.data) ? teachersResp.data.data : (Array.isArray(teachersResp.data) ? teachersResp.data : []);
+
+            setErpStudents(students);
+            setErpCentres(centres);
+            setErpTeachers(teachers);
+            console.log(`✅ ERP Sync: ${students.length} students, ${centres.length} centres, ${teachers.length} teachers`);
         } catch (err) {
             console.error("❌ ERP Sync Failed:", err);
             if (err.response) {
@@ -352,6 +353,7 @@ const SystemDashboard = () => {
             subItems: [
                 { id: 'admin_system', label: 'System', active: activeTab === 'Admin System', onClick: () => setActiveTab('Admin System') },
                 { id: 'admin_student', label: 'Student', active: activeTab === 'Admin Student', onClick: () => setActiveTab('Admin Student') },
+                { id: 'admin_teacher', label: 'Teacher', active: activeTab === 'Admin Teacher', onClick: () => setActiveTab('Admin Teacher') },
                 { id: 'admin_parent', label: 'Parent', active: activeTab === 'Admin Parent', onClick: () => setActiveTab('Admin Parent') },
                 { id: 'center_admin_mgmt', label: 'Center Admin Management', active: activeTab === 'Center Admin Management', onClick: () => setActiveTab('Center Admin Management') },
                 { id: 'head_office_admin', label: 'Head Office Admin', active: activeTab === 'Head Office Admin', onClick: () => setActiveTab('Head Office Admin') },
@@ -372,7 +374,7 @@ const SystemDashboard = () => {
                         { label: 'Exam Type', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Type', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Type'); } },
                         { label: 'Exam Details', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Details', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Details'); } },
                         { label: 'Question Images', active: activeTab === 'Admin Master Data' && masterSubTab === 'Image', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Image'); } },
-                        { label: 'Teacher', active: activeTab === 'Admin Master Data' && masterSubTab === 'Teacher', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Teacher'); } },
+                        { label: 'Teacher', active: activeTab === 'Admin Teacher', onClick: () => { setActiveTab('Admin Teacher'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
@@ -399,7 +401,6 @@ const SystemDashboard = () => {
             case 'Create User':
                 return isSuperAdmin ? <CreateUserPage onBack={() => setActiveTab('Admin System')} /> : null;
             case 'Admin System':
-            case 'Admin Parent':
                 const tabTitle = tabName.split(' ')[1];
                 return (
                     <div className="space-y-8">
@@ -437,6 +438,10 @@ const SystemDashboard = () => {
                 );
             case 'Admin Student':
                 return <StudentRegistry studentsData={erpStudents} isERPLoading={isERPLoading} />;
+            case 'Admin Teacher':
+                return <TeacherRegistry teachersData={erpTeachers} isERPLoading={isERPLoading} />;
+            case 'Admin Parent':
+                return <div className="p-20 text-center opacity-30 italic font-black uppercase tracking-widest">Parent Registry Coming Soon...</div>;
             case 'Center Admin Management':
                 return <CenterAdminManagement />;
             case 'Head Office Admin':
