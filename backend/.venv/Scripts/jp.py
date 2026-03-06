@@ -1,4 +1,4 @@
-#!D:\student portal\backend\.venv\Scripts\python.exe
+#!F:\student portal\backend\.venv\Scripts\python.exe
 
 import sys
 import json

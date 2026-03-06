@@ -68,7 +68,7 @@ export-env {
         }
     }
 
-    let virtual_env = 'D:\student portal\backend\.venv'
+    let virtual_env = 'F:\student portal\backend\.venv'
     let bin = 'Scripts'
     let path_name = if (has-env 'Path') { 'Path' } else { 'PATH' }
     let venv_path = ([$virtual_env $bin] | path join)

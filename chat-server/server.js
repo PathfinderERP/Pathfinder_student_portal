@@ -33,6 +33,9 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
 
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']); // Fix for SRV lookup ECONNREFUSED
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('Connected to MongoDB for Chat & Social Persistence'))

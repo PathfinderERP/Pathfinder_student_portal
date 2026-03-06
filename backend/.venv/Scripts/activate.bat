@@ -26,7 +26,7 @@
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-@for %%i in ("D:\student portal\backend\.venv") do @set "VIRTUAL_ENV=%%~fi"
+@for %%i in ("F:\student portal\backend\.venv") do @set "VIRTUAL_ENV=%%~fi"
 
 @set "VIRTUAL_ENV_PROMPT=backend"
 @if NOT DEFINED VIRTUAL_ENV_PROMPT (
