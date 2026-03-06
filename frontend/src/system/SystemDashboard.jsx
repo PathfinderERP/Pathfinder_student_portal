@@ -374,7 +374,6 @@ const SystemDashboard = () => {
                         { label: 'Exam Type', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Type', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Type'); } },
                         { label: 'Exam Details', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Details', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Details'); } },
                         { label: 'Question Images', active: activeTab === 'Admin Master Data' && masterSubTab === 'Image', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Image'); } },
-                        { label: 'Teacher', active: activeTab === 'Admin Teacher', onClick: () => { setActiveTab('Admin Teacher'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },

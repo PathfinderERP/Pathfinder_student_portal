@@ -1,0 +1,43 @@
+--- Request at /api/admin/erp-teachers/ ---
+Trying endpoint: https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Response status: 200
+Successful response from https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Extracted 197 items
+Successfully parsed 197 teacher records
+--- Request at /api/admin/erp-teachers/ ---
+Trying endpoint: https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Response status: 200
+Successful response from https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Extracted 197 items
+Successfully parsed 197 teacher records
+--- Request at /api/admin/erp-teachers/ ---
+--- Request at /api/admin/erp-teachers/ ---
+--- Request at /api/admin/erp-teachers/ ---
+Trying endpoint: https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Response status: 200
+Successful response from https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Extracted 197 items
+Successfully parsed 197 teacher records
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Attempting login for atanu@gmail.com at https://pfndrerp.in
+[TOKEN] Login response status: 200
+[TOKEN] Token obtained successfully
+Trying endpoint: https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Response status: 200
+Successful response from https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Extracted 197 items
+Successfully parsed 197 teacher records
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Attempting login for atanu@gmail.com at https://pfndrerp.in
+[TOKEN] Login response status: 200
+[TOKEN] Token obtained successfully
+Trying endpoint: https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Response status: 200
+Successful response from https://pfndrerp.in/api/student-portal/teachers?limit=1000
+Extracted 197 items
+Successfully parsed 197 teacher records
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---
+--- Request at /api/admin/erp-teachers/ ---

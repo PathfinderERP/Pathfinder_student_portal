@@ -21,7 +21,6 @@ const subTabs = [
     { id: 'Exam Type', icon: Layers, label: 'Exam Type', endpoint: 'exam-types' },
     { id: 'Exam Details', icon: Database, label: 'Exam Details', endpoint: 'exam-details' },
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
-    { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' }
 ];
 
 const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
@@ -237,7 +236,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             setData(response.data);
             lastFetchedTab.current = activeSubTab;
 
-            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image' || activeSubTab === 'Teacher') {
+            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
                 const requests = [
                     axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                     axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
@@ -458,17 +457,6 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 subject: item.subject || '',
                 topic: item.topic || '',
                 is_active: true
-            });
-        } else if (activeSubTab === 'Teacher') {
-            setFormValues({
-                name: item.name || '',
-                code: item.code || '',
-                subject: item.subject,
-                email: item.email || '',
-                phone: item.phone || '',
-                qualification: item.qualification || '',
-                experience: item.experience || '',
-                is_active: item.is_active
             });
         } else {
             setFormValues({

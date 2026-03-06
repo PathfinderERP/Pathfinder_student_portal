@@ -11,6 +11,14 @@ def _get_erp_url():
     url = os.getenv('ERP_API_URL') or 'https://pfndrerp.in'
     return url.strip().rstrip('/')
 
+def debug_log(msg):
+    log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'erp_debug.log')
+    try:
+        with open(log_path, 'a') as f:
+            f.write(f"{msg}\n")
+    except:
+        pass
+
 def _get_erp_admin_token(force_refresh=False):
     """
     Resilient admin token fetch. 
@@ -21,6 +29,7 @@ def _get_erp_admin_token(force_refresh=False):
     if not force_refresh:
         token = cache.get(cache_key)
         if token:
+            debug_log("[TOKEN] Serving token from cache")
             return token
 
     # CRITICAL: These must be set in Render dashboard environment variables!
@@ -28,25 +37,25 @@ def _get_erp_admin_token(force_refresh=False):
     admin_email = os.getenv('ERP_ADMIN_EMAIL', 'atanu@gmail.com')
     admin_pass = os.getenv('ERP_ADMIN_PASSWORD', '000000')
 
+    debug_log(f"[TOKEN] Attempting login for {admin_email} at {erp_url}")
     try:
         # 60s timeout — Render-hosted ERP has long cold-start wake times
-        print(f"[ERP DEBUG] Logging in to: {erp_url}/api/superAdmin/login with {admin_email}")
         resp = requests.post(
             f"{erp_url}/api/superAdmin/login",
             json={"email": admin_email, "password": admin_pass},
             timeout=60
         )
-        print(f"[ERP DEBUG] Status: {resp.status_code}")
+        debug_log(f"[TOKEN] Login response status: {resp.status_code}")
         if resp.status_code == 200:
             token = resp.json().get('token')
             if token:
-                print(f"[ERP DEBUG] Token Obtained Successfully")
+                debug_log("[TOKEN] Token obtained successfully")
                 cache.set(cache_key, token, 86400) # 24 Hours
                 return token
         else:
-            print(f"[ERP] Admin Login Rejected: {resp.status_code} - {resp.text[:200]}")
+            debug_log(f"[TOKEN] Login failed: {resp.status_code} - {resp.text[:100]}")
     except Exception as e:
-        print(f"[ERP] Admin Handshake Failed: {e}")
+        debug_log(f"[TOKEN] Login exception: {e}")
     return None
 
 def _is_profile_rich(data):
@@ -341,6 +350,7 @@ def get_all_centres_erp_data(request):
 @permission_classes([IsAuthenticated])
 def get_all_teachers_erp_data(request):
     CACHE_KEY = 'erp_all_teachers_v1'
+    debug_log(f"--- Request at {request.path} ---")
     
     # Serve from cache unless forced refresh requested
     force_refresh = request.GET.get('refresh') in ['true', '1', 'True']
@@ -355,6 +365,7 @@ def get_all_teachers_erp_data(request):
         erp_token = _get_erp_admin_token()
         
         if not erp_token:
+            debug_log("Admin token unavailable")
             return Response([], status=200)
 
         # We try multiple endpoints to ensure data availability
@@ -367,9 +378,10 @@ def get_all_teachers_erp_data(request):
         resp = None
         current_endpoint = ""
         for endpoint in endpoints:
-            print(f"[ERP DEBUG] Attempting sync from: {endpoint}")
+            debug_log(f"Trying endpoint: {endpoint}")
             try:
                 temp_resp = requests.get(endpoint, headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+                debug_log(f"Response status: {temp_resp.status_code}")
                 if temp_resp.status_code == 200:
                     resp = temp_resp
                     current_endpoint = endpoint
@@ -388,6 +400,7 @@ def get_all_teachers_erp_data(request):
 
         if resp and resp.status_code == 200:
             raw_data = resp.json()
+            debug_log(f"Successful response from {current_endpoint}")
             
             # Extract the raw list based on response structure
             raw_list = []
@@ -395,77 +408,82 @@ def get_all_teachers_erp_data(request):
                 raw_list = raw_data
             elif isinstance(raw_data, dict):
                 raw_list = raw_data.get('employees') or raw_data.get('data') or raw_data.get('teachers') or []
+            
+            debug_log(f"Extracted {len(raw_list)} items")
 
             final_data = []
             for item in raw_list:
-                # Meta info extraction
-                academic = item.get('academicInfo', {})
-                gender = academic.get('gender', '')
-                emp_type = academic.get('employmentType', '')
-                
-                # Role check (if coming from bulk employee list)
-                user_meta = item.get('user') or {}
-                role = (user_meta.get('role') or item.get('role') or '').lower()
-                
-                # If we are in the general employee list, ensure we only take teachers/faculty
-                if 'employee' in current_endpoint:
-                    if 'teacher' not in role and 'staff' not in role and not item.get('teacherType') and not item.get('subject'):
-                        continue
+                try:
+                    # Meta info extraction
+                    academic = item.get('academicInfo', {}) or {}
+                    gender = academic.get('gender', '')
+                    emp_type = academic.get('employmentType', '')
+                    
+                    # Role check (if coming from bulk employee list)
+                    user_meta = item.get('user') or {}
+                    role = (user_meta.get('role') or item.get('role') or '').lower()
+                    
+                    # If we are in the general employee list, ensure we only take teachers/faculty
+                    if 'employee' in current_endpoint:
+                        if 'teacher' not in role and 'staff' not in role and not item.get('teacherType') and not item.get('subject'):
+                            continue
 
-                def _safe_str(val):
-                    if not val: return ""
-                    if isinstance(val, dict):
-                        return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
-                    return str(val)
+                    def _safe_str(val):
+                        if not val: return ""
+                        if isinstance(val, dict):
+                            return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
+                        return str(val)
 
-                # Subject & Department Mapping (Prioritize user-specific subject first)
-                name = item.get('name') or item.get('teacherName') or 'Unknown'
-                subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'General')
-                dept = _safe_str(user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
-                desig = _safe_str(user_meta.get('designation') or item.get('designation') or 'Faculty')
-                
-                # Centres can be in 'centres' or 'user.centres' or 'primaryCentre'
-                raw_centres = item.get('centres') or user_meta.get('centres') or []
-                if not raw_centres and item.get('primaryCentre'):
-                    raw_centres = [item.get('primaryCentre')]
-                centres = [_safe_str(c) for c in raw_centres]
-                
-                # Teacher Type / Employment
-                t_type = _safe_str(item.get('typeOfEmployment') or item.get('teacherType') or user_meta.get('teacherType') or emp_type or 'Full-Time')
+                    # Subject & Department Mapping (Prioritize user-specific subject first)
+                    name = item.get('name') or item.get('teacherName') or 'Unknown'
+                    subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'General')
+                    dept = _safe_str(user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
+                    desig = _safe_str(user_meta.get('designation') or item.get('designation') or 'Faculty')
+                    
+                    # Centres can be in 'centres' or 'user.centres' or 'primaryCentre'
+                    raw_centres = item.get('centres') or user_meta.get('centres') or []
+                    if not raw_centres and item.get('primaryCentre'):
+                        raw_centres = [item.get('primaryCentre')]
+                    centres = [_safe_str(c) for c in raw_centres]
+                    
+                    # Teacher Type / Employment
+                    t_type = _safe_str(item.get('typeOfEmployment') or item.get('teacherType') or user_meta.get('teacherType') or emp_type or 'Full-Time')
 
-                final_data.append({
-                    'id': str(item.get('_id') or item.get('id') or ''),
-                    'name': _safe_str(name),
-                    'email': str(item.get('email') or '').strip().lower(),
-                    'phone': str(item.get('mobNum') or item.get('phoneNumber') or item.get('mobileNum') or ''),
-                    'subject': subject,
-                    'subject_name': subject,
-                    'code': str(item.get('employeeId') or item.get('code') or (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')),
-                    'qualification': t_type,
-                    'teacherType': t_type,
-                    'centres': centres,
-                    'teacherDepartment': dept,
-                    'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
-                    'designation': desig,
-                    'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
-                    'isBoardHod': bool(item.get('isBoardHod') or user_meta.get('isBoardHod')),
-                    'isSubjectHod': bool(item.get('isSubjectHod') or user_meta.get('isSubjectHod')),
-                    'academicInfo': {
-                        'joiningDate': _safe_str(item.get('dateOfJoining') or academic.get('joiningDate')),
-                        'employmentType': _safe_str(item.get('typeOfEmployment') or academic.get('employmentType')),
-                        'gender': _safe_str(item.get('gender') or academic.get('gender'))
-                    }
-                })
+                    final_data.append({
+                        'id': str(item.get('_id') or item.get('id') or ''),
+                        'name': _safe_str(name),
+                        'email': str(item.get('email') or '').strip().lower(),
+                        'phone': str(item.get('mobNum') or item.get('phoneNumber') or item.get('mobileNum') or ''),
+                        'subject': subject,
+                        'subject_name': subject,
+                        'code': str(item.get('employeeId') or item.get('code') or (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')),
+                        'qualification': t_type,
+                        'teacherType': t_type,
+                        'centres': centres,
+                        'teacherDepartment': dept,
+                        'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
+                        'designation': desig,
+                        'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
+                        'isBoardHod': bool(item.get('isBoardHod') or user_meta.get('isBoardHod')),
+                        'isSubjectHod': bool(item.get('isSubjectHod') or user_meta.get('isSubjectHod')),
+                        'academicInfo': {
+                            'joiningDate': _safe_str(item.get('dateOfJoining') or academic.get('joiningDate')),
+                            'employmentType': _safe_str(item.get('typeOfEmployment') or academic.get('employmentType')),
+                            'gender': _safe_str(item.get('gender') or academic.get('gender'))
+                        }
+                    })
+                except Exception as e_item:
+                    debug_log(f"Error mapping item: {e_item}")
 
-            print(f"[ERP DEBUG] Successfully parsed {len(final_data)} teacher records")
+            debug_log(f"Successfully parsed {len(final_data)} teacher records")
             cache.set(CACHE_KEY, final_data, 3600)
             return Response(final_data, status=200)
 
-        print(f"[ERP DEBUG] All teacher endpoints failed.")
+        debug_log("All endpoints failed or no response")
         return Response([], status=200)
 
     except Exception as e:
-        print(f"[ERP ERROR] get_all_teachers_erp_data: {e}")
+        debug_log(f"OUTER EXCEPTION: {e}")
         return Response([], status=200)
 
 @api_view(['GET'])
