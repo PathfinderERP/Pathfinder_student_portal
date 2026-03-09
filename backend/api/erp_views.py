@@ -349,7 +349,7 @@ def get_all_centres_erp_data(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_teachers_erp_data(request):
-    CACHE_KEY = 'erp_all_teachers_v1'
+    CACHE_KEY = 'erp_all_teachers_v6'
     debug_log(f"--- Request at {request.path} ---")
     
     # Serve from cache unless forced refresh requested
@@ -368,95 +368,125 @@ def get_all_teachers_erp_data(request):
             debug_log("Admin token unavailable")
             return Response([], status=200)
 
-        # We try multiple endpoints to ensure data availability
-        # Added ?limit=1000 to ensure we fetch all records (ERP defaults to 10)
-        endpoints = [
-            f"{erp_url}/api/student-portal/teachers?limit=1000",
-            f"{erp_url}/api/hr/employee?limit=1000",
-        ]
-        
-        resp = None
-        current_endpoint = ""
-        for endpoint in endpoints:
-            debug_log(f"Trying endpoint: {endpoint}")
-            try:
-                temp_resp = requests.get(endpoint, headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
-                debug_log(f"Response status: {temp_resp.status_code}")
-                if temp_resp.status_code == 200:
-                    resp = temp_resp
-                    current_endpoint = endpoint
-                    print(f"[ERP DEBUG] Success on {endpoint}")
-                    break
-                elif temp_resp.status_code == 401:
-                    # Token expired/invalid, refresh once
-                    erp_token = _get_erp_admin_token(force_refresh=True)
-                    temp_resp = requests.get(endpoint, headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
-                    if temp_resp.status_code == 200:
-                        resp = temp_resp
-                        current_endpoint = endpoint
-                        break
-            except Exception as e:
-                print(f"[ERP DEBUG] Failed to fetch from {endpoint}: {e}")
+        # 1. Fetch from Student Portal Teachers list
+        teacher_list = []
+        try:
+            t_url = f"{erp_url}/api/student-portal/teachers?limit=1000"
+            t_resp = requests.get(t_url, headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+            if t_resp.status_code == 200:
+                data = t_resp.json()
+                teacher_list = data if isinstance(data, list) else (data.get('teachers') or data.get('data') or [])
+                debug_log(f"Fetched {len(teacher_list)} from student-portal/teachers")
+        except Exception as e:
+            debug_log(f"Error fetching teachers list: {e}")
 
-        if resp and resp.status_code == 200:
-            raw_data = resp.json()
-            debug_log(f"Successful response from {current_endpoint}")
-            
-            # Extract the raw list based on response structure
-            raw_list = []
-            if isinstance(raw_data, list):
-                raw_list = raw_data
-            elif isinstance(raw_data, dict):
-                raw_list = raw_data.get('employees') or raw_data.get('data') or raw_data.get('teachers') or []
-            
-            debug_log(f"Extracted {len(raw_list)} items")
+        # 2. Fetch from HR Employees list (for Employee IDs)
+        emp_lookup = {}
+        try:
+            e_url = f"{erp_url}/api/hr/employee?limit=1000"
+            e_resp = requests.get(e_url, headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+            if e_resp.status_code == 200:
+                data = e_resp.json()
+                e_list = data if isinstance(data, list) else (data.get('employees') or data.get('data') or [])
+                for emp in e_list:
+                    uid = (emp.get('user', {}) or {}).get('_id')
+                    eid = emp.get('employeeId')
+                    if uid and eid:
+                        emp_lookup[str(uid)] = str(eid)
+                debug_log(f"Fetched {len(e_list)} from hr/employee, mapped {len(emp_lookup)} IDs")
+        except Exception as e:
+            debug_log(f"Error fetching employee list: {e}")
 
+        # Use whichever list we got, prioritizing teacher_list if both available
+        raw_list = teacher_list if teacher_list else []
+        # If teacher_list is empty, maybe try e_list filtered by role?
+        # But for now, let's just stick to merging if teacher_list exists.
+
+        if len(raw_list) == 0 and teacher_list is None: # Fallback if first failed
+             # (This part is handled by the teacher_list check above)
+             pass
+
+        if len(raw_list) > 0:
             final_data = []
+            
+            def _safe_str(val):
+                if not val: return ""
+                if isinstance(val, dict):
+                    return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
+                return str(val)
+
             for item in raw_list:
                 try:
                     # Meta info extraction
+                    user_meta = item.get('user_meta') or item.get('user') or {}
+                    if not isinstance(user_meta, dict): user_meta = {}
+                    
                     academic = item.get('academicInfo', {}) or {}
                     gender = academic.get('gender', '')
                     emp_type = academic.get('employmentType', '')
                     
-                    # Role check (if coming from bulk employee list)
-                    user_meta = item.get('user') or {}
-                    role = (user_meta.get('role') or item.get('role') or '').lower()
+                    # Merge ID from lookup
+                    emp_id_from_hr = emp_lookup.get(str(item.get('_id')))
                     
-                    # If we are in the general employee list, ensure we only take teachers/faculty
-                    if 'employee' in current_endpoint:
-                        if 'teacher' not in role and 'staff' not in role and not item.get('teacherType') and not item.get('subject'):
-                            continue
+                    # Comprehensive ID search
+                    emp_id = (
+                        emp_id_from_hr or
+                        item.get('employeeId') or 
+                        item.get('employee_id') or 
+                        item.get('id') or
+                        item.get('empId') or
+                        item.get('emp_id') or
+                        item.get('code') or 
+                        item.get('staffId') or
+                        item.get('teacherId') or
+                        item.get('facultyId') or
+                        item.get('admissionNumber') or
+                        item.get('admission_number') or
+                        item.get('regNo') or
+                        item.get('username') or 
+                        item.get('userName') or 
+                        user_meta.get('username') or 
+                        user_meta.get('userName') or 
+                        user_meta.get('userId') or 
+                        academic.get('employeeId') or
+                        academic.get('employee_id') or
+                        academic.get('empId')
+                    )
 
-                    def _safe_str(val):
-                        if not val: return ""
-                        if isinstance(val, dict):
-                            return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
-                        return str(val)
+                    # Scan for EMP pattern if still no ID
+                    if not emp_id:
+                        for k, v in item.items():
+                            if isinstance(v, str) and v.strip().upper().startswith('EMP'):
+                                emp_id = v.strip(); break
+                        if not emp_id and isinstance(user_meta, dict):
+                            for k, v in user_meta.items():
+                                if isinstance(v, str) and v.strip().upper().startswith('EMP'):
+                                    emp_id = v.strip(); break
 
-                    # Subject & Department Mapping (Prioritize user-specific subject first)
-                    name = item.get('name') or item.get('teacherName') or 'Unknown'
+                    if not emp_id:
+                        emp_id = (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')
+
+                    # Mapping other fields
+                    name = item.get('name') or item.get('teacherName') or user_meta.get('name') or 'Unknown'
                     subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'General')
                     dept = _safe_str(user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
                     desig = _safe_str(user_meta.get('designation') or item.get('designation') or 'Faculty')
                     
-                    # Centres can be in 'centres' or 'user.centres' or 'primaryCentre'
                     raw_centres = item.get('centres') or user_meta.get('centres') or []
                     if not raw_centres and item.get('primaryCentre'):
                         raw_centres = [item.get('primaryCentre')]
                     centres = [_safe_str(c) for c in raw_centres]
                     
-                    # Teacher Type / Employment
                     t_type = _safe_str(item.get('typeOfEmployment') or item.get('teacherType') or user_meta.get('teacherType') or emp_type or 'Full-Time')
 
                     final_data.append({
                         'id': str(item.get('_id') or item.get('id') or ''),
                         'name': _safe_str(name),
-                        'email': str(item.get('email') or '').strip().lower(),
+                        'email': str(item.get('email') or user_meta.get('email') or '').strip().lower(),
                         'phone': str(item.get('mobNum') or item.get('phoneNumber') or item.get('mobileNum') or ''),
                         'subject': subject,
                         'subject_name': subject,
-                        'code': str(item.get('employeeId') or item.get('code') or (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')),
+                        'code': str(emp_id),
                         'qualification': t_type,
                         'teacherType': t_type,
                         'centres': centres,
@@ -485,6 +515,7 @@ def get_all_teachers_erp_data(request):
     except Exception as e:
         debug_log(f"OUTER EXCEPTION: {e}")
         return Response([], status=200)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

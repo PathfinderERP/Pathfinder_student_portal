@@ -48,7 +48,7 @@ const TeacherProfile = ({ user }) => {
                 <div className={`p-6 rounded-[5px] border ${theme.card}`}>
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] mb-6 ${theme.text}`}>Personal Signature</h3>
                     <div className="space-y-4">
-                        <InfoRow icon={<User size={14} />} label="Employee ID" value={user?.username || 'N/A'} theme={theme} />
+                        <InfoRow icon={<User size={14} />} label="Employee ID" value={user?.employee_id || user?.username || 'N/A'} theme={theme} />
                         <InfoRow icon={<Mail size={14} />} label="Email Address" value={user?.email || 'N/A'} theme={theme} />
                         <InfoRow icon={<Shield size={14} />} label="Access Tier" value="Privileged" theme={theme} />
                         <InfoRow icon={<Calendar size={14} />} label="Joined On" value="Dec 2023" theme={theme} />

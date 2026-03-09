@@ -137,7 +137,7 @@ const TeacherOverview = ({ user }) => {
                                 <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-cyan-500 mt-1">Class: Faculty</p>
                             </div>
                             <div className={`w-full space-y-2 pt-4 border-t ${theme.border}`}>
-                                <ProfileItem icon={<Mail size={12} />} label="ID" value={user?.email || 'N/A'} theme={theme} />
+                                <ProfileItem icon={<Mail size={12} />} label="ID" value={user?.employee_id || user?.username || 'N/A'} theme={theme} />
                                 <ProfileItem icon={<Briefcase size={12} />} label="SEC" value={user?.teacherDepartment || 'Academic'} theme={theme} />
                                 <ProfileItem icon={<MapPin size={12} />} label="LOC" value={user?.centres?.[0]?.centreName || 'HQ'} theme={theme} />
                             </div>

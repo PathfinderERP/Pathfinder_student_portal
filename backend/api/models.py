@@ -20,6 +20,7 @@ class CustomUser(AbstractUser):
         ('parent', 'Parent'),
     )
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='student')
+    employee_id = models.CharField(max_length=100, null=True, blank=True, help_text="Official Employee ID from ERP (e.g., EMP...)")
     
     # Permissions for staff: simple JSON field storing booleans
     permissions = SafeJSONField(default=dict, blank=True)

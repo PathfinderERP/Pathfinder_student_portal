@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'permissions', 'is_active', 'date_joined', 'created_by_username']
+        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'employee_id', 'permissions', 'is_active', 'date_joined', 'created_by_username']
         read_only_fields = ['username', 'date_joined', 'created_by_username']
 
     def validate_user_type(self, value):

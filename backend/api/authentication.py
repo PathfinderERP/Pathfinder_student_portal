@@ -340,6 +340,9 @@ class ERPTeacherBackend(BaseBackend):
                     cache_key = f"erp_token_{user.pk}"
                     cache.set(cache_key, erp_token, timeout=86400)
                     
+                    # Sync Teacher-specific fields
+                    user.employee_id = str(employee_data.get('employeeId') or employee_data.get('code') or employee_data.get('username') or '')
+                    
                     user.save()
                     return user
             else:
