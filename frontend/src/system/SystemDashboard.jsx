@@ -86,6 +86,7 @@ const SystemDashboard = () => {
     const [erpCentres, setErpCentres] = useState([]);
     const [isERPLoading, setIsERPLoading] = useState(false);
     const [masterSubTab, setMasterSubTab] = useState('Session');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const [previousTab, setPreviousTab] = useState(null);
 
@@ -423,7 +424,7 @@ const SystemDashboard = () => {
                                     <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Manage {tabTitle.toLowerCase()} level access and configurations.</p>
                                 </div>
                                 {tabName === 'Admin System' && (
-                                    <button onClick={() => setActiveTab('Create User')} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
+                                    <button onClick={() => setIsCreateModalOpen(true)} className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-bold flex items-center gap-2 transition-all shadow-lg shadow-orange-600/20 active:scale-95">
                                         <Plus size={20} strokeWidth={3} />
                                         <span>Add New User</span>
                                     </button>
@@ -591,28 +592,41 @@ const SystemDashboard = () => {
     };
 
     return (
-        <PortalLayout
-            sidebarItems={sidebarItems}
-            title={isSuperAdmin ? "Super Admin Dashboard" : "Admin Dashboard"}
-            subtitle={activeTab === 'Dashboard' ? "Manage your application content and users" : `System Administration > ${activeTab}`}
-            headerActions={(
-                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50 ${isDarkMode ? 'bg-slate-800/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                    <ExternalLink size={14} /> <span>View Site</span>
-                </div>
-            )}
-        >
-            {successMessage && (
-                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top duration-500">
-                    <div className="flex items-center gap-3 px-6 py-3 bg-emerald-500 text-white rounded-[5px] shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest text-[10px]">
-                        <CheckCircle size={14} strokeWidth={3} /> {successMessage}
+        <>
+            <PortalLayout
+                sidebarItems={sidebarItems}
+                title={isSuperAdmin ? "Super Admin Dashboard" : "Admin Dashboard"}
+                subtitle={activeTab === 'Dashboard' ? "Manage your application content and users" : `System Administration > ${activeTab}`}
+                headerActions={(
+                    <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50 ${isDarkMode ? 'bg-slate-800/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                        <ExternalLink size={14} /> <span>View Site</span>
+                    </div>
+                )}
+            >
+                {successMessage && (
+                    <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top duration-500">
+                        <div className="flex items-center gap-3 px-6 py-3 bg-emerald-500 text-white rounded-[5px] shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest text-[10px]">
+                            <CheckCircle size={14} strokeWidth={3} /> {successMessage}
+                        </div>
+                    </div>
+                )}
+
+                <ErrorBoundary>
+                    {renderContent()}
+                </ErrorBoundary>
+            </PortalLayout>
+
+            {/* Create User Modal */}
+            {isCreateModalOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-10">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsCreateModalOpen(false)} />
+                    <div className="relative w-full max-w-6xl max-h-[95vh] overflow-y-auto overscroll-contain">
+                        <CreateUserPage onBack={() => setIsCreateModalOpen(false)} />
                     </div>
                 </div>
             )}
 
-            <ErrorBoundary>
-                {renderContent()}
-            </ErrorBoundary>
-
+            {/* Other Modals */}
             <PasswordResetModal
                 user={selectedUserForPass}
                 isDarkMode={isDarkMode}
@@ -643,7 +657,7 @@ const SystemDashboard = () => {
                 onConfirm={confirmDeleteUser}
                 isActionLoading={isActionLoading}
             />
-        </PortalLayout>
+        </>
     );
 };
 

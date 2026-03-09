@@ -145,15 +145,15 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full ${isCurrentSuperAdmin ? 'max-w-4xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto rounded-[2.5rem] border shadow-2xl p-8 animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-10">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+            <div className={`relative w-full ${isCurrentSuperAdmin ? 'max-w-4xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto rounded-[5px] border shadow-2xl p-8 animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-tight">Edit <span className="text-orange-500">User Access</span></h2>
                         <p className="text-xs font-bold opacity-50 uppercase tracking-widest mt-1">Updating: {user.username}</p>
                     </div>
-                    <button onClick={onClose} className={`p-2 rounded-xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
+                    <button onClick={onClose} className={`p-2 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
                         <X size={20} strokeWidth={3} />
                     </button>
                 </div>
@@ -163,18 +163,18 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">First Name</label>
                                 <input type="text" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })}
-                                    className={`w-full p-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
+                                    className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Last Name</label>
                                 <input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })}
-                                    className={`w-full p-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
+                                    className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
                             </div>
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Email</label>
                             <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                className={`w-full p-3.5 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
+                                className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'}`} />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Role</label>
@@ -184,7 +184,7 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                                     value={formData.user_type}
                                     onChange={e => setFormData({ ...formData, user_type: e.target.value })}
                                     style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                    className={`w-full p-3.5 pr-10 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
+                                    className={`w-full p-3.5 pr-10 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
                                         ${!isCurrentSuperAdmin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
                                         ${isDarkMode ? 'bg-white/5 border-white/10 text-white [&>option]:bg-[#10141D]' : 'bg-slate-100 border-slate-200 text-slate-900 [&>option]:bg-white'}`}>
                                     <option value="student">Student</option>
@@ -197,7 +197,7 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                             </div>
                         </div>
 
-                        <button disabled={isLoading} type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3">
+                        <button disabled={isLoading} type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3">
                             {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Save Profile Changes"}
                         </button>
                     </div>
@@ -209,17 +209,17 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                             </h3>
                             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                 {permissionTabs.map(tab => (
-                                    <div key={tab.id} className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                    <div key={tab.id} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{tab.label}</span>
                                             <button type="button" onClick={() => toggleAllPermissions(tab.id)} disabled={formData.user_type === 'superadmin'}
-                                                className={`px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-500 hover:text-white' : 'bg-slate-200 text-slate-600'} ${formData.user_type === 'superadmin' && 'opacity-20'}`}>ALL</button>
+                                                className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-500 hover:text-white' : 'bg-slate-200 text-slate-600'} ${formData.user_type === 'superadmin' && 'opacity-20'}`}>ALL</button>
                                         </div>
                                         {!tab.subs ? (
                                             <div className="grid grid-cols-4 gap-2">
                                                 {['view', 'create', 'edit', 'delete'].map(action => (
                                                     <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action)}
-                                                        className={`py-1.5 rounded-lg text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
+                                                        className={`py-1.5 rounded-[5px] text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
                                                         {action}
                                                     </button>
                                                 ))}
@@ -236,7 +236,7 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                                                         <div className="grid grid-cols-4 gap-2">
                                                             {['view', 'create', 'edit', 'delete'].map(action => (
                                                                 <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action, sub.id)}
-                                                                    className={`py-1 rounded-md text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-700' : 'bg-white border-slate-100 text-slate-300'}`}>
+                                                                    className={`py-1 rounded-[3px] text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-700' : 'bg-white border-slate-100 text-slate-300'}`}>
                                                                     {action}
                                                                 </button>
                                                             ))}
