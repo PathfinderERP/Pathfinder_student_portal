@@ -200,9 +200,12 @@ const SystemDashboard = () => {
                     });
                     let data = response.data;
 
+                    // Filter out invalid users without a username
+                    data = data.filter(u => u.username && String(u.username).trim() !== '');
+
                     if (activeTab === 'Admin Student') data = data.filter(u => u.user_type === 'student');
                     else if (activeTab === 'Admin Parent') data = data.filter(u => u.user_type === 'parent');
-                    else if (activeTab === 'Admin System') data = data.filter(u => !['student', 'parent'].includes(u.user_type));
+                    else if (activeTab === 'Admin System') data = data.filter(u => ['superadmin', 'admin', 'staff'].includes(u.user_type));
 
                     setUsersList(data.map(u => normalizeUser(u)));
                 } catch (error) {
@@ -383,7 +386,17 @@ const SystemDashboard = () => {
             })
         },
         { id: 'profile', icon: User, label: 'Profile', active: activeTab === 'Profile', onClick: () => setActiveTab('Profile') },
-    ].filter(item => ['dashboard', 'profile'].includes(item.id) || hasPermission(item.id)), [activeTab, masterSubTab, user?.permissions]);
+    ].filter(item => {
+        // Essential tabs
+        if (['dashboard', 'profile'].includes(item.id)) return true;
+
+        // Strict exclusion for ERP users from administrative modules
+        if (['student', 'teacher', 'parent'].includes(user?.user_type)) {
+            if (['admin_mgmt', 'centre_mgmt', 'package_mgmt', 'test_mgmt', 'content_mgmt'].includes(item.id)) return false;
+        }
+
+        return hasPermission(item.id);
+    }), [activeTab, masterSubTab, user?.permissions, user?.user_type]);
 
     const [visitedTabs, setVisitedTabs] = useState(['Dashboard']);
 

@@ -86,11 +86,17 @@ const UserManagementTable = ({
                                 </div>
                             </td>
                             <td className="py-5 px-4 text-sm font-bold opacity-70">
-                                <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter hover:scale-110 transition-transform cursor-default ${admin.user_type === 'superadmin' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
-                                    'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                    }`}>
-                                    {admin.user_type?.toUpperCase()}
-                                </span>
+                                {admin.user_type ? (
+                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter hover:scale-110 transition-transform cursor-default ${admin.user_type === 'superadmin' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
+                                        'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                                        }`}>
+                                        {admin.user_type.toUpperCase()}
+                                    </span>
+                                ) : (
+                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter bg-slate-500/10 text-slate-500 border border-slate-500/20`}>
+                                        USER
+                                    </span>
+                                )}
                             </td>
                             <td className="py-5 px-4 text-sm font-medium opacity-60 italic whitespace-nowrap">{admin.email}</td>
                             <td className="py-5 px-4 text-[11px] font-bold opacity-60 whitespace-nowrap">
