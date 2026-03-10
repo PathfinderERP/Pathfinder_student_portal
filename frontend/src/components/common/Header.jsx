@@ -49,17 +49,17 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                 >
                     <Menu size={22} />
                 </button>
-                <div className="block max-w-[150px] sm:max-w-none font-mono">
-                    <h1 className={`text-lg sm:text-xl font-black tracking-tighter truncate uppercase ${isDarkMode ? 'text-white' : 'text-[#0F172A]'}`}>
+                <div className="block max-w-[150px] sm:max-w-none">
+                    <h1 className={`text-lg sm:text-xl font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         {title}
                     </h1>
-                    <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] truncate ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <p className={`text-xs font-medium truncate mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                         {subtitle}
                     </p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 lg:gap-6 font-mono">
+            <div className="flex items-center gap-2 lg:gap-6">
                 {actions}
 
                 <button onClick={toggleTheme} className={`p-2 rounded-[5px] transition-all ${isDarkMode ? 'text-yellow-400 hover:bg-yellow-400/10' : 'text-slate-500 hover:bg-slate-100'}`}>
@@ -78,7 +78,7 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                             {user?.profile_image ? (
                                 <img src={user.profile_image} alt="Avatar" className="w-full h-full object-cover" />
                             ) : (
-                                <div className={`w-full h-full flex items-center justify-center font-black text-sm ${isDarkMode ? `${colors.darkBg} ${colors.text}` : `${colors.bg} ${colors.textLight}`}`}>
+                                <div className={`w-full h-full flex items-center justify-center font-semibold text-lg ${isDarkMode ? `${colors.darkBg} ${colors.text}` : `${colors.bg} ${colors.textLight}`}`}>
                                     {user?.first_name?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -104,14 +104,14 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                                         )}
                                     </div>
                                     <div className="overflow-hidden">
-                                        <p className={`text-xs font-black truncate uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                        <p className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                             {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : user?.username}
                                         </p>
-                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        <p className={`text-xs mb-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                             {user?.user_type || 'Faculty'} {user?.username ? `• ${user.username}` : ''}
                                         </p>
-                                        <div className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDarkMode ? colors.text : colors.textLight}`}>
-                                            {user?.user_type?.toUpperCase() || 'FACULTY'}
+                                        <div className={`text-xs font-medium ${isDarkMode ? colors.text : colors.textLight}`}>
+                                            {(user?.user_type || 'Faculty').charAt(0).toUpperCase() + (user?.user_type || 'Faculty').slice(1)}
                                         </div>
                                     </div>
                                 </div>
@@ -119,8 +119,8 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
 
                             {/* Dropdown Actions */}
                             <div className="p-2 space-y-1">
-                                <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-colors
-                                    ${isDarkMode ? 'text-slate-400 hover:bg-white/5 hover:text-white' : `text-slate-600 hover:bg-slate-50 hover:${colors.textLight}`}`}>
+                                <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-sm font-medium transition-colors
+                                    ${isDarkMode ? 'text-slate-300 hover:bg-white/5 hover:text-white' : `text-slate-600 hover:bg-slate-50 hover:${colors.textLight}`}`}>
                                     <User size={18} />
                                     <span>Settings</span>
                                 </button>
@@ -132,8 +132,8 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                                         setIsProfileOpen(false);
                                         logout();
                                     }}
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-colors
-                                    ${isDarkMode ? 'text-red-400/80 hover:bg-red-500/10 hover:text-red-400' : 'text-red-500 hover:bg-red-50 hover:text-red-600'}`}>
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-sm font-medium transition-colors
+                                    ${isDarkMode ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-600 hover:bg-red-50 hover:text-red-700'}`}>
                                     <LogOut size={18} />
                                     <span>Sign Out</span>
                                 </button>
