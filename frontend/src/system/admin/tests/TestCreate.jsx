@@ -89,7 +89,7 @@ const TestCreate = () => {
 
     const quillFormats = [
         'header', 'size', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-        'list', 'bullet', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
+        'list', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
         'code-block', 'formula'
     ];
 
