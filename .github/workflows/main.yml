@@ -6,11 +6,29 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy project on server
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          # Ensure dist folder exists and has content
+          ls -la dist/
+
+      - name: Deploy Backend & Transfer Frontend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -22,20 +40,39 @@ jobs:
 
             echo "Updating backend..."
             cd backend
+            # Fallback for venv creation if it doesn't exist
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
             source venv/bin/activate
             pip install -r requirements.txt
             python manage.py migrate
             python manage.py collectstatic --noinput
 
-            echo "Updating frontend..."
-            cd ../frontend
-            npm install
-            npm run build
+      - name: Upload Build Artifacts to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "frontend/dist/*"
+          target: "/home/${{ secrets.EC2_USER }}/temp_build"
+          strip_components: 2
+
+      - name: Finalize Frontend Deploy & Restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Moving files to web root..."
             sudo rm -rf /var/www/frontend/*
-            sudo cp -r dist/* /var/www/frontend/
+            sudo cp -r ~/temp_build/* /var/www/frontend/
+            rm -rf ~/temp_build
 
             echo "Restarting services..."
             sudo systemctl restart gunicorn
             sudo systemctl restart nginx
-
-            echo "Deployment completed!"
+            
+            echo "Deployment completed successfully!"
