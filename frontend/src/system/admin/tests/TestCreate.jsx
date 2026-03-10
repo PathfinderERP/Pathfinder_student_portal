@@ -18,12 +18,26 @@ import QuestionPaperView from './questions/QuestionPaperView';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-window.katex = katex && katex.default ? katex.default : katex;
-if (!Quill.imports['modules/imageResize']) {
-    Quill.register('modules/imageResize', ImageResize && ImageResize.default ? ImageResize.default : ImageResize);
+try {
+    window.katex = (katex && katex.default) ? katex.default : katex;
+} catch (e) { /* ignore */ }
+
+try {
+    if (!Quill.imports['modules/imageResize']) {
+        const IR = (ImageResize && ImageResize.default) ? ImageResize.default : ImageResize;
+        Quill.register('modules/imageResize', IR);
+    }
+} catch (e) {
+    console.warn('Image resize module could not be loaded:', e.message);
 }
-if (!Quill.imports['modules/imageDrop']) {
-    Quill.register('modules/imageDrop', ImageDrop && ImageDrop.default ? ImageDrop.default : ImageDrop);
+
+try {
+    if (!Quill.imports['modules/imageDrop']) {
+        const ID = (ImageDrop && ImageDrop.default) ? ImageDrop.default : ImageDrop;
+        Quill.register('modules/imageDrop', ID);
+    }
+} catch (e) {
+    console.warn('Image drop module could not be loaded:', e.message);
 }
 
 
