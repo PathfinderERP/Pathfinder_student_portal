@@ -36,6 +36,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/Pathfinder_student_portal
+            
+            # Discard any local modifications to tracked files
+            git fetch --all
+            git reset --hard origin/main
             git pull origin main
 
             echo "Updating backend..."
