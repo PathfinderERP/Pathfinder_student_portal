@@ -20,13 +20,13 @@ import { ImageDrop } from 'quill-image-drop-module';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-window.katex = katex;
+window.katex = katex && katex.default ? katex.default : katex;
 
 if (!Quill.imports['modules/imageResize']) {
-    Quill.register('modules/imageResize', ImageResize);
+    Quill.register('modules/imageResize', ImageResize && ImageResize.default ? ImageResize.default : ImageResize);
 }
 if (!Quill.imports['modules/imageDrop']) {
-    Quill.register('modules/imageDrop', ImageDrop);
+    Quill.register('modules/imageDrop', ImageDrop && ImageDrop.default ? ImageDrop.default : ImageDrop);
 }
 
 // Math Preview Component for LaTeX

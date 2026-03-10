@@ -9,4 +9,9 @@ export default defineConfig({
     tailwindcss(),
   ],
   envDir: './env',
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
 })
