@@ -47,7 +47,7 @@ class ClassLevelViewSet(viewsets.ModelViewSet):
     serializer_class = ClassLevelSerializer
 
 class ChapterViewSet(viewsets.ModelViewSet):
-    queryset = Chapter.objects.all().order_by('-created_at')
+    queryset = Chapter.objects.select_related('class_level', 'subject').all().order_by('-created_at')
     serializer_class = ChapterSerializer
 
 class ExamDetailViewSet(viewsets.ModelViewSet):
