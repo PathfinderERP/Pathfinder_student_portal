@@ -465,42 +465,42 @@ const TestCreate = () => {
             </div>
 
             <div className="overflow-x-auto custom-scrollbar">
-                {isLoading ? (
-                    Array(5).fill(0).map((_, i) => (
-                        <tr key={i} className="animate-pulse">
-                            <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4">
-                                <div className="space-y-2">
-                                    <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                    <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                </div>
-                            </td>
-                            <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                            <td className="py-5 px-4 text-right"><div className={`h-8 w-16 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                            <th className="pb-4 px-4 font-black">#</th>
+                            <th className="pb-4 px-4 font-black">Test Name</th>
+                            <th className="pb-4 px-4 font-black">Test Code</th>
+                            <th className="pb-4 px-4 font-black text-center">Duration</th>
+                            <th className="pb-4 px-4 font-black text-center">Completed</th>
+                            <th className="pb-4 px-4 font-black text-center">Question Paper</th>
+                            <th className="pb-4 px-4 font-black text-center">Sections</th>
+                            <th className="pb-4 px-4 font-black text-center">Questions</th>
+                            <th className="pb-4 px-4 text-right font-black">Actions</th>
                         </tr>
-                    ))
-                ) : (
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
-                                <th className="pb-4 px-4 font-black">#</th>
-                                <th className="pb-4 px-4 font-black">Test Name</th>
-                                <th className="pb-4 px-4 font-black">Test Code</th>
-                                <th className="pb-4 px-4 font-black text-center">Duration</th>
-                                <th className="pb-4 px-4 font-black text-center">Completed</th>
-                                <th className="pb-4 px-4 font-black text-center">Question Paper</th>
-                                <th className="pb-4 px-4 font-black text-center">Sections</th>
-                                <th className="pb-4 px-4 font-black text-center">Questions</th>
-                                <th className="pb-4 px-4 text-right font-black">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-transparent">
-                            {filteredData.map((item, index) => (
+                    </thead>
+                    <tbody className="divide-y divide-transparent">
+                        {isLoading ? (
+                            Array(5).fill(0).map((_, i) => (
+                                <tr key={i} className="animate-pulse">
+                                    <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4">
+                                        <div className="space-y-2">
+                                            <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </div>
+                                    </td>
+                                    <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-right"><div className={`h-8 w-16 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                </tr>
+                            ))
+                        ) : (
+                            filteredData.map((item, index) => (
                                 <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-200/50'} transition-colors`}>
                                     <td className="py-5 px-4 font-bold text-xs opacity-50">{index + 1}</td>
                                     <td className="py-5 px-4">
@@ -590,10 +590,10 @@ const TestCreate = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
