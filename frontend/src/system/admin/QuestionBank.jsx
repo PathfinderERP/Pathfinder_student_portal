@@ -15,23 +15,11 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import ImageResize from 'quill-image-resize-module-react';
 import { ImageDrop } from 'quill-image-drop-module';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-try {
-    window.katex = (katex && katex.default) ? katex.default : katex;
-} catch (e) { /* ignore */ }
-
-try {
-    if (!Quill.imports['modules/imageResize']) {
-        const IR = (ImageResize && ImageResize.default) ? ImageResize.default : ImageResize;
-        Quill.register('modules/imageResize', IR);
-    }
-} catch (e) {
-    console.warn('Image resize module could not be loaded:', e.message);
-}
+window.katex = katex;
 
 try {
     if (!Quill.imports['modules/imageDrop']) {
