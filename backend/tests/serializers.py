@@ -29,7 +29,7 @@ class TestCentreAllotmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TestCentreAllotment
-        fields = ['id', 'test', 'centre', 'test_name', 'centre_details', 'start_time', 'end_time', 'is_active', 'access_code', 'code_history', 'created_at', 'updated_at']
+        fields = ['id', 'test', 'centre', 'test_name', 'centre_details', 'start_time', 'end_time', 'is_active', 'access_code', 'is_code_sent', 'code_history', 'created_at', 'updated_at']
     
     def get_id(self, obj):
         return obj.id
@@ -71,10 +71,14 @@ class TestSerializer(serializers.ModelSerializer):
     
     # We can add a method to get count of allotted centres or details
     centres_count = serializers.SerializerMethodField()
+    codes_sent_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Test
         fields = '__all__'
         
     def get_centres_count(self, obj):
-        return obj.centres.count()
+        return obj.centre_allotments.count()
+        
+    def get_codes_sent_count(self, obj):
+        return obj.centre_allotments.filter(is_code_sent=True).count()

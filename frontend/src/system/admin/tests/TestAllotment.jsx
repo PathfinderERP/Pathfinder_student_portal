@@ -75,16 +75,9 @@ const TestAllotment = () => {
             const uniqueSessionIds = new Set(testsRes.data.map(t => t.session || t.session_details?.id));
             const availableSessions = sessionsRes.data.filter(s => uniqueSessionIds.has(s.id));
 
-            // Set default session if available and not set
-            if (availableSessions.length > 0 && !filterSession) {
-                const activeSession = availableSessions.find(s => s.is_active);
-                if (activeSession) {
-                    setFilterSession(activeSession.id.toString());
-                } else if (availableSessions.length > 0) {
-                    // Fallback to the latest available session if no active one exists in the list
-                    const sorted = [...availableSessions].sort((a, b) => b.name.localeCompare(a.name));
-                    setFilterSession(sorted[0].id.toString());
-                }
+            // Default to 'All Sessions' (empty string)
+            if (!filterSession) {
+                setFilterSession('');
             }
 
         } catch (err) {
@@ -258,9 +251,8 @@ const TestAllotment = () => {
         try {
             const apiUrl = getApiUrl();
             const sectionsRes = await axios.get(`${apiUrl}/api/sections/`, getAuthConfig());
-            // Filter only 'Package' sections (those not assigned to a specific test, i.e., test is null)
-            const packages = sectionsRes.data.filter(s => !s.test);
-            setAvailableSections(packages);
+            // Show all sections from the registry for allotment
+            setAvailableSections(sectionsRes.data);
             setIsSectionModalOpen(true);
         } catch (err) {
             console.error(err);
@@ -380,7 +372,8 @@ const TestAllotment = () => {
                                 <th className="py-6 px-6">Test Code</th>
                                 <th className="py-6 px-6 text-center">Section Allotted</th>
                                 <th className="py-6 px-6 text-center">Centres Allotted</th>
-                                <th className="py-6 px-6 text-center">Edit Centres</th>
+                                <th className="py-6 px-6 text-center">Codes Sent</th>
+                                <th className="py-6 px-6 text-center">Manage Centres</th>
                                 <th className="py-6 px-6 text-center">Remove Allotment</th>
                             </tr>
                         </thead>
@@ -399,12 +392,16 @@ const TestAllotment = () => {
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                     </tr>
                                 ))
                             ) : filteredTests.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="py-20 text-center opacity-40">No tests found matching your criteria.</td>
+                                    <td colSpan="8" className="py-20 text-center opacity-40">No tests found matching your criteria.</td>
                                 </tr>
                             ) : filteredTests.map((test, index) => (
                                 <tr key={test.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors`}>
@@ -422,7 +419,7 @@ const TestAllotment = () => {
                                         <button
                                             onClick={() => handleManageSections(test)}
                                             className="px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all cursor-pointer">
-                                            Sections
+                                            {test.allotted_sections?.length || 0} Sections
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
@@ -433,6 +430,16 @@ const TestAllotment = () => {
                                             }}
                                             className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-[5px] border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100'}`}>
                                             {test.centres_count || 0} Centres
+                                        </button>
+                                    </td>
+                                    <td className="py-5 px-6 text-center">
+                                        <button
+                                            onClick={() => {
+                                                setSelectedTestForDetails(test);
+                                                setView('details');
+                                            }}
+                                            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-[5px] border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-amber-500/30 text-amber-500 bg-amber-500/5 hover:bg-amber-500/10' : 'border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100'}`}>
+                                            {test.codes_sent_count || 0} Sent
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">

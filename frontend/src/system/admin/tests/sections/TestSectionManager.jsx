@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     Plus, Search, Edit2, Trash2, RefreshCw, ArrowLeft,
-    Settings, ToggleLeft, ToggleRight, Loader2, ChevronRight, X, ShieldCheck, BellRing
+    Settings, ToggleLeft, ToggleRight, Loader2, ChevronRight, X, ShieldCheck, BellRing, CheckSquare, Square
 } from 'lucide-react';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useAuth } from '../../../../context/AuthContext';
@@ -30,6 +30,16 @@ const TestSectionManager = ({ test, onBack }) => {
         negative_marks: 1,
         partial_type: 'regular',
         partial_marks: 0,
+        priority: 1
+    });
+
+    // Bulk Selection State
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [bulkForm, setBulkForm] = useState({
+        correct_marks: 4,
+        negative_marks: 1,
+        shuffle: false,
         priority: 1
     });
 
@@ -157,6 +167,59 @@ const TestSectionManager = ({ test, onBack }) => {
         }
     };
 
+    const handleBulkUpdate = async (e) => {
+        e.preventDefault();
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const updates = selectedIds.map(id => 
+                axios.patch(`${apiUrl}/api/sections/${id}/`, bulkForm, getAuthConfig())
+            );
+            await Promise.all(updates);
+            fetchSections();
+            setIsBulkModalOpen(false);
+            setSelectedIds([]);
+            triggerAlert(`${selectedIds.length} Sections updated successfully!`, 'success');
+        } catch (err) {
+            triggerAlert('Failed to bulk update sections', 'error');
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} sections?`)) return;
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const deletions = selectedIds.map(id => 
+                axios.delete(`${apiUrl}/api/sections/${id}/`, getAuthConfig())
+            );
+            await Promise.all(deletions);
+            fetchSections();
+            setSelectedIds([]);
+            triggerAlert(`${selectedIds.length} Sections deleted successfully!`, 'success');
+        } catch (err) {
+            triggerAlert('Failed to delete sections', 'error');
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAll = () => {
+        if (selectedIds.length === filteredSections.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(filteredSections.map(s => s.id));
+        }
+    };
+
     const filteredSections = sections.filter(s =>
         s.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -197,7 +260,26 @@ const TestSectionManager = ({ test, onBack }) => {
             <div className={`rounded-[5px] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 {/* Actions Toolbar */}
                 <div className="p-6 border-b border-inherit flex flex-wrap justify-between items-center gap-4">
-                    <h3 className="text-lg font-black uppercase tracking-tight">Section List</h3>
+                    <div className="flex items-center gap-4">
+                        <h3 className="text-lg font-black uppercase tracking-tight">Section List</h3>
+                        {selectedIds.length > 0 && (
+                            <div className={`px-4 py-2 rounded-[5px] border flex items-center gap-3 animate-in slide-in-from-left-4 duration-300 ${isDarkMode ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50 border-blue-200'}`}>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 whitespace-nowrap">{selectedIds.length} Selected</span>
+                                <button
+                                    onClick={() => setIsBulkModalOpen(true)}
+                                    className="px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
+                                >
+                                    Bulk Edit
+                                </button>
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="px-3 py-1.5 bg-red-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <div className="flex items-center gap-3">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -228,9 +310,15 @@ const TestSectionManager = ({ test, onBack }) => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-400 border-white/5' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                                <th className="py-4 px-2 text-center">#</th>
-                                <th className="py-4 px-2">Section Name</th>
-                                <th className="py-4 px-2">Section Code</th>
+                                <th className="py-4 px-2 text-center">
+                                    <button onClick={handleSelectAll} className="p-1 hover:bg-white/10 rounded transition-all">
+                                        {selectedIds.length === filteredSections.length && filteredSections.length > 0
+                                            ? <CheckSquare size={16} className="text-blue-500" />
+                                            : <Square size={16} className="opacity-30" />}
+                                    </button>
+                                </th>
+                                <th className="py-4 px-2">SECTION NAME</th>
+                                <th className="py-4 px-2">SECTION CODE</th>
                                 <th className="py-4 px-2 text-center whitespace-nowrap">Allowed/Total</th>
                                 <th className="py-4 px-2 text-center">Shuffle</th>
                                 <th className="py-4 px-2 text-center">Correct</th>
@@ -259,8 +347,14 @@ const TestSectionManager = ({ test, onBack }) => {
                                     <td colSpan="9" className="py-20 text-center opacity-40">No sections found</td>
                                 </tr>
                             ) : filteredSections.map((section, index) => (
-                                <tr key={section.id} className={`${index % 2 === 0 ? (isDarkMode ? 'bg-white/[0.01]' : 'bg-slate-50/50') : ''}`}>
-                                    <td className="py-4 px-2 text-center font-bold text-xs opacity-50">{index + 1}</td>
+                                <tr key={section.id} className={`${index % 2 === 0 ? (isDarkMode ? 'bg-white/[0.01]' : 'bg-slate-50/50') : ''} ${selectedIds.includes(section.id) ? (isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50/50') : ''}`}>
+                                    <td className="py-4 px-2 text-center font-bold text-xs opacity-50">
+                                        <button onClick={() => toggleSelect(section.id)} className="p-1 hover:bg-white/10 rounded transition-all">
+                                            {selectedIds.includes(section.id)
+                                                ? <CheckSquare size={16} className="text-blue-500" />
+                                                : <Square size={16} className="opacity-30 group-hover:opacity-60" />}
+                                        </button>
+                                    </td>
                                     <td className="py-4 px-2 font-bold text-[10px] uppercase">{section.name}</td>
                                     <td className="py-4 px-2 font-black text-[10px] text-blue-500 uppercase">{section.subject_code || section.code}</td>
                                     <td className="py-4 px-2 text-center font-bold text-xs">{section.allowed_questions}/{section.total_questions}</td>
@@ -306,18 +400,6 @@ const TestSectionManager = ({ test, onBack }) => {
 
                                 <div className="space-y-6">
                                     <div className="relative group">
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-blue-400' : 'text-slate-500'}`}>Section Code *</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.subject_code || ''}
-                                            placeholder="Enter Code"
-                                            onChange={e => setFormValues({ ...formValues, subject_code: e.target.value })}
-                                            className={`w-full py-3 bg-transparent border-b-2 text-sm font-bold outline-none transition-all ${isDarkMode ? 'border-white/10 focus:border-blue-500 text-white' : 'border-slate-100 focus:border-blue-500 text-slate-900'}`}
-                                        />
-                                    </div>
-
-                                    <div className="relative group">
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-blue-400' : 'text-slate-500'}`}>Section Name *</label>
                                         <input
                                             required
@@ -325,6 +407,18 @@ const TestSectionManager = ({ test, onBack }) => {
                                             value={formValues.name || ''}
                                             placeholder="Enter Name"
                                             onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                            className={`w-full py-3 bg-transparent border-b-2 text-sm font-bold outline-none transition-all ${isDarkMode ? 'border-white/10 focus:border-blue-500 text-white' : 'border-slate-100 focus:border-blue-500 text-slate-900'}`}
+                                        />
+                                    </div>
+
+                                    <div className="relative group">
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-blue-400' : 'text-slate-500'}`}>Section Code *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={formValues.subject_code || ''}
+                                            placeholder="Enter Code"
+                                            onChange={e => setFormValues({ ...formValues, subject_code: e.target.value })}
                                             className={`w-full py-3 bg-transparent border-b-2 text-sm font-bold outline-none transition-all ${isDarkMode ? 'border-white/10 focus:border-blue-500 text-white' : 'border-slate-100 focus:border-blue-500 text-slate-900'}`}
                                         />
                                     </div>
@@ -352,6 +446,48 @@ const TestSectionManager = ({ test, onBack }) => {
                                     {modalMode === 'add' ? 'Create' : 'Update'}
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Edit Modal */}
+            {isBulkModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => !isActionLoading && setIsBulkModalOpen(false)} />
+                    <div className={`relative w-full max-w-sm rounded-[5px] shadow-2xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                        <div className="bg-blue-600 p-6 flex justify-between items-center text-white">
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tighter">Bulk Edit Sections</h3>
+                                <p className="text-[10px] font-bold opacity-60 uppercase">{selectedIds.length} Selected</p>
+                            </div>
+                            <button onClick={() => setIsBulkModalOpen(false)} className="text-white hover:rotate-90 transition-all">
+                                <X size={22} strokeWidth={3} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleBulkUpdate} className="p-8 space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase text-slate-400">Correct Marks</label>
+                                    <input type="number" step="0.1" value={bulkForm.correct_marks} onChange={e => setBulkForm({ ...bulkForm, correct_marks: parseFloat(e.target.value) })} className="w-full py-2 bg-transparent border-b-2 border-slate-200 text-sm font-bold outline-none focus:border-blue-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase text-slate-400">Negative Marks</label>
+                                    <input type="number" step="0.1" value={bulkForm.negative_marks} onChange={e => setBulkForm({ ...bulkForm, negative_marks: parseFloat(e.target.value) })} className="w-full py-2 bg-transparent border-b-2 border-slate-200 text-sm font-bold outline-none focus:border-blue-500" />
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-[5px]">
+                                <span className="text-xs font-black uppercase opacity-60">Shuffle Questions</span>
+                                <button type="button" onClick={() => setBulkForm({ ...bulkForm, shuffle: !bulkForm.shuffle })} className={`transition-all ${bulkForm.shuffle ? 'text-green-500' : 'text-slate-400 opacity-40'}`}>
+                                    {bulkForm.shuffle ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+                                </button>
+                            </div>
+                            <button
+                                disabled={isActionLoading}
+                                className="w-full py-4 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-green-900/10 transition-all flex items-center justify-center gap-3"
+                            >
+                                {isActionLoading && <Loader2 size={16} className="animate-spin" />} Apply to {selectedIds.length} Sections
+                            </button>
                         </form>
                     </div>
                 </div>

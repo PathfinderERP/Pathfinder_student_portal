@@ -215,6 +215,8 @@ Pathfinder Test Management System
                 [email],
                 fail_silently=False,
             )
+            allotment.is_code_sent = True
+            allotment.save()
             return Response({'message': f'Access code sent to {email}'})
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

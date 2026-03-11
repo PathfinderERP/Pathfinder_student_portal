@@ -38,6 +38,7 @@ class TestCentreAllotment(models.Model):
     end_time = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     access_code = models.CharField(max_length=6, blank=True, null=True, unique=True)
+    is_code_sent = models.BooleanField(default=False)
     code_history = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

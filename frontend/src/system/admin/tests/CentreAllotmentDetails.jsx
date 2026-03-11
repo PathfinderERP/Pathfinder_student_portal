@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     ArrowLeft, Search, RefreshCw, Smartphone, Calendar, Clock,
-    Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail
+    Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail, CheckSquare, Square, Trash2, Check
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -20,10 +20,18 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
 
-    // Modal state for editing dates
+    // Modal state for individual editing
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedAllotment, setSelectedAllotment] = useState(null);
     const [editForm, setEditForm] = useState({
+        start_time: '',
+        end_time: ''
+    });
+
+    // Bulk Actions State
+    const [selectedAllotmentIds, setSelectedAllotmentIds] = useState([]);
+    const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+    const [bulkEditForm, setBulkEditForm] = useState({
         start_time: '',
         end_time: ''
     });
@@ -107,25 +115,67 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            // 1. Update Schedule
-            const scheduleRes = await axios.patch(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/`, editForm, getAuthConfig());
-
-            // 2. Auto-Regenerate Code
-            const codeRes = await axios.post(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/generate_code/`, {}, getAuthConfig());
-
-            // 3. Update State
-            setAllotments(allotments.map(a => a.id === selectedAllotment.id ? {
-                ...scheduleRes.data,
-                access_code: codeRes.data.code,
-                code_history: codeRes.data.history
-            } : a));
-
+            await axios.patch(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/`, editForm, getAuthConfig());
+            await axios.post(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/generate_code/`, {}, getAuthConfig());
+            fetchAllotments();
             setIsEditModalOpen(false);
-            triggerAlert('Schedule updated & Access Code regenerated automatically!', 'success');
+            triggerAlert('Schedule updated successfully!', 'success');
         } catch (err) {
-            triggerAlert('Failed to update schedule or regenerate code', 'error');
+            triggerAlert('Failed to update schedule', 'error');
         } finally {
             setIsActionLoading(false);
+        }
+    };
+
+    const handleBulkUpdate = async (e) => {
+        e.preventDefault();
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const updates = selectedAllotmentIds.map(id => 
+                axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, bulkEditForm, getAuthConfig())
+            );
+            await Promise.all(updates);
+            fetchAllotments();
+            setIsBulkEditModalOpen(false);
+            setSelectedAllotmentIds([]);
+            triggerAlert(`${selectedAllotmentIds.length} Centres updated successfully!`, 'success');
+        } catch (err) {
+            triggerAlert('Failed to update centres', 'error');
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleBulkStatusToggle = async (status) => {
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const updates = selectedAllotmentIds.map(id => 
+                axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, { is_active: status }, getAuthConfig())
+            );
+            await Promise.all(updates);
+            fetchAllotments();
+            setSelectedAllotmentIds([]);
+            triggerAlert(`${selectedAllotmentIds.length} Centres ${status ? 'activated' : 'deactivated'}`, 'success');
+        } catch (err) {
+            triggerAlert('Failed to update status', 'error');
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const toggleSelect = (id) => {
+        setSelectedAllotmentIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAll = () => {
+        if (selectedAllotmentIds.length === filteredAllotments.length) {
+            setSelectedAllotmentIds([]);
+        } else {
+            setSelectedAllotmentIds(filteredAllotments.map(a => a.id));
         }
     };
 
@@ -197,6 +247,30 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    {selectedAllotmentIds.length > 0 && (
+                        <div className={`p-1.5 rounded-[5px] border flex items-center gap-2 animate-in slide-in-from-right-10 duration-300 ${isDarkMode ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50 border-blue-200'}`}>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 text-blue-500">{selectedAllotmentIds.length} Selected</span>
+                            <button
+                                onClick={() => setIsBulkEditModalOpen(true)}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
+                            >
+                                Bulk Edit
+                            </button>
+                            <div className="w-px h-4 bg-blue-500/20" />
+                            <button
+                                onClick={() => handleBulkStatusToggle(true)}
+                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                            >
+                                Activate
+                            </button>
+                            <button
+                                onClick={() => handleBulkStatusToggle(false)}
+                                className="px-3 py-1.5 bg-red-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all text-white"
+                            >
+                                Disable
+                            </button>
+                        </div>
+                    )}
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
                         <input
@@ -229,11 +303,16 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                <th className="py-5 px-6">#</th>
+                                <th className="py-5 px-6 text-center">
+                                    <button onClick={handleSelectAll} className="p-1 hover:bg-white/10 rounded transition-all">
+                                        {selectedAllotmentIds.length === filteredAllotments.length && filteredAllotments.length > 0
+                                            ? <CheckSquare size={16} className="text-blue-500" />
+                                            : <Square size={16} className="opacity-30" />}
+                                    </button>
+                                </th>
                                 <th className="py-5 px-6">Name</th>
                                 <th className="py-5 px-6">Contact</th>
                                 <th className="py-5 px-6">Start Time</th>
-                                <th className="py-5 px-6">End Time</th>
                                 <th className="py-5 px-6 text-center">Status</th>
                                 <th className="py-5 px-6 text-center">Generate</th>
                                 <th className="py-5 px-6 text-center">Send Email</th>
@@ -258,9 +337,15 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredAllotments.map((allotment, index) => (
-                                <tr key={allotment.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
-                                    <td className="py-5 px-6 text-xs font-black opacity-30">{index + 1}</td>
+                            ) : filteredAllotments.map((allotment) => (
+                                <tr key={allotment.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'} ${selectedAllotmentIds.includes(allotment.id) ? (isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50/50') : ''}`}>
+                                    <td className="py-5 px-6 text-center">
+                                        <button onClick={() => toggleSelect(allotment.id)} className="p-1 hover:bg-white/10 rounded transition-all">
+                                            {selectedAllotmentIds.includes(allotment.id)
+                                                ? <CheckSquare size={16} className="text-blue-500" />
+                                                : <Square size={16} className="opacity-30 group-hover:opacity-60" />}
+                                        </button>
+                                    </td>
                                     <td className="py-5 px-6">
                                         <div className="flex flex-col">
                                             <span className="text-xs font-black uppercase tracking-tight">{allotment.centre_details?.name}</span>
@@ -284,10 +369,10 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         </div>
                                     </td>
                                     <td className="py-5 px-6 text-[10px] font-bold font-mono text-slate-500">
-                                        {formatDate(allotment.start_time)}
-                                    </td>
-                                    <td className="py-5 px-6 text-[10px] font-bold font-mono text-slate-500">
-                                        {formatDate(allotment.end_time)}
+                                        <div className="flex flex-col">
+                                            <span>S: {formatDate(allotment.start_time)}</span>
+                                            <span>E: {formatDate(allotment.end_time)}</span>
+                                        </div>
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
@@ -346,13 +431,20 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         )}
                                     </td>
                                     <td className="py-5 px-6 text-center">
-                                        <button
-                                            disabled={!allotment.access_code || !allotment.is_active}
-                                            onClick={() => handleSendEmail(allotment.id)}
-                                            className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                                        >
-                                            <Send size={12} /> Send
-                                        </button>
+                                        <div className="flex flex-col items-center gap-1">
+                                            <button
+                                                disabled={!allotment.access_code || !allotment.is_active}
+                                                onClick={() => handleSendEmail(allotment.id)}
+                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                            >
+                                                <Send size={12} /> {allotment.is_code_sent ? 'Resend' : 'Send'}
+                                            </button>
+                                            {allotment.is_code_sent && (
+                                                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter flex items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-500">
+                                                    <Check size={10} strokeWidth={4} /> Sent to Centre
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
@@ -412,6 +504,58 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                             >
                                 {isActionLoading && <Loader2 size={16} className="animate-spin" />} Save Changes
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Edit Modal */}
+            {isBulkEditModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => !isActionLoading && setIsBulkEditModalOpen(false)} />
+                    <div className={`relative w-full max-w-sm rounded-[5px] shadow-2xl border overflow-hidden animate-scale-up duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                        <div className="bg-orange-600 p-6 flex justify-between items-center text-white">
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tighter">Bulk Edit Schedule</h3>
+                                <p className="text-[10px] font-bold opacity-60 uppercase">{selectedAllotmentIds.length} Centres Selected</p>
+                            </div>
+                            <button onClick={() => setIsBulkEditModalOpen(false)} className="text-white/80 hover:text-white transition-all">
+                                <X size={24} strokeWidth={3} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleBulkUpdate} className="p-8 space-y-6">
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2">
+                                        <Calendar size={12} className="text-orange-500" /> New Start Date & Time
+                                    </label>
+                                    <input
+                                        required
+                                        type="datetime-local"
+                                        className={`w-full p-4 rounded-[5px] border text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-orange-500 text-white' : 'bg-slate-50 border-slate-200 focus:border-orange-500 focus:bg-white'}`}
+                                        value={bulkEditForm.start_time}
+                                        onChange={e => setBulkEditForm({ ...bulkEditForm, start_time: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2">
+                                        <Clock size={12} className="text-orange-500" /> New End Date & Time
+                                    </label>
+                                    <input
+                                        required
+                                        type="datetime-local"
+                                        className={`w-full p-4 rounded-[5px] border text-sm font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-orange-500 text-white' : 'bg-slate-50 border-slate-200 focus:border-orange-500 focus:bg-white'}`}
+                                        value={bulkEditForm.end_time}
+                                        onChange={e => setBulkEditForm({ ...bulkEditForm, end_time: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <button
+                                disabled={isActionLoading}
+                                className="w-full py-4 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                            >
+                                {isActionLoading && <Loader2 size={16} className="animate-spin" />} Apply to {selectedAllotmentIds.length} Centres
                             </button>
                         </form>
                     </div>

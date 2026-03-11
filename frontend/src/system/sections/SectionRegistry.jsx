@@ -146,14 +146,15 @@ const SectionRegistry = () => {
     };
 
     const filteredSections = sections.filter(s =>
-        s.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.subject_code || s.code)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (view === 'details' && selectedSectionForTests) {
         return (
             <AllocatedTestsDetails
-                section={selectedSectionForTests}
+                initialSection={selectedSectionForTests}
+                allSections={sections}
                 onBack={() => setView('list')}
             />
         );
@@ -172,7 +173,7 @@ const SectionRegistry = () => {
                         <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
                         <input
                             type="text"
-                            placeholder="Enter the test name"
+                            placeholder="Search sections by name or code..."
                             className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-medium
                                 ${isDarkMode
                                     ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50'
@@ -205,8 +206,8 @@ const SectionRegistry = () => {
                         <thead>
                             <tr className={`text-[11px] font-black uppercase tracking-[0.15em] border-b ${isDarkMode ? 'text-slate-500 border-white/5 bg-white/5' : 'text-slate-400 border-slate-100 bg-slate-50/50'}`}>
                                 <th className="py-6 px-8">#</th>
-                                <th className="py-6 px-8">Section Code</th>
-                                <th className="py-6 px-8 text-center">Section Name</th>
+                                <th className="py-6 px-8">SECTION NAME</th>
+                                <th className="py-6 px-8 text-center">SECTION CODE</th>
                                 <th className="py-6 px-8 text-center">Show All Tests</th>
                                 <th className="py-6 px-8 text-right pr-12">Edit</th>
                             </tr>
@@ -239,13 +240,13 @@ const SectionRegistry = () => {
                                 <tr key={section.id} className={`group transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'}`}>
                                     <td className="py-5 px-8 text-sm font-bold opacity-50">{index + 1}</td>
                                     <td className="py-5 px-8">
-                                        <span className={`font-black text-sm tracking-tight ${isDarkMode ? 'text-white/90' : 'text-slate-700'}`}>
-                                            {section.subject_code || section.code}
+                                        <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            {section.name}
                                         </span>
                                     </td>
                                     <td className="py-5 px-8 text-center">
-                                        <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            {section.name}
+                                        <span className={`font-black text-sm tracking-tight ${isDarkMode ? 'text-white/90' : 'text-slate-700'}`}>
+                                            {section.subject_code || section.code}
                                         </span>
                                     </td>
                                     <td className="py-5 px-8 text-center">
@@ -317,21 +318,6 @@ const SectionRegistry = () => {
 
                                 <div className="space-y-6">
                                     <div className="space-y-1">
-                                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Code *</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            className={`w-full bg-transparent border-b-2 py-3 font-bold text-sm outline-none transition-all
-                                                ${isDarkMode
-                                                    ? 'border-white/10 text-white focus:border-orange-500'
-                                                    : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
-                                            value={formData.subject_code || ''}
-                                            onChange={(e) => setFormData({ ...formData, subject_code: e.target.value })}
-                                            placeholder="Enter Code"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1">
                                         <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Name *</label>
                                         <input
                                             required
@@ -343,6 +329,21 @@ const SectionRegistry = () => {
                                             value={formData.name || ''}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             placeholder="Enter Name"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Section Code *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            className={`w-full bg-transparent border-b-2 py-3 font-bold text-sm outline-none transition-all
+                                                ${isDarkMode
+                                                    ? 'border-white/10 text-white focus:border-orange-500'
+                                                    : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
+                                            value={formData.subject_code || ''}
+                                            onChange={(e) => setFormData({ ...formData, subject_code: e.target.value })}
+                                            placeholder="Enter Code"
                                         />
                                     </div>
                                 </div>
