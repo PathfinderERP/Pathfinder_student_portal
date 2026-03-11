@@ -72,6 +72,8 @@ class TestSerializer(serializers.ModelSerializer):
     # We can add a method to get count of allotted centres or details
     centres_count = serializers.SerializerMethodField()
     codes_sent_count = serializers.SerializerMethodField()
+    sections_count = serializers.SerializerMethodField()
+    allotted_master_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Test
@@ -82,3 +84,13 @@ class TestSerializer(serializers.ModelSerializer):
         
     def get_codes_sent_count(self, obj):
         return obj.centre_allotments.filter(is_code_sent=True).count()
+
+    def get_sections_count(self, obj):
+        # Total = Owned + Allotted
+        owned = obj.sections.count()
+        allotted = obj.allotted_sections.count()
+        return owned + allotted
+
+    def get_allotted_master_count(self, obj):
+        # Only count sections from Master Registry (where test is null)
+        return obj.allotted_sections.filter(test__isnull=True).count()

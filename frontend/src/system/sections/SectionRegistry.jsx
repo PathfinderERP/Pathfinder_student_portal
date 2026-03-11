@@ -146,8 +146,9 @@ const SectionRegistry = () => {
     };
 
     const filteredSections = sections.filter(s =>
-        (s.subject_code || s.code)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.name?.toLowerCase().includes(searchTerm.toLowerCase())
+        !s.test && // Only show Master Sections (those not assigned to a specific test)
+        (s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         s.subject_code?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (view === 'details' && selectedSectionForTests) {

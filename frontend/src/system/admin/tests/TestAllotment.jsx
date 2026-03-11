@@ -251,8 +251,9 @@ const TestAllotment = () => {
         try {
             const apiUrl = getApiUrl();
             const sectionsRes = await axios.get(`${apiUrl}/api/sections/`, getAuthConfig());
-            // Show all sections from the registry for allotment
-            setAvailableSections(sectionsRes.data);
+            // Only show Master Sections (template sections not tied to a specific test) for allotment
+            const masterSections = (sectionsRes.data || []).filter(s => !s.test);
+            setAvailableSections(masterSections || []);
             setIsSectionModalOpen(true);
         } catch (err) {
             console.error(err);
@@ -419,7 +420,7 @@ const TestAllotment = () => {
                                         <button
                                             onClick={() => handleManageSections(test)}
                                             className="px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all cursor-pointer">
-                                            {test.allotted_sections?.length || 0} Sections
+                                            {test.allotted_master_count || 0} Sections
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
