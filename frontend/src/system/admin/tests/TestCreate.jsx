@@ -124,6 +124,7 @@ const TestCreate = () => {
 
     const [activeView, setActiveView] = useState('test-list'); // 'test-list', 'section-management'
     const [managementTest, setManagementTest] = useState(null);
+    const [initialSectionId, setInitialSectionId] = useState(null);
 
     // Toolbar Alert Logic
     useEffect(() => {
@@ -476,7 +477,7 @@ const TestCreate = () => {
                             <th className="pb-4 px-4 font-black text-center">Duration</th>
                             <th className="pb-4 px-4 font-black text-center">Completed</th>
                             <th className="pb-4 px-4 font-black text-center">Question Paper</th>
-                            <th className="pb-4 px-4 font-black text-center">Sections</th>
+                            <th className="pb-4 px-4 font-black text-center">Question Sections</th>
                             <th className="pb-4 px-4 font-black text-center">Questions</th>
                             <th className="pb-4 px-4 text-right font-black">Actions</th>
                         </tr>
@@ -1183,6 +1184,10 @@ const TestCreate = () => {
                     setActiveView('test-list');
                     setManagementTest(null);
                 }}
+                onManageQuestions={(section) => {
+                    setInitialSectionId(section.id);
+                    setActiveView('question-management');
+                }}
             />
         );
     }
@@ -1191,7 +1196,9 @@ const TestCreate = () => {
         return (
             <TestQuestionManager
                 test={managementTest}
+                initialSectionId={initialSectionId}
                 onBack={() => {
+                    setInitialSectionId(null);
                     setActiveView('test-list');
                     setManagementTest(null);
                 }}

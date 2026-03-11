@@ -9,12 +9,12 @@ import { useTheme } from '../../../../context/ThemeContext';
 import { useAuth } from '../../../../context/AuthContext';
 import QuestionBank from '../../QuestionBank';
 
-const TestQuestionManager = ({ test, onBack }) => {
+const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
     const [sections, setSections] = useState([]);
-    const [activeSectionId, setActiveSectionId] = useState(null);
+    const [activeSectionId, setActiveSectionId] = useState(initialSectionId || null);
     const [questions, setQuestions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -42,7 +42,10 @@ const TestQuestionManager = ({ test, onBack }) => {
             });
             setSections(response.data);
             if (response.data.length > 0 && !activeSectionId) {
-                setActiveSectionId(response.data[0].id);
+                const initialId = initialSectionId && response.data.find(s => s.id === initialSectionId)
+                    ? initialSectionId
+                    : response.data[0].id;
+                setActiveSectionId(initialId);
             }
         } catch (err) {
             console.error('Failed to fetch sections:', err);
@@ -95,6 +98,14 @@ const TestQuestionManager = ({ test, onBack }) => {
     };
 
     const handleAssignQuestions = async (questionIds) => {
+        const activeSection = sections.find(s => s.id === activeSectionId);
+        const limit = activeSection?.total_questions || 0;
+        
+        if (questions.length + questionIds.length > limit) {
+            alert(`You cannot add more than ${limit} questions to this section. You are trying to add ${questions.length + questionIds.length} total.`);
+            return;
+        }
+
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
@@ -219,13 +230,23 @@ const TestQuestionManager = ({ test, onBack }) => {
         </div>
     );
 
-    const renderContent = () => (
-        <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
-            <div className="p-8 border-b border-inherit flex flex-wrap justify-between items-center gap-6">
-                <div>
-                    <h4 className="text-lg font-black uppercase tracking-tight">Questions <span className="text-orange-500">List</span></h4>
-                    <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest mt-1">Manage questions for {sections.find(s => s.id === activeSectionId)?.name}</p>
-                </div>
+    const renderContent = () => {
+        const activeSection = sections.find(s => s.id === activeSectionId);
+        const currentCount = questions.length;
+        const totalAllowed = activeSection?.total_questions || 0;
+
+        return (
+            <div className={`rounded-[5px] border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className="p-8 border-b border-inherit flex flex-wrap justify-between items-center gap-6">
+                    <div>
+                        <div className="flex items-center gap-4">
+                            <h4 className="text-lg font-black uppercase tracking-tight">Questions <span className="text-orange-500">List</span></h4>
+                            <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-bold text-slate-500 dark:text-slate-400">
+                                {currentCount} / {totalAllowed} Added
+                            </div>
+                        </div>
+                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest mt-1">Manage questions for {activeSection?.name}</p>
+                    </div>
 
                 <div className="flex items-center gap-4">
                     <div className="relative group">
@@ -350,6 +371,7 @@ const TestQuestionManager = ({ test, onBack }) => {
             </div>
         </div>
     );
+};
 
     // Question Detail Modal
     const renderDetailModal = () => {

@@ -371,7 +371,7 @@ const TestAllotment = () => {
                                 <th className="py-6 px-6 text-center">#</th>
                                 <th className="py-6 px-6">Name</th>
                                 <th className="py-6 px-6">Test Code</th>
-                                <th className="py-6 px-6 text-center">Section Allotted</th>
+                                <th className="py-6 px-6 text-center">Question Sections</th>
                                 <th className="py-6 px-6 text-center">Centres Allotted</th>
                                 <th className="py-6 px-6 text-center">Codes Sent</th>
                                 <th className="py-6 px-6 text-center">Manage Centres</th>
