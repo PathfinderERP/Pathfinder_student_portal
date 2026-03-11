@@ -48,7 +48,7 @@ class TargetExam(models.Model):
 
 class ExamType(models.Model):
     name = models.CharField(max_length=100)
-    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='exam_types')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='exam_types')
     code = models.CharField(max_length=50, unique=True, blank=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -81,7 +81,7 @@ class ClassLevel(models.Model):
 
 class ExamDetail(models.Model):
     name = models.CharField(max_length=255, help_text="Exam Title", default='')
-    code = models.CharField(max_length=100, help_text="Exam Code", default='')
+    code = models.CharField(max_length=100, help_text="Exam Code", unique=True, blank=True)
     session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='exam_details')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='exam_details')
     exam_type = models.ForeignKey(ExamType, on_delete=models.CASCADE, related_name='exam_details')
@@ -112,7 +112,8 @@ class Subject(models.Model):
         if not self.code:
             # Generate a short 3-letter code from the name
             # e.g., BIOLOGY -> BIO, MATHEMATICS -> MAT
-            base_short = re.sub(r'[^a-zA-Z]', '', self.name).upper()[:3]
+            clean_name = re.sub(r'[^a-zA-Z]', '', self.name).upper()
+            base_short = clean_name[:3]
             self.code = generate_unique_code(Subject, base_short)
         super().save(*args, **kwargs)
 
@@ -131,7 +132,8 @@ class Chapter(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.code:
-            base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
+            clean_name = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()
+            base_short = clean_name[:4]
             self.code = generate_unique_code(Chapter, base_short)
         super().save(*args, **kwargs)
 
@@ -151,7 +153,8 @@ class Topic(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.code:
-            base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
+            clean_name = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()
+            base_short = clean_name[:4]
             self.code = generate_unique_code(Topic, base_short)
         super().save(*args, **kwargs)
 
@@ -169,7 +172,8 @@ class SubTopic(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.code:
-            base_short = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()[:4]
+            clean_name = re.sub(r'[^a-zA-Z0-9]', '', self.name).upper()
+            base_short = clean_name[:4]
             self.code = generate_unique_code(SubTopic, base_short)
         super().save(*args, **kwargs)
 

@@ -31,10 +31,18 @@ class TargetExamSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ExamTypeSerializer(serializers.ModelSerializer):
-    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
+    target_exam_names = serializers.SerializerMethodField()
+    target_exams = ObjectIdRelatedField(many=True, queryset=TargetExam.objects.all(), required=False)
+    
     class Meta:
         model = ExamType
         fields = '__all__'
+
+    def get_target_exam_names(self, obj):
+        try:
+            return ", ".join([te.name for te in obj.target_exams.all()])
+        except:
+            return ""
 
 class ClassLevelSerializer(serializers.ModelSerializer):
     class Meta:
