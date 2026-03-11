@@ -15,7 +15,27 @@ import './App.css';
 function App() {
   return (
     <Router>
-      <Toaster position="top-right" />
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          style: {
+            background: '#10141D',
+            color: '#fff',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '16px',
+            fontSize: '13px',
+            fontWeight: '600',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#F97316',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <ThemeProvider>
         <AuthProvider>
           <Routes>

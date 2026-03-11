@@ -3,8 +3,10 @@ import axios from 'axios';
 import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
     Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen,
-    Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft
+    Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import SectionRegistry from '../sections/SectionRegistry';
@@ -101,6 +103,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
     const [selectedItem, setSelectedItem] = useState(null);
+    const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, id: null, title: '' });
     const [formValues, setFormValues] = useState({
         name: '',
         code: '',
@@ -311,7 +314,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => {
-            alert("Image Link Copied to Clipboard!");
+            toast.success("Image Link Copied to Clipboard!");
         });
     };
 
@@ -329,7 +332,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
 
     const performImageUpload = async () => {
         if (selectedFiles.length === 0) {
-            alert("Please select at least one image.");
+            toast.error("Please select at least one image.");
             return;
         }
 
@@ -362,10 +365,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             setIsModalOpen(false);
             setSelectedFiles([]);
             setPreviews([]);
-            alert(`Successfully uploaded ${selectedFiles.length} image(s)`);
+            toast.success(`Successfully uploaded ${selectedFiles.length} image(s)`);
         } catch (err) {
             console.error("Image upload failed", err);
-            alert("Failed to upload image(s)");
+            toast.error("Failed to upload image(s)");
         } finally {
             setIsActionLoading(false);
             setIsUploadingImage(false);
@@ -471,7 +474,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this item?')) return;
+        setConfirmDialog({ 
+            isOpen: true, 
+            id, 
+            title: `Are you sure you want to delete this ${activeSubTab.toLowerCase()}?` 
+        });
+    };
+
+    const confirmDelete = async () => {
+        const id = confirmDialog.id;
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
@@ -496,10 +508,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
 
             await axios.delete(`${apiUrl}/api/${endpoint}/`, config);
             await fetchData(true);
-            alert('Item deleted successfully!');
+            toast.success('Item deleted successfully!');
         } catch (err) {
             console.error('Delete failed:', err);
-            alert('Failed to delete item');
+            toast.error('Failed to delete item');
         } finally {
             setIsActionLoading(false);
         }
@@ -514,8 +526,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 getAuthConfig()
             );
             fetchData(true);
+            toast.success('Status updated successfully');
         } catch (err) {
-            alert('Failed to toggle status');
+            toast.error('Failed to toggle status');
         } finally {
             setIsActionLoading(false);
         }
@@ -540,8 +553,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             }
             setIsModalOpen(false);
             fetchData(true);
+            toast.success(`${modalMode === 'create' ? 'Created' : 'Updated'} successfully!`);
         } catch (err) {
-            alert(`Failed to ${modalMode} item: ` + (err.response?.data?.code || err.message));
+            toast.error(`Failed to ${modalMode} item: ` + (err.response?.data?.code || err.message));
         } finally {
             setIsActionLoading(false);
         }
@@ -1487,25 +1501,37 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     };
 
     const renderModal = () => {
-        if (!isModalOpen) return null;
         return (
-            <div className="fixed inset-0 z-[1000] flex items-start justify-center p-4 pt-10 sm:pt-16">
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isActionLoading && setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-xl rounded-[5px] border shadow-2xl animate-in zoom-in duration-300 z-[1001] max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
-                    <form onSubmit={handleSubmit} className="p-5 space-y-3">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-black uppercase tracking-tight">
-                                    {modalMode === 'create' ? 'Add New' : 'Edit'} <span className="text-orange-500">{activeSubTab}</span>
-                                </h2>
-                                <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Configuration parameters</p>
-                            </div>
-                            <button type="button" onClick={() => setIsModalOpen(false)} className={`p-2 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
-                                <X size={20} strokeWidth={3} />
-                            </button>
-                        </div>
+            <AnimatePresence>
+                {isModalOpen && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !isActionLoading && setIsModalOpen(false)}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className={`relative w-full max-w-xl rounded-3xl border shadow-2xl z-[1001] max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
+                        >
+                            <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h2 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                            {modalMode === 'create' ? 'Add New' : 'Edit'} <span className="text-orange-500">{activeSubTab}</span>
+                                        </h2>
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Configuration parameters</p>
+                                    </div>
+                                    <button type="button" onClick={() => setIsModalOpen(false)} className={`p-3 rounded-2xl transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-900 border border-slate-200'}`}>
+                                        <X size={20} strokeWidth={3} />
+                                    </button>
+                                </div>
 
-                        <div className="space-y-4">
+                                <div className="space-y-4">
                             {activeSubTab === 'Exam Details' ? (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5 col-span-2">
@@ -1516,7 +1542,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             value={formValues.name}
                                             onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                             placeholder="e.g. JEE Advanced Mock - 1"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                                            className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:bg-white/10 focus:border-orange-500/50' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-orange-500'}`}
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -2037,9 +2063,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                 <>SAVE CONFIGURATION <Check size={14} strokeWidth={3} /></>
                             )}
                         </button>
-                    </form>
-                </div>
-            </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         );
     };
 
@@ -2048,6 +2076,55 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             {renderHeader()}
             {renderContent()}
             {renderModal()}
+
+            {/* Premium Confirm Modal */}
+            <AnimatePresence>
+                {confirmDialog.isOpen && (
+                    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className={`relative w-full max-w-sm rounded-3xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
+                        >
+                            <div className="p-8 text-center">
+                                <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center ${isDarkMode ? 'bg-red-500/10 text-red-500' : 'bg-red-50 text-red-500'}`}>
+                                    <AlertTriangle size={40} strokeWidth={2.5} />
+                                </div>
+                                <h3 className={`text-xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    Are you sure?
+                                </h3>
+                                <p className={`text-sm font-medium leading-relaxed mb-8 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    {confirmDialog.title}
+                                    <br />
+                                    <span className="text-red-500/80 font-bold">This action cannot be undone.</span>
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                                        className={`py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={confirmDelete}
+                                        className="py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-red-600/30 active:scale-95"
+                                    >
+                                        Delete Now
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
