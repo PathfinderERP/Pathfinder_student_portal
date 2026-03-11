@@ -1489,9 +1489,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const renderModal = () => {
         if (!isModalOpen) return null;
         return (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[1000] flex items-start justify-center p-4 pt-10 sm:pt-16">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isActionLoading && setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-xl rounded-[5px] border shadow-2xl animate-in zoom-in duration-300 z-[1001] ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+                <div className={`relative w-full max-w-xl rounded-[5px] border shadow-2xl animate-in zoom-in duration-300 z-[1001] max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
                     <form onSubmit={handleSubmit} className="p-5 space-y-3">
                         <div className="flex justify-between items-center">
                             <div>
@@ -1572,7 +1572,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                         >
                                             <option value="">Select Type</option>
-                                            {filteredExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
+                                            {(() => {
+                                                const filteredExamTypes = examTypes.filter(et => String(et.target_exam || et.target_exam_id) === String(formValues.target_exam));
+                                                return filteredExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>);
+                                            })()}
                                         </select>
                                     </div>
                                     <div className="space-y-1.5 text-left">
