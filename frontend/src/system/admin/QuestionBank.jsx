@@ -1450,13 +1450,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </>
                 )}
                 {isSelectionMode && selectedIds.length > 0 && (
-                    <div className="fixed bottom-10 right-10 z-[120] animate-in slide-in-from-bottom-5 duration-300">
+                    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[120] animate-in slide-in-from-bottom-5 duration-300">
                         <button
                             onClick={() => onAssignQuestions(selectedIds)}
-                            className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl flex items-center gap-4 transition-all hover:scale-110 active:scale-95 border-4 border-white/20 backdrop-blur-sm"
+                            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl flex items-center gap-3 transition-all active:scale-95 border-4 border-white/20 backdrop-blur-sm"
                         >
-                            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                                <Plus size={20} strokeWidth={3} />
+                            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                                <Plus size={16} strokeWidth={3} />
                             </div>
                             Assign {selectedIds.length} Questions
                         </button>
