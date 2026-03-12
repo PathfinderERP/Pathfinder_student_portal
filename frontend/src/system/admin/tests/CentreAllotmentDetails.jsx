@@ -433,9 +433,9 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     <td className="py-5 px-6 text-center">
                                         <div className="flex flex-col items-center gap-1">
                                             <button
-                                                disabled={!allotment.access_code || !allotment.is_active}
+                                                disabled={!allotment.access_code || !allotment.is_active || !allotment.start_time || !allotment.end_time}
                                                 onClick={() => handleSendEmail(allotment.id)}
-                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active && allotment.start_time && allotment.end_time) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                                             >
                                                 <Send size={12} /> {allotment.is_code_sent ? 'Resend' : 'Send'}
                                             </button>
