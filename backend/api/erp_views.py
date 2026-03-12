@@ -88,101 +88,145 @@ def get_student_erp_data(request):
     search_email = (user.email or user.username).strip().lower()
     search_username = user.username.strip().upper() 
     erp_url = _get_erp_url()
+    force_refresh = request.GET.get('refresh') == 'true'
 
     # ── Quick Check: Strategy 1 - Individual Cache ─────────────────────────────
     student_cache_key = f"erp_student_data_v6_{user.pk}"
     lock_key = f"erp_sync_lock_{user.pk}"
     cached = cache.get(student_cache_key)
     
-    # If we have RICH cached data, return it immediately
-    if not request.GET.get('refresh') and _is_profile_rich(cached):
+    # If forcing refresh, clear the existing cache first
+    if force_refresh:
+        print(f"[ERP] Force Refresh: Clearing cache for user {user.pk}")
+        cache.delete(student_cache_key)
+        cached = None
+
+    # If we have RICH cached data, and NOT forcing refresh, return it immediately
+    if not force_refresh and _is_profile_rich(cached):
         print(f"[ERP] Strategy 1 HIT: Serving rich data for {search_email} from cache.")
         _sync_user_to_erp(user, cached)
         return Response(cached, status=200)
 
-    print(f"[ERP] Strategy 1 THIN: Searching for enrichment for {search_email}...")
+    print(f"[ERP] Strategy 1 {'REFRESH' if force_refresh else 'THIN'}: Syncing {search_email}...")
 
     # ── Strategy 2: Admin Bulk Cache Search (Global) ──────────────────────────
-    bulk_cache_key = 'erp_all_students_v1'
-    bulk_cache = cache.get(bulk_cache_key)
-    
-    # PROACTIVE ENRICHMENT: If bulk cache is missing, try to fetch it once using Admin Token
-    if not bulk_cache and not request.GET.get('no_bulk'):
-        sync_lock = 'erp_bulk_sync_in_progress'
-        if not cache.get(sync_lock):
-            cache.set(sync_lock, True, 300) # 5 min lock
-            print(f"[ERP] Strategy 2 PROACTIVE: Fetching master list via Admin (120s timeout)...")
-            try:
-                admin_token = _get_erp_admin_token()
-                if admin_token:
-                    # HEAVY FETCH: 120s timeout for 52MB payload
-                    resp = requests.get(f"{erp_url}/api/admission", 
-                                        headers={"Authorization": f"Bearer {admin_token}"},
-                                        timeout=120, stream=True)
-                    if resp.status_code == 200:
-                        raw_data = resp.json() if not resp.content else __import__('json').loads(resp.content)
-                        if isinstance(raw_data, list) and len(raw_data) > 1000:
-                            print(f"[ERP] Strategy 2: Master list ({len(raw_data)}) cached.")
-                            cache.set(bulk_cache_key, raw_data, 7200)
-                            bulk_cache = raw_data
-            except Exception as e:
-                print(f"[ERP] Strategy 2 Bulk Sync failed: {e}")
-            finally:
-                cache.delete(sync_lock)
+    # SKIP Strategy 2 if force_refresh is true to avoid stale bulk data
+    if not force_refresh:
+        bulk_cache_key = 'erp_all_students_v1'
+        bulk_cache = cache.get(bulk_cache_key)
+        
+        # PROACTIVE ENRICHMENT: If bulk cache is missing, try to fetch it once using Admin Token
+        if not bulk_cache and not request.GET.get('no_bulk'):
+            sync_lock = 'erp_bulk_sync_in_progress'
+            if not cache.get(sync_lock):
+                cache.set(sync_lock, True, 300) # 5 min lock
+                print(f"[ERP] Strategy 2 PROACTIVE: Fetching master list via Admin (120s timeout)...")
+                try:
+                    admin_token = _get_erp_admin_token()
+                    if admin_token:
+                        # HEAVY FETCH: 120s timeout for payload
+                        resp = requests.get(f"{erp_url}/api/admission", 
+                                            headers={"Authorization": f"Bearer {admin_token}"},
+                                            timeout=120, stream=True)
+                        if resp.status_code == 200:
+                            raw_data = resp.json() if not resp.content else __import__('json').loads(resp.content)
+                            if isinstance(raw_data, list) and len(raw_data) > 1000:
+                                print(f"[ERP] Strategy 2: Master list ({len(raw_data)}) cached.")
+                                cache.set(bulk_cache_key, raw_data, 7200)
+                                bulk_cache = raw_data
+                except Exception as e:
+                    print(f"[ERP] Strategy 2 Bulk Sync failed: {e}")
+                finally:
+                    cache.delete(sync_lock)
 
-    if bulk_cache and isinstance(bulk_cache, list):
-        print(f"[ERP] Strategy 2: Filtering {search_email}/{search_username} from {len(bulk_cache)} records...")
-        count = 0
-        for admission in bulk_cache:
-            count += 1
-            details = admission.get('student', {}).get('studentsDetails', [])
-            admission_num = str(admission.get('admissionNumber') or '').strip().upper()
-            
-            email_match = any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details)
-            adm_match = (admission_num == search_username or 
-                         search_username in admission_num or 
-                         admission_num in search_username) if search_username else False
-            
-            if email_match or adm_match:
-                print(f"[ERP] Strategy 2 SUCCESS: Found rich match for {search_email} at record #{count}.")
-                _sync_user_to_erp(user, admission)
-                cache.set(student_cache_key, admission, 300) # 5 Minute Cache
-                return Response(admission, status=200)
+        if bulk_cache and isinstance(bulk_cache, list):
+            print(f"[ERP] Strategy 2: Filtering {search_email}/{search_username} from records...")
+            for admission in bulk_cache:
+                details = admission.get('student', {}).get('studentsDetails', [])
+                admission_num = str(admission.get('admissionNumber') or '').strip().upper()
+                
+                email_match = any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details)
+                adm_match = (admission_num == search_username or 
+                             search_username in admission_num or 
+                             admission_num in search_username) if search_username else False
+                
+                if email_match or adm_match:
+                    print(f"[ERP] Strategy 2 SUCCESS: Found rich match in bulk cache.")
+                    _sync_user_to_erp(user, admission)
+                    cache.set(student_cache_key, admission, 300) # 5 Minute Cache
+                    return Response(admission, status=200)
 
-    # ── Strategy 3: Targeted API Call (Student Token) ────────────────────────
+    # ── Strategy 3: Targeted API Call ──────────────────────────────────────────
     # Check if we are already fetching for this student to avoid Broken Pipe/Spam
-    if cache.get(lock_key):
+    if not force_refresh and cache.get(lock_key):
         if cached: return Response(cached, status=200)
         return Response({"status": "syncing", "message": "Enrichment in progress"}, status=202)
 
+    # Use Student Token if available, otherwise fallback to Admin Token for FORCE REFRESH
     student_erp_token = cache.get(f"erp_token_{user.pk}")
-    if student_erp_token:
+    active_token = student_erp_token
+    is_admin_sync = False
+    
+    if not active_token and force_refresh:
+        print(f"[ERP] No student token for {search_email}, using Admin Token for force refresh...")
+        active_token = _get_erp_admin_token()
+        is_admin_sync = True
+
+    if active_token:
         cache.set(lock_key, True, 60) # 60s lock
         try:
-            print(f"[ERP] Strategy 3: TARGETED fetch for {search_email}...")
-            # Optimization: Try targeted query params if supported, then fallback
+            print(f"[ERP] Strategy 3: TARGETED fetch for {search_email} (Force: {force_refresh}, Admin: {is_admin_sync})...")
             target_record = None
             
-            # Sub-Strategy 3a: Email Filter
+            # Sub-Strategy 3a: Email Filter (Primary)
             try:
                 resp = requests.get(f"{erp_url}/api/admission?studentEmail={search_email}", 
-                                    headers={"Authorization": f"Bearer {student_erp_token}"}, timeout=45)
+                                    headers={"Authorization": f"Bearer {active_token}"}, timeout=60)
+                print(f"[ERP] Targeted Email Fetch Status: {resp.status_code}")
                 if resp.status_code == 200:
                     data = resp.json()
-                    if isinstance(data, list) and len(data) > 0: target_record = data[0]
-                    elif isinstance(data, dict) and data.get('student'): target_record = data
-            except: pass
+                    if isinstance(data, list) and len(data) > 0: 
+                        potential_record = data[0]
+                    elif isinstance(data, dict):
+                        # Handle wrapped response {message, student} or direct response {student, ...}
+                        if data.get('student') and data.get('message'):
+                            potential_record = data.get('student')
+                        else:
+                            potential_record = data
+                    
+                    if potential_record:
+                        # VERIFY this is actually the right student
+                        details = potential_record.get('student', {}).get('studentsDetails', [])
+                        adm_num = str(potential_record.get('admissionNumber') or '').strip().upper()
+                        email_match = any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details)
+                        
+                        if email_match or (search_username and adm_num == search_username):
+                            target_record = potential_record
+                            print(f"[ERP] Found verified record via email filter.")
+                        else:
+                            print(f"[ERP] Email filter returned non-matching record (expected {search_email}). Falling back...")
+            except Exception as e: 
+                print(f"[ERP] Email Filter fetch error: {e}")
 
-            # Sub-Strategy 3b: Full Fetch (Resilient Fallback)
+            # Sub-Strategy 3b: Full Fetch (Resilient Fallback) - ONLY if email search failed
             if not target_record:
-                print(f"[ERP] Strategy 3b: Targeted failed, trying full fetch for student token...")
+                print(f"[ERP] Strategy 3b: Email Targeted fail/mismatch, trying full fetch search...")
                 resp = requests.get(f"{erp_url}/api/admission", 
-                                    headers={"Authorization": f"Bearer {student_erp_token}"}, timeout=120)
+                                    headers={"Authorization": f"Bearer {active_token}"}, timeout=120)
                 if resp.status_code == 200:
                     data = resp.json()
-                    if isinstance(data, dict) and data.get('student'):
-                        target_record = data
+                    if isinstance(data, dict):
+                         # Handle wrapped response here too just in case
+                         if data.get('student') and data.get('message'):
+                            potential_record = data.get('student')
+                            # Check match
+                            details = potential_record.get('student', {}).get('studentsDetails', [])
+                            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
+                                target_record = potential_record
+                         elif data.get('student'):
+                            target_record = data
                     elif isinstance(data, list):
+                        print(f"[ERP] Searching through {len(data)} records for match...")
                         for admission in data:
                             details = admission.get('student', {}).get('studentsDetails', [])
                             admission_num = str(admission.get('admissionNumber') or '').strip().upper()
@@ -192,16 +236,19 @@ def get_student_erp_data(request):
                                 break
             
             if target_record:
-                print(f"[ERP] Strategy 3 SUCCESS: Profile enriched.")
+                print(f"[ERP] Strategy 3 SUCCESS: Fresh record obtained for {search_email}.")
+                # Add a metadata flag to indicate fresh sync
+                target_record['sync_completed'] = True
                 _sync_user_to_erp(user, target_record)
-                cache.set(student_cache_key, target_record, 300) # 5 Minute Cache
+                cache.set(student_cache_key, target_record, 300)
                 return Response(target_record, status=200)
+            else:
+                print(f"[ERP] Strategy 3 FAILED: Record for {search_email} not found in targeted search.")
         except Exception as e:
             print(f"[ERP ERROR] Strategy 3 failed: {e}")
         finally:
             cache.delete(lock_key)
 
-    # ── Strategy 4: Final Fallback ────────────────────────────────────────────
     if cached:
         print(f"[ERP] Strategy 4: Returning best available cached data.")
         return Response(cached, status=200)
@@ -229,19 +276,20 @@ def _sync_user_to_erp(user, admission_data):
             user.omr_code = sec.get('omrCode')
             user.rm_code = sec.get('rm')
         
-        # 2. Sync Names
-        details = admission_data.get('student', {}).get('studentsDetails', [])
-        if details and isinstance(details, list) and len(details) > 0:
-            name = details[0].get('studentName', '')
+        # 2. Sync Name from studentsDetails
+        details_list = admission_data.get('student', {}).get('studentsDetails', [])
+        if details_list and isinstance(details_list, list) and len(details_list) > 0:
+            details = details_list[0]
+            name = details.get('studentName', '')
             if name:
                 parts = name.strip().split(' ')
                 user.first_name = parts[0]
                 user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
         
         user.save()
-        print(f"✓ Synced user {user.username} with ERP data.")
+        print(f"[SYNC] ✓ User {user.username} synced with ERP.")
     except Exception as e:
-        print(f"⚠ Failed to sync user {user.username}: {e}")
+        print(f"[SYNC] ⚠ Failed to sync user {user.username}: {e}")
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

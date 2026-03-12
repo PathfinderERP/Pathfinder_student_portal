@@ -1,27 +1,44 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award, CreditCard, CheckCircle, Activity } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award, CreditCard, CheckCircle, Activity, RefreshCw } from 'lucide-react';
 
-const MyProfile = ({ isDarkMode, studentData }) => {
+const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
     const details = studentData?.student?.studentsDetails?.[0] || {};
     const guardians = studentData?.student?.guardians || [];
     const examSchema = studentData?.student?.examSchema || [];
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        if (onRefresh) await onRefresh(true);
+        setTimeout(() => setIsRefreshing(false), 1000);
+    };
 
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
             {/* Profile Hero */}
             <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                            Account Settings
+                <div className="relative z-10 flex justify-between items-start">
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                                Account Settings
+                            </div>
                         </div>
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            My Digital Profile
+                        </h2>
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Manage your personal data, guardian contact information, and academic history.
+                        </p>
                     </div>
-                    <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        My Digital Profile
-                    </h2>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Manage your personal data, guardian contact information, and academic history.
-                    </p>
+                    <button 
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className={`p-3 rounded-[5px] border transition-all active:scale-95 group ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900 shadow-sm'}`}
+                        title="Sync with school records"
+                    >
+                        <RefreshCw size={18} className={`${isRefreshing ? 'animate-spin text-orange-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                    </button>
                 </div>
                 <User size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
             </div>
@@ -60,8 +77,18 @@ const MyProfile = ({ isDarkMode, studentData }) => {
                     <InfoField label="Mobile" value={details.mobileNum ? `+91 ${details.mobileNum}` : null} icon={Phone} isDark={isDarkMode} />
                     <InfoField label="WhatsApp" value={details.whatsappNumber ? `+91 ${details.whatsappNumber}` : null} icon={Phone} isDark={isDarkMode} />
                     <InfoField label="Date of Birth" value={details.dateOfBirth} icon={Calendar} isDark={isDarkMode} />
-                    <InfoField label="School" value={details.schoolName} icon={BookOpen} isDark={isDarkMode} />
-                    <InfoField label="Centre" value={details.centre} icon={MapPin} isDark={isDarkMode} />
+                    <InfoField 
+                        label="School" 
+                        value={details.schoolName || details.school || details.institution} 
+                        icon={BookOpen} 
+                        isDark={isDarkMode} 
+                    />
+                    <InfoField 
+                        label="Centre" 
+                        value={details.centre || details.centreName || details.branchName || details.schoolName} 
+                        icon={MapPin} 
+                        isDark={isDarkMode} 
+                    />
                     <InfoField label="State" value={details.state || (details.board === 'WB' ? 'West Bengal' : '')} icon={MapPin} isDark={isDarkMode} />
                     <InfoField label="Pincode" value={details.pincode} icon={MapPin} isDark={isDarkMode} />
                     <InfoField label="Address" value={details.address} icon={MapPin} isDark={isDarkMode} isFullWidth />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     LayoutDashboard, User, CheckSquare, FileText,
     TrendingUp, Activity, AlertCircle, BookOpen,
@@ -14,6 +14,7 @@ import Attendance from './components/Attendance';
 import Classes from './components/Classes';
 import Exams from './components/Exams';
 import Performance from './components/Performance';
+import Results from './components/Results';
 import Grievances from './components/Grievances';
 import SWOTAnalysis from './components/SWOTAnalysis';
 import StudyMaterials from './components/StudyMaterials';
@@ -27,7 +28,7 @@ import SocialFeed from './components/SocialFeed';
 import PortalLayout from '../../components/common/PortalLayout';
 
 const StudentDashboard = () => {
-    const { user, logout, token, getApiUrl, loading: authLoading } = useAuth();
+    const { user, logout, token, getApiUrl, loading: authLoading, refreshUser } = useAuth();
     const { isDarkMode } = useTheme();
     const [activeTab, setActiveTab] = useState('Dashboard');
     const [studentData, setStudentData] = useState(null);
@@ -39,12 +40,15 @@ const StudentDashboard = () => {
     const [attendanceCache, setAttendanceCache] = useState({ data: null, loaded: false });
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
 
+    // Flag to prevent multiple auto-sync attempts in one session
+    const hasAutoSynced = useRef(false);
+
     // Fetch Student Data from backend API (which proxies to ERP)
     const fetchStudentData = async (forceRefresh = false) => {
         if (authLoading) return;
         if (!user) {
             setLoading(false);
-            return;
+            return null;
         }
 
         // Only show loader if we don't have data yet or forced
@@ -61,10 +65,15 @@ const StudentDashboard = () => {
                 return;
             }
 
-            const url = forceRefresh ? `${apiUrl}/api/student/erp-data/?refresh=true` : `${apiUrl}/api/student/erp-data/`;
-            const response = await axios.get(url, {
+            const response = await axios.get(`${apiUrl}/api/student/erp-data/`, {
+                params: { refresh: forceRefresh },
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+
+            // If we forced a refresh, also update the global user profile (for name/header)
+            if (forceRefresh) {
+                await refreshUser();
+            }
 
             if (response.data) {
                 // Prevent overwriting rich data with offline fallback
@@ -76,9 +85,8 @@ const StudentDashboard = () => {
                 } else {
                     setStudentData(response.data);
                 }
-            } else {
-                if (!studentData) setError("No student data received from server.");
             }
+            return response.data;
         } catch (err) {
             console.error("Error fetching student data:", err);
             // Only set visible error if we don't have data
@@ -93,13 +101,29 @@ const StudentDashboard = () => {
                     setError(err.response?.data?.error || "Failed to load student profile.");
                 }
             }
+            return null;
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchStudentData();
+        const loadInitialData = async () => {
+            if (authLoading) return;
+            if (!user) return;
+
+            const data = await fetchStudentData(false);
+            
+            // If data is offline/mock and we haven't tried syncing yet this mount, do it now
+            if (data?.is_offline && !hasAutoSynced.current) {
+                console.log("[Auto-Sync] Offline data detected, triggering background refresh...");
+                hasAutoSynced.current = true;
+                // Add a small delay so UI doesn't flicker too much
+                setTimeout(() => fetchStudentData(true), 1200);
+            }
+        };
+
+        loadInitialData();
     }, [user, token, getApiUrl, authLoading]);
 
     const navItems = [
@@ -109,6 +133,7 @@ const StudentDashboard = () => {
         { name: 'Classes', icon: CalendarDays },
         { name: 'Attendance', icon: CheckSquare },
         { name: 'Exams', icon: FileText },
+        { name: 'Results', icon: Award },
         { name: 'Performance', icon: TrendingUp },
         { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
@@ -190,13 +215,15 @@ const StudentDashboard = () => {
             case 'Dashboard':
                 return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} />;
             case 'My Profile':
-                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} />;
+                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} />;
             case 'Classes':
                 return <Classes isDarkMode={isDarkMode} cache={classesCache} setCache={setClassesCache} />;
             case 'Attendance':
                 return <Attendance isDarkMode={isDarkMode} cache={attendanceCache} setCache={setAttendanceCache} />;
             case 'Exams':
-                return <Exams isDarkMode={isDarkMode} />;
+                return <Exams isDarkMode={isDarkMode} onRefresh={fetchStudentData} />;
+            case 'Results':
+                return <Results isDarkMode={isDarkMode} />;
             case 'Performance':
                 return <Performance isDarkMode={isDarkMode} />;
             case 'Grievances':

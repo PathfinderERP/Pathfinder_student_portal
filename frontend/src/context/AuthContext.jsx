@@ -184,8 +184,21 @@ export const AuthProvider = ({ children }) => {
     }, [logout]);
 
 
+    const refreshUser = useCallback(async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/profile/`);
+            const normalized = normalizeUser(response.data);
+            setUser(normalized);
+            return normalized;
+        } catch (e) {
+            console.error("Failed to refresh user profile", e);
+            return null;
+        }
+    }, [getApiUrl, normalizeUser]);
+
     return (
-        <AuthContext.Provider value={{ token, user, login, updateProfile, logout, loading, isAuthenticated: !!user, getApiUrl, normalizeUser, lastUsername, lastPassword }}>
+        <AuthContext.Provider value={{ token, user, login, updateProfile, refreshUser, logout, loading, isAuthenticated: !!user, getApiUrl, normalizeUser, lastUsername, lastPassword }}>
             {children}
         </AuthContext.Provider>
     );
