@@ -146,7 +146,7 @@ def get_student_erp_data(request):
             if email_match or adm_match:
                 print(f"[ERP] Strategy 2 SUCCESS: Found rich match for {search_email} at record #{count}.")
                 _sync_user_to_erp(user, admission)
-                cache.set(student_cache_key, admission, 3600)
+                cache.set(student_cache_key, admission, 300) # 5 Minute Cache
                 return Response(admission, status=200)
 
     # ── Strategy 3: Targeted API Call (Student Token) ────────────────────────
@@ -194,7 +194,7 @@ def get_student_erp_data(request):
             if target_record:
                 print(f"[ERP] Strategy 3 SUCCESS: Profile enriched.")
                 _sync_user_to_erp(user, target_record)
-                cache.set(student_cache_key, target_record, 3600)
+                cache.set(student_cache_key, target_record, 300) # 5 Minute Cache
                 return Response(target_record, status=200)
         except Exception as e:
             print(f"[ERP ERROR] Strategy 3 failed: {e}")

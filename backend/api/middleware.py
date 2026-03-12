@@ -24,6 +24,11 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
         # Skip for login/logout endpoints to avoid recursion
         if request.path in ['/api/token/', '/api/token/refresh/', '/api/logout/']:
             return None
+            
+        # SAFETY FIRST: Skip ERP check if user is taking a test
+        # If the path looks like an active test (submit answers, start test, etc.), we DO NOT logout.
+        if '/api/tests/' in request.path:
+            return None
         
         # Check if user is deactivated locally
         if not request.user.is_active:
@@ -37,7 +42,7 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
         last_validated = cache.get(cache_key)
         
         if last_validated is None:
-            # Not validated recently - check ERP
+            # Not validated recently - check ERP and SYNC fresh data
             is_valid = self.validate_student_in_erp(request.user)
             
             if not is_valid:
@@ -55,8 +60,8 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
                     'logout': True  # Signal frontend to logout
                 }, status=403)
             else:
-                # Student is valid - cache validation for 5 minutes
-                cache.set(cache_key, True, timeout=300)  # 5 minutes
+                # Student is valid - cache validation for 60 seconds (INSTANT SYNC)
+                cache.set(cache_key, True, timeout=60)  # Check every 1 minute
         
         return None
     
@@ -85,7 +90,13 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
             )
             
             if response.status_code == 200:
-                print(f"✓ ERP validation successful for {user.username}")
+                print(f"✓ ERP validation and SYNC successful for {user.username}")
+                # INSTANT SYNC: Update local user fields (Section, Names, etc.)
+                from .erp_views import _sync_user_to_erp
+                data = response.json()
+                # Profile endpoint might return different wrapping, handle it
+                admission_data = data.get('student', data) if isinstance(data.get('student'), dict) else data
+                _sync_user_to_erp(user, admission_data)
                 return True
             elif response.status_code in [401, 403]:
                 # Token invalid or student deactivated

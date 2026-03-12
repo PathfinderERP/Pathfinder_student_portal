@@ -127,7 +127,7 @@ class ERPStudentBackend(BaseBackend):
 
                     # CACHE THE TOKEN for use in other views
                     cache_key = f"erp_token_{user.pk}"
-                    cache.set(cache_key, erp_token, timeout=86400)  # 24 hours
+                    cache.set(cache_key, erp_token, timeout=604800)  # 7 days (to survive long sessions)
                     print(f"✓ Cached ERP token for user {user.pk}")
                     
                     return user
@@ -338,7 +338,7 @@ class ERPTeacherBackend(BaseBackend):
                     
                     # Store ERP token for subsequent ERP API calls
                     cache_key = f"erp_token_{user.pk}"
-                    cache.set(cache_key, erp_token, timeout=86400)
+                    cache.set(cache_key, erp_token, timeout=604800) # 7 days
                     
                     # Sync Teacher-specific fields
                     user.employee_id = str(employee_data.get('employeeId') or employee_data.get('code') or employee_data.get('username') or '')
