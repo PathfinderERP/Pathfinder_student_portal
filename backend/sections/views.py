@@ -102,4 +102,6 @@ class SectionViewSet(viewsets.ModelViewSet):
         return Response({'status': 'questions reordered'})
 
     def perform_create(self, serializer):
-        serializer.save()
+        section = serializer.save()
+        if section.test:
+            section.test.allotted_sections.add(section)
