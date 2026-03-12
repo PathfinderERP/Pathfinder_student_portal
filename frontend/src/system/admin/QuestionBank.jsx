@@ -9,7 +9,7 @@ import {
     Type, Hash, Zap, Trash2, Save, ChevronLeft, ChevronDown, Check,
     Strikethrough, Quote, Code, Subscript, Superscript,
     AlignLeft, AlignCenter, AlignRight, Link, Sigma,
-    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2
+    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -1077,7 +1077,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </div>
 
                     {/* Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-9 gap-4">
                         <CustomSelect
                             label="Filter Class"
                             value={filters.classId}
@@ -1154,6 +1154,29 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             placeholder="All Status"
                             onChange={(val) => setFilters({ ...filters, is_wrong: val })}
                         />
+
+                        {/* Reset Button */}
+                        <div className="flex items-end">
+                            <button
+                                onClick={() => setFilters({
+                                    classId: '',
+                                    subjectId: '',
+                                    topicId: '',
+                                    examTypeId: '',
+                                    targetExamId: '',
+                                    question_type: '',
+                                    level: '',
+                                    is_wrong: ''
+                                })}
+                                className={`h-[42px] px-6 rounded-[5px] font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all active:scale-95 w-full justify-center
+                                    ${isDarkMode 
+                                        ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' 
+                                        : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'}`}
+                            >
+                                <RefreshCcw size={12} strokeWidth={3} />
+                                Reset
+                            </button>
+                        </div>
                     </div>
                 </div>
 
