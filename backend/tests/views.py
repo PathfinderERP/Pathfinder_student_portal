@@ -49,36 +49,60 @@ class TestViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = serializer.save()
         
-        # Get current allowed centres IDs as a list to avoid SQL subqueries that confuse Djongo
-        # Use '_id' explicitly as 'id' is not a concrete field in this Mongo model
-        current_centre_ids = list(instance.centres.values_list('_id', flat=True))
+        # Get current allowed centres - safer fetching for Djongo/Mongo
+        centres = list(instance.centres.all())
+        current_centre_ids = [str(c.pk) for c in centres]
         
-        # Delete allotments for centres that are no longer in the list
-        # Using explicit ID list avoids complex subquery generation
-        test_allotments = TestCentreAllotment.objects.filter(test=instance)
-        test_allotments.exclude(centre__pk__in=current_centre_ids).delete()
+        # Sync allotments: find existing and delete what's no longer present
+        existing_allotments = TestCentreAllotment.objects.filter(test=instance)
+        
+        # Delete stale allotments (those no longer in the centres list)
+        for allotment in existing_allotments:
+            if str(allotment.centre_id) not in current_centre_ids:
+                allotment.delete()
 
-        # Auto-create allotment records for new/existing selected centres
-        for centre in instance.centres.all():
+        # Create missing allotments for newly added centres
+        for centre in centres:
             TestCentreAllotment.objects.get_or_create(test=instance, centre=centre)
 
     @action(detail=True, methods=['get'])
     def sections(self, request, pk=None):
-        test = self.get_object()
+        try:
+            test = Test.objects.get(pk=pk)
+        except Test.DoesNotExist:
+            return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
         sections = test.allotted_sections.all()
         serializer = SectionSerializer(sections, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def centres(self, request, pk=None):
-        test = self.get_object()
+        try:
+            # Use direct model lookup to bypass potentially restrictive get_queryset
+            test = Test.objects.get(pk=pk)
+        except Test.DoesNotExist:
+            return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # SELF-HEAL: Ensure Allotment records exist for all selected centres
+        local_centres = list(test.centres.all())
+        allotments = list(test.centre_allotments.all())
+        allotted_centre_ids = [str(a.centre_id) for a in allotments]
+        
+        for centre in local_centres:
+            if str(centre.pk) not in allotted_centre_ids:
+                TestCentreAllotment.objects.get_or_create(test=test, centre=centre)
+                
+        # Re-fetch fresh list
         allotments = test.centre_allotments.all()
         serializer = TestCentreAllotmentSerializer(allotments, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def question_paper(self, request, pk=None):
-        test = self.get_object()
+        try:
+            test = Test.objects.get(pk=pk)
+        except Test.DoesNotExist:
+            return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
         # Order by priority
         sections = test.allotted_sections.all().order_by('priority')
         

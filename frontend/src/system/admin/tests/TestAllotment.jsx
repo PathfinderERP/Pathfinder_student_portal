@@ -39,6 +39,7 @@ const TestAllotment = () => {
     // View State for Centre Details Page
     const [view, setView] = useState('list'); // 'list' or 'details'
     const [selectedTestForDetails, setSelectedTestForDetails] = useState(null);
+    const [isViewOnlyMode, setIsViewOnlyMode] = useState(false);
 
     const triggerAlert = (message, type = 'success') => {
         setAlert({ show: true, message, type });
@@ -91,8 +92,9 @@ const TestAllotment = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleEditCentres = async (test) => {
+    const handleEditCentres = async (test, isViewOnly = false) => {
         setSelectedTest(test);
+        setIsViewOnlyMode(isViewOnly);
         setIsActionLoading(true);
 
         try {
@@ -425,10 +427,7 @@ const TestAllotment = () => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => {
-                                                setSelectedTestForDetails(test);
-                                                setView('details');
-                                            }}
+                                            onClick={() => handleEditCentres(test, true)}
                                             className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-[5px] border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100'}`}>
                                             {test.centres_count || 0} Centres
                                         </button>
@@ -445,10 +444,12 @@ const TestAllotment = () => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => handleEditCentres(test)}
-                                            className="px-4 py-1.5 rounded-[5px] bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                                            onClick={() => handleEditCentres(test, false)}
+                                            className={`px-4 py-1.5 rounded-[5px] text-white text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg ${test.centres_count > 0
+                                                ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
+                                                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30'}`}
                                         >
-                                            Edit Centres
+                                            {test.centres_count > 0 ? 'Edit Centres' : 'Add Centres'}
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
@@ -480,112 +481,116 @@ const TestAllotment = () => {
                             </button>
                         </div>
 
-                        <div className={`p-0 max-h-[50vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
-                            <div className="p-6 space-y-5">
-                                {/* Selected Centres Summary (Like the User ScreenShot) */}
-                                <div className="relative group">
-                                    <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
-                                        ERP Centre List
-                                    </label>
-                                    <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
-                                        {selectedCentreIds.length > 0 ? (
-                                            availableCentres
-                                                .filter(c => selectedCentreIds.includes(c.enterCode))
-                                                .map(c => (
-                                                    <div
-                                                        key={`sel-centre-${c.enterCode}`}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                        <div className={`p-6 pb-0 space-y-5 ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50'}`}>
+                            {/* Selected Centres Summary (Like the User ScreenShot) */}
+                            <div className="relative group">
+                                <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
+                                    ERP Centre List
+                                </label>
+                                <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
+                                    {selectedCentreIds.length > 0 ? (
+                                        availableCentres
+                                            .filter(c => selectedCentreIds.includes(c.enterCode))
+                                            .map(c => (
+                                                <div
+                                                    key={`sel-centre-${c.enterCode}`}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                                                >
+                                                    <span>{c.centreName}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedCentreIds(prev => prev.filter(code => code !== c.enterCode));
+                                                        }}
+                                                        className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
                                                     >
-                                                        <span>{c.centreName}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedCentreIds(prev => prev.filter(code => code !== c.enterCode));
-                                                            }}
-                                                            className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
-                                                        >
-                                                            <X size={12} strokeWidth={4} />
-                                                        </button>
-                                                    </div>
-                                                ))
-                                        ) : (
-                                            <div className="flex items-center h-full px-1">
-                                                <span className="text-slate-400 font-bold italic text-xs opacity-50">No Centres Selected...</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className={`h-px my-2 ${isDarkMode ? 'bg-white/5' : 'bg-slate-200/60'}`} />
-
-                                {/* Modal Search Option */}
-                                <div className="relative group">
-                                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search centres by name or code..."
-                                        value={centreSearchTerm}
-                                        onChange={(e) => setCentreSearchTerm(e.target.value)}
-                                        className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
-                                    />
-                                    {centreSearchTerm && (
-                                        <button
-                                            onClick={() => setCentreSearchTerm('')}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                                        >
-                                            <X size={14} strokeWidth={3} />
-                                        </button>
+                                                        <X size={12} strokeWidth={4} />
+                                                    </button>
+                                                </div>
+                                            ))
+                                    ) : (
+                                        <div className="flex items-center h-full px-1">
+                                            <span className="text-slate-400 font-bold italic text-xs opacity-50">No Centres Selected...</span>
+                                        </div>
                                     )}
                                 </div>
+                            </div>
 
-                                <div className="space-y-2">
-                                    {[...availableCentres]
-                                        .filter(c =>
-                                            c.centreName?.toLowerCase().includes(centreSearchTerm.toLowerCase()) ||
-                                            c.enterCode?.toLowerCase().includes(centreSearchTerm.toLowerCase())
-                                        )
-                                        .sort((a, b) => {
-                                            return (a.centreName || "").localeCompare(b.centreName || "");
-                                        })
-                                        .map(centre => {
-                                            const isSelected = selectedCentreIds.includes(centre.enterCode);
-                                            return (
-                                                <div
-                                                    key={centre.enterCode || centre._id}
-                                                    onClick={() => {
-                                                        if (isSelected) setSelectedCentreIds(prev => prev.filter(code => code !== centre.enterCode));
-                                                        else setSelectedCentreIds(prev => [...prev, centre.enterCode]);
-                                                    }}
-                                                    className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
-                                                        ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
-                                                        : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
-                                                >
-                                                    <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
-                                                        ? 'bg-blue-600 border-blue-600 scale-110'
-                                                        : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
-                                                        {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
-                                                    </div>
-                                                    <div className="flex flex-col flex-1 min-w-0">
-                                                        <span className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
-                                                            {centre.centreName}
-                                                        </span>
-                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
-                                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{centre.enterCode}</span>
-                                                            <div className="flex items-center gap-1 opacity-40">
-                                                                <Mail size={10} />
-                                                                <span className="text-[9px] font-bold lowercase">{centre.email || 'N/A'}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1 opacity-40">
-                                                                <Phone size={10} />
-                                                                <span className="text-[9px] font-bold">{centre.phoneNumber || 'N/A'}</span>
-                                                            </div>
+                            {/* Modal Search Option */}
+                            <div className="relative group pb-2">
+                                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search centres by name or code..."
+                                    value={centreSearchTerm}
+                                    onChange={(e) => setCentreSearchTerm(e.target.value)}
+                                    className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                />
+                                {centreSearchTerm && (
+                                    <button
+                                        onClick={() => setCentreSearchTerm('')}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        <X size={14} strokeWidth={3} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className={`p-0 max-h-[40vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
+                            <div className="px-6 pb-6 space-y-2">
+                                {[...availableCentres]
+                                    .filter(c => {
+                                        const matchesSearch = c.centreName?.toLowerCase().includes(centreSearchTerm.toLowerCase()) ||
+                                            c.enterCode?.toLowerCase().includes(centreSearchTerm.toLowerCase());
+
+                                        // If in view only mode, ONLY show the ones that are currently selected
+                                        if (isViewOnlyMode) {
+                                            return matchesSearch && selectedCentreIds.includes(c.enterCode);
+                                        }
+                                        return matchesSearch;
+                                    })
+                                    .sort((a, b) => {
+                                        return (a.centreName || "").localeCompare(b.centreName || "");
+                                    })
+                                    .map(centre => {
+                                        const isSelected = selectedCentreIds.includes(centre.enterCode);
+                                        return (
+                                            <div
+                                                key={centre.enterCode || centre._id}
+                                                onClick={() => {
+                                                    if (isSelected) setSelectedCentreIds(prev => prev.filter(code => code !== centre.enterCode));
+                                                    else setSelectedCentreIds(prev => [...prev, centre.enterCode]);
+                                                }}
+                                                className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
+                                                    ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
+                                                    : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
+                                            >
+                                                <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
+                                                    ? 'bg-blue-600 border-blue-600 scale-110'
+                                                    : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
+                                                    {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
+                                                </div>
+                                                <div className="flex flex-col flex-1 min-w-0">
+                                                    <span className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
+                                                        {centre.centreName}
+                                                    </span>
+                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                                                        <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{centre.enterCode}</span>
+                                                        <div className="flex items-center gap-1 opacity-40">
+                                                            <Mail size={10} />
+                                                            <span className="text-[9px] font-bold lowercase">{centre.email || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 opacity-40">
+                                                            <Phone size={10} />
+                                                            <span className="text-[9px] font-bold">{centre.phoneNumber || 'N/A'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
-                                </div>
+                                            </div>
+                                        );
+                                    })}
                             </div>
                         </div>
 
@@ -622,111 +627,109 @@ const TestAllotment = () => {
                             </button>
                         </div>
 
-                        <div className={`p-0 max-h-[50vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
-                            <div className="p-6 space-y-5">
-                                {/* Selected Packages Summary (Legend Style) */}
-                                <div className="relative group">
-                                    <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
-                                        Section List
-                                    </label>
-                                    <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
-                                        {selectedSectionIds.length > 0 ? (
-                                            availableSections
-                                                .filter(s => selectedSectionIds.includes(s.id))
-                                                .map(s => (
-                                                    <div
-                                                        key={`sel-sec-${s.id}`}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
-                                                    >
-                                                        <span>{s.name}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedSectionIds(prev => prev.filter(id => id !== s.id));
-                                                            }}
-                                                            className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
-                                                        >
-                                                            <X size={12} strokeWidth={4} />
-                                                        </button>
-                                                    </div>
-                                                ))
-                                        ) : (
-                                            <div className="flex items-center h-full px-1">
-                                                <span className="text-slate-400 font-bold italic text-xs opacity-50">No Sections Selected...</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className={`h-px my-2 ${isDarkMode ? 'bg-white/5' : 'bg-slate-200/60'}`} />
-
-                                {/* Section Modal Search */}
-                                <div className="relative group">
-                                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search sections by name or code..."
-                                        value={sectionSearchTerm}
-                                        onChange={(e) => setSectionSearchTerm(e.target.value)}
-                                        className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
-                                    />
-                                    {sectionSearchTerm && (
-                                        <button
-                                            onClick={() => setSectionSearchTerm('')}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                                        >
-                                            <X size={14} strokeWidth={3} />
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="space-y-2">
-                                    {availableSections.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">No sections found</div>
-                                    ) : (
-                                        [...availableSections]
-                                            .filter(s =>
-                                                s.name?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
-                                                s.subject_code?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
-                                                s.code?.toLowerCase().includes(sectionSearchTerm.toLowerCase())
-                                            )
-                                            .sort((a, b) => {
-                                                const aSel = selectedSectionIds.includes(a.id);
-                                                const bSel = selectedSectionIds.includes(b.id);
-                                                if (aSel && !bSel) return -1;
-                                                if (!aSel && bSel) return 1;
-                                                return (a.name || "").localeCompare(b.name || "");
-                                            })
-                                            .map(section => {
-                                                const isSelected = selectedSectionIds.includes(section.id);
-                                                return (
-                                                    <div
-                                                        key={section.id}
-                                                        onClick={() => {
-                                                            if (isSelected) setSelectedSectionIds(prev => prev.filter(id => id !== section.id));
-                                                            else setSelectedSectionIds(prev => [...prev, section.id]);
+                        <div className={`p-6 pb-0 space-y-5 ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50'}`}>
+                            {/* Selected Packages Summary (Legend Style) */}
+                            <div className="relative group">
+                                <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
+                                    Section List
+                                </label>
+                                <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
+                                    {selectedSectionIds.length > 0 ? (
+                                        availableSections
+                                            .filter(s => selectedSectionIds.includes(s.id))
+                                            .map(s => (
+                                                <div
+                                                    key={`sel-sec-${s.id}`}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                                                >
+                                                    <span>{s.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedSectionIds(prev => prev.filter(id => id !== s.id));
                                                         }}
-                                                        className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
-                                                            ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
-                                                            : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
+                                                        className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
                                                     >
-                                                        <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
-                                                            ? 'bg-blue-600 border-blue-600 scale-110'
-                                                            : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
-                                                            {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className={`text-sm font-black uppercase tracking-tight ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
-                                                                {section.name}
-                                                            </span>
-                                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{section.subject_code || section.code || 'NO CODE'}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
+                                                        <X size={12} strokeWidth={4} />
+                                                    </button>
+                                                </div>
+                                            ))
+                                    ) : (
+                                        <div className="flex items-center h-full px-1">
+                                            <span className="text-slate-400 font-bold italic text-xs opacity-50">No Sections Selected...</span>
+                                        </div>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* Section Modal Search */}
+                            <div className="relative group pb-2">
+                                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search sections by name or code..."
+                                    value={sectionSearchTerm}
+                                    onChange={(e) => setSectionSearchTerm(e.target.value)}
+                                    className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                />
+                                {sectionSearchTerm && (
+                                    <button
+                                        onClick={() => setSectionSearchTerm('')}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        <X size={14} strokeWidth={3} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className={`p-0 max-h-[40vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
+                            <div className="px-6 pb-6 space-y-2">
+                                {availableSections.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">No sections found</div>
+                                ) : (
+                                    [...availableSections]
+                                        .filter(s =>
+                                            s.name?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
+                                            s.subject_code?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
+                                            s.code?.toLowerCase().includes(sectionSearchTerm.toLowerCase())
+                                        )
+                                        .sort((a, b) => {
+                                            const aSel = selectedSectionIds.includes(a.id);
+                                            const bSel = selectedSectionIds.includes(b.id);
+                                            if (aSel && !bSel) return -1;
+                                            if (!aSel && bSel) return 1;
+                                            return (a.name || "").localeCompare(b.name || "");
+                                        })
+                                        .map(section => {
+                                            const isSelected = selectedSectionIds.includes(section.id);
+                                            return (
+                                                <div
+                                                    key={section.id}
+                                                    onClick={() => {
+                                                        if (isSelected) setSelectedSectionIds(prev => prev.filter(id => id !== section.id));
+                                                        else setSelectedSectionIds(prev => [...prev, section.id]);
+                                                    }}
+                                                    className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
+                                                        ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
+                                                        : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
+                                                >
+                                                    <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
+                                                        ? 'bg-blue-600 border-blue-600 scale-110'
+                                                        : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
+                                                        {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-sm font-black uppercase tracking-tight ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
+                                                            {section.name}
+                                                        </span>
+                                                        <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{section.subject_code || section.code || 'NO CODE'}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                )}
                             </div>
                         </div>
 
