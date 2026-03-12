@@ -287,3 +287,32 @@ Successfully parsed 198 teacher records
 Fetched 198 from student-portal/teachers
 Fetched 505 from hr/employee, mapped 505 IDs
 Successfully parsed 198 teacher records
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Serving token from cache
+[TOKEN] Serving token from cache
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Serving token from cache
+Fetched 198 from student-portal/teachers
+Fetched 505 from hr/employee, mapped 505 IDs
+Successfully parsed 198 teacher records
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Serving token from cache
+[TOKEN] Serving token from cache
+[TOKEN] Serving token from cache
+Fetched 198 from student-portal/teachers
+[TOKEN] Serving token from cache
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Serving token from cache
+Fetched 505 from hr/employee, mapped 505 IDs
+Successfully parsed 198 teacher records
+Fetched 198 from student-portal/teachers
+Fetched 505 from hr/employee, mapped 505 IDs
+Successfully parsed 198 teacher records
+[TOKEN] Serving token from cache
+--- Request at /api/admin/erp-teachers/ ---

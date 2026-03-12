@@ -98,14 +98,14 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
             name: section.name,
             subject_code: section.subject_code,
             subject_id: section.subject_id || '',
-            total_questions: section.total_questions,
-            allowed_questions: section.allowed_questions,
+            total_questions: section.total_questions || 20,
+            allowed_questions: section.allowed_questions || 20,
             shuffle: section.shuffle,
-            correct_marks: section.correct_marks,
-            negative_marks: section.negative_marks,
-            partial_type: section.partial_type,
-            partial_marks: section.partial_marks,
-            priority: section.priority
+            correct_marks: section.correct_marks || 4,
+            negative_marks: section.negative_marks || 1,
+            partial_type: section.partial_type || 'regular',
+            partial_marks: section.partial_marks || 0,
+            priority: section.priority || 1
         });
         setIsModalOpen(true);
     };

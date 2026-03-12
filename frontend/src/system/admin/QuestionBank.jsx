@@ -154,18 +154,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
     };
 
-    // Manual Entry Form States
-    const [formKey, setFormKey] = useState(0);
-    const [form, setForm] = useState({
-        id: null,
-        classId: '',
-        subjectId: '',
-        topicId: '',
-        examTypeId: '',
-        targetExamId: '',
-        question_type: 'SINGLE_CHOICE',
-        level: '1',
+    const createNewQuestion = useCallback(() => ({
+        tempId: Date.now() + Math.random(),
         question: '',
+        question_type: 'SINGLE_CHOICE', // Initial individual type
         options: [
             { id: 1, content: '', isCorrect: false },
             { id: 2, content: '', isCorrect: false },
@@ -173,12 +165,26 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             { id: 4, content: '', isCorrect: false }
         ],
         solution: '',
+        image_1: '',
+        image_2: '',
+        answerFrom: '',
+        answerTo: ''
+    }), []);
+
+    const [formKey, setFormKey] = useState(0);
+
+    const [form, setForm] = useState({
+        id: null,
+        classId: '',
+        subjectId: '',
+        topicId: '',
+        examTypeId: '',
+        targetExamId: '',
+        level: '1',
         hasCalculator: false,
         useNumericOptions: false,
-        answerFrom: '',
-        answerTo: '',
-        image_1: '',
-        image_2: ''
+        isIndependentSelection: false,
+        questions: [createNewQuestion()]
     });
 
     const resetForm = () => {
@@ -190,22 +196,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             topicId: '',
             examTypeId: '',
             targetExamId: '',
-            question_type: 'SINGLE_CHOICE',
             level: '1',
-            question: '',
-            options: [
-                { id: 1, content: '', isCorrect: false },
-                { id: 2, content: '', isCorrect: false },
-                { id: 3, content: '', isCorrect: false },
-                { id: 4, content: '', isCorrect: false }
-            ],
-            solution: '',
             hasCalculator: false,
             useNumericOptions: false,
-            answerFrom: '',
-            answerTo: '',
-            image_1: '',
-            image_2: ''
+            isIndependentSelection: false,
+            questions: [createNewQuestion()]
         });
     };
 
@@ -386,6 +381,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
     // Cascading Filter: Filter subjects based on selected class
     const filteredSubjects = useMemo(() => {
+        if (form.isIndependentSelection) return subjects;
         if (!form.classId) return subjects;
         // Get unique subject IDs that have topics for the selected class
         const subjectIds = [...new Set(topics
@@ -393,16 +389,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             .map(t => String(t.subject))
         )];
         return subjects.filter(s => subjectIds.includes(String(s.id)));
-    }, [subjects, topics, form.classId]);
+    }, [subjects, topics, form.classId, form.isIndependentSelection]);
 
     // Cascading Filter: Filter topics based on selected class and subject
     const filteredTopics = useMemo(() => {
+        if (form.isIndependentSelection) return topics;
         return topics.filter(t => {
             const matchesClass = !form.classId || String(t.class_level) === String(form.classId);
             const matchesSubject = !form.subjectId || String(t.subject) === String(form.subjectId);
             return matchesClass && matchesSubject;
         });
-    }, [topics, form.classId, form.subjectId]);
+    }, [topics, form.classId, form.subjectId, form.isIndependentSelection]);
 
     // Formula Modal Opener (moved to top level for use in handlers)
     const openFormulaModal = (quill) => {
@@ -456,19 +453,36 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     };
 
     // Handle Option Toggle (Dynamic behavior for Single vs Multi Choice)
-    const handleToggleOption = (id) => {
+    const handleToggleOption = (qIndex, optId) => {
         setForm(prev => {
-            const isMulti = prev.question_type === 'MULTI_CHOICE';
-            return {
-                ...prev,
-                options: prev.options.map(opt => {
-                    if (opt.id === id) {
-                        return { ...opt, isCorrect: isMulti ? !opt.isCorrect : true };
-                    }
-                    return { ...opt, isCorrect: isMulti ? opt.isCorrect : false };
-                })
-            };
+            const updatedQuestions = [...prev.questions];
+            const currentQ = updatedQuestions[qIndex];
+            const isMulti = currentQ.question_type === 'MULTI_CHOICE';
+            
+            currentQ.options = currentQ.options.map(opt => {
+                if (opt.id === optId) {
+                    return { ...opt, isCorrect: isMulti ? !opt.isCorrect : true };
+                }
+                return { ...opt, isCorrect: isMulti ? opt.isCorrect : false };
+            });
+            
+            return { ...prev, questions: updatedQuestions };
         });
+    };
+
+    const addMoreQuestion = () => {
+        setForm(prev => ({
+            ...prev,
+            questions: [...prev.questions, createNewQuestion()]
+        }));
+    };
+
+    const removeQuestion = (index) => {
+        if (form.questions.length <= 1) return;
+        setForm(prev => ({
+            ...prev,
+            questions: prev.questions.filter((_, i) => i !== index)
+        }));
     };
 
     // Formula/Math Modal Component
@@ -840,9 +854,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
-        // Basic Validation
-        if (!form.question || (!form.options.some(o => o.isCorrect) && !['NUMERICAL', 'INTEGER_TYPE'].includes(form.question_type))) {
-            alert("Please fill in the question and select at least one correct answer.");
+        // Validation: Every question must have content and at least one answer if not numerical
+        const isValid = form.questions.every(q => {
+            const hasContent = !!(q.question || q.content);
+            const needsAnswer = !['NUMERICAL', 'INTEGER_TYPE'].includes(q.question_type);
+            const hasAnswer = needsAnswer ? q.options.some(o => o.isCorrect) : true;
+            return hasContent && hasAnswer;
+        });
+
+        if (!isValid) {
+            alert("Please ensure all questions have content and correct answers selected.");
             return;
         }
 
@@ -851,44 +872,48 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
 
-            const payload = {
-                content: form.question,
-                question_options: form.options,
-                solution: form.solution,
-                question_type: form.question_type,
-                difficulty_level: form.level,
-                class_level: form.classId,
-                subject: form.subjectId,
-                topic: form.topicId,
-                exam_type: form.examTypeId,
-                target_exam: form.targetExamId,
-                has_calculator: form.hasCalculator,
-                use_numeric_options: form.useNumericOptions,
-                answer_from: form.answerFrom || null,
-                answer_to: form.answerTo || null,
-                image_1: form.image_1,
-                image_2: form.image_2,
-            };
+            let successCount = 0;
+            
+            // Loop through all questions in the batch
+            for (const q of form.questions) {
+                const payload = {
+                    content: q.question,
+                    question_options: q.options,
+                    solution: q.solution,
+                    question_type: q.question_type,
+                    difficulty_level: form.level,
+                    class_level: form.classId,
+                    subject: form.subjectId,
+                    topic: form.topicId,
+                    exam_type: form.examTypeId,
+                    target_exam: form.targetExamId,
+                    has_calculator: form.hasCalculator,
+                    use_numeric_options: form.useNumericOptions,
+                    answer_from: q.answerFrom || null,
+                    answer_to: q.answerTo || null,
+                    image_1: q.image_1,
+                    image_2: q.image_2,
+                };
 
-            if (form.id) {
-                await axios.patch(`${apiUrl}/api/questions/${form.id}/`, payload, config);
-                alert("Question updated successfully!");
-            } else {
-                await axios.post(`${apiUrl}/api/questions/`, payload, config);
-                alert("Question added to bank successfully!");
+                if (form.id && q.tempId === form.id) {
+                    await axios.patch(`${apiUrl}/api/questions/${form.id}/`, payload, config);
+                } else {
+                    await axios.post(`${apiUrl}/api/questions/`, payload, config);
+                }
+                successCount++;
             }
 
-            resetForm();
-            if (view === 'manual' && form.id) {
+            alert(`${successCount} Question(s) ${form.id ? 'updated' : 'added'} successfully!`);
+            
+            if (form.id || form.questions.length > 0) {
+                resetForm();
                 fetchQuestions(true);
-                setView('repository');
-            } else {
-                fetchQuestions(true);
+                if (form.id) setView('repository');
             }
 
         } catch (error) {
             console.error("Submission Error", error);
-            alert("Failed to save question. Please try again.");
+            alert("Failed to save some questions. Check console for details.");
         } finally {
             setIsSubmitting(false);
         }
@@ -1326,22 +1351,25 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                             setForm({
                                                                 ...form,
                                                                 id: q.id || q._id,
-                                                                question: q.question || q.content,
-                                                                solution: q.solution,
-                                                                question_type: q.question_type || q.type,
                                                                 level: String(q.difficulty_level),
                                                                 classId: q.class_level,
                                                                 subjectId: q.subject?.id || q.subject,
                                                                 topicId: q.topic?.id || q.topic || '',
                                                                 examTypeId: q.exam_type?.id || q.exam_type || '',
                                                                 targetExamId: q.target_exam?.id || q.target_exam || '',
-                                                                options: formattedOptions.length > 0 ? formattedOptions : form.options,
                                                                 hasCalculator: q.has_calculator || false,
-                                                                useNumeric_options: q.use_numeric_options || false,
-                                                                answerFrom: q.answer_from || '',
-                                                                answerTo: q.answer_to || '',
-                                                                image_1: q.image_1 || '',
-                                                                image_2: q.image_2 || ''
+                                                                useNumericOptions: q.use_numeric_options || false,
+                                                                questions: [{
+                                                                    tempId: q.id || q._id,
+                                                                    question: q.question || q.content,
+                                                                    question_type: q.question_type || q.type,
+                                                                    solution: q.solution,
+                                                                    options: formattedOptions.length > 0 ? formattedOptions : createNewQuestion().options,
+                                                                    answerFrom: q.answer_from || '',
+                                                                    answerTo: q.answer_to || '',
+                                                                    image_1: q.image_1 || '',
+                                                                    image_2: q.image_2 || ''
+                                                                }]
                                                             });
                                                             setView('manual');
                                                         }}
@@ -1417,7 +1445,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
 
     const renderManualEntry = () => (
-        <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
+        <div key={formKey} className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
             {/* Nav Header */}
             <div className="flex items-center justify-between">
                 <button
@@ -1482,7 +1510,28 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 </div>
 
                 <div className="space-y-10">
-                    {/* Primary Metadata Filters */}
+                    {/* Metadata Header & Selection Toggle */}
+                    <div className="flex items-center justify-between pb-2">
+                        <div className="flex items-center gap-3">
+                            <Layers size={16} className="text-orange-500" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Content Metadata Hierarchy</span>
+                        </div>
+                        <div 
+                            onClick={() => setForm({ ...form, isIndependentSelection: !form.isIndependentSelection })}
+                            className={`flex items-center gap-4 px-8 py-4 rounded-[5px] border-2 border-dashed transition-all cursor-pointer active:scale-95
+                                ${form.isIndependentSelection ? 'bg-emerald-500/5 border-emerald-500/30 text-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
+                        >
+                            <button
+                                type="button"
+                                className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${form.isIndependentSelection ? 'bg-emerald-500 shadow-md' : 'bg-slate-300'}`}
+                            >
+                                <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${form.isIndependentSelection ? 'right-1' : 'left-1'}`} />
+                            </button>
+                            <span className="text-[11px] font-black uppercase tracking-[0.2em]">Independent Selection Mode</span>
+                        </div>
+                    </div>
+
+                    {/* Metadata Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                         <CustomSelect
                             label="Class"
@@ -1521,26 +1570,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         />
                     </div>
 
-                    {/* Secondary Filters & Settings */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Settings */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
                         <CustomSelect
-                            label="Question Type"
-                            value={form.question_type}
-                            options={[
-                                { value: 'SINGLE_CHOICE', label: 'SINGLE_CHOICE' },
-                                { value: 'MULTI_CHOICE', label: 'MULTI_CHOICE' },
-                                { value: 'NUMERICAL', label: 'NUMERICAL' },
-                                { value: 'MATRIX', label: 'MATRIX' },
-                                { value: 'ASSERTION', label: 'ASSERTION' },
-                                { value: 'INTEGER_TYPE', label: 'INTEGER_TYPE' },
-                                { value: 'PARAGRAPH', label: 'PARAGRAPH' },
-
-                            ]}
-                            placeholder="Select Type"
-                            onChange={(val) => setForm({ ...form, question_type: val })}
-                        />
-                        <CustomSelect
-                            label="Level"
+                            label="Default Level"
                             value={form.level}
                             options={[
                                 { value: '1', label: '1' },
@@ -1576,165 +1609,244 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         </div>
                     </div>
 
-                    {/* Question Content */}
-                    <div className="space-y-6">
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-black uppercase tracking-[0.2em]">Enter Question Content</label>
-                                <div className="flex gap-1">
-                                    <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {form.question.length}</span>
-                                    <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase bg-blue-500/10 text-blue-500`}>Draft Saved</span>
-                                </div>
-                            </div>
-                            <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
-                                <ReactQuill
-                                    key={`question-${formKey}`}
-                                    theme="snow"
-                                    modules={quillModules}
-                                    formats={quillFormats}
-                                    value={form.question}
-                                    onChange={(val) => setForm({ ...form, question: val })}
-                                    placeholder="Enter Question content here..."
-                                />
-                            </div>
-                        </div>
-
-                        {/* LIVE IMAGE PREVIEW */}
-                        {(form.image_1 || form.image_2) && (
-                            <div className="flex flex-wrap gap-4 pt-2">
-                                {form.image_1 && (
-                                    <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
-                                        <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
-                                            <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 1</span>
+                    <div className="space-y-20">
+                        {form.questions.map((q, qIdx) => (
+                            <div key={q.tempId} className={`p-8 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'} relative animate-in zoom-in duration-500`}>
+                                {/* Header / Remove Button */}
+                                <div className="flex flex-wrap items-center justify-between gap-6 mb-8 pb-6 border-b border-dashed border-slate-200/30">
+                                    <div className="flex items-center gap-6">
+                                        <h4 className="px-4 py-1.5 bg-orange-500 text-white rounded-[5px] text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-orange-500/20">
+                                            Question #{qIdx + 1}
+                                        </h4>
+                                        <div className="w-[200px]">
+                                            <CustomSelect
+                                                label="Question Type"
+                                                value={q.question_type}
+                                                options={[
+                                                    { value: 'SINGLE_CHOICE', label: 'SINGLE_CHOICE' },
+                                                    { value: 'MULTI_CHOICE', label: 'MULTI_CHOICE' },
+                                                    { value: 'NUMERICAL', label: 'NUMERICAL' },
+                                                    { value: 'MATRIX', label: 'MATRIX' },
+                                                    { value: 'ASSERTION', label: 'ASSERTION' },
+                                                    { value: 'INTEGER_TYPE', label: 'INTEGER_TYPE' },
+                                                    { value: 'PARAGRAPH', label: 'PARAGRAPH' },
+                                                ]}
+                                                placeholder="Select Type"
+                                                onChange={(val) => {
+                                                    const updated = [...form.questions];
+                                                    updated[qIdx].question_type = val;
+                                                    setForm({ ...form, questions: updated });
+                                                }}
+                                            />
                                         </div>
-                                        <img src={form.image_1} alt="Preview 1" className="w-full h-auto max-h-40 object-contain p-4" />
                                     </div>
-                                )}
-                                {form.image_2 && (
-                                    <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
-                                        <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
-                                            <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 2</span>
-                                        </div>
-                                        <img src={form.image_2} alt="Preview 2" className="w-full h-auto max-h-40 object-contain p-4" />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Direct Image Links */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
-                                <input
-                                    type="text"
-                                    placeholder="https://example.com/image1.png"
-                                    value={form.image_1 || ''}
-                                    onChange={(e) => setForm({ ...form, image_1: e.target.value })}
-                                    className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
-                                <input
-                                    type="text"
-                                    placeholder="https://example.com/image2.png"
-                                    value={form.image_2 || ''}
-                                    onChange={(e) => setForm({ ...form, image_2: e.target.value })}
-                                    className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Options or Answer Range System */}
-                    {['NUMERICAL', 'INTEGER_TYPE'].includes(form.question_type) ? (
-                        <div className="space-y-4">
-                            <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Answer Range</label>
-                            <div className="flex flex-col md:flex-row gap-6">
-                                <div className="space-y-1 flex-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">From *</label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        placeholder="Min valid value"
-                                        value={form.answerFrom}
-                                        onChange={(e) => setForm({ ...form, answerFrom: e.target.value })}
-                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                    />
-                                </div>
-                                <div className="space-y-1 flex-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">To *</label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        placeholder="Max valid value"
-                                        value={form.answerTo}
-                                        onChange={(e) => setForm({ ...form, answerTo: e.target.value })}
-                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {form.options.map((opt, index) => (
-                                <div key={opt.id} className="space-y-3 relative group">
-                                    <div className="flex items-center justify-between px-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${opt.isCorrect ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                {String.fromCharCode(65 + index)}
-                                            </div>
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Option {index + 1}</label>
-                                        </div>
+                                    {form.questions.length > 1 && (
                                         <button
-                                            type="button"
-                                            onClick={() => handleToggleOption(opt.id)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
+                                            onClick={() => removeQuestion(qIdx)}
+                                            className="p-2 text-red-500 hover:bg-red-500 hover:text-white rounded-[5px] transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
                                         >
-                                            <div className={`w-4 h-4 flex items-center justify-center transition-all border-2 
-                                                ${form.question_type === 'MULTI_CHOICE' ? 'rounded-[5px]' : 'rounded-full'}
-                                                ${opt.isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-current'}`}
-                                            >
-                                                {opt.isCorrect && <Check size={10} strokeWidth={4} className="text-white" />}
-                                            </div>
-                                            <span className="text-[9px] font-black uppercase tracking-widest">
-                                                {opt.isCorrect ? (form.question_type === 'MULTI_CHOICE' ? 'Selected' : 'Correct Answer') : 'Mark Correct'}
-                                            </span>
+                                            <Trash2 size={16} /> Remove
                                         </button>
-                                    </div>
-                                    <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${opt.isCorrect ? 'border-emerald-500/40 bg-emerald-500/[0.02]' : isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
-                                        <ReactQuill
-                                            key={`opt-${index}-${formKey}`}
-                                            theme="snow"
-                                            modules={quillModules}
-                                            formats={quillFormats}
-                                            value={opt.content}
-                                            onChange={(val) => {
-                                                const newOps = [...form.options];
-                                                newOps[index].content = val;
-                                                setForm({ ...form, options: newOps });
-                                            }}
-                                            placeholder={`Enter content for Option ${String.fromCharCode(65 + index)}...`}
-                                        />
+                                    )}
+                                </div>
+
+                                {/* Question Content Header */}
+                                <div className="flex flex-col gap-6 mb-8">
+                                    <div className="flex-1 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-black uppercase tracking-[0.2em]">Enter Question Content</label>
+                                            <div className="flex gap-1">
+                                                <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {q.question?.length || 0}</span>
+                                            </div>
+                                        </div>
+                                        <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
+                                            <ReactQuill
+                                                key={`question-${q.tempId}`}
+                                                theme="snow"
+                                                modules={quillModules}
+                                                formats={quillFormats}
+                                                value={q.question}
+                                                onChange={(val) => {
+                                                    const updated = [...form.questions];
+                                                    updated[qIdx].question = val;
+                                                    setForm({ ...form, questions: updated });
+                                                }}
+                                                placeholder="Enter Question content here..."
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
 
-                    {/* Solution / Explanation */}
-                    <div className="space-y-4">
-                        <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
-                        <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
-                            <ReactQuill
-                                key={`solution-${formKey}`}
-                                theme="snow"
-                                modules={quillModules}
-                                formats={quillFormats}
-                                value={form.solution}
-                                onChange={(val) => setForm({ ...form, solution: val })}
-                                placeholder="Explain how to arrive at the correct answer..."
-                            />
+                                    {/* LIVE IMAGE PREVIEW */}
+                                    {(q.image_1 || q.image_2) && (
+                                        <div className="flex flex-wrap gap-4 pt-2">
+                                            {q.image_1 && (
+                                                <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                                    <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
+                                                        <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 1</span>
+                                                    </div>
+                                                    <img src={q.image_1} alt="Preview 1" className="w-full h-auto max-h-40 object-contain p-4" />
+                                                </div>
+                                            )}
+                                            {q.image_2 && (
+                                                <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                                    <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
+                                                        <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 2</span>
+                                                    </div>
+                                                    <img src={q.image_2} alt="Preview 2" className="w-full h-auto max-h-40 object-contain p-4" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Direct Image Links */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="https://example.com/image1.png"
+                                                value={q.image_1 || ''}
+                                                onChange={(e) => {
+                                                    const updated = [...form.questions];
+                                                    updated[qIdx].image_1 = e.target.value;
+                                                    setForm({ ...form, questions: updated });
+                                                }}
+                                                className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="https://example.com/image2.png"
+                                                value={q.image_2 || ''}
+                                                onChange={(e) => {
+                                                    const updated = [...form.questions];
+                                                    updated[qIdx].image_2 = e.target.value;
+                                                    setForm({ ...form, questions: updated });
+                                                }}
+                                                className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Options or Answer Range System */}
+                                    {['NUMERICAL', 'INTEGER_TYPE'].includes(q.question_type) ? (
+                                        <div className="space-y-4">
+                                            <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Answer Range</label>
+                                            <div className="flex flex-col md:flex-row gap-6">
+                                                <div className="space-y-1 flex-1">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">From *</label>
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        placeholder="Min valid value"
+                                                        value={q.answerFrom}
+                                                        onChange={(e) => {
+                                                            const updated = [...form.questions];
+                                                            updated[qIdx].answerFrom = e.target.value;
+                                                            setForm({ ...form, questions: updated });
+                                                        }}
+                                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1 flex-1">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">To *</label>
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        placeholder="Max valid value"
+                                                        value={q.answerTo}
+                                                        onChange={(e) => {
+                                                            const updated = [...form.questions];
+                                                            updated[qIdx].answerTo = e.target.value;
+                                                            setForm({ ...form, questions: updated });
+                                                        }}
+                                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            {q.options.map((opt, optIndex) => (
+                                                <div key={opt.id} className="space-y-3 relative group">
+                                                    <div className="flex items-center justify-between px-2">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${opt.isCorrect ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                                {String.fromCharCode(65 + optIndex)}
+                                                            </div>
+                                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Option {optIndex + 1}</label>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleOption(qIdx, opt.id)}
+                                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
+                                                        >
+                                                            <div className={`w-4 h-4 flex items-center justify-center transition-all border-2 
+                                                                ${q.question_type === 'MULTI_CHOICE' ? 'rounded-[5px]' : 'rounded-full'}
+                                                                ${opt.isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-current'}`}
+                                                            >
+                                                                {opt.isCorrect && <Check size={10} strokeWidth={4} className="text-white" />}
+                                                            </div>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest">
+                                                                {opt.isCorrect ? (q.question_type === 'MULTI_CHOICE' ? 'Selected' : 'Correct Answer') : 'Mark Correct'}
+                                                            </span>
+                                                        </button>
+                                                    </div>
+                                                    <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${opt.isCorrect ? 'border-emerald-500/40 bg-emerald-500/[0.02]' : isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
+                                                        <ReactQuill
+                                                            key={`opt-${q.tempId}-${optIndex}`}
+                                                            theme="snow"
+                                                            modules={quillModules}
+                                                            formats={quillFormats}
+                                                            value={opt.content}
+                                                            onChange={(val) => {
+                                                                const updated = [...form.questions];
+                                                                updated[qIdx].options[optIndex].content = val;
+                                                                setForm({ ...form, questions: updated });
+                                                            }}
+                                                            placeholder={`Enter content for Option ${String.fromCharCode(65 + optIndex)}...`}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Solution / Explanation */}
+                                    <div className="space-y-4">
+                                        <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
+                                        <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
+                                            <ReactQuill
+                                                key={`solution-${q.tempId}`}
+                                                theme="snow"
+                                                modules={quillModules}
+                                                formats={quillFormats}
+                                                value={q.solution}
+                                                onChange={(val) => {
+                                                    const updated = [...form.questions];
+                                                    updated[qIdx].solution = val;
+                                                    setForm({ ...form, questions: updated });
+                                                }}
+                                                placeholder="Explain how to arrive at the correct answer..."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                        ))}
+
+                        {/* Add More Question Button */}
+                        <div className="flex justify-center">
+                            <button
+                                type="button"
+                                onClick={addMoreQuestion}
+                                className="px-10 py-5 border-4 border-dashed border-orange-500/20 rounded-[5px] text-orange-500 font-black uppercase tracking-widest text-xs hover:bg-orange-500/5 hover:border-orange-500/40 transition-all flex items-center gap-3 active:scale-95"
+                            >
+                                <Plus size={20} strokeWidth={3} />
+                                Add More Question
+                            </button>
                         </div>
                     </div>
 
@@ -1750,12 +1862,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             {isSubmitting ? (
                                 <>
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    {form.id ? 'Updating...' : 'Saving...'}
+                                    {form.id ? 'Updating...' : `Processing ${form.questions.length} Question(s)...`}
                                 </>
                             ) : (
                                 <>
                                     <Save size={20} />
-                                    {form.id ? 'Update Question' : 'Save To Bank'}
+                                    {form.id ? 'Update Question' : `Save ${form.questions.length} Question(s) to Bank`}
                                 </>
                             )}
                         </button>
@@ -1765,6 +1877,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
         </div >
     );
+
 
     const renderMediaLibrary = () => (
         <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">

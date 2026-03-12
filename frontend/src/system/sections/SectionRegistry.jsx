@@ -119,7 +119,16 @@ const SectionRegistry = () => {
                 : `${apiUrl}/api/sections/`;
             const method = modalMode === 'edit' ? 'patch' : 'post';
 
-            const response = await axios[method](url, formData, {
+            const payload = {
+                ...formData,
+                total_questions: 20,
+                allowed_questions: 20,
+                correct_marks: 4,
+                negative_marks: 1,
+                priority: 1
+            };
+
+            const response = await axios[method](url, payload, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
