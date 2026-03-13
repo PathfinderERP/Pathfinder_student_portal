@@ -126,7 +126,7 @@ def list_master_sections(request):
             tests = Test.objects.filter(allotted_sections=section).select_related('exam_type')
             allotments = TestCentreAllotment.objects.filter(test__in=tests).select_related('centre', 'test', 'test__exam_type')
             
-            # Build a map of all unique centres allotted to this section via any test
+            # Map of unique centres allotted to this section via any test (for fallback)
             section_centres_map = {}
             for a in allotments:
                 cid = str(a.centre._id)
@@ -137,76 +137,101 @@ def list_master_sections(request):
                         'code': a.centre.code,
                         'location': a.centre.location,
                     }
+            all_centres = list(section_centres_map.values())
 
             # 2. Check for content assignments
             from master_data.models import LibraryItem, PenPaperTest, Homework, Video
             
-            # Online Tests
-            online_tests = [t for t in tests if t.exam_type and "omr" not in t.exam_type.name.lower() and "offline" not in t.exam_type.name.lower()]
-            has_online = len(online_tests) > 0
-            
-            # Offline/OMR Tests
-            offline_tests = [t for t in tests if t.exam_type and ("omr" in t.exam_type.name.lower() or "offline" in t.exam_type.name.lower())]
-            has_offline = len(offline_tests) > 0 or PenPaperTest.objects.filter(sections=section).exists()
-            
-            # Study Materials
-            has_study = (
-                LibraryItem.objects.filter(section=section).exists() or 
-                Homework.objects.filter(sections=section).exists() or 
-                Video.objects.filter(section=section).exists()
-            )
-
-            # 3. Categorize Centres
-            online_exam_centres = []
-            offline_exam_centres = []
-            study_material_centres = []
+            # Category filters
+            online_exam_list = []
+            offline_exam_list = []
+            study_material_list = []
 
             is_student = hasattr(user, 'user_type') and user.user_type == 'student'
             exam_sec = getattr(user, 'exam_section', None)
             study_sec = getattr(user, 'study_section', None)
             omr_sec = getattr(user, 'omr_code', None)
 
-            # A. Online Category
-            if has_online:
-                # Student must be in the exam section
-                if not is_student or section.name == exam_sec:
-                    # Filter only centres for online tests
-                    seen = set()
-                    for a in allotments:
-                        if a.test in online_tests:
-                            cid = str(a.centre._id)
-                            if cid not in seen:
-                                online_exam_centres.append(section_centres_map[cid])
-                                seen.add(cid)
+            # A. Online & Offline Tests (Exam Section check)
+            if not is_student or section.name == exam_sec or section.name == omr_sec:
+                for test in tests:
+                    t_type_name = (test.exam_type.name or "").lower() if test.exam_type else ""
+                    is_omr = "omr" in t_type_name or "offline" in t_type_name
+                    
+                    # Get centres for THIS specific test
+                    t_centres = [
+                        {
+                            'id': str(a.centre._id),
+                            'name': a.centre.name,
+                            'code': a.centre.code,
+                            'location': a.centre.location
+                        }
+                        for a in allotments if a.test_id == test.id
+                    ]
+                    
+                    if t_centres:
+                        item_data = {
+                            'id': str(test.id),
+                            'name': test.name,
+                            'type': 'Online Test' if not is_omr else 'Offline Test',
+                            'centres': t_centres
+                        }
+                        if is_omr:
+                            offline_exam_list.append(item_data)
+                        else:
+                            online_exam_list.append(item_data)
 
-            # B. Offline/OMR Category
-            if has_offline:
-                # Student must be in either exam or omr section
-                if not is_student or section.name in [exam_sec, omr_sec]:
-                    seen = set()
-                    for a in allotments:
-                        # Show all section centres if there's a PenPaperTest, or filter for offline tests
-                        if len(offline_tests) == 0 or a.test in offline_tests:
-                            cid = str(a.centre._id)
-                            if cid not in seen:
-                                offline_exam_centres.append(section_centres_map[cid])
-                                seen.add(cid)
+                # PenPaperTests (Always Offline)
+                pp_tests = PenPaperTest.objects.filter(sections=section)
+                for ppt in pp_tests:
+                    offline_exam_list.append({
+                        'id': str(ppt.id),
+                        'name': ppt.name,
+                        'type': 'Pen Paper Test',
+                        'centres': all_centres # Fallback to all section centres
+                    })
 
-            # C. Study Material Category
-            if has_study:
-                # Student must be in the study section
-                if not is_student or section.name == study_sec:
-                    study_material_centres = list(section_centres_map.values())
+            # B. Study Materials (Study Section check)
+            if not is_student or section.name == study_sec:
+                # Library Items
+                lib_items = LibraryItem.objects.filter(section=section)
+                for item in lib_items:
+                    study_material_list.append({
+                        'id': str(item.id),
+                        'name': item.name,
+                        'type': 'Library Item',
+                        'centres': all_centres
+                    })
+                
+                # Homework
+                hw_items = Homework.objects.filter(sections=section)
+                for item in hw_items:
+                    study_material_list.append({
+                        'id': str(item.id),
+                        'name': item.name,
+                        'type': 'Homework',
+                        'centres': all_centres
+                    })
+
+                # Videos
+                vid_items = Video.objects.filter(section=section)
+                for item in vid_items:
+                    study_material_list.append({
+                        'id': str(item.id),
+                        'name': item.title,
+                        'type': 'Video',
+                        'centres': all_centres
+                    })
 
             result.append({
                 'id': str(section._id),
                 'name': section.name,
                 'subject_code': section.subject_code,
                 'priority': section.priority,
-                'online_exam_centres': online_exam_centres,
-                'offline_exam_centres': offline_exam_centres,
-                'study_material_centres': study_material_centres,
-                'centres_count': len(section_centres_map)
+                'online_exam_centres': online_exam_list,
+                'offline_exam_centres': offline_exam_list,
+                'study_material_centres': study_material_list,
+                'centres_count': len(all_centres)
             })
 
         return Response({
