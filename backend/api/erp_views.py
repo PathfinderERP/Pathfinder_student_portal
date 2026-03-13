@@ -110,35 +110,13 @@ def get_student_erp_data(request):
     print(f"[ERP] Strategy 1 {'REFRESH' if force_refresh else 'THIN'}: Syncing {search_email}...")
 
     # ── Strategy 2: Admin Bulk Cache Search (Global) ──────────────────────────
-    # SKIP Strategy 2 if force_refresh is true to avoid stale bulk data
+    # Removed the massive 17+ second synchronous fetch of all students. 
+    # If the student is not in the individual cache, we skip straight to Strategy 3
+    # which queries the ERP for their specific email address instead of the whole database.
     if not force_refresh:
         bulk_cache_key = 'erp_all_students_v1'
         bulk_cache = cache.get(bulk_cache_key)
         
-        # PROACTIVE ENRICHMENT: If bulk cache is missing, try to fetch it once using Admin Token
-        if not bulk_cache and not request.GET.get('no_bulk'):
-            sync_lock = 'erp_bulk_sync_in_progress'
-            if not cache.get(sync_lock):
-                cache.set(sync_lock, True, 300) # 5 min lock
-                print(f"[ERP] Strategy 2 PROACTIVE: Fetching master list via Admin (120s timeout)...")
-                try:
-                    admin_token = _get_erp_admin_token()
-                    if admin_token:
-                        # HEAVY FETCH: 120s timeout for payload
-                        resp = requests.get(f"{erp_url}/api/admission", 
-                                            headers={"Authorization": f"Bearer {admin_token}"},
-                                            timeout=120, stream=True)
-                        if resp.status_code == 200:
-                            raw_data = resp.json() if not resp.content else __import__('json').loads(resp.content)
-                            if isinstance(raw_data, list) and len(raw_data) > 1000:
-                                print(f"[ERP] Strategy 2: Master list ({len(raw_data)}) cached.")
-                                cache.set(bulk_cache_key, raw_data, 7200)
-                                bulk_cache = raw_data
-                except Exception as e:
-                    print(f"[ERP] Strategy 2 Bulk Sync failed: {e}")
-                finally:
-                    cache.delete(sync_lock)
-
         if bulk_cache and isinstance(bulk_cache, list):
             print(f"[ERP] Strategy 2: Filtering {search_email}/{search_username} from records...")
             for admission in bulk_cache:
