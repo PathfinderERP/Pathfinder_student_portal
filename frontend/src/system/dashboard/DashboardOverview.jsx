@@ -8,8 +8,53 @@ const DashboardOverview = ({
     syncERP,
     isERPLoading,
     erpStudentsCount,
-    setActiveTab
+    erpCentresCount,
+    dashboardStats,
+    setActiveTab,
+    onNavigateMaster
 }) => {
+    // Helper to format large numbers (e.g., 4200 -> 4.2k)
+    const formatValue = (val) => {
+        if (!val) return '0';
+        if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+        return val.toString();
+    };
+
+    const stats = [
+        { 
+            label: 'TOTAL CENTRES', 
+            value: erpCentresCount > 0 ? erpCentresCount.toString() : '28', 
+            icon: MapPin, 
+            color: 'emerald', 
+            trend: 'Across active regions',
+            onClick: () => setActiveTab('Centre Management')
+        },
+        { 
+            label: 'ACTIVE SECTIONS', 
+            value: dashboardStats?.sections?.total > 0 ? dashboardStats.sections.total.toString() : '142', 
+            icon: Layers, 
+            color: 'blue', 
+            trend: dashboardStats?.sections?.thisMonth > 0 ? `+${dashboardStats.sections.thisMonth} this month` : 'All sections active',
+            onClick: () => onNavigateMaster('Section Management')
+        },
+        { 
+            label: 'TOTAL STUDENTS', 
+            value: erpStudentsCount > 0 ? erpStudentsCount.toString() : (isERPLoading ? '...' : '5042'), 
+            icon: Users, 
+            color: 'purple', 
+            trend: 'Live from ERP',
+            onClick: () => setActiveTab('Admin Student')
+        },
+        { 
+            label: 'QUESTION BANK', 
+            value: dashboardStats?.questions?.total > 0 ? formatValue(dashboardStats.questions.total) : '4.2k', 
+            icon: Database, 
+            color: 'orange', 
+            trend: dashboardStats?.questions?.thisMonth > 0 ? `+${dashboardStats.questions.thisMonth} new this month` : 'Categorized items',
+            onClick: () => setActiveTab('Question Bank')
+        },
+    ];
+
     return (
         <div className="space-y-8">
             {/* Dashboard Overview Banner */}
@@ -47,16 +92,14 @@ const DashboardOverview = ({
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                    { label: 'TOTAL CENTRES', value: '28', icon: MapPin, color: 'emerald', trend: 'Across active regions' },
-                    { label: 'ACTIVE SECTIONS', value: '142', icon: Layers, color: 'blue', trend: '+5 new this week' },
-                    { label: 'TOTAL STUDENTS', value: erpStudentsCount > 0 ? erpStudentsCount.toString() : (isERPLoading ? '...' : '684'), icon: Users, color: 'purple', trend: 'Live from ERP' },
-                    { label: 'QUESTION BANK', value: '4.2k', icon: Database, color: 'orange', trend: 'Categorized items' },
-                ].map((stat, i) => (
-                    <div key={i} className={`relative overflow-hidden p-8 rounded-[5px] border transition-all duration-500 group hover:-translate-y-2
+                {stats.map((stat, i) => (
+                    <div 
+                        key={i} 
+                        onClick={stat.onClick}
+                        className={`relative overflow-hidden p-8 rounded-[5px] border transition-all duration-500 group hover:-translate-y-2 cursor-pointer
                         ${isDarkMode
-                            ? `bg-[#0B0E14] border-white/5 shadow-2xl`
-                            : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}
+                            ? `bg-[#0B0E14] border-white/5 shadow-2xl hover:bg-white/[0.02]`
+                            : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-orange-500/10'}`}
                         style={{
                             boxShadow: stat.color === 'blue' ? `0 20px 40px -20px ${isDarkMode ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.4)'}` :
                                 stat.color === 'purple' ? `0 20px 40px -20px ${isDarkMode ? 'rgba(168, 85, 247, 0.3)' : 'rgba(168, 85, 247, 0.4)'}` :

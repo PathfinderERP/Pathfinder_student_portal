@@ -85,6 +85,10 @@ const SystemDashboard = () => {
     const [erpTeachers, setErpTeachers] = useState([]);
     const [erpCentres, setErpCentres] = useState([]);
     const [isERPLoading, setIsERPLoading] = useState(false);
+    const [dashboardStats, setDashboardStats] = useState({
+        sections: { total: 0, thisMonth: 0 },
+        questions: { total: 0, thisMonth: 0 }
+    });
     const [masterSubTab, setMasterSubTab] = useState('Session');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -241,12 +245,34 @@ const SystemDashboard = () => {
     }, [activeTab, getApiUrl, authLoading, token]);
 
     const syncAttempted = useRef(false);
+    const fetchDashboardStats = useCallback(async () => {
+        if (authLoading || !token) return;
+        try {
+            const apiUrl = getApiUrl();
+            const config = { headers: { 'Authorization': `Bearer ${token}` } };
+            const [secResp, qResp] = await Promise.all([
+                axios.get(`${apiUrl}/api/sections/stats/`, config),
+                axios.get(`${apiUrl}/api/questions/stats/`, config)
+            ]);
+            setDashboardStats({
+                sections: secResp.data,
+                questions: qResp.data
+            });
+        } catch (err) {
+            console.error("Failed to fetch dashboard stats", err);
+        }
+    }, [token, getApiUrl, authLoading]);
+
     const syncERP = useCallback(async (isManual = false) => {
         if (!isManual && syncAttempted.current) return;
         if (authLoading || !token) return;
 
         setIsERPLoading(true);
         syncAttempted.current = true;
+
+        if (isManual) {
+            fetchDashboardStats();
+        }
 
         try {
             const apiUrl = getApiUrl();
@@ -274,13 +300,17 @@ const SystemDashboard = () => {
         } finally {
             setIsERPLoading(false);
         }
-    }, [token, getApiUrl, user?.email]);
+    }, [token, getApiUrl, authLoading, fetchDashboardStats]);
 
     useEffect(() => {
         syncERP();
-        const interval = setInterval(() => syncERP(false), 600000);
+        fetchDashboardStats();
+        const interval = setInterval(() => {
+            syncERP(false);
+            fetchDashboardStats();
+        }, 600000);
         return () => clearInterval(interval);
-    }, [syncERP]);
+    }, [syncERP, fetchDashboardStats]);
 
     // 3. Permissions & Sidebar
     const hasPermission = (moduleId, subModuleId = null) => {
@@ -410,7 +440,21 @@ const SystemDashboard = () => {
     const renderPage = (tabName) => {
         switch (tabName) {
             case 'Dashboard':
-                return <DashboardOverview isDarkMode={isDarkMode} syncERP={syncERP} isLoading={isERPLoading} erpStudentsCount={erpStudents.length} setActiveTab={setActiveTab} />;
+                return (
+                    <DashboardOverview
+                        isDarkMode={isDarkMode}
+                        syncERP={syncERP}
+                        isERPLoading={isERPLoading}
+                        erpStudentsCount={erpStudents.length}
+                        erpCentresCount={erpCentres.length}
+                        dashboardStats={dashboardStats}
+                        setActiveTab={setActiveTab}
+                        onNavigateMaster={(subTab) => {
+                            setActiveTab('Admin Master Data');
+                            setMasterSubTab(subTab);
+                        }}
+                    />
+                );
             case 'Create User':
                 return isSuperAdmin ? <CreateUserPage onBack={() => setActiveTab('Admin System')} /> : null;
             case 'Admin System':

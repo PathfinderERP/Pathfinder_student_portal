@@ -163,9 +163,11 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
     };
 
 
-    const filteredSections = sections.filter(s =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredSections = Array.isArray(sections)
+        ? sections.filter(s =>
+            (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : [];
 
     return (
         <div className={`min-h-screen ${isDarkMode ? 'bg-[#0B0F17] text-white' : 'bg-slate-50 text-slate-900'} px-1 py-6 animate-in fade-in duration-500`}>

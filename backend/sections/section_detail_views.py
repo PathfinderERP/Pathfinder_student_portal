@@ -94,6 +94,24 @@ def _serialize_test_full(test):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def section_stats(request):
+    # Total Sections (Master Sections only)
+    total = Section.objects.filter(test__isnull=True).count()
+    
+    # This Month (Master Sections only)
+    from django.utils import timezone
+    now = timezone.now()
+    first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    this_month_count = Section.objects.filter(test__isnull=True, created_at__gte=first_day_of_month).count()
+    
+    return Response({
+        "total": total,
+        "thisMonth": this_month_count
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def list_master_sections(request):
     """
     GET /api/sections/master/

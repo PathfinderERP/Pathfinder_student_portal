@@ -18,6 +18,7 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
     
     // State to track the current section being viewed
     const [section, setSection] = useState(initialSection);
+    const [activeTab, setActiveTab] = useState(initialSection.initialTab || 'online');
     const [tests, setTests] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -30,29 +31,47 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
             const response = await axios.get(`${apiUrl}/api/tests/?_t=${Date.now()}`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
-            const matched = response.data.filter(t =>
-                t.allotted_sections?.includes(section.id)
-            );
-            setTests(matched);
+            
+            // Handle both array and paginated formats
+            const testsData = Array.isArray(response.data) 
+                ? response.data 
+                : (response.data.results || response.data.tests || []);
+            
+            setTests(testsData);
         } catch (err) {
             console.error('Error fetching tests:', err);
         } finally {
             if (showLoader) setIsLoading(false);
         }
-    }, [getApiUrl, token, section.id]);
+    }, [getApiUrl, token]);
 
     useEffect(() => {
         fetchTests(true);
         const interval = setInterval(() => {
             fetchTests(false);
-        }, 5000);
+        }, 30000); // 30s refresh is enough
         return () => clearInterval(interval);
     }, [fetchTests]);
 
-    const filteredTests = tests.filter(t =>
-        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.code.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const getActiveData = useCallback(() => {
+        if (activeTab === 'study') {
+            return (section.study_material_centres || []).filter(item => 
+                (item.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        const targetIds = activeTab === 'online' 
+            ? (section.online_exam_centres || []).map(i => String(i.id))
+            : (section.offline_exam_centres || []).map(i => String(i.id));
+
+        return tests.filter(t => 
+            targetIds.includes(String(t.id)) &&
+            ((t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+             (t.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    }, [activeTab, section, tests, searchTerm]);
+
+    const displayData = getActiveData();
 
     return (
         <div className="p-1 animate-in fade-in duration-500">
@@ -75,6 +94,35 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
                 ))}
             </div>
 
+            {/* 2. CATEGORY TABS - Sub-filtering within the section */}
+            <div className="flex items-center gap-6 mb-8 px-2">
+                {[
+                    { id: 'online', label: 'Online Tests', count: (section.online_exam_centres || []).length, color: 'blue' },
+                    { id: 'offline', label: 'Offline Tests', count: (section.offline_exam_centres || []).length, color: 'orange' },
+                    { id: 'study', label: 'Study Materials', count: (section.study_material_centres || []).length, color: 'emerald' }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`group relative flex items-center gap-3 pb-4 transition-all
+                            ${activeTab === tab.id 
+                                ? `text-${tab.color}-500 opacity-100` 
+                                : 'text-slate-400 opacity-60 hover:opacity-100'}`}
+                    >
+                        <span className="text-xs font-black uppercase tracking-widest">{tab.label}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black 
+                            ${activeTab === tab.id 
+                                ? (tab.color === 'blue' ? 'bg-blue-500/10' : tab.color === 'orange' ? 'bg-orange-500/10' : 'bg-emerald-500/10')
+                                : 'bg-slate-500/10'}`}>
+                            {tab.count}
+                        </span>
+                        {activeTab === tab.id && (
+                            <div className={`absolute bottom-0 left-0 right-0 h-1 rounded-full ${tab.color === 'blue' ? 'bg-blue-500' : tab.color === 'orange' ? 'bg-orange-500' : 'bg-emerald-500'} animate-in slide-in-from-left-2 duration-300`} />
+                        )}
+                    </button>
+                ))}
+            </div>
+
             {/* Header / Info Area */}
             <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -87,12 +135,12 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
                         </button>
                         <div>
                             <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                                All Tests <span className="text-orange-500">Details</span>
+                                {activeTab === 'study' ? 'Material' : 'Test'} <span className="text-orange-500">Details</span>
                             </h2>
                             <p className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                 <span className={`px-2 py-0.5 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-orange-400' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>{section.code}</span>
                                 <span>-</span>
-                                <span className="opacity-80">{section.name} Tests</span>
+                                <span className="opacity-80">{section.name} {activeTab === 'study' ? 'Materials' : 'Tests'} List</span>
                             </p>
                         </div>
                     </div>
@@ -102,7 +150,7 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
                             <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={18} />
                             <input
                                 type="text"
-                                placeholder={`Search ${section.name} tests...`}
+                                placeholder={`Search ${activeTab} items...`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-bold text-sm
@@ -129,10 +177,10 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
                         <thead className="sticky top-0 z-10">
                             <tr className={`text-[11px] font-black uppercase tracking-[0.2em] border-b ${isDarkMode ? 'bg-[#1A1F1D] text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                                 <th className="py-6 px-10">#</th>
-                                <th className="py-6 px-10">Test Name</th>
-                                <th className="py-6 px-10">Test Code</th>
-                                <th className="py-6 px-10 text-center">Duration</th>
-                                <th className="py-6 px-10 text-right pr-12">Completed</th>
+                                <th className="py-6 px-10">{activeTab === 'study' ? 'Resource Name' : 'Test Name'}</th>
+                                <th className="py-6 px-10 text-center">{activeTab === 'study' ? 'Type' : 'Test Code'}</th>
+                                <th className="py-6 px-10 text-center">{activeTab === 'study' ? 'Assigned Centres' : 'Duration'}</th>
+                                <th className="py-6 px-10 text-right pr-12">{activeTab === 'study' ? 'Status' : 'Progress'}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-transparent">
@@ -143,7 +191,7 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
                                         <p className="text-xs font-black uppercase tracking-widest opacity-40 animate-pulse">Scanning database for {section.name} tests...</p>
                                     </td>
                                 </tr>
-                            ) : filteredTests.length === 0 ? (
+                            ) : displayData.length === 0 ? (
                                 <tr>
                                     <td colSpan="5" className="py-48 text-center px-10">
                                         <div className="flex flex-col items-center gap-6 opacity-20">
@@ -158,44 +206,63 @@ const AllocatedTestsDetails = ({ initialSection, allSections, onBack }) => {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredTests.map((test, index) => (
-                                <tr key={test.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'} transition-all duration-300`}>
+                            ) : displayData.map((item, index) => (
+                                <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'} transition-all duration-300`}>
                                     <td className="py-7 px-10 text-sm font-black opacity-20 group-hover:opacity-100 transition-opacity">{index + 1}</td>
                                     <td className="py-7 px-10">
                                         <div className="flex flex-col">
-                                            <span className={`font-black text-sm uppercase tracking-tight group-hover:text-orange-500 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                                                {test.name}
+                                            <span className={`font-black text-sm uppercase tracking-tight group-hover:text-blue-500 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                                {item.name || item.title}
                                             </span>
                                             <div className="flex items-center gap-3 mt-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                                                 <span className="text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1">
-                                                    <span className="w-1 h-1 bg-orange-500 rounded-full" /> 
-                                                    ID: {test.id.toString().slice(-8).toUpperCase()}
+                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> 
+                                                    ID: {(item.id || '').toString().slice(-8).toUpperCase()}
                                                 </span>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="py-7 px-10">
-                                        <span className={`px-4 py-1.5 rounded-[5px] text-[10px] font-black tracking-widest border transition-all group-hover:scale-105 active:scale-95 cursor-default
-                                            ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 group-hover:text-orange-400 group-hover:border-orange-500/30' : 'bg-slate-50 border-slate-100 text-slate-500 group-hover:text-orange-600 group-hover:border-orange-200'}`}>
-                                            {test.code}
+                                    <td className="py-7 px-10 text-center">
+                                        <span className={`px-4 py-1.5 rounded-[5px] text-[10px] font-black tracking-widest border transition-all group-hover:scale-105
+                                            ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 group-hover:text-blue-400 group-hover:border-blue-500/30' : 'bg-slate-50 border-slate-100 text-slate-500 group-hover:text-blue-600 group-hover:border-blue-200'}`}>
+                                            {activeTab === 'study' ? (item.type || 'Material') : item.code}
                                         </span>
                                     </td>
                                     <td className="py-7 px-10 text-center">
-                                        <div className="flex flex-col items-center gap-0.5">
-                                            <span className="font-black text-sm opacity-80 group-hover:scale-110 transition-transform">{test.duration || 180}</span>
-                                            <span className="text-[8px] font-black uppercase opacity-30 tracking-tighter">Minutes</span>
-                                        </div>
+                                        {activeTab === 'study' ? (
+                                            <div className="flex justify-center -space-x-2">
+                                                {(item.centres || []).slice(0, 3).map((c, i) => (
+                                                    <div key={i} title={c.name} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10px] font-black ${isDarkMode ? 'bg-slate-800 border-slate-900 text-white' : 'bg-white border-slate-100 text-slate-600'}`}>
+                                                        {c.code || c.name.charAt(0)}
+                                                    </div>
+                                                ))}
+                                                {(item.centres || []).length > 3 && (
+                                                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[9px] font-black ${isDarkMode ? 'bg-slate-700 border-slate-900 text-white' : 'bg-slate-200 border-white text-slate-600'}`}>
+                                                        +{(item.centres || []).length - 3}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <span className="font-black text-sm opacity-80 group-hover:scale-110 transition-transform">{item.duration || 180}</span>
+                                                <span className="text-[8px] font-black uppercase opacity-30 tracking-tighter">Minutes</span>
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="py-7 px-10 text-right pr-12">
                                         <div className="flex justify-end items-center">
-                                            <div className="group/toggle relative flex items-center gap-4">
-                                                <span className={`text-[9px] font-black uppercase tracking-widest transition-all ${Boolean(test.is_completed) ? 'text-emerald-500' : 'text-slate-400 opacity-0 group-hover:opacity-100'}`}>
-                                                    {Boolean(test.is_completed) ? 'Completed' : 'Pending'}
-                                                </span>
-                                                <div className={`w-12 h-6.5 rounded-full p-1.5 transition-all duration-500 flex items-center ${Boolean(test.is_completed) ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-200 dark:bg-slate-800'}`}>
-                                                    <div className={`bg-white h-3.5 w-3.5 rounded-full shadow-sm transition-transform duration-500 ${Boolean(test.is_completed) ? 'translate-x-[22px]' : 'translate-x-0'}`} />
+                                            {activeTab === 'study' ? (
+                                                <span className="text-[10px] font-black uppercase text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full">Active</span>
+                                            ) : (
+                                                <div className="group/toggle relative flex items-center gap-4">
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest transition-all ${Boolean(item.is_completed) ? 'text-emerald-500' : 'text-slate-400 opacity-0 group-hover:opacity-100'}`}>
+                                                        {Boolean(item.is_completed) ? 'Completed' : 'Pending'}
+                                                    </span>
+                                                    <div className={`w-12 h-6.5 rounded-full p-1.5 transition-all duration-500 flex items-center ${Boolean(item.is_completed) ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                                                        <div className={`bg-white h-3.5 w-3.5 rounded-full shadow-sm transition-transform duration-500 ${Boolean(item.is_completed) ? 'translate-x-[22px]' : 'translate-x-0'}`} />
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
