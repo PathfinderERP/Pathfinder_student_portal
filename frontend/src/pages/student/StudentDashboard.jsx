@@ -44,15 +44,15 @@ const StudentDashboard = () => {
     const hasAutoSynced = useRef(false);
 
     // Fetch Student Data from backend API (which proxies to ERP)
-    const fetchStudentData = async (forceRefresh = false) => {
+    const fetchStudentData = async (forceRefresh = false, silentBackground = false) => {
         if (authLoading) return;
         if (!user) {
             setLoading(false);
             return null;
         }
 
-        // Only show loader if we don't have data yet or forced
-        if (!studentData || forceRefresh) {
+        // Only show loader if we don't have data yet OR forced (and not manually silenced)
+        if ((!studentData || forceRefresh) && !silentBackground) {
             setLoading(true);
         }
 
@@ -119,7 +119,7 @@ const StudentDashboard = () => {
                 console.log("[Auto-Sync] Offline data detected, triggering background refresh...");
                 hasAutoSynced.current = true;
                 // Add a small delay so UI doesn't flicker too much
-                setTimeout(() => fetchStudentData(true), 1200);
+                setTimeout(() => fetchStudentData(true, true), 1200);
             }
         };
 
