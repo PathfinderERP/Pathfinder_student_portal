@@ -80,17 +80,19 @@ class TestSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
     def get_centres_count(self, obj):
-        return obj.centre_allotments.count()
+        # Use python len() to leverage prefetch_related and avoid DB hit
+        return len(obj.centre_allotments.all())
         
     def get_codes_sent_count(self, obj):
-        return obj.centre_allotments.filter(is_code_sent=True).count()
+        # Use python generator to leverage prefetch_related and avoid DB hit
+        return sum(1 for a in obj.centre_allotments.all() if a.is_code_sent)
 
     def get_sections_count(self, obj):
         # Total = Owned + Allotted
-        owned = obj.sections.count()
-        allotted = obj.allotted_sections.count()
+        owned = len(obj.sections.all())
+        allotted = len(obj.allotted_sections.all())
         return owned + allotted
 
     def get_allotted_master_count(self, obj):
         # Only count sections from Master Registry (where test is null)
-        return obj.allotted_sections.filter(test__isnull=True).count()
+        return sum(1 for s in obj.allotted_sections.all() if s.test_id is None)

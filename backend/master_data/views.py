@@ -1,8 +1,9 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, response
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer
 from django.db.models import Q
+from django.core.cache import cache
 
 class StudentSectionFilterMixin:
     """
@@ -30,44 +31,113 @@ class StudentSectionFilterMixin:
             
         return queryset.filter(filter_q).distinct()
 
-class SessionViewSet(viewsets.ModelViewSet):
+class CachedListViewSetMixin(object):
+    """Mixin to cache the list response for master data and invalidate on change."""
+    def get_cache_key(self):
+        return f"master_data_{self.__class__.__name__}_list"
+
+    def list(self, request, *args, **kwargs):
+        cache_key = self.get_cache_key()
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is not None and isinstance(cached_data, (list, dict)):
+            return response.Response(cached_data)
+        
+        res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
+        cache.set(cache_key, res.data, timeout=300) # Cache for 5 minutes
+        return res
+
+    def perform_create(self, serializer):
+        super(CachedListViewSetMixin, self).perform_create(serializer)
+        cache.delete(self.get_cache_key())
+
+    def perform_update(self, serializer):
+        super(CachedListViewSetMixin, self).perform_update(serializer)
+        cache.delete(self.get_cache_key())
+
+    def perform_destroy(self, instance):
+        super(CachedListViewSetMixin, self).perform_destroy(instance)
+        cache.delete(self.get_cache_key())
+
+class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
     serializer_class = SessionSerializer
 
-class TargetExamViewSet(viewsets.ModelViewSet):
+class TargetExamViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = TargetExam.objects.all().order_by('-created_at')
     serializer_class = TargetExamSerializer
 
-class ExamTypeViewSet(viewsets.ModelViewSet):
-    queryset = ExamType.objects.all().order_by('-created_at')
+class ExamTypeViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = ExamType.objects.prefetch_related('target_exams').all().order_by('-created_at')
     serializer_class = ExamTypeSerializer
 
-class ClassLevelViewSet(viewsets.ModelViewSet):
+class ClassLevelViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = ClassLevel.objects.all().order_by('-created_at')
     serializer_class = ClassLevelSerializer
 
-class ChapterViewSet(viewsets.ModelViewSet):
+class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Chapter.objects.select_related('class_level', 'subject').all().order_by('-created_at')
     serializer_class = ChapterSerializer
 
-class ExamDetailViewSet(viewsets.ModelViewSet):
-    queryset = ExamDetail.objects.all().order_by('-created_at')
+class ExamDetailViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = ExamDetail.objects.select_related('session', 'target_exam', 'exam_type', 'class_level').all().order_by('-created_at')
     serializer_class = ExamDetailSerializer
 
-class SubjectViewSet(viewsets.ModelViewSet):
+class SubjectViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Subject.objects.all().order_by('-created_at')
     serializer_class = SubjectSerializer
 
-class TopicViewSet(viewsets.ModelViewSet):
-    queryset = Topic.objects.all().order_by('-created_at')
+class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = Topic.objects.all()
     serializer_class = TopicSerializer
 
-class SubTopicViewSet(viewsets.ModelViewSet):
-    queryset = SubTopic.objects.all().order_by('-created_at')
+    def get_queryset(self):
+        queryset = Topic.objects.select_related('chapter', 'class_level', 'subject').all().order_by('-created_at')
+        chapter_id = self.request.query_params.get('chapter', None)
+        if chapter_id:
+            queryset = queryset.filter(chapter_id=chapter_id)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        # Only use cache when fetching ALL topics (no filter applied)
+        if request.query_params.get('chapter'):
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+            return response.Response(serializer.data)
+        return super().list(request, *args, **kwargs)
+
+class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = SubTopic.objects.all()
     serializer_class = SubTopicSerializer
 
-class TeacherViewSet(viewsets.ModelViewSet):
-    queryset = Teacher.objects.all().order_by('-created_at')
+    def get_queryset(self):
+        queryset = SubTopic.objects.select_related('topic').all().order_by('-created_at')
+        topic_id = self.request.query_params.get('topic', None)
+        chapter_id = self.request.query_params.get('chapter', None)
+        if topic_id:
+            queryset = queryset.filter(topic_id=topic_id)
+        elif chapter_id:
+            queryset = queryset.filter(topic__chapter_id=chapter_id)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        # Only use cache when fetching ALL subtopics (no filter applied)
+        if request.query_params.get('topic') or request.query_params.get('chapter'):
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+            return response.Response(serializer.data)
+        return super().list(request, *args, **kwargs)
+
+class TeacherViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = Teacher.objects.select_related('subject').all().order_by('-created_at')
     serializer_class = TeacherSerializer
 
 class LibraryItemViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):

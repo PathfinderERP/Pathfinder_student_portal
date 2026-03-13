@@ -223,8 +223,34 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         return { headers: { 'Authorization': `Bearer ${activeToken}` } };
     }, [token]);
 
-    const fetchData = useCallback(async (force = false) => {
+    const fetchData = useCallback(async (force = false, topicFilterId = null) => {
         if (!currentTabConfig || activeSubTab === 'Section Management') return;
+
+        // For SubTopic, skip the bulk data fetch - use topic filter instead
+        if (activeSubTab === 'SubTopic' && !topicFilterId && !force) {
+            // Just load the topics/chapters dropdowns for the filter
+            const config = getAuthConfig();
+            if (!config) return;
+            setIsLoading(true);
+            try {
+                const apiUrl = getApiUrl();
+                const [topicRes, chapRes, subRes] = await Promise.all([
+                    axios.get(`${apiUrl}/api/master-data/topics/`, config),
+                    axios.get(`${apiUrl}/api/master-data/chapters/`, config),
+                    axios.get(`${apiUrl}/api/master-data/subjects/`, config),
+                ]);
+                setTopics(topicRes.data);
+                setChapters(chapRes.data);
+                setSubjects(subRes.data);
+                setData([]);
+                lastFetchedTab.current = activeSubTab;
+            } catch (err) {
+                console.error('Failed to load SubTopic lookups', err);
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
 
         // Only skip if not forced AND we have data AND we're still on the same subtab
         if (!force && data.length > 0 && lastFetchedTab.current === activeSubTab) return;
@@ -237,9 +263,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             const endpoint = activeSubTab === 'Image' ? 'questions/images' : `master-data/${currentTabConfig.endpoint}`;
-            const response = await axios.get(`${apiUrl}/api/${endpoint}/`, config);
+            const params = topicFilterId ? `?topic=${topicFilterId}` : '';
+            const response = await axios.get(`${apiUrl}/api/${endpoint}/${params}`, config);
             setData(response.data);
-            lastFetchedTab.current = activeSubTab;
+            if (!topicFilterId) lastFetchedTab.current = activeSubTab;
 
             if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
                 const requests = [
@@ -250,9 +277,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                     axios.get(`${apiUrl}/api/master-data/subjects/`, config),
                     axios.get(`${apiUrl}/api/master-data/topics/`, config),
                     axios.get(`${apiUrl}/api/master-data/chapters/`, config),
-                    axios.get(`${apiUrl}/api/master-data/subtopics/`, config)
                 ];
-                const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes, subTopicRes] = await Promise.all(requests);
+                const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes] = await Promise.all(requests);
                 setSessions(sessRes.data);
                 setExamTypes(typeRes.data);
                 setClasses(classRes.data);
@@ -260,7 +286,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 setSubjects(subRes.data);
                 setTopics(topicRes.data);
                 setChapters(chapRes.data);
-                setSubTopics(subTopicRes.data);
+                // SubTopics are NOT bulk-fetched here - they are too large.
+                // They are fetched lazily when a topic is selected in the form.
             }
         } catch (err) {
             console.error(`Failed to fetch ${activeSubTab} data:`, err);
@@ -1152,6 +1179,24 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     </>
                                 )}
                             </>
+                        )}
+                        {/* SubTopic: Topic Filter */}
+                        {activeSubTab === 'SubTopic' && (
+                            <select
+                                value={topicFilter}
+                                onChange={e => {
+                                    setTopicFilter(e.target.value);
+                                    if (e.target.value && e.target.value !== 'all') {
+                                        fetchData(true, e.target.value);
+                                    } else {
+                                        setData([]);
+                                    }
+                                }}
+                                className={`pl-3 pr-7 py-2.5 rounded-[5px] border font-bold text-[10px] uppercase tracking-widest outline-none transition-all cursor-pointer ${topicFilter !== 'all' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+                            >
+                                <option value="all">Select Topic...</option>
+                                {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
                         )}
                         {/* Filter Button & Dropdown */}
                         <div className="relative">

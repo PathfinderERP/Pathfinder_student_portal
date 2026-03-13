@@ -121,72 +121,113 @@ def list_master_sections(request):
     """
     try:
         user = request.user
-        # Master sections = sections where test is null (created in Master Section registry)
-        sections = Section.objects.filter(test__isnull=True).order_by('priority', 'name')
+        from django.core.cache import cache
+        
+        # 0. Check Cache First
+        # Key depends on user ID since students see different filtered sections
+        cache_key = f"master_sections_v2_{user.pk}"
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
 
-        # If user is a student, filter by their ERP assigned sections
-        if hasattr(user, 'user_type') and user.user_type == 'student':
-            allowed_names = []
-            if getattr(user, 'exam_section', None):
-                allowed_names.append(user.exam_section)
-            if getattr(user, 'study_section', None):
-                allowed_names.append(user.study_section)
-            
+        from master_data.models import LibraryItem, PenPaperTest, Homework, Video
+        from collections import defaultdict
+
+        # 1. Fetch Master Sections
+        sections_query = Section.objects.filter(test__isnull=True).order_by('priority', 'name')
+        
+        # Student specific filtering
+        allowed_names = []
+        is_student = hasattr(user, 'user_type') and user.user_type == 'student'
+        if is_student:
+            if getattr(user, 'exam_section', None): allowed_names.append(user.exam_section)
+            if getattr(user, 'study_section', None): allowed_names.append(user.study_section)
             if allowed_names:
-                sections = sections.filter(name__in=allowed_names)
+                sections_query = sections_query.filter(name__in=allowed_names)
             else:
-                # If student has no sections assigned in ERP, they don't see any sections
-                sections = sections.none()
+                return Response({'count': 0, 'sections': []}, status=status.HTTP_200_OK)
 
+        sections = list(sections_query)
+        section_ids = [s.pk for s in sections]
+
+        # 2. Bulk Fetch All Related Content
+        # We fetch ALL tests that belong to these sections
+        all_tests = list(Test.objects.filter(allotted_sections__in=section_ids).select_related('exam_type').prefetch_related('allotted_sections'))
+        test_ids = [t.pk for t in all_tests]
+        
+        # Allotments for these tests
+        all_allotments = list(TestCentreAllotment.objects.filter(test_id__in=test_ids).select_related('centre'))
+        
+        # Materials
+        all_pp_tests = list(PenPaperTest.objects.filter(sections__in=section_ids).prefetch_related('sections'))
+        all_lib_items = list(LibraryItem.objects.filter(section_id__in=section_ids))
+        all_hw_items = list(Homework.objects.filter(sections__in=section_ids).prefetch_related('sections'))
+        all_vid_items = list(Video.objects.filter(section_id__in=section_ids))
+
+        # 3. Grouping in Python Memory
+        test_allotments_map = defaultdict(list)
+        for a in all_allotments:
+            test_allotments_map[a.test_id].append(a)
+
+        tests_by_section = defaultdict(list)
+        for t in all_tests:
+            for s in t.allotted_sections.all():
+                tests_by_section[s.pk].append(t)
+
+        pp_by_section = defaultdict(list)
+        for ppt in all_pp_tests:
+            for s in ppt.sections.all():
+                pp_by_section[s.pk].append(ppt)
+
+        lib_by_section = defaultdict(list)
+        for item in all_lib_items:
+            lib_by_section[item.section_id].append(item)
+
+        hw_by_section = defaultdict(list)
+        for item in all_hw_items:
+            for s in item.sections.all():
+                hw_by_section[s.pk].append(item)
+
+        vid_by_section = defaultdict(list)
+        for item in all_vid_items:
+            vid_by_section[item.section_id].append(item)
+
+        # 4. Final Result Construction
         result = []
-        for section in sections:
-            # 1. Get tests assigned to this section
-            tests = Test.objects.filter(allotted_sections=section).select_related('exam_type')
-            allotments = TestCentreAllotment.objects.filter(test__in=tests).select_related('centre', 'test', 'test__exam_type')
-            
-            # Map of unique centres allotted to this section via any test (for fallback)
-            section_centres_map = {}
-            for a in allotments:
-                cid = str(a.centre._id)
-                if cid not in section_centres_map:
-                    section_centres_map[cid] = {
-                        'id': cid,
-                        'name': a.centre.name,
-                        'code': a.centre.code,
-                        'location': a.centre.location,
-                    }
-            all_centres = list(section_centres_map.values())
+        exam_sec = getattr(user, 'exam_section', None)
+        study_sec = getattr(user, 'study_section', None)
+        omr_sec = getattr(user, 'omr_code', None)
 
-            # 2. Check for content assignments
-            from master_data.models import LibraryItem, PenPaperTest, Homework, Video
+        for section in sections:
+            s_id = section.pk
             
-            # Category filters
+            # Find all unique centres for this section across all its tests
+            section_centres_map = {}
+            s_tests = tests_by_section[s_id]
+            
             online_exam_list = []
             offline_exam_list = []
-            study_material_list = []
-
-            is_student = hasattr(user, 'user_type') and user.user_type == 'student'
-            exam_sec = getattr(user, 'exam_section', None)
-            study_sec = getattr(user, 'study_section', None)
-            omr_sec = getattr(user, 'omr_code', None)
-
-            # A. Online & Offline Tests (Exam Section check)
+            
+            # Process Tests
             if not is_student or section.name == exam_sec or section.name == omr_sec:
-                for test in tests:
+                for test in s_tests:
                     t_type_name = (test.exam_type.name or "").lower() if test.exam_type else ""
                     is_omr = "omr" in t_type_name or "offline" in t_type_name
                     
-                    # Get centres for THIS specific test
-                    t_centres = [
-                        {
-                            'id': str(a.centre._id),
+                    t_allotments = test_allotments_map[test.id]
+                    t_centres = []
+                    for a in t_allotments:
+                        cid = str(a.centre._id)
+                        c_data = {
+                            'id': cid,
                             'name': a.centre.name,
                             'code': a.centre.code,
                             'location': a.centre.location
                         }
-                        for a in allotments if a.test_id == test.id
-                    ]
-                    
+                        t_centres.append(c_data)
+                        if cid not in section_centres_map:
+                            section_centres_map[cid] = c_data
+
                     if t_centres:
                         item_data = {
                             'id': str(test.id),
@@ -194,52 +235,38 @@ def list_master_sections(request):
                             'type': 'Online Test' if not is_omr else 'Offline Test',
                             'centres': t_centres
                         }
-                        if is_omr:
-                            offline_exam_list.append(item_data)
-                        else:
-                            online_exam_list.append(item_data)
+                        if is_omr: offline_exam_list.append(item_data)
+                        else: online_exam_list.append(item_data)
 
-                # PenPaperTests (Always Offline)
-                pp_tests = PenPaperTest.objects.filter(sections=section)
-                for ppt in pp_tests:
-                    offline_exam_list.append({
-                        'id': str(ppt.id),
-                        'name': ppt.name,
-                        'type': 'Pen Paper Test',
-                        'centres': all_centres # Fallback to all section centres
-                    })
+            # Process PenPaperTests
+            s_pp = pp_by_section[s_id]
+            for ppt in s_pp:
+                offline_exam_list.append({
+                    'id': str(ppt.id),
+                    'name': ppt.name,
+                    'type': 'Pen Paper Test',
+                    'centres': [] # Populated later if needed
+                })
 
-            # B. Study Materials (Study Section check)
+            # Study Materials
+            study_material_list = []
             if not is_student or section.name == study_sec:
-                # Library Items
-                lib_items = LibraryItem.objects.filter(section=section)
-                for item in lib_items:
-                    study_material_list.append({
-                        'id': str(item.id),
-                        'name': item.name,
-                        'type': 'Library Item',
-                        'centres': all_centres
-                    })
-                
-                # Homework
-                hw_items = Homework.objects.filter(sections=section)
-                for item in hw_items:
-                    study_material_list.append({
-                        'id': str(item.id),
-                        'name': item.name,
-                        'type': 'Homework',
-                        'centres': all_centres
-                    })
+                # Lib
+                for item in lib_by_section[s_id]:
+                    study_material_list.append({'id': str(item.id), 'name': item.name, 'type': 'Library Item', 'centres': []})
+                # HW
+                for item in hw_by_section[s_id]:
+                    study_material_list.append({'id': str(item.id), 'name': item.name, 'type': 'Homework', 'centres': []})
+                # Vid
+                for item in vid_by_section[s_id]:
+                    study_material_list.append({'id': str(item.id), 'name': item.title, 'type': 'Video', 'centres': []})
 
-                # Videos
-                vid_items = Video.objects.filter(section=section)
-                for item in vid_items:
-                    study_material_list.append({
-                        'id': str(item.id),
-                        'name': item.title,
-                        'type': 'Video',
-                        'centres': all_centres
-                    })
+            all_centres = list(section_centres_map.values())
+            # Add centres to those that don't have them
+            for item in offline_exam_list:
+                if not item['centres']: item['centres'] = all_centres
+            for item in study_material_list:
+                item['centres'] = all_centres
 
             result.append({
                 'id': str(section._id),
@@ -252,10 +279,14 @@ def list_master_sections(request):
                 'centres_count': len(all_centres)
             })
 
-        return Response({
+        # 5. Save to Cache
+        response_data = {
             'count': len(result),
             'sections': result
-        }, status=status.HTTP_200_OK)
+        }
+        cache.set(cache_key, response_data, timeout=300) # 5 minutes
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

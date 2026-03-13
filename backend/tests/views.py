@@ -15,7 +15,12 @@ class TestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Test.objects.all().order_by('-created_at')
+        # Djongo handles select_related poorly (nested $lookups) compared to prefetch_related (simple $in queries).
+        # We prefetch everything to keep the query time under ~50ms for the entire tests list.
+        queryset = Test.objects.all().prefetch_related(
+            'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
+            'allotted_sections', 'centres', 'sections', 'centre_allotments'
+        ).order_by('-created_at')
         
         # If user is a student, filter by their section
         if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
