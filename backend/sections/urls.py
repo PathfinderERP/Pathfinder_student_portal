@@ -14,9 +14,6 @@ urlpatterns = [
     path('master/', list_master_sections, name='section-master-list'),
     path('stats/', section_stats, name='section-stats'),
     
-    # Root paths for GET should use list_master_sections
-    path('', list_master_sections, name='section-list'),
-    
-    # Include router for POST, PATCH, DELETE and other actions
+    # Include router for POST, GET, PATCH, DELETE and other actions
     path('', include(router.urls)),
 ]

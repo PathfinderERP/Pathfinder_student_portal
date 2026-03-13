@@ -10,6 +10,14 @@ class SectionViewSet(viewsets.ModelViewSet):
     # Adjust permissions as needed, e.g. AllowAny for testing or IsAuthenticated
     permission_classes = [permissions.IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        from .section_detail_views import list_master_sections
+        # The frontend expects GET /api/sections/ to return master sections.
+        # Calling the inner __wrapped__ function avoids re-wrapping the DRF Request
+        # DRF ViewSets wrap the Django HttpRequest. We need to pass the original Django HttpRequest 
+        # to the function-based view, which gets re-wrapped by the @api_view decorator.
+        return list_master_sections.__wrapped__(request._request)
+
     def get_object(self):
         """
         Override get_object to handle MongoDB ObjectId lookups properly with Djongo.
