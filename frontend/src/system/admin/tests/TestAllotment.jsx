@@ -253,8 +253,10 @@ const TestAllotment = () => {
         try {
             const apiUrl = getApiUrl();
             const sectionsRes = await axios.get(`${apiUrl}/api/sections/`, getAuthConfig());
+            // Support both direct array and {count, sections} object format
+            const sectionsData = Array.isArray(sectionsRes.data) ? sectionsRes.data : (sectionsRes.data.sections || []);
             // Only show Master Sections (template sections not tied to a specific test) for allotment
-            const masterSections = (sectionsRes.data || []).filter(s => !s.test);
+            const masterSections = sectionsData.filter(s => !s.test);
             setAvailableSections(masterSections || []);
             setIsSectionModalOpen(true);
         } catch (err) {

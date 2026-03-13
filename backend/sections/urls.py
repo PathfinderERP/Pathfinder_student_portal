@@ -1,10 +1,10 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import SectionViewSet
-
-router = DefaultRouter()
-router.register(r'', SectionViewSet, basename='section')
+from django.urls import path
+from .section_detail_views import (
+    list_master_sections,
+)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Allow both /api/sections/ and /api/sections/master/ to work
+    path('', list_master_sections, name='section-list'),
+    path('master/', list_master_sections, name='section-master-list'),
 ]
