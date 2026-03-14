@@ -4,7 +4,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +33,7 @@ const StudentDashboard = () => {
     const [activeTab, setActiveTab] = useState('Dashboard');
     const [studentData, setStudentData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [silentLoading, setSilentLoading] = useState(false);
     const [error, setError] = useState(null);
 
     // Data Caching for Tabs
@@ -54,6 +55,8 @@ const StudentDashboard = () => {
         // Only show loader if we don't have data yet OR forced (and not manually silenced)
         if ((!studentData || forceRefresh) && !silentBackground) {
             setLoading(true);
+        } else if (silentBackground) {
+            setSilentLoading(true);
         }
 
         setError(null);
@@ -62,6 +65,7 @@ const StudentDashboard = () => {
             if (!token) {
                 setError("Authentication required. Please log in again.");
                 setLoading(false);
+                setSilentLoading(false);
                 return;
             }
 
@@ -104,6 +108,7 @@ const StudentDashboard = () => {
             return null;
         } finally {
             setLoading(false);
+            setSilentLoading(false);
         }
     };
 
@@ -213,9 +218,9 @@ const StudentDashboard = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
-                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} />;
+                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} silentLoading={silentLoading} />;
             case 'My Profile':
-                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} />;
+                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} silentLoading={silentLoading || loading} />;
             case 'Classes':
                 return <Classes isDarkMode={isDarkMode} cache={classesCache} setCache={setClassesCache} />;
             case 'Attendance':
@@ -258,11 +263,20 @@ const StudentDashboard = () => {
         }
     };
 
+    const syncIndicator = silentLoading && (
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] border animate-pulse transition-all duration-500
+            ${isDarkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+            <RefreshCw size={12} className="animate-spin" />
+            <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Enriching Profile...</span>
+        </div>
+    );
+
     return (
         <PortalLayout
             title={activeTab}
             subtitle="Student Learning Portal"
             sidebarItems={sidebarItems}
+            headerActions={syncIndicator}
         >
             {renderContent()}
         </PortalLayout>
@@ -270,8 +284,10 @@ const StudentDashboard = () => {
 };
 
 // -- DASHBOARD HOME COMPONENT --
-const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData }) => {
+const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData, silentLoading }) => {
     const isPending = studentData?.sync_status === 'pending';
+    const isActuallySyncing = isPending || silentLoading;
+
     const stats = [
         { label: 'ATTENDANCE RATE', value: '92%', subtext: '37 of 40 classes | 3 absences', trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
@@ -282,19 +298,32 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
     return (
         <div className="space-y-8 animate-fade-in-up">
             {isPending && (
-                <div className={`p-4 rounded-[5px] border border-blue-500/20 bg-blue-500/5 flex items-center justify-between`}>
-                    <div className="flex items-center gap-3">
-                        <Activity size={18} className="text-blue-500 animate-pulse" />
-                        <p className={`text-xs font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-800'}`}>
-                            Your full profile is being synchronized from school records. Some details might be missing temporarily.
-                        </p>
+                <div className={`p-4 rounded-[5px] border flex items-center justify-between transition-all duration-500 shadow-sm
+                    ${isDarkMode ? 'border-blue-500/30 bg-blue-500/5 shadow-blue-500/5' : 'border-blue-200 bg-blue-50 shadow-blue-100/50'}`}>
+                    <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-[5px] ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
+                            <Activity size={20} className={`text-blue-500 ${isActuallySyncing ? 'animate-pulse' : ''}`} />
+                        </div>
+                        <div>
+                            <p className={`text-xs font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                {isActuallySyncing ? 'Synchronization in Progress' : 'Profile Optimization Recommended'}
+                            </p>
+                            <p className={`text-xs font-bold ${isDarkMode ? 'text-white/60' : 'text-slate-600'}`}>
+                                {isActuallySyncing 
+                                    ? "We're currently enriching your profile with the latest school records. This will happen silently in the background."
+                                    : "Some advanced details are currently simplified. Tap sync to refresh from school servers."}
+                            </p>
+                        </div>
                     </div>
-                    <button
-                        onClick={() => onSync(true)}
-                        className="px-4 py-1.5 bg-blue-500 text-white text-[10px] font-bold rounded-[3px] hover:bg-blue-600 transition-colors"
-                    >
-                        Sync Now
-                    </button>
+                    {!silentLoading && (
+                        <button
+                            onClick={() => onSync(true)}
+                            className="flex items-center gap-2 px-5 py-2 bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] hover:bg-blue-600 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/20"
+                        >
+                            <RefreshCw size={14} className={isActuallySyncing ? 'animate-spin' : ''} />
+                            {isActuallySyncing ? 'Syncing...' : 'Sync Now'}
+                        </button>
+                    )}
                 </div>
             )}
 

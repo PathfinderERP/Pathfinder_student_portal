@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award, CreditCard, CheckCircle, Activity, RefreshCw } from 'lucide-react';
 
-const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
+const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const details = studentData?.student?.studentsDetails?.[0] || {};
     const guardians = studentData?.student?.guardians || [];
@@ -13,6 +13,8 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
         setTimeout(() => setIsRefreshing(false), 1000);
     };
 
+    const isActuallyRefreshing = isRefreshing || silentLoading;
+
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
             {/* Profile Hero */}
@@ -23,6 +25,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
                             <div className="px-3 py-1 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
                                 Account Settings
                             </div>
+                            {isActuallyRefreshing && (
+                                <div className="flex items-center gap-2 px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">
+                                    <RefreshCw size={10} className="animate-spin" />
+                                    Synchronizing...
+                                </div>
+                            )}
                         </div>
                         <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             My Digital Profile
@@ -33,11 +41,11 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
                     </div>
                     <button 
                         onClick={handleRefresh}
-                        disabled={isRefreshing}
+                        disabled={isActuallyRefreshing}
                         className={`p-3 rounded-[5px] border transition-all active:scale-95 group ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900 shadow-sm'}`}
                         title="Sync with school records"
                     >
-                        <RefreshCw size={18} className={`${isRefreshing ? 'animate-spin text-orange-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                        <RefreshCw size={18} className={`${isActuallyRefreshing ? 'animate-spin text-orange-500' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                     </button>
                 </div>
                 <User size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
@@ -73,25 +81,27 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
                     <User size={14} className="text-orange-500" /> Personal Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InfoField label="Email" value={details.studentEmail} icon={Mail} isDark={isDarkMode} />
-                    <InfoField label="Mobile" value={details.mobileNum ? `+91 ${details.mobileNum}` : null} icon={Phone} isDark={isDarkMode} />
-                    <InfoField label="WhatsApp" value={details.whatsappNumber ? `+91 ${details.whatsappNumber}` : null} icon={Phone} isDark={isDarkMode} />
-                    <InfoField label="Date of Birth" value={details.dateOfBirth} icon={Calendar} isDark={isDarkMode} />
+                    <InfoField label="Email" value={details.studentEmail} icon={Mail} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Mobile" value={details.mobileNum ? `+91 ${details.mobileNum}` : null} icon={Phone} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="WhatsApp" value={details.whatsappNumber ? `+91 ${details.whatsappNumber}` : null} icon={Phone} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Date of Birth" value={details.dateOfBirth} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                     <InfoField 
                         label="School" 
                         value={details.schoolName || details.school || details.institution} 
                         icon={BookOpen} 
                         isDark={isDarkMode} 
+                        isSyncing={isActuallyRefreshing}
                     />
                     <InfoField 
                         label="Centre" 
                         value={details.centre || details.centreName || details.branchName || details.schoolName} 
                         icon={MapPin} 
                         isDark={isDarkMode} 
+                        isSyncing={isActuallyRefreshing}
                     />
-                    <InfoField label="State" value={details.state || (details.board === 'WB' ? 'West Bengal' : '')} icon={MapPin} isDark={isDarkMode} />
-                    <InfoField label="Pincode" value={details.pincode} icon={MapPin} isDark={isDarkMode} />
-                    <InfoField label="Address" value={details.address} icon={MapPin} isDark={isDarkMode} isFullWidth />
+                    <InfoField label="State" value={details.state || (details.board === 'WB' ? 'West Bengal' : '')} icon={MapPin} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Pincode" value={details.pincode} icon={MapPin} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Address" value={details.address} icon={MapPin} isDark={isDarkMode} isFullWidth isSyncing={isActuallyRefreshing} />
                 </div>
             </div>
 
@@ -105,12 +115,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
                         {guardians.map((guardian, idx) => (
                             <div key={idx} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InfoField label="Name" value={guardian.guardianName} icon={User} isDark={isDarkMode} />
-                                    <InfoField label="Qualification" value={guardian.qualification} icon={Award} isDark={isDarkMode} />
-                                    <InfoField label="Email" value={guardian.guardianEmail} icon={Mail} isDark={isDarkMode} />
-                                    <InfoField label="Mobile" value={`+91 ${guardian.guardianMobile}`} icon={Phone} isDark={isDarkMode} />
-                                    <InfoField label="Occupation" value={guardian.occupation} icon={BookOpen} isDark={isDarkMode} />
-                                    <InfoField label="Annual Income" value={guardian.annualIncome} icon={Award} isDark={isDarkMode} />
+                                    <InfoField label="Name" value={guardian.guardianName} icon={User} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Qualification" value={guardian.qualification} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Email" value={guardian.guardianEmail} icon={Mail} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Mobile" value={guardian.guardianMobile ? `+91 ${guardian.guardianMobile}` : null} icon={Phone} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Occupation" value={guardian.occupation} icon={BookOpen} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Annual Income" value={guardian.annualIncome} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                                 </div>
                             </div>
                         ))}
@@ -128,11 +138,11 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
                         {examSchema.map((exam, idx) => (
                             <div key={idx} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <InfoField label="Exam Name" value={exam.examName} icon={BookOpen} isDark={isDarkMode} />
-                                    <InfoField label="Class" value={exam.class} icon={Award} isDark={isDarkMode} />
-                                    <InfoField label="Status" value={exam.examStatus} icon={Award} isDark={isDarkMode} />
-                                    <InfoField label="Aggregate %" value={exam.markAgregate} icon={Award} isDark={isDarkMode} />
-                                    <InfoField label="Science/Math %" value={exam.scienceMathParcent} icon={Award} isDark={isDarkMode} />
+                                    <InfoField label="Exam Name" value={exam.examName} icon={BookOpen} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Class" value={exam.class} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Status" value={exam.examStatus} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Aggregate %" value={exam.markAgregate} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField label="Science/Math %" value={exam.scienceMathParcent} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                                 </div>
                             </div>
                         ))}
@@ -146,12 +156,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
                     <BookOpen size={14} className="text-indigo-500" /> Current Course
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InfoField label="Course Name" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth />
-                    <InfoField label="Session" value={studentData?.course?.courseSession} icon={Calendar} isDark={isDarkMode} />
-                    <InfoField label="Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} />
-                    <InfoField label="Admission No" value={studentData?.admissionNumber} icon={Award} isDark={isDarkMode} />
-                    <InfoField label="Admission Date" value={studentData?.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A'} icon={Calendar} isDark={isDarkMode} />
-                    <InfoField label="Status" value={studentData?.admissionStatus} icon={CheckCircle} isDark={isDarkMode} />
+                    <InfoField label="Course Name" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Session" value={studentData?.course?.courseSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Admission No" value={studentData?.admissionNumber} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Admission Date" value={studentData?.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A'} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Status" value={studentData?.admissionStatus} icon={CheckCircle} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                 </div>
             </div>
 
@@ -218,15 +228,23 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh }) => {
     );
 };
 
-const InfoField = ({ label, value, icon: Icon, isDark, isFullWidth = false }) => (
-    <div className={`space-y-1.5 ${isFullWidth ? 'col-span-full' : ''}`}>
-        <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-slate-900/30'} flex items-center gap-1.5`}>
-            {Icon && <Icon size={10} />} {label}
-        </label>
-        <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-            {value || '—'}
-        </p>
-    </div>
-);
+const InfoField = ({ label, value, icon: Icon, isDark, isFullWidth = false, isSyncing = false }) => {
+    const showSkeleton = value === 'Syncing...' || (isSyncing && (!value || value === '—'));
+
+    return (
+        <div className={`space-y-1.5 ${isFullWidth ? 'col-span-full' : ''}`}>
+            <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-slate-900/30'} flex items-center gap-1.5`}>
+                {Icon && <Icon size={10} />} {label}
+            </label>
+            {showSkeleton ? (
+                <div className={`h-5 w-3/4 rounded-[3px] animate-pulse ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+            ) : (
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {value || '—'}
+                </p>
+            )}
+        </div>
+    );
+};
 
 export default MyProfile;

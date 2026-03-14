@@ -116,14 +116,23 @@ class ERPStudentBackend(BaseBackend):
                         print(f"⚠ Minor error during login sync for {username}: {e}")
 
                     # CACHE THE FULL ERP RESPONSE for the profile view
-                    # We remove the token to keep the cache clean, but keep the rest
-                    profile_cache_data = data.copy()
-                    if 'token' in profile_cache_data:
-                        profile_cache_data.pop('token')
+                    # IMPORTANT: We must reshape the login response to perfectly match 
+                    # the /api/admission response shape expected by Strategy 3 and the frontend.
+                    student_obj = data.get('student', {})
+                    formatted_cache = {
+                        "admissionNumber": student_obj.get('admissionNumber'),
+                        "sectionAllotment": student_obj.get('sectionAllotment', {}),
+                        "course": student_obj.get('course', {}),
+                        "class": student_obj.get('class', {}),
+                        "student": student_obj,  # Retain studentsDetails, guardians, etc. inside 'student'
+                        "is_offline": False,
+                        "sync_status": "synced",
+                        "sync_completed": True
+                    }
                     
                     student_cache_key = f"erp_student_data_v6_{user.pk}"
-                    cache.set(student_cache_key, profile_cache_data, timeout=3600)  # 1 hour
-                    print(f"✓ Cached rich ERP profile data for {username}")
+                    cache.set(student_cache_key, formatted_cache, timeout=3600)  # 1 hour
+                    print(f"✓ Cached reshaped rich ERP profile data for {username}")
 
                     # CACHE THE TOKEN for use in other views
                     cache_key = f"erp_token_{user.pk}"

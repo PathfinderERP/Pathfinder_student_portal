@@ -61,7 +61,13 @@ def _get_erp_admin_token(force_refresh=False):
 def _is_profile_rich(data):
     """Checks if the given ERP data contains actual profile details beyond placeholders."""
     if not isinstance(data, dict): return False
+    
+    # Check for direct 'student' object (Strategy 1/2 shape) 
+    # OR check if it has 'studentsDetails' (Login cache shape)
     details = data.get('student', {}).get('studentsDetails', [])
+    if not details and isinstance(data.get('studentsDetails'), list):
+        details = data['studentsDetails']
+
     if not details: return False
     d = details[0]
     
@@ -71,11 +77,41 @@ def _is_profile_rich(data):
     real_count = 0
     for field in check_fields:
         val = str(d.get(field) or '').strip()
-        if val and val not in ['—', 'Loading...', 'Student', 'student', 'undefined', 'null']:
+        if val and val not in ['—', 'Loading...', 'Student', 'student', 'undefined', 'null', 'Syncing...']:
             real_count += 1
             
-    # If we have at least 2 real fields (e.g. Name + Mobile or Name + School), consider it rich
-    return real_count >= 2
+    # If we have at least 1 real field (e.g. Name), consider it decent enough to show
+    # We previously required 2, but 1 is fine for a fast initial UI
+    return real_count >= 1
+
+def _get_student_index():
+    """
+    Best Algorithm: O(1) Hash Map lookup instead of O(N) list iteration.
+    Indexes all students by Email and Admission ID for instant retrieval.
+    """
+    index_key = 'erp_student_lookup_index_v1'
+    index = cache.get(index_key)
+    if index: return index
+    
+    bulk_cache = cache.get('erp_all_students_v1')
+    if not bulk_cache or not isinstance(bulk_cache, list): return None
+    
+    print(f"[ERP] O(1) Indexing {len(bulk_cache)} records for high-performance lookup...")
+    idx = {}
+    for record in bulk_cache:
+        # Index by Admission Number
+        adm_no = str(record.get('admissionNumber') or '').strip().upper()
+        if adm_no: idx[f"adm_{adm_no}"] = record
+        
+        # Index by Student Emails
+        details = record.get('student', {}).get('studentsDetails', [])
+        for d in details:
+            email = str(d.get('studentEmail') or '').strip().lower()
+            if email:
+                if f"email_{email}" not in idx: idx[f"email_{email}"] = record
+                
+    cache.set(index_key, idx, 3600) # 1 hour index life
+    return idx
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -95,44 +131,37 @@ def get_student_erp_data(request):
     lock_key = f"erp_sync_lock_{user.pk}"
     cached = cache.get(student_cache_key)
     
-    # If forcing refresh, clear the existing cache first
+    # If forcing refresh, we keep 'cached' as a fallback if Strategy 3 fails
+    # Do NOT delete yet to prevent UI Flickering
     if force_refresh:
-        print(f"[ERP] Force Refresh: Clearing cache for user {user.pk}")
-        cache.delete(student_cache_key)
-        cached = None
+        print(f"[ERP] Force Refresh Triggered for user {user.pk}. Parallel sync starting...")
 
     # If we have RICH cached data, and NOT forcing refresh, return it immediately
     if not force_refresh and _is_profile_rich(cached):
-        print(f"[ERP] Strategy 1 HIT: Serving rich data for {search_email} from cache.")
+        print(f"[ERP] Strategy 1 HIT: Serving rich data for {search_email} from O(1) cache.")
         _sync_user_to_erp(user, cached)
         return Response(cached, status=200)
 
-    print(f"[ERP] Strategy 1 {'REFRESH' if force_refresh else 'THIN'}: Syncing {search_email}...")
+    print(f"[ERP] O(1) Strategy Search Start for {search_email}...")
 
     # ── Strategy 2: Admin Bulk Cache Search (Global) ──────────────────────────
     # Removed the massive 17+ second synchronous fetch of all students. 
     # If the student is not in the individual cache, we skip straight to Strategy 3
     # which queries the ERP for their specific email address instead of the whole database.
+    # ── Strategy 2: O(1) Hash Map Index Lookup ───────────────────────────────
+    # We use a pre-built dictionary for constant time retrieval
     if not force_refresh:
-        bulk_cache_key = 'erp_all_students_v1'
-        bulk_cache = cache.get(bulk_cache_key)
-        
-        if bulk_cache and isinstance(bulk_cache, list):
-            print(f"[ERP] Strategy 2: Filtering {search_email}/{search_username} from records...")
-            for admission in bulk_cache:
-                details = admission.get('student', {}).get('studentsDetails', [])
-                admission_num = str(admission.get('admissionNumber') or '').strip().upper()
-                
-                email_match = any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details)
-                adm_match = (admission_num == search_username or 
-                             search_username in admission_num or 
-                             admission_num in search_username) if search_username else False
-                
-                if email_match or adm_match:
-                    print(f"[ERP] Strategy 2 SUCCESS: Found rich match in bulk cache.")
-                    _sync_user_to_erp(user, admission)
-                    cache.set(student_cache_key, admission, 300) # 5 Minute Cache
-                    return Response(admission, status=200)
+        index = _get_student_index()
+        if index:
+            print(f"[ERP] Strategy 2: Using Hash Map Index for {search_email}/{search_username}...")
+            # Try lookup by Email then by Admission ID
+            match = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
+            
+            if match:
+                print(f"[ERP] Strategy 2 SUCCESS: Found record via high-speed index.")
+                _sync_user_to_erp(user, match)
+                cache.set(student_cache_key, match, 300) # 5 Minute User Cache
+                return Response(match, status=200)
 
     # ── Strategy 3: Targeted API Call ──────────────────────────────────────────
     # Check if we are already fetching for this student to avoid Broken Pipe/Spam
@@ -140,15 +169,20 @@ def get_student_erp_data(request):
         if cached: return Response(cached, status=200)
         return Response({"status": "syncing", "message": "Enrichment in progress"}, status=202)
 
-    # Use Student Token if available, otherwise fallback to Admin Token for FORCE REFRESH
+    # Strategy 3: Targeted Fetch
+    # We prefer the Admin Token for enrichment (Strategy 3) because /api/admission 
+    # often requires higher privileges than a standard student token holds.
     student_erp_token = cache.get(f"erp_token_{user.pk}")
-    active_token = student_erp_token
-    is_admin_sync = False
+    admin_token = _get_erp_admin_token()
     
-    if not active_token and force_refresh:
-        print(f"[ERP] No student token for {search_email}, using Admin Token for force refresh...")
-        active_token = _get_erp_admin_token()
+    # If force refresh, we MUST use admin token to get a "God view" of the record
+    if force_refresh:
+        active_token = admin_token
         is_admin_sync = True
+    else:
+        # Otherwise try student token first, fallback to admin
+        active_token = student_erp_token or admin_token
+        is_admin_sync = not bool(student_erp_token)
 
     if active_token:
         cache.set(lock_key, True, 60) # 60s lock
@@ -160,6 +194,15 @@ def get_student_erp_data(request):
             try:
                 resp = requests.get(f"{erp_url}/api/admission?studentEmail={search_email}", 
                                     headers={"Authorization": f"Bearer {active_token}"}, timeout=60)
+                
+                # Handle 401 Escallation
+                if resp.status_code == 401 and not is_admin_sync and admin_token:
+                    print(f"[ERP] 401 on student token. Escalating to Admin session for {search_email}...")
+                    active_token = admin_token
+                    is_admin_sync = True
+                    resp = requests.get(f"{erp_url}/api/admission?studentEmail={search_email}", 
+                                        headers={"Authorization": f"Bearer {active_token}"}, timeout=60)
+
                 print(f"[ERP] Targeted Email Fetch Status: {resp.status_code}")
                 if resp.status_code == 200:
                     data = resp.json()
@@ -227,11 +270,13 @@ def get_student_erp_data(request):
         finally:
             cache.delete(lock_key)
 
+    # ── Strategy 4: Fallback Persistence ──────────────────────────────────
     if cached:
-        print(f"[ERP] Strategy 4: Returning best available cached data.")
+        print(f"[ERP] Strategy 4: Returning existing cached data (Sync failed/pending).")
+        # Ensure we keep the synced status if it was already synced
         return Response(cached, status=200)
 
-    print(f"[ERP] Strategy 4: Returning local mock.")
+    print(f"[ERP] Strategy 4: No cache available. Returning local mock.")
     local_data = {
         "admissionNumber": user.username,
         "sectionAllotment": { "examSection": user.exam_section or "—", "studySection": user.study_section or "—", "omrCode": user.omr_code or "—", "rm": user.rm_code or "—" },
