@@ -74,10 +74,45 @@ class TestSerializer(serializers.ModelSerializer):
     codes_sent_count = serializers.SerializerMethodField()
     sections_count = serializers.SerializerMethodField()
     allotted_master_count = serializers.SerializerMethodField()
+    
+    # Per-user schedule fields
+    start_time = serializers.SerializerMethodField()
+    end_time = serializers.SerializerMethodField()
 
     class Meta:
         model = Test
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'code', 'session', 'session_details', 'target_exam', 'target_exam_details',
+            'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details',
+            'centres', 'centres_count', 'codes_sent_count', 'allotted_sections', 'sections_count', 
+            'allotted_master_count', 'duration', 'total_marks', 'description', 'instructions', 
+            'is_completed', 'has_calculator', 'option_type_numeric', 'created_at', 'updated_at',
+            'start_time', 'end_time'
+        ]
+        
+    def _get_user_allotment(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or request.user.is_anonymous:
+            return None
+        
+        user = request.user
+        if getattr(user, 'user_type', None) != 'student':
+            return None
+            
+        centre_code = getattr(user, 'centre_code', None)
+        if not centre_code:
+            return None
+            
+        # Return the allotment for this student's centre
+        return obj.centre_allotments.filter(centre__code=centre_code).first()
+
+    def get_start_time(self, obj):
+        allotment = self._get_user_allotment(obj)
+        return allotment.start_time if allotment else None
+
+    def get_end_time(self, obj):
+        allotment = self._get_user_allotment(obj)
+        return allotment.end_time if allotment else None
         
     def get_centres_count(self, obj):
         # Use python len() to leverage prefetch_related and avoid DB hit

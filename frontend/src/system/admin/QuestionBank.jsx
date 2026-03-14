@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import {
     Upload, Plus, Database, FileText, CheckCircle,
@@ -16,21 +16,16 @@ import { useAuth } from '../../context/AuthContext';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { ImageDrop } from 'quill-image-drop-module';
+import ImageResize from 'quill-image-resize-module-react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
+// Register Quill Modules
+Quill.register('modules/imageResize', ImageResize);
+Quill.register('modules/imageDrop', ImageDrop);
+
 window.katex = katex;
 
-try {
-    if (!Quill.imports['modules/imageDrop']) {
-        const ID = (ImageDrop && ImageDrop.default) ? ImageDrop.default : ImageDrop;
-        Quill.register('modules/imageDrop', ID);
-    }
-} catch (e) {
-    console.warn('Image drop module could not be loaded:', e.message);
-}
-
-// Math Preview Component for LaTeX
 const MathPreview = ({ tex, isDarkMode }) => {
     const containerRef = useRef();
     useEffect(() => {

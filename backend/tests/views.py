@@ -22,19 +22,26 @@ class TestViewSet(viewsets.ModelViewSet):
             'allotted_sections', 'centres', 'sections', 'centre_allotments'
         ).order_by('-created_at')
         
-        # If user is a student, filter by their section
+        # If user is a student, enforce smart visibility rules
+        # Main motiv: All students shouldn't see all exams, only privileged ones.
         if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
-            exam_section = getattr(user, 'exam_section', None)
-            if exam_section:
-                # Filter tests that are allotted to a section with the same name as student's erp section
-                # Or tests that have no sections allotted (available to all)
+            exam_section = getattr(user, 'exam_section', '')
+            study_section = getattr(user, 'study_section', '')
+            allowed_names = [n.strip() for n in [exam_section, study_section] if n and str(n).strip()]
+            
+            # Smart Restricted Access:
+            # - Student ONLY sees tests explicitly allotted to their exam or study section.
+            # - Tests with NO allotments (draft/orphan) are hidden from students.
+            if allowed_names:
                 from django.db.models import Q
-                # We use list() because Djongo sometimes fails on complex OR queries with M2M
-                # But let's try the standard Q first. If it fails, we'll use in-memory filtering.
-                queryset = queryset.filter(
-                    Q(allotted_sections__name=exam_section) | 
-                    Q(allotted_sections__isnull=True)
-                ).distinct()
+                q_filter = Q()
+                for section_name in allowed_names:
+                    q_filter |= Q(allotted_sections__name__iexact=section_name)
+                # Note: Avoiding .distinct() here because Djongo SQL parser often crashes on it with M2M.
+                queryset = queryset.filter(q_filter)
+            else:
+                # Tight security: students without section info can't see any tests
+                queryset = queryset.none()
         
         package_id = self.request.query_params.get('package', None)
         if package_id:

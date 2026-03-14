@@ -455,4 +455,3 @@ const MetricCard = React.memo(({ title, value, icon: Icon, color, isDark, subtit
 ));
 
 export default Attendance;
-

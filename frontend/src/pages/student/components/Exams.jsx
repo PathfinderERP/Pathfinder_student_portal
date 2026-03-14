@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Calendar, Clock, Award, TrendingUp, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 
 const Exams = ({ isDarkMode, onRefresh }) => {
@@ -8,42 +9,70 @@ const Exams = ({ isDarkMode, onRefresh }) => {
     const [activeTab, setActiveTab] = useState('ongoing'); // 'ongoing' or 'previous'
     const [isRefreshing, setIsRefreshing] = useState(false);
 
+    const [tests, setTests] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchTests = async (forceRefresh = false) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/tests/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            // Map the backend structure to our local state if necessary
+            // In a real app, we might also filter by 'package' or other params
+            setTests(response.data || []);
+        } catch (err) {
+            console.error("Error fetching tests:", err);
+            setError("Failed to load exams. Please try again later.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleRefresh = async () => {
         setIsRefreshing(true);
+        // Step 1: Tell parent to refresh ERP data (if it has the callback)
         if (onRefresh) await onRefresh(true);
+        // Step 2: Fetch fresh tests from our backend
+        await fetchTests();
         setTimeout(() => setIsRefreshing(false), 1000);
     };
 
-    // Mock data for tests - in a real app, this would be fetched from /api/tests/
-    const tests = [
-        { id: 1, name: '2024_26 JEE MAIN PHASE TEST 01', code: '24_26JMPT01', duration: 180, activeTime: '2024-06-22T09:00', expire: '2024-06-25T21:00', status: 'Expired' },
-        { id: 2, name: '2024_26 JEE MAIN PHASE TEST 02', code: '24_26JMPT02', duration: 180, activeTime: '2024-08-24T09:00', expire: '2024-08-27T21:00', status: 'Expired' },
-        { id: 3, name: '2024_26 JEE MAIN UNIT TEST 01', code: '24_26JMUT01', duration: 180, activeTime: '2024-10-04T09:00', expire: '2024-10-07T21:00', status: 'Expired' },
-        { id: 4, name: '2024_26 JEE MAIN PHASE TEST 03', code: '24_26JMPT03', duration: 180, activeTime: '2024-11-16T09:00', expire: '2024-11-19T21:00', status: 'Expired' },
-        { id: 5, name: '2024_26 JEE MAIN PHASE TEST 04', code: '24_26JMPT04', duration: 180, activeTime: '2025-01-18T09:00', expire: '2025-01-28T21:00', status: 'Expired' },
-        { id: 6, name: '2024_26 JEE MAIN PHASE TEST 05', code: '24_26JMPT05', duration: 180, activeTime: '2025-03-28T09:00', expire: '2025-04-01T21:00', status: 'Expired' },
-        { id: 7, name: '2024_26 JEE MAIN UNIT TEST 02', code: '24_26JMUT02', duration: 180, activeTime: '2025-02-22T09:00', expire: '2025-02-25T21:00', status: 'Expired' },
-        { id: 8, name: '2024_26 JEE ADV FULL SYLLABUS TEST 01-PAPER 1', code: '24_26JADFST01-P1', duration: 180, activeTime: '2024-04-11T09:00', expire: '2024-04-15T18:00', status: 'Expired' },
-        { id: 9, name: '2024_26 JEE ADV FULL SYLLABUS TEST 01-PAPER 2', code: '24_26JADFST01-P2', duration: 180, activeTime: '2024-04-11T09:00', expire: '2024-04-15T18:00', status: 'Expired' },
-        { id: 10, name: '2024_26 JEE MAIN FULL SYLLABUS TEST 02', code: '24_26JMFST02', duration: 180, activeTime: '2024-04-18T09:00', expire: '2024-04-21T21:00', status: 'Expired' },
-    ];
+    React.useEffect(() => {
+        if (token) {
+            fetchTests();
+        }
+    }, [token]);
 
-    const completedExams = [
-        { name: 'Biology Test', date: '2026-01-10', marks: 85, total: 100, rank: 5 },
-        { name: 'English Test', date: '2026-01-05', marks: 92, total: 100, rank: 2 },
-        { name: 'Physics Mock', date: '2025-12-28', marks: 78, total: 100, rank: 12 },
-    ];
+    const formatDateTime = (dateStr) => {
+        if (!dateStr) return '—';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleString('en-IN', {
+                day: 'numeric',
+                month: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        } catch (e) {
+            return '—';
+        }
+    };
 
     const filteredTests = tests.filter(test => 
-        test.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        test.code.toLowerCase().includes(searchTerm.toLowerCase())
+        (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
     ).filter(test => {
         if (activeTab === 'ongoing') {
-            // In a real app, this would check if the test is currently active
-            return true; 
+            return !test.is_completed; 
         } else {
-            // For now, let's just show some tests in previous
-            return test.status === 'Expired';
+            return test.is_completed;
         }
     });
 
@@ -116,18 +145,34 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                            {filteredTests.length === 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="py-20 text-center">
+                                        <div className="flex flex-col items-center gap-3 animate-pulse text-blue-500/50">
+                                            <RefreshCw size={48} className="animate-spin" />
+                                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">Loading Secure Exams...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan="7" className="py-20 text-center text-red-500/60">
+                                        <p className="text-sm font-bold">{error}</p>
+                                    </td>
+                                </tr>
+                            ) : filteredTests.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="py-20 text-center">
                                         <div className="opacity-20 flex flex-col items-center gap-3">
                                             <Search size={48} />
-                                            <p className="text-sm font-black uppercase tracking-[0.2em]">No Tests Found</p>
+                                            <p className="text-sm font-black uppercase tracking-[0.2em]">No Restricted Tests Found</p>
+                                            <p className="text-[10px] font-bold">Contact Admin if your Section is not visible</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
                                 filteredTests.map((test, index) => (
-                                    <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
+                                    <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
                                         <td className="py-5 px-6 text-center text-xs font-bold opacity-40">{index + 1}</td>
                                         <td className="py-5 px-6">
                                             <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -138,22 +183,26 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                                             <span className="text-[11px] font-bold font-mono opacity-50 uppercase">{test.code}</span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <span className="text-[11px] font-black opacity-60">{test.duration}</span>
+                                            <span className="text-[11px] font-black opacity-60">{test.duration} MIN</span>
                                         </td>
                                         <td className="py-5 px-6">
-                                            <span className="text-[11px] font-bold font-mono opacity-50">{test.activeTime}</span>
+                                            <span className="text-[11px] font-bold font-mono opacity-50">
+                                                {formatDateTime(test.start_time)}
+                                            </span>
                                         </td>
                                         <td className="py-5 px-6">
-                                            <span className="text-[11px] font-bold font-mono opacity-50">{test.expire}</span>
+                                            <span className="text-[11px] font-bold font-mono opacity-50">
+                                                {formatDateTime(test.end_time)}
+                                            </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <button 
-                                                disabled={test.status === 'Expired'}
-                                                className={`px-4 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${test.status === 'Expired' 
+                                                disabled={test.is_completed}
+                                                className={`px-4 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${test.is_completed
                                                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                                                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 active:scale-95'}`}
                                             >
-                                                {test.status}
+                                                {test.is_completed ? 'Completed' : 'Start Test'}
                                             </button>
                                         </td>
                                     </tr>

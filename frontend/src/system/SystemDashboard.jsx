@@ -606,7 +606,6 @@ const SystemDashboard = () => {
 
     const renderContent = () => {
         // Essential tabs that should always stay mounted once visited
-        // Essential tabs that should always stay mounted once visited
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',

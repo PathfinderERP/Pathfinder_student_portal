@@ -321,6 +321,15 @@ def _sync_user_to_erp(user, admission_data):
                 user.first_name = parts[0]
                 user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
         
+        # 3. Sync Centre Info
+        venue = admission_data.get('venue') or admission_data.get('centre')
+        if venue:
+            if isinstance(venue, dict):
+                user.centre_code = venue.get('centreCode') or venue.get('code')
+                user.centre_name = venue.get('centreName') or venue.get('name')
+            else:
+                user.centre_name = str(venue)
+
         user.save()
         print(f"[SYNC] ✓ User {user.username} synced with ERP.")
     except Exception as e:
