@@ -163,11 +163,20 @@ def get_student_erp_data(request):
                 cache.set(student_cache_key, match, 300) # 5 Minute User Cache
                 return Response(match, status=200)
 
-    # ── Strategy 3: Targeted API Call ──────────────────────────────────────────
-    # Check if we are already fetching for this student to avoid Broken Pipe/Spam
-    if not force_refresh and cache.get(lock_key):
-        if cached: return Response(cached, status=200)
-        return Response({"status": "syncing", "message": "Enrichment in progress"}, status=202)
+    # If Strategy 1 and 2 failed, we have a choice:
+    # 1. If this is a background/silent refresh (force_refresh=True), block and get fresh data.
+    # 2. If this is the INITIAL load (force_refresh=False), return what we have (mock) FAST 
+    #    and let the frontend trigger the enrichment silently.
+    if not force_refresh:
+        print(f"[ERP] O(1) Fast Return: Returning local profile to unblock UI. Background sync will follow.")
+        # We skip straight to Strategy 4 for maximum responsiveness
+        pass 
+    else:
+        # ── Strategy 3: Targeted API Call (Blocking for Force Refresh) ─────────────
+        # Check if we are already fetching for this student to avoid Broken Pipe/Spam
+        if cache.get(lock_key):
+            if cached: return Response(cached, status=200)
+            return Response({"status": "syncing", "message": "Enrichment in progress"}, status=202)
 
     # Strategy 3: Targeted Fetch
     # We prefer the Admin Token for enrichment (Strategy 3) because /api/admission 
@@ -269,14 +278,17 @@ def get_student_erp_data(request):
             print(f"[ERP ERROR] Strategy 3 failed: {e}")
         finally:
             cache.delete(lock_key)
-
-    # ── Strategy 4: Fallback Persistence ──────────────────────────────────
+    
+    # If we got here, it's either an initial load OR Strategy 3 failed
+    if not force_refresh:
+         print(f"[ERP] Strategy 2 MISS: No cached record for {search_email}. Returning fast pending state.")
+    else:
+         print(f"[ERP] Strategy 3 FAIL: Could not enrich {search_email} via API.")
     if cached:
-        print(f"[ERP] Strategy 4: Returning existing cached data (Sync failed/pending).")
-        # Ensure we keep the synced status if it was already synced
+        print(f"[ERP] Strategy 4: Serving best available cached data.")
         return Response(cached, status=200)
 
-    print(f"[ERP] Strategy 4: No cache available. Returning local mock.")
+    print(f"[ERP] Strategy 4: Returning local mock (Sync Pending).")
     local_data = {
         "admissionNumber": user.username,
         "sectionAllotment": { "examSection": user.exam_section or "—", "studySection": user.study_section or "—", "omrCode": user.omr_code or "—", "rm": user.rm_code or "—" },
