@@ -86,7 +86,7 @@ const VideoRegistry = () => {
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
             setTargetExams(teRes.data);
-            setSections(secRes.data);
+            setSections(Array.isArray(secRes.data.sections) ? secRes.data.sections : (Array.isArray(secRes.data) ? secRes.data : []));
             setPackages(pkgRes.data);
         } catch (error) {
             console.error("Failed to fetch master data", error);
@@ -217,7 +217,8 @@ const VideoRegistry = () => {
     };
 
     const filteredVideos = useMemo(() => {
-        return videos.filter(n => {
+        const safeVideos = Array.isArray(videos) ? videos : [];
+        return safeVideos.filter(n => {
             const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase());
 
             // View Mode Filter
@@ -240,13 +241,16 @@ const VideoRegistry = () => {
 
     // Dynamic Filter Options
     const dynamicFilterOptions = useMemo(() => {
+        const safeArray = (arr) => Array.isArray(arr) ? arr : [];
+        const safeVideos = safeArray(videos);
+        
         return {
-            sessions: sessions.filter(s => videos.some(n => n.session === s.id)),
-            classes: classes.filter(c => videos.some(n => n.class_level === c.id)),
-            subjects: subjects.filter(s => videos.some(n => n.subject === s.id)),
-            examTypes: examTypes.filter(e => videos.some(n => n.exam_type === e.id)),
-            targetExams: targetExams.filter(t => videos.some(n => n.target_exam === t.id)),
-            sections: sections.filter(s => videos.some(n => n.section === s.id))
+            sessions: safeArray(sessions).filter(s => safeVideos.some(n => n.session === s.id)),
+            classes: safeArray(classes).filter(c => safeVideos.some(n => n.class_level === c.id)),
+            subjects: safeArray(subjects).filter(s => safeVideos.some(n => n.subject === s.id)),
+            examTypes: safeArray(examTypes).filter(e => safeVideos.some(n => n.exam_type === e.id)),
+            targetExams: safeArray(targetExams).filter(t => safeVideos.some(n => n.target_exam === t.id)),
+            sections: safeArray(sections).filter(s => safeVideos.some(n => n.section === s.id))
         };
     }, [videos, sessions, classes, subjects, examTypes, targetExams, sections]);
 

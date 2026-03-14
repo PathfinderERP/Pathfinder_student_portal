@@ -29,7 +29,7 @@ class StudentSectionFilterMixin:
         if hasattr(queryset.model, 'is_general'):
             filter_q |= Q(is_general=True)
             
-        return queryset.filter(filter_q).distinct()
+        return queryset.filter(filter_q)
 
 class CachedListViewSetMixin(object):
     """Mixin to cache the list response for master data and invalidate on change."""

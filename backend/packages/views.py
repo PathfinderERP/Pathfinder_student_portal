@@ -20,7 +20,7 @@ class PackageViewSet(viewsets.ModelViewSet):
             if exam_section:
                 queryset = queryset.filter(
                     Q(allotted_sections__name=exam_section) | Q(allotted_sections__isnull=True)
-                ).distinct()
+                )
         return queryset
 
     def get_object(self):
