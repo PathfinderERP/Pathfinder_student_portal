@@ -15,6 +15,8 @@ const LibraryRegistry = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
 
+    const safeArray = (arr) => Array.isArray(arr) ? arr : [];
+
     // Master Data State
     const [sessions, setSessions] = useState([]);
     const [classes, setClasses] = useState([]);
@@ -87,12 +89,16 @@ const LibraryRegistry = () => {
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
                 axios.get(`${apiUrl}/api/sections/`, config)
             ]);
-            setSessions(sessRes.data);
-            setClasses(classRes.data);
-            setSubjects(subRes.data);
-            setExamTypes(etRes.data);
-            setTargetExams(teRes.data);
-            setSections(secRes.data);
+            setSessions(safeArray(sessRes.data));
+            setClasses(safeArray(classRes.data));
+            setSubjects(safeArray(subRes.data));
+            setExamTypes(safeArray(etRes.data));
+            setTargetExams(safeArray(teRes.data));
+            // Handle Section API which often returns { sections: [...] }
+            setSections(Array.isArray(secRes.data?.sections) 
+                ? secRes.data.sections 
+                : (Array.isArray(secRes.data) ? secRes.data : [])
+            );
         } catch (error) {
             console.error("Failed to fetch master data", error);
         }
@@ -222,7 +228,8 @@ const LibraryRegistry = () => {
 
     // Filter Logic
     const filteredItems = useMemo(() => {
-        return libraryItems.filter(item => {
+        const safeItems = safeArray(libraryItems);
+        return safeItems.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesSession = !activeFilters.session || item.session === activeFilters.session;
             const matchesClass = !activeFilters.class_level || item.class_level === activeFilters.class_level;
@@ -236,13 +243,14 @@ const LibraryRegistry = () => {
 
     // Dynamic Filter Options based on available data
     const dynamicFilterOptions = useMemo(() => {
+        const safeItems = safeArray(libraryItems);
         return {
-            sessions: [...new Set(libraryItems.filter(i => i.session_name).map(i => JSON.stringify({ id: i.session, name: i.session_name })))].map(s => JSON.parse(s)),
-            classes: [...new Set(libraryItems.filter(i => i.class_name).map(i => JSON.stringify({ id: i.class_level, name: i.class_name })))].map(c => JSON.parse(c)),
-            subjects: [...new Set(libraryItems.filter(i => i.subject_name).map(i => JSON.stringify({ id: i.subject, name: i.subject_name })))].map(s => JSON.parse(s)),
-            examTypes: [...new Set(libraryItems.filter(i => i.exam_type_name).map(i => JSON.stringify({ id: i.exam_type, name: i.exam_type_name })))].map(e => JSON.parse(e)),
-            targetExams: [...new Set(libraryItems.filter(i => i.target_exam_name).map(i => JSON.stringify({ id: i.target_exam, name: i.target_exam_name })))].map(t => JSON.parse(t)),
-            sections: [...new Set(libraryItems.filter(i => i.section_name).map(i => JSON.stringify({ id: i.section, name: i.section_name })))].map(s => JSON.parse(s))
+            sessions: [...new Set(safeItems.filter(i => i.session_name).map(i => JSON.stringify({ id: i.session, name: i.session_name })))].map(s => JSON.parse(s)),
+            classes: [...new Set(safeItems.filter(i => i.class_name).map(i => JSON.stringify({ id: i.class_level, name: i.class_name })))].map(c => JSON.parse(c)),
+            subjects: [...new Set(safeItems.filter(i => i.subject_name).map(i => JSON.stringify({ id: i.subject, name: i.subject_name })))].map(s => JSON.parse(s)),
+            examTypes: [...new Set(safeItems.filter(i => i.exam_type_name).map(i => JSON.stringify({ id: i.exam_type, name: i.exam_type_name })))].map(e => JSON.parse(e)),
+            targetExams: [...new Set(safeItems.filter(i => i.target_exam_name).map(i => JSON.stringify({ id: i.target_exam, name: i.target_exam_name })))].map(t => JSON.parse(t)),
+            sections: [...new Set(safeItems.filter(i => i.section_name).map(i => JSON.stringify({ id: i.section, name: i.section_name })))].map(s => JSON.parse(s))
         };
     }, [libraryItems]);
 
@@ -595,7 +603,7 @@ const LibraryRegistry = () => {
                                                 className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-emerald-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'}`}
                                             >
                                                 <option value="">Select {meta.label}</option>
-                                                {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                                                {safeArray(meta.options).map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                                             </select>
                                         </div>
                                     ))}
