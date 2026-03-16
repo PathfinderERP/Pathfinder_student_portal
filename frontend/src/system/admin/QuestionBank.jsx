@@ -20,9 +20,13 @@ import ImageResize from 'quill-image-resize-module-react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-// Register Quill Modules
-Quill.register('modules/imageResize', ImageResize);
-Quill.register('modules/imageDrop', ImageDrop);
+// Register Quill Modules - Updated for production stability
+if (ImageResize) {
+    Quill.register('modules/imageResize', ImageResize.default || ImageResize);
+}
+if (ImageDrop) {
+    Quill.register('modules/imageDrop', ImageDrop.default || ImageDrop);
+}
 
 window.katex = katex;
 

@@ -43,6 +43,9 @@ CSRF_COOKIE_HTTPONLY = False  # Allows JS to see the cookie if needed
 CSRF_COOKIE_SAMESITE = 'Lax'  # Allow cross-origin requests from frontend
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
 
+# AWS / Proxy SSL Header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Exempt API endpoints from CSRF (using JWT authentication instead)
 CSRF_EXEMPT_LIST = [r'^/api/']
 
@@ -60,6 +63,15 @@ if 'api.studypathportal.in' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('api.studypathportal.in')
     ALLOWED_HOSTS.append('studypathportal.in')
     ALLOWED_HOSTS.append('chat.studypathportal.in')
+
+# Security settings for production
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'Lax'
+else:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
 
 
 # Application definition
