@@ -205,6 +205,8 @@ class LibraryItem(models.Model):
     description = models.TextField(blank=True, null=True)
     thumbnail = models.ImageField(upload_to='library/thumbnails/', blank=True, null=True)
     pdf_file = models.FileField(upload_to='library/pdfs/', blank=True, null=True)
+    video_link = models.URLField(max_length=500, blank=True, null=True)
+    video_file = models.FileField(upload_to='library/videos/', blank=True, null=True)
     
     # Master Data Links
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')

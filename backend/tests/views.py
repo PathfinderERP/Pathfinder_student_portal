@@ -183,6 +183,43 @@ class TestViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(new_test)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'])
+    def verify_access_code(self, request, pk=None):
+        test = self.get_object()
+        user = request.user
+        entered_code = request.data.get('code')
+        
+        if not entered_code:
+            return Response({'error': 'Access code is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        student_centre_code = getattr(user, 'centre_code', None)
+        if not student_centre_code:
+            return Response({'error': 'Student centre information not found. Please contact admin.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            # We use direct 모델 lookup to avoid get_queryset filters if necessary, 
+            # though get_queryset for students already filters for their sections.
+            # But the centre allotment is a better source of truth for "active status".
+            allotment = TestCentreAllotment.objects.get(test=test, centre__code=student_centre_code)
+        except TestCentreAllotment.DoesNotExist:
+            return Response({'error': 'Test is not allotted to your centre.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        if not allotment.is_active:
+            return Response({'error': 'Test is currently inactive for your centre.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Optional: Check if current time is within allotment.start_time and allotment.end_time
+        from django.utils import timezone
+        now = timezone.now()
+        if allotment.start_time and now < allotment.start_time:
+            return Response({'error': 'Test has not started yet.'}, status=status.HTTP_403_FORBIDDEN)
+        if allotment.end_time and now > allotment.end_time:
+            return Response({'error': 'Test has already expired.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if allotment.access_code == entered_code:
+            return Response({'success': True, 'message': 'Access code verified.'})
+        else:
+            return Response({'error': 'Invalid access code. Please check with your centre/teacher.'}, status=status.HTTP_403_FORBIDDEN)
+
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     queryset = TestCentreAllotment.objects.all()
     serializer_class = TestCentreAllotmentSerializer

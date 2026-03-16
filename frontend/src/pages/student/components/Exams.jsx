@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { FileText, Calendar, Clock, Award, TrendingUp, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
+import StartExamModal from './StartExamModal';
+import { toast } from 'react-hot-toast';
 
 const Exams = ({ isDarkMode, onRefresh }) => {
     const { user, getApiUrl, token } = useAuth();
@@ -12,6 +14,9 @@ const Exams = ({ isDarkMode, onRefresh }) => {
     const [tests, setTests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedTest, setSelectedTest] = useState(null);
 
     const fetchTests = async (forceRefresh = false) => {
         setLoading(true);
@@ -47,6 +52,32 @@ const Exams = ({ isDarkMode, onRefresh }) => {
             fetchTests();
         }
     }, [token]);
+
+    const handleStartClick = (test) => {
+        setSelectedTest(test);
+        setIsModalOpen(true);
+    };
+
+    const handleVerifyCode = async (code) => {
+        const apiUrl = getApiUrl();
+        try {
+            const response = await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/verify_access_code/`, {
+                code
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.data.success) {
+                toast.success('Access code verified! Starting exam...');
+                setIsModalOpen(false);
+                // In a real scenario, you would navigate to the actual exam interface here:
+                // navigate(`/student/exam/${selectedTest.id}`);
+            }
+        } catch (err) {
+            // Rethrow so the modal can handle it
+            throw err;
+        }
+    };
 
     const formatDateTime = (dateStr) => {
         if (!dateStr) return '—';
@@ -198,6 +229,7 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                                         <td className="py-5 px-6 text-center">
                                             <button 
                                                 disabled={test.is_completed}
+                                                onClick={() => handleStartClick(test)}
                                                 className={`px-4 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${test.is_completed
                                                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                                                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 active:scale-95'}`}
@@ -227,6 +259,15 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                     </button>
                 </div>
             </div>
+
+            {/* Start Exam Modal */}
+            <StartExamModal 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onConfirm={handleVerifyCode}
+                test={selectedTest}
+                isDarkMode={isDarkMode}
+            />
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Filter, ChevronsLeft, ChevronsRight, ChevronRight } from 'lucide-react';
+import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Filter, ChevronsLeft, ChevronsRight, ChevronRight, Video, PlayCircle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
@@ -51,6 +51,9 @@ const LibraryRegistry = () => {
         description: '',
         thumbnail: null,
         pdf: null,
+        video_link: '',
+        video_file: null,
+        content_type: 'pdf',
         session: '',
         class_level: '',
         subject: '',
@@ -118,8 +121,10 @@ const LibraryRegistry = () => {
     const handleRemoveFile = (field) => {
         if (field === 'thumbnail') {
             setNewItem({ ...newItem, thumbnail: null, existing_thumbnail: null });
-        } else {
+        } else if (field === 'pdf') {
             setNewItem({ ...newItem, pdf: null });
+        } else if (field === 'video_file') {
+            setNewItem({ ...newItem, video_file: null });
         }
     };
 
@@ -139,9 +144,11 @@ const LibraryRegistry = () => {
             if (newItem.section) formData.append('section', newItem.section);
             if (newItem.thumbnail) formData.append('thumbnail', newItem.thumbnail);
             if (newItem.pdf) formData.append('pdf_file', newItem.pdf);
+            if (newItem.video_link) formData.append('video_link', newItem.video_link);
+            if (newItem.video_file) formData.append('video_file', newItem.video_file);
 
             await axios.post(`${apiUrl}/api/master-data/library/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
             });
 
             toast.success("Item added successfully");
@@ -169,6 +176,9 @@ const LibraryRegistry = () => {
             section: item.section || '',
             thumbnail: null,
             pdf: null,
+            video_link: item.video_link || '',
+            video_file: null,
+            content_type: (item.video_link || item.video_file) ? 'video' : 'pdf',
             existing_thumbnail: item.thumbnail
         });
         setIsEditModalOpen(true);
@@ -190,9 +200,11 @@ const LibraryRegistry = () => {
             formData.append('section', newItem.section || '');
             if (newItem.thumbnail) formData.append('thumbnail', newItem.thumbnail);
             if (newItem.pdf) formData.append('pdf_file', newItem.pdf);
+            if (newItem.video_link) formData.append('video_link', newItem.video_link || '');
+            if (newItem.video_file) formData.append('video_file', newItem.video_file);
 
             await axios.patch(`${apiUrl}/api/master-data/library/${selectedItemForEdit.id}/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
             });
 
             toast.success("Item updated successfully");
@@ -212,7 +224,9 @@ const LibraryRegistry = () => {
         if (!window.confirm("Are you sure you want to delete this item?")) return;
         try {
             const apiUrl = getApiUrl();
-            await axios.delete(`${apiUrl}/api/master-data/library/${id}/`);
+            await axios.delete(`${apiUrl}/api/master-data/library/${id}/`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
             toast.success("Item deleted successfully");
             fetchLibraryItems();
         } catch (error) {
@@ -222,7 +236,21 @@ const LibraryRegistry = () => {
     };
 
     const resetForm = () => {
-        setNewItem({ name: '', description: '', thumbnail: null, pdf: null, session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' });
+        setNewItem({ 
+            name: '', 
+            description: '', 
+            thumbnail: null, 
+            pdf: null, 
+            video_link: '', 
+            video_file: null, 
+            content_type: 'pdf',
+            session: '', 
+            class_level: '', 
+            subject: '', 
+            exam_type: '', 
+            target_exam: '', 
+            section: '' 
+        });
         setSelectedItemForEdit(null);
     };
 
@@ -493,16 +521,16 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <button
-                                                disabled={!item.pdf_file}
+                                                disabled={!item.pdf_file && !item.video_link && !item.video_file}
                                                 onClick={() => {
                                                     setSelectedItemForView(item);
                                                     setViewPage(1);
                                                     setIsViewModalOpen(true);
                                                     setIsFullScreen(false);
                                                 }}
-                                                className={`px-4 py-1.5 rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all ${!item.pdf_file ? 'opacity-20 cursor-not-allowed' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-600 hover:text-white shadow-sm'}`}
+                                                className={`px-4 py-1.5 rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all ${(!item.pdf_file && !item.video_link && !item.video_file) ? 'opacity-20 cursor-not-allowed' : (item.pdf_file ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-600 hover:text-white' : 'bg-amber-500/10 text-amber-600 hover:bg-amber-600 hover:text-white')} shadow-sm`}
                                             >
-                                                View PDF
+                                                {item.pdf_file ? 'View PDF' : (item.video_link || item.video_file ? 'Watch Video' : 'No File')}
                                             </button>
                                         </td>
                                         <td className="py-5 px-6 text-center">
@@ -610,6 +638,29 @@ const LibraryRegistry = () => {
                                 </div>
                             </div>
 
+                            {/* Content Type Toggle */}
+                            <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
+                                <span className="text-xs font-black uppercase tracking-widest opacity-60 ml-2">Content Type:</span>
+                                <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setNewItem({ ...newItem, content_type: 'pdf' })}
+                                        className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${newItem.content_type === 'pdf' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'opacity-40 hover:opacity-100'}`}
+                                    >
+                                        <FileText size={14} strokeWidth={3} />
+                                        PDF Document
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNewItem({ ...newItem, content_type: 'video' })}
+                                        className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${newItem.content_type === 'video' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'opacity-40 hover:opacity-100'}`}
+                                    >
+                                        <PlayCircle size={14} strokeWidth={3} />
+                                        Video Content
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* Bottom Section: Resource Details */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-6">
@@ -665,36 +716,78 @@ const LibraryRegistry = () => {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">PDF File</label>
-                                        <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
-                                            {newItem.pdf && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRemoveFile('pdf')}
-                                                    className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90"
-                                                >
-                                                    <X size={14} strokeWidth={3} />
-                                                </button>
-                                            )}
-                                            <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, 'pdf')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                            {newItem.pdf ? (
-                                                <div className="flex flex-col items-center gap-3">
-                                                    <div className="p-4 rounded-[5px] bg-blue-500/20 text-blue-500 shadow-xl shadow-blue-500/10">
-                                                        <FileCheck size={40} />
+                                    {newItem.content_type === 'pdf' ? (
+                                        <div className="space-y-2 animate-in fade-in duration-300">
+                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">PDF File</label>
+                                            <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
+                                                {newItem.pdf && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveFile('pdf')}
+                                                        className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90"
+                                                    >
+                                                        <X size={14} strokeWidth={3} />
+                                                    </button>
+                                                )}
+                                                <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, 'pdf')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                                {newItem.pdf ? (
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <div className="p-4 rounded-[5px] bg-blue-500/20 text-blue-500 shadow-xl shadow-blue-500/10">
+                                                            <FileCheck size={40} />
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 max-w-[120px] truncate">{newItem.pdf.name}</span>
                                                     </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 max-w-[120px] truncate">{newItem.pdf.name}</span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-3">
-                                                    <div className="p-4 rounded-[5px] bg-blue-500/10 text-blue-500">
-                                                        <FileText size={32} />
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <div className="p-4 rounded-[5px] bg-blue-500/10 text-blue-500">
+                                                            <FileText size={32} />
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Main Document</span>
                                                     </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Main Document</span>
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="space-y-6 animate-in fade-in duration-300">
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Video Link (YouTube/Vimeo)</label>
+                                                <input
+                                                    type="url"
+                                                    value={newItem.video_link}
+                                                    onChange={(e) => setNewItem({ ...newItem, video_link: e.target.value })}
+                                                    className={`w-full px-4 py-3 rounded-[5px] outline-none border-2 font-bold text-xs transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 text-slate-800'}`}
+                                                    placeholder="https://youtube.com/watch?v=..."
+                                                />
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Or Upload Video File</label>
+                                                <div className={`relative h-[120px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-2 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
+                                                    {newItem.video_file && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveFile('video_file')}
+                                                            className="absolute top-1 right-1 z-20 p-1.5 bg-red-500 text-white rounded-[5px] shadow-xl hover:bg-red-600 transition-all active:scale-90"
+                                                        >
+                                                            <X size={10} strokeWidth={3} />
+                                                        </button>
+                                                    )}
+                                                    <input type="file" accept="video/*" onChange={(e) => handleFileChange(e, 'video_file')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                                    {newItem.video_file ? (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <PlayCircle size={24} className="text-amber-500" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 max-w-[100px] truncate">{newItem.video_file.name}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <Upload size={20} className="text-amber-500/50" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Choose Video</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -745,14 +838,39 @@ const LibraryRegistry = () => {
                                     <div className="flex flex-col items-center lg:items-start text-center lg:text-left max-w-xl">
                                         <h4 className="text-3xl lg:text-5xl font-black uppercase tracking-tight mb-6 leading-tight text-white">{selectedItemForView.name}</h4>
                                         <p className="text-base font-medium leading-relaxed mb-10 text-white/60">{selectedItemForView.description || "No description available."}</p>
-                                        <button onClick={() => setViewPage(2)} className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-4">
-                                            <FileText size={24} strokeWidth={3} /> <span>Open Reader</span>
-                                        </button>
+                                        {(selectedItemForView.pdf_file || selectedItemForView.video_link || selectedItemForView.video_file) && (
+                                            <button onClick={() => setViewPage(2)} className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-4">
+                                                {selectedItemForView.pdf_file ? <FileText size={24} strokeWidth={3} /> : <PlayCircle size={24} strokeWidth={3} />} 
+                                                <span>{selectedItemForView.pdf_file ? 'Open Reader' : 'Play Video'}</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
                                 <div className="w-full h-full pt-20">
-                                    {selectedItemForView.pdf_file ? <iframe src={selectedItemForView.pdf_file} className="w-full h-full bg-white" title="PDF Preview" /> : <div className="p-20 text-center uppercase font-black text-white/30 tracking-widest">No PDF available</div>}
+                                    {selectedItemForView.pdf_file ? (
+                                        <iframe src={selectedItemForView.pdf_file} className="w-full h-full bg-white" title="PDF Preview" />
+                                    ) : selectedItemForView.video_link ? (
+                                        <div className="w-full h-full bg-black flex items-center justify-center">
+                                            {selectedItemForView.video_link.includes('youtube.com') || selectedItemForView.video_link.includes('youtu.be') ? (
+                                                <iframe 
+                                                    src={selectedItemForView.video_link.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
+                                                    className="w-full h-full" 
+                                                    allowFullScreen 
+                                                    title="Video Player"
+                                                />
+                                            ) : (
+                                                <a href={selectedItemForView.video_link} target="_blank" rel="noopener noreferrer" className="text-emerald-500 font-bold hover:underline py-10 flex flex-col items-center gap-4">
+                                                    <ExternalLink size={48} />
+                                                    <span>Open Video in External Tab</span>
+                                                </a>
+                                            )}
+                                        </div>
+                                    ) : selectedItemForView.video_file ? (
+                                        <video src={selectedItemForView.video_file} className="w-full h-full" controls />
+                                    ) : (
+                                        <div className="p-20 text-center uppercase font-black text-white/30 tracking-widest">No attachment available</div>
+                                    )}
                                 </div>
                             )}
                         </div>
