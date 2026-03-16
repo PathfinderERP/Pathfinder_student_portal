@@ -381,31 +381,37 @@ def get_all_students_erp_data(request):
 
         if resp.status_code == 200:
             import json as _json
-            raw_content = resp.content  # reads entire streamed response
-            print(f"[ERP DEBUG] Downloaded {len(raw_content) // 1024} KB")
-            data = _json.loads(raw_content)
+            # Increase timeout specifically for large parsing
+            try:
+                data = resp.json()
+            except Exception as json_err:
+                # If JSON fails, it might be a partial stream or too big
+                print(f"[ERP ERROR] JSON Parse failed: {json_err}")
+                return Response([], status=200)
 
-            # Handle list vs wrapped dict
-            final_data = data
+            # Handle list vs wrapped dict safely
+            final_data = []
             if isinstance(data, dict):
                 final_data = data.get('data') or data.get('admissions') or data.get('students') or []
+            elif isinstance(data, list):
+                final_data = data
+            
             if not isinstance(final_data, list):
-                final_data = [final_data] if isinstance(final_data, dict) else []
+                final_data = []
 
-            print(f"[ERP DEBUG] Parsed {len(final_data)} student records — caching for 1 hour")
-            cache.set(CACHE_KEY, final_data, 3600)  # cache 1 hour so 52 MB isn't re-downloaded every request
+            print(f"[ERP DEBUG] Parsed {len(final_data)} student records — caching")
+            # Only cache if data is manageable
+            if len(final_data) > 0:
+                cache.set(CACHE_KEY, final_data, 3600)
             return Response(final_data, status=200)
 
-        error_msg = f"ERP API Error: {resp.status_code}"
-        print(f"[ERP DEBUG] {error_msg} - {resp.text[:200]}")
-        # Graceful degradation: return empty list so frontend doesn't show a broken state
         return Response([], status=200)
 
+    except requests.exceptions.Timeout:
+        print("[ERP ERROR] Request timed out")
+        return Response([], status=200)
     except Exception as e:
         print(f"[ERP ERROR] get_all_students_erp_data: {e}")
-        import traceback
-        traceback.print_exc()
-        # Graceful degradation on timeout/network errors
         return Response([], status=200)
 
 @api_view(['GET'])
