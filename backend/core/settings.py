@@ -9,6 +9,17 @@ import posixpath
 import os
 from dotenv import load_dotenv
 
+# Path: Fixed DNS resolution for MongoDB Atlas (SRV records)
+try:
+    import dns.resolver
+    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '8.8.4.4', '1.1.1.1']
+    # Increase resolver timeout and lifetime to prevent SRV lookup failure
+    dns.resolver.default_resolver.timeout = 20
+    dns.resolver.default_resolver.lifetime = 20
+except ImportError:
+    pass
+
 # Load environment variables
 load_dotenv()
 
@@ -128,7 +139,11 @@ if MONGO_USERNAME and MONGO_PASSWORD and MONGO_CLUSTER:
     _user = quote_plus(MONGO_USERNAME)
     _pwd = quote_plus(MONGO_PASSWORD)
     
-    MONGO_URI = f"mongodb+srv://{_user}:{_pwd}@{MONGO_CLUSTER}.mongodb.net/?retryWrites=true&w=majority"
+    # Map SRV to direct hosts to bypass flaky local DNS resolution
+    # These are the actual underlying nodes of your Atlas cluster
+    DIRECT_HOSTS = "ac-sozji20-shard-00-00.ariihtc.mongodb.net:27017,ac-sozji20-shard-00-01.ariihtc.mongodb.net:27017,ac-sozji20-shard-00-02.ariihtc.mongodb.net:27017"
+    
+    MONGO_URI = f"mongodb://{_user}:{_pwd}@{DIRECT_HOSTS}/{MONGO_DB_NAME}?ssl=true&replicaSet=atlas-38xoz1-shard-0&authSource=admin&retryWrites=true&w=majority"
     
     DATABASES = {
         'default': {
@@ -205,8 +220,9 @@ if os.getenv('R2_ACCESS_KEY_ID'):
     
     # Public Domain for serving files
     # We strip https:// because boto3 adds it, and strip trailing slashes
-    if os.getenv('R2_PUBLIC_DOMAIN'):
-        AWS_S3_CUSTOM_DOMAIN = os.getenv('R2_PUBLIC_DOMAIN').replace('https://', '').replace('http://', '').strip('/')
+    _r2_domain = os.getenv('R2_PUBLIC_DOMAIN')
+    if _r2_domain:
+        AWS_S3_CUSTOM_DOMAIN = _r2_domain.replace('https://', '').replace('http://', '').strip('/')
         AWS_QUERYSTRING_AUTH = False # Disable signing when using public domain
     else:
         AWS_S3_CUSTOM_DOMAIN = None

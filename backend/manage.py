@@ -3,6 +3,13 @@
 import os
 import sys
 
+# Fixed DNS SRV resolution for MongoDB Atlas
+try:
+    import dns.resolver
+    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '8.8.4.4', '1.1.1.1']
+except Exception:
+    pass
 
 def main():
     """Run administrative tasks."""
