@@ -65,6 +65,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const [topics, setTopics] = useState([]);
     const [examTypes, setExamTypes] = useState([]);
     const [targetExams, setTargetExams] = useState([]);
+    const [examDetails, setExamDetails] = useState([]);
     const [isLoadingMaster, setIsLoadingMaster] = useState(false);
 
     // Repository State
@@ -82,7 +83,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         targetExamId: '',
         question_type: '',
         level: '',
-        is_wrong: ''
+        is_wrong: '',
+        sortBy: 'newest',
+        filterDate: '',
+        testNameId: ''
     });
 
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -126,8 +130,24 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 if (q.is_wrong !== filterVal) return false;
             }
 
+            if (filters.filterDate) {
+                const qDate = new Date(q.created_at).toISOString().split('T')[0];
+                if (qDate !== filters.filterDate) return false;
+            }
+
+            const qTestName = q.test_name?.id || q.test_name;
+            if (filters.testNameId && String(qTestName) !== String(filters.testNameId)) return false;
+
             return true;
         });
+
+        // Sorting Logic
+        if (filters.sortBy === 'newest') {
+            result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        } else if (filters.sortBy === 'oldest') {
+            result.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+        }
+
         setCurrentPage(1); // Reset to page 1 on filter change
         return result;
     }, [questions, filters]);
@@ -175,6 +195,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         topicId: '',
         examTypeId: '',
         targetExamId: '',
+        testNameId: '',
         level: '1',
         hasCalculator: false,
         useNumericOptions: false,
@@ -191,6 +212,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             topicId: '',
             examTypeId: '',
             targetExamId: '',
+            testNameId: '',
             level: '1',
             hasCalculator: false,
             useNumericOptions: false,
@@ -220,18 +242,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         setIsLoadingMaster(true);
         try {
             const apiUrl = getApiUrl();
-            const [classRes, subRes, topicRes, typeRes, targetRes] = await Promise.all([
+            const [classRes, subRes, topicRes, typeRes, targetRes, detailRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/classes/`, config),
                 axios.get(`${apiUrl}/api/master-data/subjects/`, config),
                 axios.get(`${apiUrl}/api/master-data/topics/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`, config)
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
             ]);
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setTopics(topicRes.data);
             setExamTypes(typeRes.data);
             setTargetExams(targetRes.data);
+            setExamDetails(detailRes.data);
         } catch (err) {
             console.error("Failed to fetch master data", err);
         } finally {
@@ -882,6 +906,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     topic: form.topicId,
                     exam_type: form.examTypeId,
                     target_exam: form.targetExamId,
+                    test_name: form.testNameId || null,
                     has_calculator: form.hasCalculator,
                     use_numeric_options: form.useNumericOptions,
                     answer_from: q.answerFrom || null,
@@ -1072,7 +1097,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </div>
 
                     {/* Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-9 gap-4">
+                    {/* Filters - Row 1 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                         <CustomSelect
                             label="Filter Class"
                             value={filters.classId}
@@ -1108,6 +1134,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             placeholder="All Targets"
                             onChange={(val) => setFilters({ ...filters, targetExamId: val })}
                         />
+                        <CustomSelect
+                            label="Filter Test Name"
+                            value={filters.testNameId}
+                            options={examDetails}
+                            placeholder="All Tests"
+                            onChange={(val) => setFilters({ ...filters, testNameId: val })}
+                        />
+                    </div>
+
+                    {/* Filters - Row 2 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
                         <CustomSelect
                             label="Q. Type"
                             value={filters.question_type}
@@ -1149,6 +1186,33 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             placeholder="All Status"
                             onChange={(val) => setFilters({ ...filters, is_wrong: val })}
                         />
+                        <CustomSelect
+                            label="Sort By"
+                            value={filters.sortBy}
+                            options={[
+                                { value: 'newest', label: 'Newest First' },
+                                { value: 'oldest', label: 'Oldest First' }
+                            ]}
+                            placeholder="Sort By"
+                            onChange={(val) => setFilters({ ...filters, sortBy: val })}
+                        />
+
+                        {/* Date Filter */}
+                        <div className="relative group">
+                            <label className={`absolute left-3 -top-2 px-1 text-[11px] font-bold transition-all z-10
+                                ${isDarkMode ? 'bg-[#10141D] text-slate-400' : 'bg-white text-slate-500'}`}>
+                                Filter Date
+                            </label>
+                            <input
+                                type="date"
+                                value={filters.filterDate}
+                                onChange={(e) => setFilters({ ...filters, filterDate: e.target.value })}
+                                className={`w-full px-4 py-[11px] rounded-[5px] border-2 text-[13px] font-bold outline-none transition-all
+                                    ${isDarkMode 
+                                        ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' 
+                                        : 'bg-white border-slate-300 text-slate-700 focus:border-blue-500 shadow-sm'}`}
+                            />
+                        </div>
 
                         {/* Reset Button */}
                         <div className="flex items-end">
@@ -1161,7 +1225,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     targetExamId: '',
                                     question_type: '',
                                     level: '',
-                                    is_wrong: ''
+                                    is_wrong: '',
+                                    sortBy: 'newest',
+                                    filterDate: '',
+                                    testNameId: ''
                                 })}
                                 className={`h-[42px] px-6 rounded-[5px] font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all active:scale-95 w-full justify-center
                                     ${isDarkMode 
@@ -1375,6 +1442,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                 topicId: q.topic?.id || q.topic || '',
                                                                 examTypeId: q.exam_type?.id || q.exam_type || '',
                                                                 targetExamId: q.target_exam?.id || q.target_exam || '',
+                                                                testNameId: q.test_name?.id || q.test_name || '',
                                                                 hasCalculator: q.has_calculator || false,
                                                                 useNumericOptions: q.use_numeric_options || false,
                                                                 questions: [{
@@ -1589,7 +1657,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </div>
 
                     {/* Settings */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">
+                        <CustomSelect
+                            label="Test Name"
+                            value={form.testNameId}
+                            options={examDetails}
+                            placeholder="Select Test (Optional)"
+                            onChange={(val) => setForm({ ...form, testNameId: val })}
+                        />
                         <CustomSelect
                             label="Default Level"
                             value={form.level}

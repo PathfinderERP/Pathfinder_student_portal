@@ -1,6 +1,6 @@
 from djongo import models as djongo_models
 from django.db import models
-from master_data.models import ClassLevel, Subject, Topic, ExamType, TargetExam
+from master_data.models import ClassLevel, Subject, Topic, ExamType, TargetExam, ExamDetail
 
 class Question(models.Model):
     _id = djongo_models.ObjectIdField(primary_key=True)
@@ -12,6 +12,7 @@ class Question(models.Model):
     
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
+    test_name = models.ForeignKey('master_data.ExamDetail', on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
     
     # Metadata
     QUESTION_TYPES = (
