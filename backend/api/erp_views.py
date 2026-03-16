@@ -422,7 +422,8 @@ def get_all_centres_erp_data(request):
         erp_token = _get_erp_admin_token()
         
         if not erp_token:
-            return Response({"error": "ERP Authentication Failed", "details": "Could not obtain admin token"}, status=500)
+            print("[ERP ERROR] Admin token unavailable for centres")
+            return Response([], status=200)
 
         resp = requests.get(f"{erp_url}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
         
@@ -432,17 +433,14 @@ def get_all_centres_erp_data(request):
             
         if resp.status_code == 200:
             data = resp.json()
-            # Handle possible wrapping
             if isinstance(data, dict):
                 data = data.get('data') or data.get('centres') or data
             return Response(data if isinstance(data, list) else [data], status=200)
 
-        return Response({
-            "error": f"ERP Centre API Error: {resp.status_code}",
-            "details": resp.text[:200]
-        }, status=resp.status_code if resp.status_code >= 400 else 500)
+        return Response([], status=200)
     except Exception as e:
-        return Response({"error": str(e)}, status=500)
+        print(f"[ERP ERROR] get_all_centres_erp_data: {e}")
+        return Response([], status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
