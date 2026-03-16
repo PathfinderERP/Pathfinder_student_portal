@@ -17,6 +17,19 @@ const LibraryRegistry = () => {
 
     const safeArray = (arr) => Array.isArray(arr) ? arr : [];
 
+    const getYouTubeThumbnail = (url) => {
+        if (!url) return null;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        if (match && match[2].length === 11) {
+            return `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg`;
+        }
+        if (url.includes('vimeo.com')) {
+            return 'https://f.vimeocdn.com/images_v6/default_640.png'; // Basic vimeo placeholder until API call
+        }
+        return null;
+    };
+
     // Master Data State
     const [sessions, setSessions] = useState([]);
     const [classes, setClasses] = useState([]);
@@ -502,9 +515,19 @@ const LibraryRegistry = () => {
                                                         setIsViewModalOpen(true);
                                                         setIsFullScreen(false);
                                                     }}
-                                                    className="relative group/img overflow-hidden rounded-[5px] shadow-lg w-12 h-16 border border-white/10 bg-black/5 cursor-pointer"
+                                                    className="relative group/img overflow-hidden rounded-[5px] shadow-lg w-12 h-16 border border-white/10 bg-black/5 cursor-pointer flex items-center justify-center"
                                                 >
-                                                    <img src={item.thumbnail || 'https://via.placeholder.com/100x130?text=NO+IMAGE'} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                    {item.thumbnail ? (
+                                                        <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                    ) : item.video_link && getYouTubeThumbnail(item.video_link) ? (
+                                                        <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                    ) : (item.video_link || item.video_file) ? (
+                                                        <div className="w-full h-full bg-slate-800 flex items-center justify-center text-emerald-500 group-hover/img:scale-110 transition-transform duration-500">
+                                                            <PlayCircle size={24} strokeWidth={2.5} />
+                                                        </div>
+                                                    ) : (
+                                                        <img src={'https://via.placeholder.com/100x130?text=NO+IMAGE'} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                    )}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                                         <Eye size={16} className="text-white" />
                                                     </div>
@@ -828,12 +851,38 @@ const LibraryRegistry = () => {
 
                             {viewPage === 1 ? (
                                 <div className="flex flex-col lg:flex-row items-center justify-center h-full p-10 lg:p-16 gap-10 lg:gap-16 overflow-y-auto custom-scrollbar">
-                                    <div className="relative group overflow-hidden rounded-[5px] shadow-2xl w-full max-w-[20rem] h-[28rem] border-[8px] border-white/5 flex-shrink-0 bg-black/20">
-                                        <img
-                                            src={selectedItemForView.thumbnail || 'https://via.placeholder.com/100x130?text=NO+IMAGE'}
-                                            alt={selectedItemForView.name}
-                                            className="w-full h-full object-contain p-4"
-                                        />
+                                    <div className="relative group overflow-hidden rounded-[5px] shadow-2xl w-full max-w-[24rem] h-[32rem] border-[8px] border-white/5 flex-shrink-0 bg-black/40 flex items-center justify-center">
+                                        {selectedItemForView.thumbnail ? (
+                                            <img
+                                                src={selectedItemForView.thumbnail}
+                                                alt={selectedItemForView.name}
+                                                className="w-full h-full object-contain"
+                                            />
+                                        ) : selectedItemForView.video_link && getYouTubeThumbnail(selectedItemForView.video_link) ? (
+                                            <div className="relative w-full h-full flex items-center justify-center">
+                                                <img
+                                                    src={getYouTubeThumbnail(selectedItemForView.video_link)}
+                                                    alt={selectedItemForView.name}
+                                                    className="w-full h-full object-contain"
+                                                />
+                                                <div className="absolute inset-0 flex items-center justify-center text-white shadow-2xl">
+                                                    <div className="bg-black/20 backdrop-blur-sm rounded-full p-2">
+                                                        <PlayCircle size={80} strokeWidth={1.5} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (selectedItemForView.video_link || selectedItemForView.video_file) ? (
+                                            <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-4 text-emerald-500">
+                                                <PlayCircle size={100} strokeWidth={1} />
+                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Video Content</span>
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={'https://via.placeholder.com/100x130?text=NO+IMAGE'}
+                                                alt={selectedItemForView.name}
+                                                className="w-full h-full object-contain"
+                                            />
+                                        )}
                                     </div>
                                     <div className="flex flex-col items-center lg:items-start text-center lg:text-left max-w-xl">
                                         <h4 className="text-3xl lg:text-5xl font-black uppercase tracking-tight mb-6 leading-tight text-white">{selectedItemForView.name}</h4>
