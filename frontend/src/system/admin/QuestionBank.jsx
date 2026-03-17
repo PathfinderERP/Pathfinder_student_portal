@@ -22,20 +22,22 @@ import 'katex/dist/katex.min.css';
 
 window.katex = katex;
 window.Quill = Quill;
-const Parchment = Quill.import('parchment');
-
-// Register Quill Modules - Updated for production stability
-
-// Register Quill Modules - Updated for production stability
+// Defensive module registration for production environments
 try {
-    if (ImageResize && !Quill.imports['modules/imageResize']) {
-        Quill.register('modules/imageResize', ImageResize.default || ImageResize);
+    if (ImageResize) {
+        const resizeModule = (typeof ImageResize === 'object' && ImageResize.default) ? ImageResize.default : ImageResize;
+        if (!Quill.imports['modules/imageResize']) {
+            Quill.register('modules/imageResize', resizeModule);
+        }
     }
-    if (ImageDrop && !Quill.imports['modules/imageDrop']) {
-        Quill.register('modules/imageDrop', ImageDrop.default || ImageDrop);
+    if (ImageDrop) {
+        const dropModule = (typeof ImageDrop === 'object' && ImageDrop.default) ? ImageDrop.default : ImageDrop;
+        if (!Quill.imports['modules/imageDrop']) {
+            Quill.register('modules/imageDrop', dropModule);
+        }
     }
 } catch (e) {
-    console.warn('Quill modules could not be loaded:', e.message);
+    console.warn('Defensive Quill registration failed:', e.message);
 }
 
 const MathPreview = ({ tex, isDarkMode }) => {
@@ -478,57 +480,60 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         setShowMathTools(true);
     };
 
-    // Quill Configuration with precise Row 1 and Row 2 layout mapping
-    const quillModules = useMemo(() => ({
-        toolbar: {
-            container: [
-                [
-                    'bold', 'italic', 'underline', 'strike',
-                    'blockquote', 'code-block',
-                    { 'list': 'ordered' }, { 'list': 'bullet' },
-                    { 'script': 'sub' }, { 'script': 'super' },
-                    { 'header': [1, 2, 3, false] },
-                    { 'indent': '-1' }, { 'indent': '+1' },
-                    'link', 'image', 'formula'
+    // Precise Quill Configuration
+    const quillModules = useMemo(() => {
+        const parchment = Quill.import('parchment');
+        return {
+            toolbar: {
+                container: [
+                    [
+                        'bold', 'italic', 'underline', 'strike',
+                        'blockquote', 'code-block',
+                        { 'list': 'ordered' }, { 'list': 'bullet' },
+                        { 'script': 'sub' }, { 'script': 'super' },
+                        { 'header': [1, 2, 3, false] },
+                        { 'indent': '-1' }, { 'indent': '+1' },
+                        'link', 'image', 'formula'
+                    ],
+                    [
+                        { 'color': [] }, { 'background': [] },
+                        { 'align': [] },
+                        'clean'
+                    ]
                 ],
-                [
-                    { 'color': [] }, { 'background': [] },
-                    { 'align': [] },
-                    'clean'
-                ]
-            ],
-            handlers: {
-                formula: function () {
-                    openFormulaModal(this.quill);
-                },
-                image: function () {
-                    const quill = this.quill;
-                    const input = document.createElement('input');
-                    input.setAttribute('type', 'file');
-                    input.setAttribute('accept', 'image/*');
-                    input.click();
+                handlers: {
+                    formula: function () {
+                        openFormulaModal(this.quill);
+                    },
+                    image: function () {
+                        const quill = this.quill;
+                        const input = document.createElement('input');
+                        input.setAttribute('type', 'file');
+                        input.setAttribute('accept', 'image/*');
+                        input.click();
 
-                    input.onchange = async () => {
-                        const file = input.files[0];
-                        if (!file) return;
+                        input.onchange = async () => {
+                            const file = input.files[0];
+                            if (!file) return;
 
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            const range = quill.getSelection(true);
-                            quill.insertEmbed(range.index, 'image', e.target.result);
-                            quill.setSelection(range.index + 1);
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                const range = quill.getSelection(true);
+                                quill.insertEmbed(range.index, 'image', e.target.result);
+                                quill.setSelection(range.index + 1);
+                            };
+                            reader.readAsDataURL(file);
                         };
-                        reader.readAsDataURL(file);
-                    };
+                    }
                 }
-            }
-        },
-        imageResize: { 
-            parchment: Parchment,
-            modules: ['Resize', 'DisplaySize', 'Toolbar'] 
-        },
-        imageDrop: true
-    }), [form.classId, form.subjectId, form.topicId, getApiUrl, getAuthConfig]);
+            },
+            imageResize: { 
+                parchment: parchment,
+                modules: ['Resize', 'DisplaySize', 'Toolbar'] 
+            },
+            imageDrop: true
+        };
+    }, [form.classId, form.subjectId, form.topicId, getApiUrl, getAuthConfig]);
 
     const quillFormats = [
         'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
