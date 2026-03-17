@@ -22,23 +22,29 @@ import 'katex/dist/katex.min.css';
 
 window.katex = katex;
 window.Quill = Quill;
-// Defensive module registration for production environments
-try {
-    if (ImageResize) {
-        const resizeModule = (typeof ImageResize === 'object' && ImageResize.default) ? ImageResize.default : ImageResize;
-        if (!Quill.imports['modules/imageResize']) {
-            Quill.register('modules/imageResize', resizeModule);
-        }
+// Defensive module registration for production/Vite environments
+const registerQuillModule = (name, rawModule) => {
+    if (!rawModule || Quill.imports[name]) return;
+    try {
+        const actualModule = (typeof rawModule === 'object' && rawModule.default) ? rawModule.default : rawModule;
+        
+        // EXPLANATION: In production/ESM, module objects are frozen. 
+        // Wrapping in a fresh class extension ensures the class remains mutable
+        // during Quill's internal initialization and registration phase.
+        class StableModule extends actualModule {}
+        
+        Quill.register(name, StableModule);
+    } catch (e) {
+        console.warn(`[Quill] Module registration warning for ${name}:`, e.message);
+        try {
+            // Raw fallback for non-class modules
+            Quill.register(name, rawModule.default || rawModule);
+        } catch (e2) {}
     }
-    if (ImageDrop) {
-        const dropModule = (typeof ImageDrop === 'object' && ImageDrop.default) ? ImageDrop.default : ImageDrop;
-        if (!Quill.imports['modules/imageDrop']) {
-            Quill.register('modules/imageDrop', dropModule);
-        }
-    }
-} catch (e) {
-    console.warn('Defensive Quill registration failed:', e.message);
-}
+};
+
+registerQuillModule('modules/imageResize', ImageResize);
+registerQuillModule('modules/imageDrop', ImageDrop);
 
 const MathPreview = ({ tex, isDarkMode }) => {
     const containerRef = useRef();
