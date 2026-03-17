@@ -20,15 +20,22 @@ import ImageResize from 'quill-image-resize-module-react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-// Register Quill Modules - Updated for production stability
-if (ImageResize) {
-    Quill.register('modules/imageResize', ImageResize.default || ImageResize);
-}
-if (ImageDrop) {
-    Quill.register('modules/imageDrop', ImageDrop.default || ImageDrop);
-}
-
 window.katex = katex;
+window.Quill = Quill;
+
+// Register Quill Modules - Updated for production stability
+
+// Register Quill Modules - Updated for production stability
+try {
+    if (ImageResize && !Quill.imports['modules/imageResize']) {
+        Quill.register('modules/imageResize', ImageResize.default || ImageResize);
+    }
+    if (ImageDrop && !Quill.imports['modules/imageDrop']) {
+        Quill.register('modules/imageDrop', ImageDrop.default || ImageDrop);
+    }
+} catch (e) {
+    console.warn('Quill modules could not be loaded:', e.message);
+}
 
 const MathPreview = ({ tex, isDarkMode }) => {
     const containerRef = useRef();
@@ -414,7 +421,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         return subjects.filter(s => subjectIds.includes(String(s.id)));
     }, [subjects, topics, form.classId, form.isIndependentSelection]);
 
-    // Cascading Filter: Filter topics based on selected class and subject
     const filteredTopics = useMemo(() => {
         if (form.isIndependentSelection) return topics;
         return topics.filter(t => {
@@ -423,6 +429,47 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             return matchesClass && matchesSubject;
         });
     }, [topics, form.classId, form.subjectId, form.isIndependentSelection]);
+
+    // Helper to process and upload Base64 images from HTML content before saving to DB
+    const processEditorImages = async (html) => {
+        if (!html || !html.includes('data:image')) return html;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        const imgs = tempDiv.getElementsByTagName('img');
+
+        const config = getAuthConfig();
+        const apiUrl = getApiUrl();
+        if (!config) return html;
+
+        const uploadPromises = Array.from(imgs).map(async (img) => {
+            const src = img.getAttribute('src');
+            if (src && src.startsWith('data:image')) {
+                try {
+                    // Convert Base64 to Blob
+                    const res = await fetch(src);
+                    const blob = await res.blob();
+                    const file = new File([blob], "pasted_image.png", { type: blob.type });
+
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    if (form.classId) formData.append('class_level', form.classId);
+                    if (form.subjectId) formData.append('subject', form.subjectId);
+                    if (form.topicId) formData.append('topic', form.topicId);
+
+                    const uploadRes = await axios.post(`${apiUrl}/api/questions/images/`, formData, {
+                        headers: { ...config.headers, 'Content-Type': 'multipart/form-data' }
+                    });
+                    img.setAttribute('src', uploadRes.data.image);
+                } catch (err) {
+                    console.error("Sync: Failed to upload image", err);
+                }
+            }
+        });
+
+        await Promise.all(uploadPromises);
+        return tempDiv.innerHTML;
+    };
 
     // Formula Modal Opener (moved to top level for use in handlers)
     const openFormulaModal = (quill) => {
@@ -452,12 +499,32 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             handlers: {
                 formula: function () {
                     openFormulaModal(this.quill);
+                },
+                image: function () {
+                    const quill = this.quill;
+                    const input = document.createElement('input');
+                    input.setAttribute('type', 'file');
+                    input.setAttribute('accept', 'image/*');
+                    input.click();
+
+                    input.onchange = async () => {
+                        const file = input.files[0];
+                        if (!file) return;
+
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const range = quill.getSelection(true);
+                            quill.insertEmbed(range.index, 'image', e.target.result);
+                            quill.setSelection(range.index + 1);
+                        };
+                        reader.readAsDataURL(file);
+                    };
                 }
             }
         },
         imageResize: { modules: ['Resize', 'DisplaySize', 'Toolbar'] },
         imageDrop: true
-    }), []);
+    }), [form.classId, form.subjectId, form.topicId, getApiUrl, getAuthConfig]);
 
     const quillFormats = [
         'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
@@ -899,10 +966,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             
             // Loop through all questions in the batch
             for (const q of form.questions) {
+                // Sync all Base64 images to cloud before generating the payload
+                const cleanContent = await processEditorImages(q.question);
+                const cleanSolution = await processEditorImages(q.solution);
+                
+                // Process option contents as well
+                const cleanOptions = await Promise.all(q.options.map(async opt => ({
+                    ...opt,
+                    content: await processEditorImages(opt.content)
+                })));
+
                 const payload = {
-                    content: q.question,
-                    question_options: q.options,
-                    solution: q.solution,
+                    content: cleanContent,
+                    question_options: cleanOptions,
+                    solution: cleanSolution,
                     question_type: q.question_type,
                     difficulty_level: form.level,
                     class_level: form.classId,

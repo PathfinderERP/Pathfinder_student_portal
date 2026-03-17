@@ -11,6 +11,7 @@ import { useAuth } from '../../../context/AuthContext';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { ImageDrop } from 'quill-image-drop-module';
+import ImageResize from 'quill-image-resize-module-react';
 import TestSectionManager from './sections/TestSectionManager';
 import TestQuestionManager from './questions/TestQuestionManager';
 import QuestionPaperView from './questions/QuestionPaperView';
@@ -18,14 +19,20 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
 window.katex = katex;
+window.Quill = Quill;
 
+// Register Quill Modules - Updated for production stability
+
+// Register Quill Modules - Updated for production stability
 try {
-    if (!Quill.imports['modules/imageDrop']) {
-        const ID = (ImageDrop && ImageDrop.default) ? ImageDrop.default : ImageDrop;
-        Quill.register('modules/imageDrop', ID);
+    if (ImageResize && !Quill.imports['modules/imageResize']) {
+        Quill.register('modules/imageResize', ImageResize.default || ImageResize);
+    }
+    if (ImageDrop && !Quill.imports['modules/imageDrop']) {
+        Quill.register('modules/imageDrop', ImageDrop.default || ImageDrop);
     }
 } catch (e) {
-    console.warn('Image drop module could not be loaded:', e.message);
+    console.warn('Quill modules could not be loaded:', e.message);
 }
 
 
@@ -61,39 +68,6 @@ const TestCreate = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
-    // Quill Editor Configuration
-    const quillModules = useMemo(() => ({
-        toolbar: {
-            container: [
-                ['bold', 'italic', 'underline', 'strike'],
-                ['blockquote', 'code-block'],
-                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                [{ 'script': 'sub' }, { 'script': 'super' }],
-                [{ 'header': [1, 2, 3, false] }],
-                [{ 'indent': '-1' }, { 'indent': '+1' }],
-                ['link', 'image', 'formula'],
-                [{ 'color': [] }, { 'background': [] }],
-                [{ 'align': [] }],
-                ['clean']
-            ],
-            handlers: {
-                formula: function () {
-                    document.dispatchEvent(new CustomEvent('open-formula-modal', { detail: { quill: this.quill } }));
-                }
-            }
-        },
-        imageResize: {
-            parchment: Quill.import('parchment'),
-            modules: ['Resize', 'DisplaySize', 'Toolbar']
-        },
-        imageDrop: true
-    }), []);
-
-    const quillFormats = [
-        'header', 'size', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-        'list', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
-        'code-block', 'formula'
-    ];
 
     const [searchTerm, setSearchTerm] = useState('');
     const [data, setData] = useState([]);
@@ -252,6 +226,100 @@ const TestCreate = () => {
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
 
+    // Helper to process and upload Base64 images from HTML content before saving to DB
+    const processEditorImages = async (html) => {
+        if (!html || !html.includes('data:image')) return html;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        const imgs = tempDiv.getElementsByTagName('img');
+
+        const config = getAuthConfig();
+        const apiUrl = getApiUrl();
+        if (!config || !config.headers) return html;
+
+        const uploadPromises = Array.from(imgs).map(async (img) => {
+            const src = img.getAttribute('src');
+            if (src && src.startsWith('data:image')) {
+                try {
+                    // Convert Base64 to Blob
+                    const res = await fetch(src);
+                    const blob = await res.blob();
+                    const file = new File([blob], "test_instruction_image.png", { type: blob.type });
+
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    if (formValues.class_level) formData.append('class_level', formValues.class_level);
+                    if (formValues.exam_type) formData.append('exam_type', formValues.exam_type);
+
+                    const uploadRes = await axios.post(`${apiUrl}/api/questions/images/`, formData, {
+                        headers: { ...config.headers, 'Content-Type': 'multipart/form-data' }
+                    });
+                    img.setAttribute('src', uploadRes.data.image);
+                } catch (err) {
+                    console.error("Sync: Failed to upload image", err);
+                }
+            }
+        });
+
+        await Promise.all(uploadPromises);
+        return tempDiv.innerHTML;
+    };
+
+    // Quill Editor Configuration
+    const quillModules = useMemo(() => ({
+        toolbar: {
+            container: [
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'script': 'sub' }, { 'script': 'super' }],
+                [{ 'header': [1, 2, 3, false] }],
+                [{ 'indent': '-1' }, { 'indent': '+1' }],
+                ['link', 'image', 'formula'],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'align': [] }],
+                ['clean']
+            ],
+            handlers: {
+                formula: function () {
+                    document.dispatchEvent(new CustomEvent('open-formula-modal', { detail: { quill: this.quill } }));
+                },
+                image: function () {
+                    const quill = this.quill;
+                    const input = document.createElement('input');
+                    input.setAttribute('type', 'file');
+                    input.setAttribute('accept', 'image/*');
+                    input.click();
+
+                    input.onchange = async () => {
+                        const file = input.files[0];
+                        if (!file) return;
+
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const range = quill.getSelection(true);
+                            quill.insertEmbed(range.index, 'image', e.target.result);
+                            quill.setSelection(range.index + 1);
+                        };
+                        reader.readAsDataURL(file);
+                    };
+                }
+            }
+        },
+        imageResize: {
+            parchment: Quill.import('parchment'),
+            modules: ['Resize', 'DisplaySize', 'Toolbar']
+        },
+        imageDrop: true
+    }), [formValues.class_level, formValues.exam_type, getApiUrl, getAuthConfig]);
+
+    const quillFormats = [
+        'header', 'size', 'bold', 'italic', 'underline', 'strike', 'blockquote',
+        'list', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
+        'code-block', 'formula'
+    ];
+
     const fetchData = useCallback(async (force = false) => {
         if (!force && data.length > 0) return;
         setIsLoading(true);
@@ -363,10 +431,17 @@ const TestCreate = () => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            const config = getAuthConfig();
+
+            // Sync images from instructions/description to cloud before saving
+            const cleanInstructions = await processEditorImages(formValues.instructions);
+            const cleanDescription = await processEditorImages(formValues.description);
+            const finalPayload = { ...formValues, instructions: cleanInstructions, description: cleanDescription };
+
             if (modalMode === 'create') {
-                await axios.post(`${apiUrl}/api/tests/`, formValues, getAuthConfig());
+                await axios.post(`${apiUrl}/api/tests/`, finalPayload, config);
             } else {
-                await axios.patch(`${apiUrl}/api/tests/${selectedItem.id}/`, formValues, getAuthConfig());
+                await axios.patch(`${apiUrl}/api/tests/${selectedItem.id}/`, finalPayload, config);
             }
             setIsModalOpen(false);
             fetchData(true);
