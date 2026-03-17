@@ -13,38 +13,9 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import ReactQuill, { Quill } from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
-import { ImageDrop } from 'quill-image-drop-module';
-import ImageResize from 'quill-image-resize-module-react';
+import SmartEditor from './components/SmartEditor';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-
-window.katex = katex;
-window.Quill = Quill;
-// Defensive module registration for production/Vite environments
-const registerQuillModule = (name, rawModule) => {
-    if (!rawModule || Quill.imports[name]) return;
-    try {
-        const actualModule = (typeof rawModule === 'object' && rawModule.default) ? rawModule.default : rawModule;
-        
-        // EXPLANATION: In production/ESM, module objects are frozen. 
-        // Wrapping in a fresh class extension ensures the class remains mutable
-        // during Quill's internal initialization and registration phase.
-        class StableModule extends actualModule {}
-        
-        Quill.register(name, StableModule);
-    } catch (e) {
-        console.warn(`[Quill] Module registration warning for ${name}:`, e.message);
-        try {
-            // Raw fallback for non-class modules
-            Quill.register(name, rawModule.default || rawModule);
-        } catch (e2) {}
-    }
-};
-
-registerQuillModule('modules/imageResize', ImageResize);
-registerQuillModule('modules/imageDrop', ImageDrop);
 
 const MathPreview = ({ tex, isDarkMode }) => {
     const containerRef = useRef();
@@ -244,8 +215,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     // Math Modal State
     const [showMathTools, setShowMathTools] = useState(false);
     const [formulaValue, setFormulaValue] = useState('');
-    const [activeQuillRef, setActiveQuillRef] = useState(null);
-
     // Auth Config Helper
     const getAuthConfig = useCallback(() => {
         const activeToken = token || localStorage.getItem('auth_token');
@@ -480,82 +449,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         return tempDiv.innerHTML;
     };
 
-    // Formula Modal Opener (moved to top level for use in handlers)
-    const openFormulaModal = (quill) => {
-        setActiveQuillRef(quill);
-        setShowMathTools(true);
-    };
-
-    // Precise Quill Configuration
-    const quillModules = useMemo(() => {
-        const parchment = Quill.import('parchment');
-        return {
-            toolbar: {
-                container: [
-                    [
-                        'bold', 'italic', 'underline', 'strike',
-                        'blockquote', 'code-block',
-                        { 'list': 'ordered' }, { 'list': 'bullet' },
-                        { 'script': 'sub' }, { 'script': 'super' },
-                        { 'header': [1, 2, 3, false] },
-                        { 'indent': '-1' }, { 'indent': '+1' },
-                        'link', 'image', 'formula'
-                    ],
-                    [
-                        { 'color': [] }, { 'background': [] },
-                        { 'align': [] },
-                        'clean'
-                    ]
-                ],
-                handlers: {
-                    formula: function () {
-                        openFormulaModal(this.quill);
-                    },
-                    image: function () {
-                        const quill = this.quill;
-                        const input = document.createElement('input');
-                        input.setAttribute('type', 'file');
-                        input.setAttribute('accept', 'image/*');
-                        input.click();
-
-                        input.onchange = async () => {
-                            const file = input.files[0];
-                            if (!file) return;
-
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                                const range = quill.getSelection(true);
-                                quill.insertEmbed(range.index, 'image', e.target.result);
-                                quill.setSelection(range.index + 1);
-                            };
-                            reader.readAsDataURL(file);
-                        };
-                    }
-                }
-            },
-            imageResize: { 
-                parchment: parchment,
-                modules: ['Resize', 'DisplaySize', 'Toolbar'] 
-            },
-            imageDrop: true
-        };
-    }, [form.classId, form.subjectId, form.topicId, getApiUrl, getAuthConfig]);
-
-    const quillFormats = [
-        'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-        'list', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
-        'code-block', 'formula'
-    ];
-
-    const insertFormula = () => {
-        if (activeQuillRef && formulaValue) {
-            const range = activeQuillRef.getSelection(true);
-            activeQuillRef.insertEmbed(range.index, 'formula', formulaValue, 'user');
-            activeQuillRef.setSelection(range.index + 1, 'user');
-            setFormulaValue('');
-            setShowMathTools(false);
-        }
-    };
 
     // Handle Option Toggle (Dynamic behavior for Single vs Multi Choice)
     const handleToggleOption = (qIndex, optId) => {
@@ -1848,21 +1741,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {q.question?.length || 0}</span>
                                             </div>
                                         </div>
-                                        <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-white shadow-xl'}`}>
-                                            <ReactQuill
-                                                key={`question-${q.tempId}`}
-                                                theme="snow"
-                                                modules={quillModules}
-                                                formats={quillFormats}
-                                                value={q.question}
-                                                onChange={(val) => {
-                                                    const updated = [...form.questions];
-                                                    updated[qIdx].question = val;
-                                                    setForm({ ...form, questions: updated });
-                                                }}
-                                                placeholder="Enter Question content here..."
-                                            />
-                                        </div>
+                                        <SmartEditor
+                                            key={`question-${q.tempId}`}
+                                            value={q.question}
+                                            onChange={(val) => {
+                                                const updated = [...form.questions];
+                                                updated[qIdx].question = val;
+                                                setForm({ ...form, questions: updated });
+                                            }}
+                                            placeholder="Enter Question content here..."
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                 </div>
 
@@ -1984,21 +1873,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                             </span>
                                                         </button>
                                                     </div>
-                                                    <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${opt.isCorrect ? 'border-emerald-500/40 bg-emerald-500/[0.02]' : isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
-                                                        <ReactQuill
-                                                            key={`opt-${q.tempId}-${optIndex}`}
-                                                            theme="snow"
-                                                            modules={quillModules}
-                                                            formats={quillFormats}
-                                                            value={opt.content}
-                                                            onChange={(val) => {
-                                                                const updated = [...form.questions];
-                                                                updated[qIdx].options[optIndex].content = val;
-                                                                setForm({ ...form, questions: updated });
-                                                            }}
-                                                            placeholder={`Enter content for Option ${String.fromCharCode(65 + optIndex)}...`}
-                                                        />
-                                                    </div>
+                                                    <SmartEditor
+                                                        key={`opt-${q.tempId}-${optIndex}`}
+                                                        value={opt.content}
+                                                        onChange={(val) => {
+                                                            const updated = [...form.questions];
+                                                            updated[qIdx].options[optIndex].content = val;
+                                                            setForm({ ...form, questions: updated });
+                                                        }}
+                                                        placeholder={`Enter content for Option ${String.fromCharCode(65 + optIndex)}...`}
+                                                        isDarkMode={isDarkMode}
+                                                    />
                                                 </div>
                                             ))}
                                         </div>
@@ -2007,21 +1892,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     {/* Solution / Explanation */}
                                     <div className="space-y-4">
                                         <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
-                                        <div className={`rich-editor-wrapper rounded-[5px] border transition-all overflow-hidden ${isDarkMode ? 'border-white/5 bg-white/[0.02] dark-quill' : 'border-slate-200 bg-slate-50 shadow-inner'}`}>
-                                            <ReactQuill
-                                                key={`solution-${q.tempId}`}
-                                                theme="snow"
-                                                modules={quillModules}
-                                                formats={quillFormats}
-                                                value={q.solution}
-                                                onChange={(val) => {
-                                                    const updated = [...form.questions];
-                                                    updated[qIdx].solution = val;
-                                                    setForm({ ...form, questions: updated });
-                                                }}
-                                                placeholder="Explain how to arrive at the correct answer..."
-                                            />
-                                        </div>
+                                        <SmartEditor
+                                            key={`solution-${q.tempId}`}
+                                            value={q.solution}
+                                            onChange={(val) => {
+                                                const updated = [...form.questions];
+                                                updated[qIdx].solution = val;
+                                                setForm({ ...form, questions: updated });
+                                            }}
+                                            placeholder="Explain how to arrive at the correct answer..."
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                 </div>
                         ))}
@@ -2406,61 +2287,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 .custom-scrollbar::-webkit-scrollbar-thumb {
                     background: rgba(255, 255, 255, 0.1);
                     border-radius: 10px;
-                }
-                .dark-quill .ql-toolbar {
-                    background: rgba(255,255,255,0.05);
-                    border-color: rgba(255,255,255,0.05) !important;
-                }
-                .dark-quill .ql-container {
-                    border-color: rgba(255,255,255,0.05) !important;
-                    color: white;
-                }
-                .dark-quill .ql-stroke {
-                    stroke: #94a3b8 !important;
-                }
-                .dark-quill .ql-fill {
-                    fill: #94a3b8 !important;
-                }
-                .dark-quill .ql-picker-label {
-                    color: #94a3b8 !important;
-                }
-                .dark-quill .ql-picker-options {
-                    background-color: #1A1F2B !important;
-                    border-color: rgba(255,255,255,0.1) !important;
-                    color: white !important;
-                }
-                .rich-editor-wrapper .ql-toolbar {
-                    border-top: none !important;
-                    border-left: none !important;
-                    border-right: none !important;
-                    padding: 12px !important;
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    background: #fbfcfe;
-                }
-                .dark-quill .ql-toolbar {
-                    background: rgba(255,255,255,0.02) !important;
-                }
-                .rich-editor-wrapper .ql-formats {
-                    margin-right: 12px !important;
-                    border-right: 1px solid rgba(0,0,0,0.05);
-                    padding-right: 12px;
-                }
-                .dark-quill .ql-formats {
-                    border-right-color: rgba(255,255,255,0.05);
-                }
-                .rich-editor-wrapper .ql-formats:last-child {
-                    border-right: none;
-                }
-                .rich-editor-wrapper .ql-container {
-                    border: none !important;
-                    min-height: 180px;
-                }
-                .rich-editor-wrapper .ql-editor {
-                    min-height: 150px;
-                    font-size: 14px;
-                    line-height: 1.6;
                 }
             `}</style>
         </div>

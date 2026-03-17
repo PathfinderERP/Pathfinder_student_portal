@@ -8,43 +8,12 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
-import ReactQuill, { Quill } from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
-import { ImageDrop } from 'quill-image-drop-module';
-import ImageResize from 'quill-image-resize-module-react';
+import SmartEditor from '../components/SmartEditor';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import TestSectionManager from './sections/TestSectionManager';
 import TestQuestionManager from './questions/TestQuestionManager';
 import QuestionPaperView from './questions/QuestionPaperView';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
-
-window.katex = katex;
-window.Quill = Quill;
-// Defensive module registration for production/Vite environments
-const registerQuillModule = (name, rawModule) => {
-    if (!rawModule || Quill.imports[name]) return;
-    try {
-        const actualModule = (typeof rawModule === 'object' && rawModule.default) ? rawModule.default : rawModule;
-        
-        // EXPLANATION: In production/ESM, module objects are frozen. 
-        // Wrapping in a fresh class extension ensures the class remains mutable
-        // during Quill's internal initialization and registration phase.
-        class StableModule extends actualModule {}
-        
-        Quill.register(name, StableModule);
-    } catch (e) {
-        console.warn(`[Quill] Module registration warning for ${name}:`, e.message);
-        try {
-            // Raw fallback for non-class modules
-            Quill.register(name, rawModule.default || rawModule);
-        } catch (e2) {}
-    }
-};
-
-registerQuillModule('modules/imageResize', ImageResize);
-registerQuillModule('modules/imageDrop', ImageDrop);
-
-
 
 // Helper component for live math preview
 const MathPreview = ({ tex, isDarkMode }) => {
@@ -97,123 +66,12 @@ const TestCreate = () => {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [showMathTools, setShowMathTools] = useState(false);
-    const [toolbarAlert, setToolbarAlert] = useState(null);
-    const [formulaValue, setFormulaValue] = useState('');
-    const [activeQuill, setActiveQuill] = useState(null);
-    const [pastFormulas, setPastFormulas] = useState([]);
     const [modalMode, setModalMode] = useState('create');
     const [selectedItem, setSelectedItem] = useState(null);
 
-    const [activeView, setActiveView] = useState('test-list'); // 'test-list', 'section-management'
+    const [activeView, setActiveView] = useState('test-list');
     const [managementTest, setManagementTest] = useState(null);
     const [initialSectionId, setInitialSectionId] = useState(null);
-
-    // Toolbar Alert Logic
-    useEffect(() => {
-        if (!isModalOpen) return;
-
-        const timeout = setTimeout(() => {
-            const toolbar = document.querySelector('.ql-toolbar');
-            if (toolbar) {
-                const handleToolbarClick = (e) => {
-                    const target = e.target.closest('button, .ql-picker');
-                    if (!target) return;
-
-                    // Get the tool name from class or label
-                    let toolName = 'Formatting';
-                    const classes = Array.from(target.classList);
-                    const qlClass = classes.find(c => c.startsWith('ql-'));
-                    if (qlClass) toolName = qlClass.replace('ql-', '').charAt(0).toUpperCase() + qlClass.replace('ql-', '').slice(1);
-                    if (target.getAttribute('aria-label')) toolName = target.getAttribute('aria-label');
-
-                    // Small delay to let Quill update the classes
-                    setTimeout(() => {
-                        const isActive = target.classList.contains('ql-active') ||
-                            target.querySelector('.ql-picker-label')?.classList.contains('ql-active');
-
-                        // Handle Image Toolbar Position Change
-                        if (target.style.display === 'inline-block' || target.parentElement?.classList.contains('ql-image-toolbar')) {
-                            const action = target.getAttribute('title') || toolName;
-                            setToolbarAlert(`Image Position: ${action}`);
-                        } else {
-                            setToolbarAlert(`${toolName} ${isActive ? 'Selected' : 'Unselected'}`);
-                        }
-
-                        setTimeout(() => setToolbarAlert(null), 1500);
-                    }, 100);
-                };
-
-                const handleEditorDrop = (e) => {
-                    // Check if an image was dropped
-                    if (e.target.closest('.ql-editor img') || e.dataTransfer.types.includes('Files')) {
-                        setToolbarAlert('Image Position: Repositioned via Drag');
-                        setTimeout(() => setToolbarAlert(null), 1500);
-                    }
-                };
-
-                // Internal Draggable fix
-                const makeImagesDraggable = () => {
-                    document.querySelectorAll('.ql-editor img').forEach(img => {
-                        if (img.getAttribute('draggable') !== 'true') {
-                            img.setAttribute('draggable', 'true');
-                            img.style.userSelect = 'auto';
-                            img.style.webkitUserDrag = 'element';
-                        }
-                    });
-                };
-
-                const observer = new MutationObserver(makeImagesDraggable);
-                const editorElement = document.querySelector('.ql-editor');
-                if (editorElement) {
-                    editorElement.addEventListener('drop', handleEditorDrop);
-                    observer.observe(editorElement, { childList: true, subtree: true });
-                    makeImagesDraggable();
-                }
-
-                toolbar.addEventListener('click', handleToolbarClick);
-
-                return () => {
-                    toolbar.removeEventListener('click', handleToolbarClick);
-                    observer.disconnect();
-                    if (editorElement) {
-                        editorElement.removeEventListener('drop', handleEditorDrop);
-                    }
-                };
-            }
-        }, 500); // Wait for quill to render
-
-        return () => clearTimeout(timeout);
-    }, [isModalOpen]);
-
-    useEffect(() => {
-        const handleOpenFormula = (e) => {
-            setActiveQuill(e.detail.quill);
-            setShowMathTools(prev => !prev);
-        };
-        document.addEventListener('open-formula-modal', handleOpenFormula);
-        return () => document.removeEventListener('open-formula-modal', handleOpenFormula);
-    }, []);
-
-    const mathSymbols = [
-        { label: '±', tex: '\\pm' }, { label: '√x', tex: '\\sqrt{x}' }, { label: '∛x', tex: '\\sqrt[3]{x}' },
-        { label: 'ⁿ√x', tex: '\\sqrt[n]{x}' }, { label: 'x/y', tex: '\\frac{x}{y}' },
-        { label: 'Σ', tex: '\\sum_{x}^{n}' }, { label: 'Π', tex: '\\prod_{x}^{n}' },
-        { label: '∫', tex: '\\int_{x}^{s}' }, { label: '(n k)', tex: '\\binom{n}{k}' }
-    ];
-
-    const insertFormula = () => {
-        if (activeQuill && formulaValue) {
-            const range = activeQuill.getSelection(true);
-            activeQuill.insertEmbed(range.index, 'formula', formulaValue, 'user');
-            activeQuill.setSelection(range.index + 1, 'user');
-            if (!pastFormulas.includes(formulaValue)) {
-                setPastFormulas(prev => [formulaValue, ...prev].slice(0, 10));
-            }
-            setFormulaValue('');
-            setShowMathTools(false);
-        }
-    };
 
     const [formValues, setFormValues] = useState({
         name: '',
@@ -275,62 +133,7 @@ const TestCreate = () => {
         return tempDiv.innerHTML;
     };
 
-    // Scoped Quill Editor Configuration
-    const quillModules = useMemo(() => {
-        const parchment = Quill.import('parchment');
-        return {
-            toolbar: {
-                container: [
-                    ['bold', 'italic', 'underline', 'strike'],
-                    ['blockquote', 'code-block'],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'script': 'sub' }, { 'script': 'super' }],
-                    [{ 'header': [1, 2, 3, false] }],
-                    [{ 'indent': '-1' }, { 'indent': '+1' }],
-                    ['link', 'image', 'formula'],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'align': [] }],
-                    ['clean']
-                ],
-                handlers: {
-                    formula: function () {
-                        document.dispatchEvent(new CustomEvent('open-formula-modal', { detail: { quill: this.quill } }));
-                    },
-                    image: function () {
-                        const quill = this.quill;
-                        const input = document.createElement('input');
-                        input.setAttribute('type', 'file');
-                        input.setAttribute('accept', 'image/*');
-                        input.click();
 
-                        input.onchange = async () => {
-                            const file = input.files[0];
-                            if (!file) return;
-
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                                const range = quill.getSelection(true);
-                                quill.insertEmbed(range.index, 'image', e.target.result);
-                                quill.setSelection(range.index + 1);
-                            };
-                            reader.readAsDataURL(file);
-                        };
-                    }
-                }
-            },
-            imageResize: {
-                parchment: parchment,
-                modules: ['Resize', 'DisplaySize', 'Toolbar']
-            },
-            imageDrop: true
-        };
-    }, [formValues.class_level, formValues.exam_type, getApiUrl, getAuthConfig]);
-
-    const quillFormats = [
-        'header', 'size', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-        'list', 'indent', 'link', 'image', 'align', 'script', 'color', 'background',
-        'code-block', 'formula'
-    ];
 
     const fetchData = useCallback(async (force = false) => {
         if (!force && data.length > 0) return;
@@ -910,264 +713,18 @@ const TestCreate = () => {
                         {/* Divider */}
                         <div className={`h-px w-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
 
-                        {/* Instructions & Formulas (After Main Fields) */}
+                        {/* Instructions (After Main Fields) */}
                         <div className="space-y-4">
                             <div className="space-y-1">
                                 <h3 className="text-sm font-bold opacity-80 uppercase tracking-widest">Test Instructions</h3>
                                 <p className="text-[10px] opacity-40 font-medium">Add guidelines and mathematical formulas for the students.</p>
                             </div>
-
-                            <div className={`富文本编辑器 relative ${isDarkMode ? 'dark-quill' : ''}`}>
-                                {/* Toolbar Alert */}
-                                {toolbarAlert && (
-                                    <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[101] animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl border ${isDarkMode ? 'bg-[#1A1F2B] border-orange-500/50 text-orange-500' : 'bg-white border-orange-500 text-orange-600'}`}>
-                                            {toolbarAlert}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <ReactQuill
-                                    theme="snow"
-                                    value={formValues.instructions}
-                                    onChange={(content, delta, source, editor) => {
-                                        if (source === 'user') {
-                                            const html = editor.getHTML();
-                                            if (html !== formValues.instructions) {
-                                                setFormValues(prev => ({ ...prev, instructions: html }));
-                                            }
-                                        }
-                                    }}
-                                    modules={quillModules}
-                                    formats={quillFormats}
-                                    placeholder="Enter test instructions..."
-                                    className={`rounded-[5px] overflow-hidden border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}
-                                />
-                                <style>{`
-                                    .dark-quill .ql-toolbar {
-                                        background: #1A1F2B !important;
-                                        border-color: rgba(255,255,255,0.1) !important;
-                                    }
-                                    .dark-quill .ql-container {
-                                        background: #1A1F2B !important;
-                                        border-color: rgba(255,255,255,0.1) !important;
-                                        color: white !important;
-                                        min-height: 250px;
-                                    }
-                                    .dark-quill .ql-stroke {
-                                        stroke: #94a3b8 !important;
-                                        transition: all 0.2s;
-                                    }
-                                    .dark-quill .ql-fill {
-                                        fill: #94a3b8 !important;
-                                        transition: all 0.2s;
-                                    }
-                                    .dark-quill .ql-picker {
-                                        color: #94a3b8 !important;
-                                    }
-                                    
-                                    /* Active & Hover States - Dark Mode */
-                                    .dark-quill .ql-active .ql-stroke,
-                                    .dark-quill button:hover .ql-stroke {
-                                        stroke: #f97316 !important;
-                                    }
-                                    .dark-quill .ql-active .ql-fill,
-                                    .dark-quill button:hover .ql-fill {
-                                        fill: #f97316 !important;
-                                    }
-                                    .dark-quill .ql-active.ql-picker,
-                                    .dark-quill .ql-picker-label:hover {
-                                        color: #f97316 !important;
-                                    }
-                                    .dark-quill button.ql-active {
-                                        background: rgba(249, 115, 22, 0.1) !important;
-                                        border-radius: 6px !important;
-                                        box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.2) !important;
-                                    }
-
-                                    /* Active & Hover States - Light Mode */
-                                    .ql-toolbar button:hover .ql-stroke,
-                                    .ql-toolbar button.ql-active .ql-stroke {
-                                        stroke: #ea580c !important;
-                                    }
-                                    .ql-toolbar button:hover .ql-fill,
-                                    .ql-toolbar button.ql-active .ql-fill {
-                                        fill: #ea580c !important;
-                                    }
-                                    .ql-toolbar .ql-picker-label:hover,
-                                    .ql-toolbar .ql-picker.ql-active {
-                                        color: #ea580c !important;
-                                    }
-                                    .ql-toolbar button.ql-active {
-                                        background: rgba(234, 88, 12, 0.08) !important;
-                                        border-radius: 6px !important;
-                                        box-shadow: 0 0 0 1px rgba(234, 88, 12, 0.15) !important;
-                                    }
-
-                                    /* Picker Dropdown Styling (Dark Mode) */
-                                    .dark-quill .ql-picker-options {
-                                        background-color: #1A1F2B !important;
-                                        border-color: rgba(255,255,255,0.1) !important;
-                                        border-radius: 0.75rem !important;
-                                        padding: 0.5rem !important;
-                                        z-index: 100 !important;
-                                    }
-                                    .dark-quill .ql-picker-item:hover {
-                                        color: #f97316 !important;
-                                        background-color: rgba(255,255,255,0.05) !important;
-                                    }
-                                    .dark-quill .ql-picker-item.ql-selected {
-                                        color: #f97316 !important;
-                                    }
-
-                                    .ql-toolbar {
-                                        border-top-left-radius: 0.75rem;
-                                        border-top-right-radius: 0.75rem;
-                                    }
-                                    .ql-container {
-                                        border-bottom-left-radius: 0.75rem !important;
-                                        border-bottom-right-radius: 0.75rem !important;
-                                        font-family: inherit !important;
-                                        min-height: 200px;
-                                    }
-                                    .ql-editor {
-                                        font-size: 0.875rem;
-                                        line-height: 1.6;
-                                    }
-                                    .ql-editor h1 { font-size: 2em !important; font-weight: 800 !important; margin-bottom: 0.5em !important; }
-                                    .ql-editor h2 { font-size: 1.5em !important; font-weight: 700 !important; margin-bottom: 0.4em !important; }
-                                    .ql-editor h3 { font-size: 1.25em !important; font-weight: 600 !important; margin-bottom: 0.3em !important; }
-                                    
-                                    .ql-editor img {
-                                        cursor: grab;
-                                        transition: box-shadow 0.2s, transform 0.2s;
-                                    }
-                                    .ql-editor img:active {
-                                        cursor: grabbing;
-                                    }
-                                    .ql-editor img:hover {
-                                        box-shadow: 0 0 0 2px #f97316;
-                                    }
-
-                                    /* Fixed Position & Alignment for Images */
-                                    .ql-editor .ql-video { position: relative; }
-                                    .ql-editor img.ql-align-center { display: block; margin-left: auto; margin-right: auto; }
-                                    .ql-editor img.ql-align-right { display: block; margin-left: auto; }
-                                    
-                                    /* Vertical Inversion & Alignment */
-                                    .img-flip-v { transform: scaleY(-1); }
-                                    .img-align-top { vertical-align: top; }
-                                    .img-align-middle { vertical-align: middle; }
-                                    .img-align-bottom { vertical-align: bottom; }
-
-                                    /* Styling for Image Resize Tooltip & Handles */
-                                    .ql-image-resizer { border: 1px dashed #f97316 !important; }
-                                    .ql-image-resizer .handle { 
-                                        background-color: white !important; 
-                                        border: 1px solid #f97316 !important;
-                                        width: 10px !important;
-                                        height: 10px !important;
-                                    }
-                                    .ql-image-toolbar {
-                                        background-color: #1A1F2B !important;
-                                        border: 1px solid rgba(255,255,255,0.1) !important;
-                                        border-radius: 8px !important;
-                                        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
-                                        padding: 4px !important;
-                                        display: flex !important;
-                                        gap: 2px !important;
-                                    }
-                                    .ql-image-toolbar button {
-                                        border: none !important;
-                                        background: transparent !important;
-                                        padding: 8px !important;
-                                        cursor: pointer !important;
-                                        border-radius: 4px !important;
-                                        display: flex !important;
-                                        align-items: center !important;
-                                        justify-content: center !important;
-                                    }
-                                    .ql-image-toolbar button:hover {
-                                        background: rgba(249, 115, 22, 0.1) !important;
-                                    }
-                                    .ql-image-toolbar svg rect, .ql-image-toolbar svg line, .ql-image-toolbar svg path {
-                                        stroke: #94a3b8 !important;
-                                    }
-                                    .ql-image-toolbar button:hover svg rect, .ql-image-toolbar button:hover svg line, .ql-image-toolbar button:hover svg path {
-                                        stroke: #f97316 !important;
-                                    }
-
-                                    .ql-editor.ql-blank::before {
-                                        color: rgba(148, 163, 184, 0.5) !important;
-                                        font-style: italic;
-                                    }
-                                `}</style>
-
-                                {showMathTools && (
-                                    <div className={`mt-4 p-5 rounded-[5px] border animate-in slide-in-from-top-2 duration-300 ${isDarkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                                        <div className="flex justify-between items-center mb-4">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-500 font-bold">Scientific Formula Editor</span>
-                                            <button type="button" onClick={() => setShowMathTools(false)} className="opacity-40 hover:opacity-100 transition-opacity"><X size={14} /></button>
-                                        </div>
-
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <label className="text-xs font-bold opacity-60 whitespace-nowrap">Enter formula:</label>
-                                            <input
-                                                autoFocus
-                                                value={formulaValue}
-                                                onChange={(e) => setFormulaValue(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && insertFormula()}
-                                                placeholder="\sqrt{x}..."
-                                                className={`flex-1 px-4 py-2.5 rounded-[5px] border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={insertFormula}
-                                                className="px-6 py-2.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-bold text-xs transition-all active:scale-95 shadow-lg shadow-green-900/10"
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
-
-                                        {/* Real-time Visual Preview */}
-                                        <div className="mb-4 space-y-2">
-                                            <label className="text-[9px] font-bold opacity-30 uppercase tracking-[0.2em] ml-1">Live Visual Preview</label>
-                                            <MathPreview tex={formulaValue} isDarkMode={isDarkMode} />
-                                        </div>
-
-                                        <div className="grid grid-cols-5 md:grid-cols-9 gap-1.5">
-                                            {mathSymbols.map((s, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    onClick={() => setFormulaValue(prev => prev + s.tex)}
-                                                    className={`p-2 rounded-[5px] border text-[10px] font-medium transition-all hover:scale-105 ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-orange-500/50 hover:bg-orange-500/10' : 'bg-white border-slate-200 hover:border-orange-500/50 hover:bg-orange-50'}`}
-                                                >
-                                                    <div className="flex items-center justify-center italic font-serif opacity-80">{s.label}</div>
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {pastFormulas.length > 0 && (
-                                            <div className="mt-4 pt-3 border-t border-inherit">
-                                                <div className="text-[9px] font-bold opacity-30 uppercase tracking-[0.2em] mb-2">Past Formulas</div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {pastFormulas.map((f, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            type="button"
-                                                            onClick={() => setFormulaValue(f)}
-                                                            className={`px-2 py-1 rounded text-[9px] font-mono opacity-60 hover:opacity-100 transition-opacity ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-200 text-slate-700'}`}
-                                                        >
-                                                            {f}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <SmartEditor
+                                value={formValues.instructions}
+                                onChange={(val) => setFormValues(prev => ({ ...prev, instructions: val }))}
+                                placeholder="Enter test instructions..."
+                                isDarkMode={isDarkMode}
+                            />
                         </div>
 
                         <div className="flex justify-center pt-8">
@@ -1180,84 +737,6 @@ const TestCreate = () => {
                             </button>
                         </div>
                     </form>
-                </div>
-            </div>
-        );
-    };
-
-    const renderFormulaModal = () => {
-        if (!isFormulaModalOpen) return null;
-        return (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsFormulaModalOpen(false)} />
-                <div className={`relative w-full max-w-xl rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white border border-slate-200'}`}>
-                    <div className="p-6 border-b border-inherit flex justify-between items-center">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                            <Sigma className="text-orange-500" size={20} />
-                            Math Formula Editor
-                        </h3>
-                        <button onClick={() => setIsFormulaModalOpen(false)} className="opacity-50 hover:opacity-100 transition-opacity">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    <div className="p-6 space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Enter Formula (LaTeX)</label>
-                            <div className="flex gap-2">
-                                <input
-                                    autoFocus
-                                    value={formulaValue}
-                                    onChange={(e) => setFormulaValue(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && insertFormula()}
-                                    placeholder="e.g. \sqrt{x^2 + y^2}"
-                                    className={`flex-1 px-4 py-3 rounded-[5px] border font-mono text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                />
-                                <button
-                                    onClick={insertFormula}
-                                    className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-bold text-sm transition-all shadow-lg shadow-orange-600/20 active:scale-95"
-                                >
-                                    Insert
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Math Symbols</label>
-                            <div className="grid grid-cols-5 gap-2">
-                                {mathSymbols.map((s, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => setFormulaValue(prev => prev + s.tex)}
-                                        className={`p-3 rounded-[5px] border text-sm font-medium transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 hover:border-orange-500/50 hover:bg-orange-500/5' : 'bg-white border-slate-200 hover:border-orange-500/50 hover:bg-orange-50/50'}`}
-                                    >
-                                        <div className="h-6 flex items-center justify-center italic font-serif opacity-80">{s.label}</div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {pastFormulas.length > 0 && (
-                            <div className="space-y-3 pt-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Past Formulas</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {pastFormulas.map((f, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => setFormulaValue(f)}
-                                            className={`px-3 py-1.5 rounded-[5px] border text-[10px] font-mono transition-all ${isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
-                                        >
-                                            {f}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="p-4 bg-orange-500/5 text-[10px] text-center opacity-40 font-bold uppercase tracking-widest">
-                        Tip: You can also type LaTeX directly in the box
-                    </div>
                 </div>
             </div>
         );
