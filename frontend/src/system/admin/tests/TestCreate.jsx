@@ -20,6 +20,7 @@ import 'katex/dist/katex.min.css';
 
 window.katex = katex;
 window.Quill = Quill;
+const Parchment = Quill.import('parchment');
 
 // Register Quill Modules - Updated for production stability
 
@@ -308,7 +309,7 @@ const TestCreate = () => {
             }
         },
         imageResize: {
-            parchment: Quill.import('parchment'),
+            parchment: Parchment,
             modules: ['Resize', 'DisplaySize', 'Toolbar']
         },
         imageDrop: true

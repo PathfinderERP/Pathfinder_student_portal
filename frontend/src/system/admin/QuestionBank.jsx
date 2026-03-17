@@ -22,6 +22,7 @@ import 'katex/dist/katex.min.css';
 
 window.katex = katex;
 window.Quill = Quill;
+const Parchment = Quill.import('parchment');
 
 // Register Quill Modules - Updated for production stability
 
@@ -522,7 +523,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 }
             }
         },
-        imageResize: { modules: ['Resize', 'DisplaySize', 'Toolbar'] },
+        imageResize: { 
+            parchment: Parchment,
+            modules: ['Resize', 'DisplaySize', 'Toolbar'] 
+        },
         imageDrop: true
     }), [form.classId, form.subjectId, form.topicId, getApiUrl, getAuthConfig]);
 
