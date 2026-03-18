@@ -26,6 +26,9 @@ const TestAllotment = () => {
     const [selectedCentreIds, setSelectedCentreIds] = useState([]);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [centreSearchTerm, setCentreSearchTerm] = useState('');
+    const [isTableView, setIsTableView] = useState(false);
+    const [modalAllotments, setModalAllotments] = useState([]);
+    const [bulkSchedule, setBulkSchedule] = useState({ start_time: '', end_time: '' });
 
     // Section Allotment Modal State
     const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
@@ -96,6 +99,7 @@ const TestAllotment = () => {
         setSelectedTest(test);
         setIsViewOnlyMode(isViewOnly);
         setIsActionLoading(true);
+        setIsTableView(false); // Default to search/select view
 
         try {
             const apiUrl = getApiUrl();
@@ -128,105 +132,89 @@ const TestAllotment = () => {
         }
     };
 
+    const fetchModalAllotments = useCallback(async () => {
+        if (!selectedTest) return;
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/centres/`, getAuthConfig());
+            setModalAllotments(res.data || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsActionLoading(false);
+        }
+    }, [selectedTest, getApiUrl, getAuthConfig]);
+
+    useEffect(() => {
+        if (isModalOpen && isTableView) {
+            fetchModalAllotments();
+        }
+    }, [isModalOpen, isTableView, fetchModalAllotments]);
+
     // State for local centres to avoid extra fetches during save
     const [localCentres, setLocalCentres] = useState([]);
 
     const handleSaveAllotment = async () => {
         console.log("👉 handleSaveAllotment START");
-        console.log("Selected IDs:", selectedCentreIds);
-        console.log("Available ERP Centres:", availableCentres.length);
-        console.log("Local Centres:", localCentres.length);
-
-        if (selectedCentreIds.length === 0) {
-            triggerAlert("No centres selected to save.", "warning");
-            return;
-        }
-
+        
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
             const finalLocalIds = [];
-            let updateCount = 0;
+            const centreCodeToLocalId = {};
 
-            // 1. Ensure all selected ERP centres exist in local DB and update contact info
+            // 1. Sync Centres
             for (const erpCode of selectedCentreIds) {
-                // Find local centre. PRIORITIZE one that is already allotted to this test to avoid duplicates issue.
                 const allottedCentreIds = selectedTest?.centres || [];
-                let local = localCentres.find(lc =>
-                    lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase() &&
+                let local = localCentres.find(lc => 
+                    lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase() && 
                     allottedCentreIds.includes(lc.id)
-                );
+                ) || localCentres.find(lc => lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase());
 
-                // If not found in allotted, find ANY matching local centre
-                if (!local) {
-                    local = localCentres.find(lc => lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase());
-                }
-
-                // Find ERP detail (case-insensitive safely)
                 const erpDetail = availableCentres.find(c => c.enterCode?.toString().toLowerCase() === erpCode?.toString().toLowerCase());
-
-                if (!erpDetail) {
-                    console.warn(`[WARN] Skipping ${erpCode}: No ERP data found.`);
-                    continue;
-                }
+                if (!erpDetail) continue;
 
                 if (!local) {
-                    // Create new centre
-                    try {
-                        const createPayload = {
-                            code: erpDetail.enterCode,
-                            name: (erpDetail.centreName || "").substring(0, 254),
-                            // location: (erpDetail.state || "").substring(0, 254), // Excluded due to Djongo bug
-                            email: (erpDetail.email || erpDetail.contactEmail || "").substring(0, 254),
-                            phone_number: (erpDetail.phoneNumber || erpDetail.phone || erpDetail.mobile || "").substring(0, 20)
-                        };
-                        console.log(`[ACTION] Creating Centre ${erpCode}`, createPayload);
-                        const createRes = await axios.post(`${apiUrl}/api/centres/`, createPayload, getAuthConfig());
-                        local = createRes.data;
-                        updateCount++;
-                    } catch (e) {
-                        console.error(`[ERROR] Create failed for ${erpCode}:`, e);
-                        triggerAlert(`Failed to create ${erpCode}`, 'error');
-                    }
-                } else {
-                    // Update existing centre
-                    // NOTE: Excludng 'location' and 'name' from update to avoid Djongo SQLDecodeError: Keyword: Unsupported: location
-                    // We primarily need to sync email and phone.
-                    const updatePayload = {
+                    const createPayload = {
+                        code: erpDetail.enterCode,
+                        name: (erpDetail.centreName || "").substring(0, 254),
                         email: (erpDetail.email || erpDetail.contactEmail || "").substring(0, 254),
                         phone_number: (erpDetail.phoneNumber || erpDetail.phone || erpDetail.mobile || "").substring(0, 20)
                     };
-
-                    try {
-                        console.log(`[ACTION] Updating Centre ${erpCode} (ID: ${local.id})`, updatePayload);
-                        const updateRes = await axios.patch(`${apiUrl}/api/centres/${local.id}/`, updatePayload, getAuthConfig());
-                        local = updateRes.data;
-                        updateCount++;
-                    } catch (e) {
-                        console.error(`[ERROR] Update failed for ${erpCode}:`, e);
-                    }
+                    const createRes = await axios.post(`${apiUrl}/api/centres/`, createPayload, getAuthConfig());
+                    local = createRes.data;
                 }
-
-                if (local) finalLocalIds.push(local.id);
+                if (local) {
+                    finalLocalIds.push(local.id);
+                    centreCodeToLocalId[erpCode] = local.id;
+                }
             }
 
-            console.log(`✅ Processed ${updateCount} centre updates/creations.`);
+            // 2. Patch Test Centres
+            await axios.patch(`${apiUrl}/api/tests/${selectedTest.id}/`, { centres: finalLocalIds }, getAuthConfig());
 
-            // 2. Patch the test with final local IDs
-            await axios.patch(`${apiUrl}/api/tests/${selectedTest.id}/`,
-                { centres: finalLocalIds },
-                getAuthConfig()
-            );
+            // 3. If in Table View, Save individual Allotment Details (Schedules)
+            if (isTableView && modalAllotments.length > 0) {
+                // We need to wait for backend to process allotments first, or just call patch on allotments we have
+                const updatePromises = modalAllotments
+                    .filter(a => selectedCentreIds.includes(a.centre_details?.code))
+                    .map(a => axios.patch(`${apiUrl}/api/tests/allotments/${a.id}/`, {
+                        start_time: a.start_time,
+                        end_time: a.end_time
+                    }, getAuthConfig()));
+                
+                await Promise.all(updatePromises);
+            }
 
             setIsModalOpen(false);
             fetchData(true);
-            triggerAlert(`Allotment updated! Synced ${updateCount} centres.`, 'success');
+            triggerAlert(`Allotment updated successfully!`, 'success');
         } catch (err) {
-            console.error("❌ MAIN SAVE ERROR:", err);
+            console.error("❌ SAVE ERROR:", err);
             triggerAlert(err.response?.data?.message || 'Failed to update allotment', 'error');
         } finally {
             setIsActionLoading(false);
-            console.log("👉 handleSaveAllotment END");
         }
     };
 
@@ -441,7 +429,7 @@ const TestAllotment = () => {
                                                 setView('details');
                                             }}
                                             className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-[5px] border text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 cursor-pointer ${isDarkMode ? 'border-amber-500/30 text-amber-500 bg-amber-500/5 hover:bg-amber-500/10' : 'border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100'}`}>
-                                            {test.codes_sent_count || 0} Sent
+                                            Manage Schedules ({test.codes_sent_count || 0} Sent)
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
@@ -474,127 +462,253 @@ const TestAllotment = () => {
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
                     <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-emerald-600 p-6 flex justify-between items-center text-white font-black">
-                            <div>
-                                <h3 className="text-lg uppercase tracking-tight">Centres Allotment</h3>
-                                <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest">{selectedTest?.name}</p>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-lg uppercase tracking-tight truncate">Centres Allotment</h3>
+                                <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest truncate">{selectedTest?.name}</p>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-all text-white/90 hover:text-white">
+                            
+                            <div className="flex items-center gap-3 bg-white/10 p-1 rounded-[5px] ml-4">
+                                <button
+                                    onClick={() => setIsTableView(false)}
+                                    className={`px-3 py-1.5 rounded-[5px] text-[9px] uppercase tracking-widest transition-all ${!isTableView ? 'bg-white text-emerald-600 shadow-lg' : 'text-white hover:bg-white/5'}`}
+                                >
+                                    Select
+                                </button>
+                                <button
+                                    onClick={() => setIsTableView(true)}
+                                    className={`px-3 py-1.5 rounded-[5px] text-[9px] uppercase tracking-widest transition-all ${isTableView ? 'bg-white text-emerald-600 shadow-lg' : 'text-white hover:bg-white/5'}`}
+                                >
+                                    Table
+                                </button>
+                            </div>
+
+                            <button onClick={() => setIsModalOpen(false)} className="ml-6 hover:rotate-90 transition-all text-white/90 hover:text-white">
                                 <X size={24} strokeWidth={3} />
                             </button>
                         </div>
 
-                        <div className={`p-6 pb-0 space-y-5 ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50'}`}>
-                            {/* Selected Centres Summary (Like the User ScreenShot) */}
-                            <div className="relative group">
-                                <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
-                                    ERP Centre List
-                                </label>
-                                <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
-                                    {selectedCentreIds.length > 0 ? (
-                                        availableCentres
-                                            .filter(c => selectedCentreIds.includes(c.enterCode))
-                                            .map(c => (
-                                                <div
-                                                    key={`sel-centre-${c.enterCode}`}
-                                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
-                                                >
-                                                    <span>{c.centreName}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedCentreIds(prev => prev.filter(code => code !== c.enterCode));
-                                                        }}
-                                                        className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
-                                                    >
-                                                        <X size={12} strokeWidth={4} />
-                                                    </button>
-                                                </div>
-                                            ))
-                                    ) : (
-                                        <div className="flex items-center h-full px-1">
-                                            <span className="text-slate-400 font-bold italic text-xs opacity-50">No Centres Selected...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Modal Search Option */}
-                            <div className="relative group pb-2">
-                                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search centres by name or code..."
-                                    value={centreSearchTerm}
-                                    onChange={(e) => setCentreSearchTerm(e.target.value)}
-                                    className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
-                                />
-                                {centreSearchTerm && (
-                                    <button
-                                        onClick={() => setCentreSearchTerm('')}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                                    >
-                                        <X size={14} strokeWidth={3} />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className={`p-0 max-h-[40vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
-                            <div className="px-6 pb-6 space-y-2">
-                                {[...availableCentres]
-                                    .filter(c => {
-                                        const matchesSearch = c.centreName?.toLowerCase().includes(centreSearchTerm.toLowerCase()) ||
-                                            c.enterCode?.toLowerCase().includes(centreSearchTerm.toLowerCase());
-
-                                        // If in view only mode, ONLY show the ones that are currently selected
-                                        if (isViewOnlyMode) {
-                                            return matchesSearch && selectedCentreIds.includes(c.enterCode);
-                                        }
-                                        return matchesSearch;
-                                    })
-                                    .sort((a, b) => {
-                                        return (a.centreName || "").localeCompare(b.centreName || "");
-                                    })
-                                    .map(centre => {
-                                        const isSelected = selectedCentreIds.includes(centre.enterCode);
-                                        return (
-                                            <div
-                                                key={centre.enterCode || centre._id}
-                                                onClick={() => {
-                                                    if (isSelected) setSelectedCentreIds(prev => prev.filter(code => code !== centre.enterCode));
-                                                    else setSelectedCentreIds(prev => [...prev, centre.enterCode]);
-                                                }}
-                                                className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
-                                                    ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
-                                                    : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
-                                            >
-                                                <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
-                                                    ? 'bg-blue-600 border-blue-600 scale-110'
-                                                    : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
-                                                    {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
-                                                </div>
-                                                <div className="flex flex-col flex-1 min-w-0">
-                                                    <span className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
-                                                        {centre.centreName}
-                                                    </span>
-                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
-                                                        <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{centre.enterCode}</span>
-                                                        <div className="flex items-center gap-1 opacity-40">
-                                                            <Mail size={10} />
-                                                            <span className="text-[9px] font-bold lowercase">{centre.email || 'N/A'}</span>
+                        {!isTableView ? (
+                            <>
+                                <div className={`p-6 pb-0 space-y-5 ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50'}`}>
+                                    {/* Selected Centres Summary */}
+                                    <div className="relative group">
+                                        <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
+                                            ERP Centre List
+                                        </label>
+                                        <div className={`w-full p-4 rounded-[5px] border max-h-[160px] overflow-y-auto custom-scrollbar shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
+                                            {selectedCentreIds.length > 0 ? (
+                                                availableCentres
+                                                    .filter(c => selectedCentreIds.includes(c.enterCode))
+                                                    .map(c => (
+                                                        <div
+                                                            key={`sel-centre-${c.enterCode}`}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
+                                                        >
+                                                            <span>{c.centreName}</span>
+                                                            {!isViewOnlyMode && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedCentreIds(prev => prev.filter(code => code !== c.enterCode));
+                                                                    }}
+                                                                    className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
+                                                                >
+                                                                    <X size={12} strokeWidth={4} />
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                        <div className="flex items-center gap-1 opacity-40">
-                                                            <Phone size={10} />
-                                                            <span className="text-[9px] font-bold">{centre.phoneNumber || 'N/A'}</span>
+                                                    ))
+                                            ) : (
+                                                <div className="flex items-center h-full px-1">
+                                                    <span className="text-slate-400 font-bold italic text-xs opacity-50">No Centres Selected...</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Modal Search Option */}
+                                    <div className="relative group pb-2 flex items-center gap-3">
+                                        <div className="relative flex-1">
+                                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
+                                            <input
+                                                type="text"
+                                                placeholder="Search centres by name or code..."
+                                                value={centreSearchTerm}
+                                                onChange={(e) => setCentreSearchTerm(e.target.value)}
+                                                className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
+                                            />
+                                        </div>
+                                        {!isViewOnlyMode && (
+                                            <div className="flex items-center gap-2 pr-1">
+                                                <button
+                                                    onClick={() => {
+                                                        const all = availableCentres.map(c => c.enterCode);
+                                                        setSelectedCentreIds(all);
+                                                        triggerAlert(`All ${all.length} centres selected`, 'info');
+                                                    }}
+                                                    className="px-4 py-3 bg-blue-600/10 text-blue-600 hover:bg-blue-600 hover:text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border border-blue-600/20 whitespace-nowrap active:scale-95 shadow-sm"
+                                                >
+                                                    Select All
+                                                </button>
+                                                {selectedCentreIds.length > 0 && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedCentreIds([]);
+                                                            triggerAlert("Selection cleared", "warning");
+                                                        }}
+                                                        className="px-4 py-3 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border border-amber-500/20 whitespace-nowrap active:scale-95 shadow-sm"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className={`p-0 max-h-[40vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
+                                    <div className="px-6 pb-6 space-y-2">
+                                        {[...availableCentres]
+                                            .filter(c => {
+                                                const matchesSearch = c.centreName?.toLowerCase().includes(centreSearchTerm.toLowerCase()) ||
+                                                    c.enterCode?.toLowerCase().includes(centreSearchTerm.toLowerCase());
+                                                if (isViewOnlyMode) return matchesSearch && selectedCentreIds.includes(c.enterCode);
+                                                return matchesSearch;
+                                            })
+                                            .sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""))
+                                            .map(centre => {
+                                                const isSelected = selectedCentreIds.includes(centre.enterCode);
+                                                return (
+                                                    <div
+                                                        key={centre.enterCode}
+                                                        onClick={() => {
+                                                            if (isViewOnlyMode) return;
+                                                            if (isSelected) setSelectedCentreIds(prev => prev.filter(code => code !== centre.enterCode));
+                                                            else setSelectedCentreIds(prev => [...prev, centre.enterCode]);
+                                                        }}
+                                                        className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all ${isSelected
+                                                            ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
+                                                            : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md')}`}
+                                                    >
+                                                        <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all ${isSelected
+                                                            ? 'bg-blue-600 border-blue-600 scale-110'
+                                                            : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
+                                                            {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
+                                                        </div>
+                                                        <div className="flex flex-col flex-1 min-w-0">
+                                                            <span className={`text-sm font-black uppercase tracking-tight truncate ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
+                                                                {centre.centreName}
+                                                            </span>
+                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 opacity-40 text-[9px] font-bold uppercase">
+                                                                <span>{centre.enterCode}</span>
+                                                                <span>{centre.email || 'N/A'}</span>
+                                                                <span>{centre.phoneNumber || 'N/A'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className={`p-6 max-h-[60vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50'}`}>
+                                {/* Bulk Schedule Option */}
+                                <div className={`mb-6 p-4 rounded-[5px] border border-dashed flex flex-wrap items-center gap-4 ${isDarkMode ? 'bg-black/20 border-white/10' : 'bg-white border-blue-200'}`}>
+                                    <div className="flex-1 min-w-[200px]">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2">Apply to all selected centres</p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="datetime-local"
+                                                className={`flex-1 p-2 rounded-[5px] border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                                                value={bulkSchedule.start_time}
+                                                onChange={e => setBulkSchedule({ ...bulkSchedule, start_time: e.target.value })}
+                                            />
+                                            <input
+                                                type="datetime-local"
+                                                className={`flex-1 p-2 rounded-[5px] border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                                                value={bulkSchedule.end_time}
+                                                onChange={e => setBulkSchedule({ ...bulkSchedule, end_time: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setModalAllotments(modalAllotments.map(a => ({
+                                                ...a,
+                                                start_time: bulkSchedule.start_time || a.start_time,
+                                                end_time: bulkSchedule.end_time || a.end_time
+                                            })));
+                                            triggerAlert("Applied schedule to listed centres", "info");
+                                        }}
+                                        className="h-[40px] px-6 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all mt-auto"
+                                    >
+                                        Bulk apply
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {availableCentres
+                                        .filter(c => selectedCentreIds.includes(c.enterCode))
+                                        .map(centre => {
+                                            const allotment = modalAllotments.find(a => a.centre_details?.code === centre.enterCode) || {};
+                                            return (
+                                                <div key={`manage-${centre.enterCode}`} className={`p-4 rounded-[5px] border shadow-sm ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-white border-slate-100'}`}>
+                                                    <div className="flex flex-wrap items-center justify-between gap-4">
+                                                        <div className="flex-1 min-w-[150px]">
+                                                            <h4 className="text-xs font-black uppercase tracking-tight truncate">{centre.centreName}</h4>
+                                                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">{centre.enterCode}</p>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2 flex-2">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[8px] font-black uppercase tracking-tighter opacity-50">Start Time</span>
+                                                                <input
+                                                                    type="datetime-local"
+                                                                    className={`p-2 rounded-[3px] border text-[9px] font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                                                                    value={allotment.start_time ? new Date(allotment.start_time).toISOString().slice(0, 16) : ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setModalAllotments(prev => {
+                                                                            const idx = prev.findIndex(a => a.centre_details?.code === centre.enterCode);
+                                                                            if (idx > -1) {
+                                                                                const updated = [...prev];
+                                                                                updated[idx] = { ...updated[idx], start_time: val };
+                                                                                return updated;
+                                                                            }
+                                                                            return [...prev, { centre_details: { code: centre.enterCode }, start_time: val }];
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[8px] font-black uppercase tracking-tighter opacity-50">End Time</span>
+                                                                <input
+                                                                    type="datetime-local"
+                                                                    className={`p-2 rounded-[3px] border text-[9px] font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
+                                                                    value={allotment.end_time ? new Date(allotment.end_time).toISOString().slice(0, 16) : ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setModalAllotments(prev => {
+                                                                            const idx = prev.findIndex(a => a.centre_details?.code === centre.enterCode);
+                                                                            if (idx > -1) {
+                                                                                const updated = [...prev];
+                                                                                updated[idx] = { ...updated[idx], end_time: val };
+                                                                                return updated;
+                                                                            }
+                                                                            return [...prev, { centre_details: { code: centre.enterCode }, end_time: val }];
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
                             <button
@@ -603,13 +717,15 @@ const TestAllotment = () => {
                             >
                                 Cancel
                             </button>
-                            <button
-                                onClick={handleSaveAllotment}
-                                disabled={isActionLoading}
-                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
-                            >
-                                {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Channels'}
-                            </button>
+                            {!isViewOnlyMode && (
+                                <button
+                                    onClick={handleSaveAllotment}
+                                    disabled={isActionLoading}
+                                    className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
+                                >
+                                    {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Channels'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -661,6 +777,33 @@ const TestAllotment = () => {
                                         <div className="flex items-center h-full px-1">
                                             <span className="text-slate-400 font-bold italic text-xs opacity-50">No Sections Selected...</span>
                                         </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Search/Filter Option */}
+                            <div className="relative group pb-2 flex items-center justify-between gap-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 ml-1">Available Master Sections</h4>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedSectionIds(availableSections.map(s => s.id));
+                                            triggerAlert(`All ${availableSections.length} sections selected`, 'info');
+                                        }}
+                                        className="px-3 py-1.5 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border border-blue-500/20 whitespace-nowrap"
+                                    >
+                                        Select All
+                                    </button>
+                                    {selectedSectionIds.length > 0 && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedSectionIds([]);
+                                                triggerAlert("Section selection cleared", "warning");
+                                            }}
+                                            className="px-3 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border border-red-500/20 whitespace-nowrap"
+                                        >
+                                            Clear
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -756,10 +899,7 @@ const TestAllotment = () => {
             {/* Premium Custom Alert */}
             {alert.show && (
                 <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-10 duration-500">
-                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success'
-                        ? 'bg-emerald-500/90 border-emerald-400 text-white'
-                        : 'bg-red-500/90 border-red-400 text-white'
-                        }`}>
+                    <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : alert.type === 'info' ? 'bg-blue-500/90 border-blue-400 text-white' : alert.type === 'warning' ? 'bg-amber-500/90 border-amber-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
                         <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}
                         </div>

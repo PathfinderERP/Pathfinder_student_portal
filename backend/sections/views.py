@@ -54,9 +54,16 @@ class SectionViewSet(viewsets.ModelViewSet):
             else:
                 valid_ids.append(qid)
                 
-        questions = Question.objects.filter(pk__in=valid_ids)
-        section.questions.add(*questions)
-        return Response({'status': 'questions assigned', 'count': questions.count()})
+        # To preserve order from the selection, we add them one by one or 
+        # use a loop that respects the question_ids sequence.
+        for vid in valid_ids:
+            try:
+                q = Question.objects.get(pk=vid)
+                section.questions.add(q)
+            except Question.DoesNotExist:
+                continue
+        
+        return Response({'status': 'questions assigned'})
 
     @action(detail=True, methods=['post'])
     def remove_questions(self, request, pk=None):

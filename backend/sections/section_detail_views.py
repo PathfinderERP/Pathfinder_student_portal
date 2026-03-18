@@ -172,25 +172,25 @@ def list_master_sections(request):
         tests_by_section = defaultdict(list)
         for t in all_tests:
             for s in t.allotted_sections.all():
-                tests_by_section[s.pk].append(t)
+                tests_by_section[str(s.pk)].append(t)
 
         pp_by_section = defaultdict(list)
         for ppt in all_pp_tests:
             for s in ppt.sections.all():
-                pp_by_section[s.pk].append(ppt)
+                pp_by_section[str(s.pk)].append(ppt)
 
         lib_by_section = defaultdict(list)
         for item in all_lib_items:
-            lib_by_section[item.section_id].append(item)
+            lib_by_section[str(item.section_id)].append(item)
 
         hw_by_section = defaultdict(list)
         for item in all_hw_items:
             for s in item.sections.all():
-                hw_by_section[s.pk].append(item)
+                hw_by_section[str(s.pk)].append(item)
 
         vid_by_section = defaultdict(list)
         for item in all_vid_items:
-            vid_by_section[item.section_id].append(item)
+            vid_by_section[str(item.section_id)].append(item)
 
         # 4. Final Result Construction
         result = []
@@ -199,7 +199,7 @@ def list_master_sections(request):
         omr_sec = getattr(user, 'omr_code', None)
 
         for section in sections:
-            s_id = section.pk
+            s_id = str(section.pk)
             
             # Find all unique centres for this section across all its tests
             section_centres_map = {}
@@ -209,6 +209,7 @@ def list_master_sections(request):
             offline_exam_list = []
             
             # Process Tests
+            # For Admins, we should always allow seeing tests even if they don't have centre allotments
             if not is_student or section.name == exam_sec or section.name == omr_sec:
                 for test in s_tests:
                     t_type_name = (test.exam_type.name or "").lower() if test.exam_type else ""
@@ -228,7 +229,8 @@ def list_master_sections(request):
                         if cid not in section_centres_map:
                             section_centres_map[cid] = c_data
 
-                    if t_centres:
+                    # ADDITION: For ADMINS, showing tests even if 0 centres are allotted
+                    if not is_student or t_centres:
                         item_data = {
                             'id': str(test.id),
                             'name': test.name,
@@ -245,7 +247,7 @@ def list_master_sections(request):
                     'id': str(ppt.id),
                     'name': ppt.name,
                     'type': 'Pen Paper Test',
-                    'centres': [] # Populated later if needed
+                    'centres': [] 
                 })
 
             # Study Materials
@@ -284,7 +286,8 @@ def list_master_sections(request):
             'count': len(result),
             'sections': result
         }
-        cache.set(cache_key, response_data, timeout=300) # 5 minutes
+        # Reducing cache timeout for better Admin reactivity
+        cache.set(cache_key, response_data, timeout=60) 
 
         return Response(response_data, status=status.HTTP_200_OK)
 

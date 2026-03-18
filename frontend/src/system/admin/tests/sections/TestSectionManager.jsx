@@ -206,7 +206,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                 {/* Actions Toolbar */}
                 <div className="p-6 border-b border-inherit flex flex-wrap justify-between items-center gap-4">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-lg font-black uppercase tracking-tight">Section List</h3>
+                        <h3 className="text-lg font-black uppercase tracking-tight">Question Section List</h3>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="relative">
@@ -223,7 +223,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                             onClick={handleAdd}
                             className="px-6 py-3 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-black text-sm shadow-xl shadow-green-900/10 transition-all flex items-center gap-3 active:scale-95"
                         >
-                            <Plus size={20} /> Add Section +
+                            <Plus size={20} /> Add Question Section
                         </button>
                         <button
                             onClick={fetchSections}
@@ -377,7 +377,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                         <div className={`px-8 py-5 flex justify-between items-center shrink-0 border-b ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-300'}`}>
                             <div>
                                 <h3 className={`text-xl font-black uppercase tracking-tighter leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                                    {modalMode === 'add' ? 'Add Section Details' : 'Edit Section Details'}
+                                    {modalMode === 'add' ? 'Add Question Section Details' : 'Edit Question Section Details'}
                                 </h3>
                                 <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{test.name}</p>
                             </div>
@@ -499,7 +499,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                                 <button type="submit" disabled={isActionLoading}
                                     className="w-full py-4 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-[5px] font-black text-xs uppercase tracking-widest shadow-xl shadow-green-900/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-60">
                                     {isActionLoading && <Loader2 size={16} className="animate-spin" />}
-                                    {modalMode === 'add' ? 'Add Section' : 'Update Section'}
+                                    {modalMode === 'add' ? 'Add Question Section' : 'Update Question Section'}
                                 </button>
                             </div>
                         </form>

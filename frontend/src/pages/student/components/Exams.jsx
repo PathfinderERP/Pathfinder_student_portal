@@ -108,7 +108,8 @@ const Exams = ({ isDarkMode, onRefresh }) => {
     });
 
     return (
-        <div className="space-y-8 animate-fade-in-up pb-10">
+        <>
+            <div className="space-y-8 animate-fade-in-up pb-10 pt-4">
             {/* Header Section with Search and Tabs */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
@@ -260,7 +261,9 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                 </div>
             </div>
 
-            {/* Start Exam Modal */}
+            </div>
+            
+            {/* Start Exam Modal - Moved outside animated container to avoid transform issues */}
             <StartExamModal 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -268,7 +271,7 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                 test={selectedTest}
                 isDarkMode={isDarkMode}
             />
-        </div>
+        </>
     );
 };
 

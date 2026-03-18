@@ -31,7 +31,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
     return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-[5px] border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
 };
 
-const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [] }) => {
+const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [], totalAllowed = 0, currentCount = 0 }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [view, setView] = useState('overview'); // 'overview', 'manual', 'repository', 'bulk'
@@ -45,9 +45,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
     const toggleQuestionSelection = (id, e) => {
         e.stopPropagation();
-        setSelectedIds(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
+        setSelectedIds(prev => {
+            if (!prev.includes(id)) {
+                if (totalAllowed > 0 && currentCount + prev.length >= totalAllowed) {
+                    alert(`Cannot select more questions. Maximum limit of ${totalAllowed} reached for this section.`);
+                    return prev;
+                }
+                return [...prev, id];
+            } else {
+                return prev.filter(i => i !== id);
+            }
+        });
     };
 
     // Master Data States
@@ -1257,265 +1265,348 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             </div>
                         ))}
                     </div>
-                ) : filteredQuestions.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-30">
-                        <Database size={48} className="mb-4" />
-                        <span className="text-xs font-black uppercase tracking-widest">No Questions Found</span>
-                    </div>
                 ) : (
-                    <>
-                        {renderPagination()}
-                        <div className="flex flex-col gap-4 mt-8">
-                            {paginatedQuestions.map((q) => {
-                                const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
-                                const qSubject = subjects.find(s => s.id === (q.subject?.id || q.subject));
-
-                                return (
-                                    <div
-                                        onClick={() => {
-                                            const currentId = q.id || q._id;
-                                            setSelectedQuestion(isSelected ? null : q);
-                                        }}
-                                        key={q.id || q._id}
-                                        className={`relative rounded-[5px] border transition-all cursor-pointer group flex flex-col overflow-hidden p-6
-                                            ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50 shadow-sm'} 
-                                            ${isSelected ? 'ring-2 ring-emerald-500/50' : ''}
-                                        `}
-                                    >
-                                        <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-                                            {/* Selection & Level */}
-                                            <div className="flex items-center gap-5 shrink-0">
-                                                {isSelectionMode && (
-                                                    alreadySelectedIds.includes(q.id || q._id) ? (
-                                                        <div className={`w-12 h-12 rounded-[5px] border-2 flex items-center justify-center shrink-0 bg-slate-200/50 border-slate-300 text-slate-400 opacity-60`}>
-                                                            <CheckCircle size={24} strokeWidth={3} />
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={(e) => toggleQuestionSelection(q.id || q._id, e)}
-                                                            className={`w-12 h-12 rounded-[5px] border-2 flex items-center justify-center transition-all shrink-0 ${selectedIds.includes(q.id || q._id)
-                                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl shadow-emerald-500/30'
-                                                                : 'bg-white/50 backdrop-blur-sm border-slate-300'
-                                                                }`}
-                                                        >
-                                                            {selectedIds.includes(q.id || q._id) && <Check size={24} strokeWidth={4} />}
-                                                        </div>
-                                                    )
-                                                )}
-                                                <div className={`w-14 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
-                                                    <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
-                                                    <div className="text-sm font-black">{q.difficulty_level || q.level}</div>
-                                                </div>
+                    <div>
+                        {filteredQuestions.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                                <Database size={48} className="mb-4" />
+                                <span className="text-xs font-black uppercase tracking-widest">No Questions Found</span>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Bulk selection actions */}
+                                {isSelectionMode && (
+                                    <div className={`mt-6 p-4 rounded-[5px] border-2 border-dashed flex flex-wrap items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-200 shadow-sm'}`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-2.5 rounded-[5px] ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'}`}>
+                                                <CheckCircle size={20} strokeWidth={3} />
                                             </div>
-
-                                            {/* Primary Info */}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-3 mb-3">
-                                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                        {q.question_type?.replace('_', ' ') || 'QUESTION'}
-                                                    </span>
-                                                    {alreadySelectedIds.includes(q.id || q._id) && (
-                                                        <div className="px-3 py-1 rounded-[5px] bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                                                            <CheckCircle size={10} strokeWidth={3} />
-                                                            <span>IN TEST</span>
-                                                        </div>
-                                                    )}
-                                                    {qSubject && (
-                                                        <div className="px-3 py-1 rounded-[5px] bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
-                                                            {qSubject.name}
-                                                        </div>
-                                                    )}
-                                                    {q.is_wrong && (
-                                                        <div className="px-3 py-1 rounded-[5px] bg-red-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
-                                                            <AlertCircle size={10} />
-                                                            <span>WRONG</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div
-                                                    className={`text-base font-bold tracking-tight prose dark:prose-invert max-w-none leading-relaxed italic ${isSelected ? '' : 'line-clamp-2'}`}
-                                                    dangerouslySetInnerHTML={{ __html: q.question || q.content }}
-                                                />
-                                            </div>
-
-                                            {/* Media Previews */}
-                                            {(q.image_1 || q.image_2) && (
-                                                <div className="flex items-center gap-3 shrink-0">
-                                                    {q.image_1 && (
-                                                        <div className="w-20 h-20 rounded-[5px] overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
-                                                            <img src={q.image_1} alt="Q-Img-1" className="w-full h-full object-contain" />
-                                                        </div>
-                                                    )}
-                                                    {q.image_2 && (
-                                                        <div className="w-20 h-20 rounded-[5px] overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
-                                                            <img src={q.image_2} alt="Q-Img-2" className="w-full h-full object-contain" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* Actions & Meta */}
-                                            <div className="flex flex-col items-end gap-3 shrink-0 lg:min-w-[170px] border-l border-dashed border-slate-200/20 pl-8">
-                                                {q.created_at && (
-                                                    <div className="flex items-center gap-2 text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
-                                                        <Clock size={12} />
-                                                        <span>{new Date(q.created_at).toLocaleDateString()}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-3">
-                                                    {!isSelectionMode && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id || q._id); }}
-                                                            className="p-3 bg-red-500/10 text-red-500 rounded-[5px] hover:bg-red-500 hover:text-white transition-all active:scale-90"
-                                                        >
-                                                            <Trash2 size={20} />
-                                                        </button>
-                                                    )}
-                                                    <div className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'}`}>
-                                                        <ChevronRight className={`transition-transform duration-500 ${isSelected ? 'rotate-90' : ''}`} size={24} />
-                                                    </div>
-                                                </div>
+                                            <div>
+                                                <h4 className="text-[11px] font-black uppercase tracking-widest leading-none mb-1">Bulk Operations</h4>
+                                                <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.2em]">
+                                                    {selectedIds.length} questions selected out of {filteredQuestions.length} matching
+                                                </p>
                                             </div>
                                         </div>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button
+                                                onClick={() => {
+                                                    const availableSlots = totalAllowed > 0 
+                                                        ? Math.max(0, totalAllowed - currentCount - selectedIds.length) 
+                                                        : Infinity;
+                                                    
+                                                    const allIdsToSelect = filteredQuestions
+                                                        .filter(q => !alreadySelectedIds.includes(q.id || q._id) && !selectedIds.includes(q.id || q._id))
+                                                        .map(q => q.id || q._id);
 
-                                        {/* Expanded details */}
-                                        {isSelected && (
-                                            <div className="mt-10 pt-10 border-t-2 border-dashed border-slate-200/20 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 cursor-auto" onClick={(e) => e.stopPropagation()}>
-                                                {/* Options */}
-                                                <div className="space-y-4">
-                                                    <label className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-2 block">Response Parameters</label>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        {q.question_options && q.question_options.map((opt, idx) => {
-                                                            const isCorrect = opt.isCorrect;
+                                                    if (totalAllowed > 0 && allIdsToSelect.length > availableSlots) {
+                                                        if (availableSlots === 0) {
+                                                            alert(`Cannot select more questions. Maximum limit of ${totalAllowed} reached for this section.`);
+                                                            return;
+                                                        }
+                                                        alert(`Warning: This section only has ${availableSlots} slots remaining. Only the first ${availableSlots} matching questions will be selected.`);
+                                                        setSelectedIds([...selectedIds, ...allIdsToSelect.slice(0, availableSlots)]);
+                                                    } else {
+                                                        setSelectedIds([...selectedIds, ...allIdsToSelect]);
+                                                    }
+                                                }}
+                                                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
+                                            >
+                                                <Plus size={14} strokeWidth={3} />
+                                                Select All Matching
+                                            </button>
+                                            {selectedIds.length > 0 && (
+                                                <button
+                                                    onClick={() => setSelectedIds([])}
+                                                    className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
+                                                        ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                                >
+                                                    Clear Selection
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="mt-8">
+                                    {renderPagination()}
+                                </div>
+
+                                <div className="flex flex-col gap-4 mt-8">
+                                    {paginatedQuestions.map((q) => {
+                                        const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
+                                        const qSubject = subjects.find(s => s.id === (q.subject?.id || q.subject));
+
+                                        return (
+                                            <div
+                                                onClick={() => {
+                                                    const currentId = q.id || q._id;
+                                                    setSelectedQuestion(isSelected ? null : q);
+                                                }}
+                                                key={q.id || q._id}
+                                                className={`relative rounded-[5px] border transition-all cursor-pointer group flex flex-col overflow-hidden p-6
+                                                    ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50 shadow-sm'} 
+                                                    ${isSelected ? 'ring-2 ring-emerald-500/50' : ''}
+                                                `}
+                                            >
+                                                <div className="flex flex-col lg:flex-row lg:items-center gap-8">
+                                                    {/* Selection & Level */}
+                                                    <div className="flex items-center gap-5 shrink-0">
+                                                        {isSelectionMode && (() => {
+                                                            const qid = q.id || q._id;
+                                                            const isChecked = selectedIds.includes(qid);
+                                                            const isAlreadyInTest = alreadySelectedIds.includes(qid);
+                                                            const limitReached = totalAllowed > 0 && (currentCount + selectedIds.length) >= totalAllowed;
+                                                            const isDisabled = !isChecked && !isAlreadyInTest && limitReached;
+
+                                                            if (isAlreadyInTest) {
+                                                                return (
+                                                                    <div className="w-12 h-12 rounded-[5px] border-2 flex items-center justify-center shrink-0 bg-slate-200/50 border-slate-300 text-slate-400 opacity-60">
+                                                                        <CheckCircle size={24} strokeWidth={3} />
+                                                                    </div>
+                                                                );
+                                                            }
+
                                                             return (
-                                                                <div key={idx} className={`p-5 rounded-[5px] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
-                                                                    <span className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
-                                                                    <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                <div
+                                                                    onClick={(e) => !isDisabled && toggleQuestionSelection(qid, e)}
+                                                                    title={isDisabled ? `Limit of ${totalAllowed} questions reached` : ''}
+                                                                    className={`w-12 h-12 rounded-[5px] border-2 flex items-center justify-center transition-all shrink-0
+                                                                        ${isChecked
+                                                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl shadow-emerald-500/30'
+                                                                            : isDisabled
+                                                                                ? 'bg-slate-100 border-slate-200 text-slate-300 opacity-40 cursor-not-allowed'
+                                                                                : 'bg-white/50 backdrop-blur-sm border-slate-300 cursor-pointer'
+                                                                        }`}
+                                                                >
+                                                                    {isChecked && <Check size={24} strokeWidth={4} />}
+                                                                    {isDisabled && !isChecked && <span className="text-[8px] font-black opacity-50">MAX</span>}
                                                                 </div>
                                                             );
-                                                        })}
-                                                    </div>
-                                                </div>
-
-                                                {/* Answer display */}
-                                                <div className="p-6 rounded-[5px] bg-emerald-500/10 border-2 border-dashed border-emerald-500/30 flex items-center justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">
-                                                            <CheckCircle size={20} />
+                                                        })()}
+                                                        <div className={`w-14 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
+                                                            <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
+                                                            <div className="text-sm font-black">{q.difficulty_level || q.level}</div>
                                                         </div>
-                                                        <div>
-                                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Verified Key</p>
-                                                            <div className="flex items-center gap-3 text-emerald-500 font-black text-lg">
-                                                                {q.question_options?.filter(o => o.isCorrect).map((o, i) => (
-                                                                    <span key={i} className="flex items-center gap-1">
-                                                                        <span>Option {String.fromCharCode(65 + q.question_options.findIndex(opt => opt === o))}</span>
-                                                                        {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
-                                                                    </span>
-                                                                ))}
+                                                    </div>
+
+                                                    {/* Primary Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                                                            <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                {q.question_type?.replace('_', ' ') || 'QUESTION'}
+                                                            </span>
+                                                            {alreadySelectedIds.includes(q.id || q._id) && (
+                                                                <div className="px-3 py-1 rounded-[5px] bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                                                    <CheckCircle size={10} strokeWidth={3} />
+                                                                    <span>IN TEST</span>
+                                                                </div>
+                                                            )}
+                                                            {qSubject && (
+                                                                <div className="px-3 py-1 rounded-[5px] bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
+                                                                    {qSubject.name}
+                                                                </div>
+                                                            )}
+                                                            {q.is_wrong && (
+                                                                <div className="px-3 py-1 rounded-[5px] bg-red-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                                                                    <AlertCircle size={10} />
+                                                                    <span>WRONG</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div
+                                                            className={`text-base font-bold tracking-tight prose dark:prose-invert max-w-none leading-relaxed italic ${isSelected ? '' : 'line-clamp-2'}`}
+                                                            dangerouslySetInnerHTML={{ __html: q.question || q.content }}
+                                                        />
+                                                    </div>
+
+                                                    {/* Media Previews */}
+                                                    {(q.image_1 || q.image_2) && (
+                                                        <div className="flex items-center gap-3 shrink-0">
+                                                            {q.image_1 && (
+                                                                <div className="w-20 h-20 rounded-[5px] overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
+                                                                    <img src={q.image_1} alt="Q-Img-1" className="w-full h-full object-contain" />
+                                                                </div>
+                                                            )}
+                                                            {q.image_2 && (
+                                                                <div className="w-20 h-20 rounded-[5px] overflow-hidden border border-slate-200 bg-white p-2 shadow-inner">
+                                                                    <img src={q.image_2} alt="Q-Img-2" className="w-full h-full object-contain" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Actions & Meta */}
+                                                    <div className="flex flex-col items-end gap-3 shrink-0 lg:min-w-[170px] border-l border-dashed border-slate-200/20 pl-8">
+                                                        {q.created_at && (
+                                                            <div className="flex items-center gap-2 text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
+                                                                <Clock size={12} />
+                                                                <span>{new Date(q.created_at).toLocaleDateString()}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center gap-3">
+                                                            {!isSelectionMode && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteQuestion(q.id || q._id); }}
+                                                                    className="p-3 bg-red-500/10 text-red-500 rounded-[5px] hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                                                                >
+                                                                    <Trash2 size={20} />
+                                                                </button>
+                                                            )}
+                                                            <div className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                                <ChevronRight className={`transition-transform duration-500 ${isSelected ? 'rotate-90' : ''}`} size={24} />
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            const formattedOptions = (q.question_options || []).map(opt => ({
-                                                                id: opt.id,
-                                                                content: opt.content,
-                                                                isCorrect: opt.isCorrect
-                                                            }));
-                                                            setForm({
-                                                                ...form,
-                                                                id: q.id || q._id,
-                                                                level: String(q.difficulty_level),
-                                                                classId: q.class_level,
-                                                                subjectId: q.subject?.id || q.subject,
-                                                                topicId: q.topic?.id || q.topic || '',
-                                                                examTypeId: q.exam_type?.id || q.exam_type || '',
-                                                                targetExamId: q.target_exam?.id || q.target_exam || '',
-                                                                testNameId: q.test_name?.id || q.test_name || '',
-                                                                hasCalculator: q.has_calculator || false,
-                                                                useNumericOptions: q.use_numeric_options || false,
-                                                                questions: [{
-                                                                    tempId: q.id || q._id,
-                                                                    question: q.question || q.content,
-                                                                    question_type: q.question_type || q.type,
-                                                                    solution: q.solution,
-                                                                    options: formattedOptions.length > 0 ? formattedOptions : createNewQuestion().options,
-                                                                    answerFrom: q.answer_from || '',
-                                                                    answerTo: q.answer_to || '',
-                                                                    image_1: q.image_1 || '',
-                                                                    image_2: q.image_2 || ''
-                                                                }]
-                                                            });
-                                                            setView('manual');
-                                                        }}
-                                                        className="px-8 py-3 bg-emerald-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
-                                                    >
-                                                        Edit Content
-                                                    </button>
                                                 </div>
 
-                                                {/* Solution */}
-                                                {q.solution && (
-                                                    <div className={`p-8 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
-                                                        <details className="group">
-                                                            <summary className="flex items-center gap-3 cursor-pointer text-blue-500 font-black text-[11px] uppercase tracking-widest select-none">
-                                                                <div className="w-8 h-8 rounded-[5px] bg-blue-500 text-white flex items-center justify-center">
-                                                                    <HelpCircle size={16} />
+                                                {/* Expanded details */}
+                                                {isSelected && (
+                                                    <div className="mt-10 pt-10 border-t-2 border-dashed border-slate-200/20 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 cursor-auto" onClick={(e) => e.stopPropagation()}>
+                                                        {/* Options */}
+                                                        <div className="space-y-4">
+                                                            <label className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-2 block">Response Parameters</label>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                {q.question_options && q.question_options.map((opt, idx) => {
+                                                                    const isCorrect = opt.isCorrect;
+                                                                    return (
+                                                                        <div key={idx} className={`p-5 rounded-[5px] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
+                                                                            <span className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
+                                                                            <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Answer display */}
+                                                        <div className="p-6 rounded-[5px] bg-emerald-500/10 border-2 border-dashed border-emerald-500/30 flex items-center justify-between">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white">
+                                                                    <CheckCircle size={20} />
                                                                 </div>
-                                                                <span>Explanatory Solution</span>
-                                                                <ChevronDown size={14} className="group-open:rotate-180 transition-transform ml-auto" />
-                                                            </summary>
-                                                            <div className="mt-6 pt-6 border-t border-dashed border-blue-200 prose dark:prose-invert max-w-none text-sm leading-relaxed"
-                                                                dangerouslySetInnerHTML={{ __html: q.solution }}
-                                                            />
-                                                        </details>
+                                                                <div>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Verified Key</p>
+                                                                    <div className="flex items-center gap-3 text-emerald-500 font-black text-lg">
+                                                                        {q.question_options?.filter(o => o.isCorrect).map((o, i) => (
+                                                                            <span key={i} className="flex items-center gap-1">
+                                                                                <span>Option {String.fromCharCode(65 + q.question_options.findIndex(opt => opt === o))}</span>
+                                                                                {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const formattedOptions = (q.question_options || []).map(opt => ({
+                                                                        id: opt.id,
+                                                                        content: opt.content,
+                                                                        isCorrect: opt.isCorrect
+                                                                    }));
+                                                                    setForm({
+                                                                        ...form,
+                                                                        id: q.id || q._id,
+                                                                        level: String(q.difficulty_level),
+                                                                        classId: q.class_level,
+                                                                        subjectId: q.subject?.id || q.subject,
+                                                                        topicId: q.topic?.id || q.topic || '',
+                                                                        examTypeId: q.exam_type?.id || q.exam_type || '',
+                                                                        targetExamId: q.target_exam?.id || q.target_exam || '',
+                                                                        testNameId: q.test_name?.id || q.test_name || '',
+                                                                        hasCalculator: q.has_calculator || false,
+                                                                        useNumericOptions: q.use_numeric_options || false,
+                                                                        questions: [{
+                                                                            tempId: q.id || q._id,
+                                                                            question: q.question || q.content,
+                                                                            question_type: q.question_type || q.type,
+                                                                            solution: q.solution,
+                                                                            options: formattedOptions.length > 0 ? formattedOptions : createNewQuestion().options,
+                                                                            answerFrom: q.answer_from || '',
+                                                                            answerTo: q.answer_to || '',
+                                                                            image_1: q.image_1 || '',
+                                                                            image_2: q.image_2 || ''
+                                                                        }]
+                                                                    });
+                                                                    setView('manual');
+                                                                }}
+                                                                className="px-8 py-3 bg-emerald-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 active:scale-95"
+                                                            >
+                                                                Edit Content
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Solution */}
+                                                        {q.solution && (
+                                                            <div className={`p-8 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
+                                                                <details className="group">
+                                                                    <summary className="flex items-center gap-3 cursor-pointer text-blue-500 font-black text-[11px] uppercase tracking-widest select-none">
+                                                                        <div className="w-8 h-8 rounded-[5px] bg-blue-500 text-white flex items-center justify-center">
+                                                                            <HelpCircle size={16} />
+                                                                        </div>
+                                                                        <span>Explanatory Solution</span>
+                                                                        <ChevronDown size={14} className="group-open:rotate-180 transition-transform ml-auto" />
+                                                                    </summary>
+                                                                    <div className="mt-6 pt-6 border-t border-dashed border-blue-200 prose dark:prose-invert max-w-none text-sm leading-relaxed"
+                                                                        dangerouslySetInnerHTML={{ __html: q.solution }}
+                                                                    />
+                                                                </details>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex justify-between items-center pt-6 border-t border-dashed border-slate-200/20">
+                                                            <div className="flex items-center gap-4 text-[10px] font-black opacity-30 uppercase tracking-widest">
+                                                                <span>ID: {q.id || q._id}</span>
+                                                                <span>•</span>
+                                                                <span>System: Pathfinder AI</span>
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleMarkAsWrong(q.id || q._id);
+                                                                }}
+                                                                className={`px-6 py-2 rounded-[5px] font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
+                                                                    ${q.is_wrong
+                                                                        ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
+                                                                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'}`}
+                                                            >
+                                                                <AlertCircle size={14} />
+                                                                {q.is_wrong ? 'Unmark Wrong' : 'Mark as Wrong'}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )}
-
-                                                <div className="flex justify-between items-center pt-6 border-t border-dashed border-slate-200/20">
-                                                    <div className="flex items-center gap-4 text-[10px] font-black opacity-30 uppercase tracking-widest">
-                                                        <span>ID: {q.id || q._id}</span>
-                                                        <span>•</span>
-                                                        <span>System: Pathfinder AI</span>
-                                                    </div>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleMarkAsWrong(q.id || q._id);
-                                                        }}
-                                                        className={`px-6 py-2 rounded-[5px] font-black uppercase tracking-widest text-[10px] border transition-all active:scale-95 flex items-center gap-2
-                                                            ${q.is_wrong
-                                                                ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
-                                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200'}`}
-                                                    >
-                                                        <AlertCircle size={14} />
-                                                        {q.is_wrong ? 'Unmark Wrong' : 'Mark as Wrong'}
-                                                    </button>
-                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {renderPagination()}
-                    </>
+                                        );
+                                    })}
+                                </div>
+                                {renderPagination()}
+                            </>
+                        )}
+                    </div>
                 )}
+
                 {isSelectionMode && selectedIds.length > 0 && (
                     <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[120] animate-in slide-in-from-bottom-5 duration-300">
                         <button
-                            onClick={() => onAssignQuestions(selectedIds)}
-                            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl flex items-center gap-3 transition-all active:scale-95 border-4 border-white/20 backdrop-blur-sm"
+                            onClick={() => {
+                                if (totalAllowed > 0 && (currentCount + selectedIds.length) > totalAllowed) {
+                                    alert(`Warning: You are attempting to assign ${selectedIds.length} question(s), but this section only has ${totalAllowed - currentCount} slots left. (Total Limit: ${totalAllowed})`);
+                                }
+                                onAssignQuestions(selectedIds);
+                            }}
+                            className={`px-6 py-3 text-white rounded-[5px] font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl flex items-center gap-3 transition-all active:scale-95 border-4 border-white/20 backdrop-blur-sm
+                                ${totalAllowed > 0 && (currentCount + selectedIds.length) > totalAllowed ? 'bg-amber-600 hover:bg-amber-700 animate-pulse' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                         >
                             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
                                 <Plus size={16} strokeWidth={3} />
                             </div>
-                            Assign {selectedIds.length} Questions
+                            Assign {selectedIds.length} / {totalAllowed > 0 ? totalAllowed : '??'} Questions
                         </button>
                     </div>
                 )}
             </div>
-        </div >
+        </div>
     );
 
 
