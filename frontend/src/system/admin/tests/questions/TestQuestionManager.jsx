@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
     Plus, Search, Trash2, RefreshCw, ArrowLeft,
     Loader2, ChevronRight, ChevronDown, X, Eye, BookOpen, Database,
-    ArrowUp, ArrowDown, Shuffle, GripVertical, BellRing
+    ArrowUp, ArrowDown, Shuffle, GripVertical, BellRing, Save
 } from 'lucide-react';
 import { Reorder, useDragControls } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useAuth } from '../../../../context/AuthContext';
 import QuestionBank from '../../QuestionBank';
 
-const QuestionItem = ({ q, qid, displayPos, sectionId, isDarkMode, isActionLoading, setSelectedQuestion, setShowDetailModal, handleMoveQuestion, handleRemoveQuestion, searchTerm, totalCount, isSelected, onToggleSelect }) => {
+const QuestionItem = ({ q, qid, displayPos, sectionId, isDarkMode, isActionLoading, setSelectedQuestion, setShowDetailModal, handleMoveQuestion, handleRemoveQuestion, searchTerm, totalCount, isSelected, onToggleSelect, isCombinedView }) => {
     const controls = useDragControls();
-    const canDrag = searchTerm.trim() === '' && !isSelected; // Also disable drag on selected to avoid conflict
+    const canDrag = !isCombinedView && searchTerm.trim() === '' && !isSelected; // Also disable drag on selected to avoid conflict
 
     return (
         <Reorder.Item
@@ -33,22 +34,24 @@ const QuestionItem = ({ q, qid, displayPos, sectionId, isDarkMode, isActionLoadi
         >
              {/* SELECT CHECKBOX */}
              <div className="w-10 flex justify-center flex-shrink-0">
-                <button 
-                    onClick={() => onToggleSelect(qid)}
-                    className={`w-5 h-5 rounded-[4px] border-2 transition-all flex items-center justify-center ${isSelected 
-                        ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-600/20' 
-                        : isDarkMode ? 'bg-white/5 border-white/10 hover:border-white/20' : 'bg-white border-slate-300 hover:border-slate-400'}`}
-                >
-                    {isSelected && <X size={12} strokeWidth={4} className="text-white" />}
-                </button>
+                {!isCombinedView && (
+                    <button 
+                        onClick={() => onToggleSelect(qid)}
+                        className={`w-5 h-5 rounded-[4px] border-2 transition-all flex items-center justify-center ${isSelected 
+                            ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-600/20' 
+                            : isDarkMode ? 'bg-white/5 border-white/10 hover:border-white/20' : 'bg-white border-slate-300 hover:border-slate-400'}`}
+                    >
+                        {isSelected && <X size={12} strokeWidth={4} className="text-white" />}
+                    </button>
+                )}
              </div>
 
              {/* DRAG HANDLE */}
              <div 
                 onPointerDown={(e) => canDrag && controls.start(e)}
-                className={`w-10 flex justify-center flex-shrink-0 transition-all ${canDrag ? 'cursor-grab active:cursor-grabbing text-slate-400 hover:text-blue-500' : 'opacity-10 cursor-not-allowed'}`}
+                className={`w-10 flex justify-center flex-shrink-0 transition-all ${isCombinedView ? 'opacity-0' : canDrag ? 'cursor-grab active:cursor-grabbing text-slate-400 hover:text-blue-500' : 'opacity-10 cursor-not-allowed'}`}
              >
-                <GripVertical size={20} />
+                {!isCombinedView && <GripVertical size={20} />}
              </div>
              
              {/* POSITION BALL */}
@@ -81,32 +84,36 @@ const QuestionItem = ({ q, qid, displayPos, sectionId, isDarkMode, isActionLoadi
 
              {/* ACTIONS */}
              <div className="w-48 flex justify-end items-center gap-4 pr-4 flex-shrink-0">
-                <div className="flex flex-col gap-1">
-                    <button
-                        onClick={() => handleMoveQuestion(qid, 'up', sectionId)}
-                        disabled={displayPos === 1}
-                        className={`p-1.5 rounded-[5px] transition-all ${displayPos === 1 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500 hover:scale-110 active:scale-90'}`}
-                    >
-                        <ArrowUp size={14} strokeWidth={3} />
-                    </button>
-                    <button
-                        onClick={() => handleMoveQuestion(qid, 'down', sectionId)}
-                        disabled={displayPos === totalCount}
-                        className={`p-1.5 rounded-[5px] transition-all ${displayPos === totalCount ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500 hover:scale-110 active:scale-90'}`}
-                    >
-                        <ArrowDown size={14} strokeWidth={3} />
-                    </button>
-                </div>
+                {!isCombinedView && (
+                    <>
+                        <div className="flex flex-col gap-1">
+                            <button
+                                onClick={() => handleMoveQuestion(qid, 'up', sectionId)}
+                                disabled={displayPos === 1}
+                                className={`p-1.5 rounded-[5px] transition-all ${displayPos === 1 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500 hover:scale-110 active:scale-90'}`}
+                            >
+                                <ArrowUp size={14} strokeWidth={3} />
+                            </button>
+                            <button
+                                onClick={() => handleMoveQuestion(qid, 'down', sectionId)}
+                                disabled={displayPos === totalCount}
+                                className={`p-1.5 rounded-[5px] transition-all ${displayPos === totalCount ? 'opacity-10 cursor-not-allowed' : 'hover:bg-orange-500/10 text-orange-500 hover:scale-110 active:scale-90'}`}
+                            >
+                                <ArrowDown size={14} strokeWidth={3} />
+                            </button>
+                        </div>
 
-                <div className="w-px h-8 bg-slate-200 dark:bg-white/5 mx-1" />
+                        <div className="w-px h-8 bg-slate-200 dark:bg-white/5 mx-1" />
 
-                <button
-                    onClick={() => handleRemoveQuestion(q.id)}
-                    disabled={isActionLoading}
-                    className={`p-3.5 rounded-[5px] transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100 shadow-sm'}`}
-                >
-                    <Trash2 size={18} />
-                </button>
+                        <button
+                            onClick={() => handleRemoveQuestion(q.id)}
+                            disabled={isActionLoading}
+                            className={`p-3.5 rounded-[5px] transition-all hover:scale-110 active:scale-90 ${isDarkMode ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white border border-red-100 shadow-sm'}`}
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    </>
+                )}
              </div>
         </Reorder.Item>
     );
@@ -145,13 +152,6 @@ const SectionBlock = ({ section, sidx, sectionQs, searchTerm, reorderKey, isDark
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => handleShuffleQuestions(section.id)}
-                        className={`p-2.5 rounded-[5px] transition-all hover:bg-orange-500/10 text-orange-500 hover:scale-110 active:rotate-180 duration-500`}
-                        title={`Shuffle Questions in ${section.name}`}
-                    >
-                        <Shuffle size={15} />
-                    </button>
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
                         className={`p-2.5 rounded-[5px] transition-all hover:bg-blue-500/10 text-blue-500`}
@@ -197,6 +197,7 @@ const SectionBlock = ({ section, sidx, sectionQs, searchTerm, reorderKey, isDark
                             handleRemoveQuestion={handleRemoveQuestion}
                             searchTerm={searchTerm}
                             totalCount={sectionQs.length}
+                            isCombinedView={true}
                         />
                     );
                 })}
@@ -226,6 +227,8 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
     // Question Detail Modal
     const [selectedQuestion, setSelectedQuestion] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+
+    const reorderTimeoutRef = useRef(null);
 
     const getAuthConfig = useCallback(() => {
         const activeToken = token || localStorage.getItem('auth_token');
@@ -375,10 +378,8 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
         const sectionsWithOverflow = targetIds.filter(sid => {
             const section = sections.find(s => s.id === sid);
             const limit = section?.total_questions || 0;
-            if (activeTab !== 'combined') {
-                return (questions.length + questionIds.length) > limit;
-            }
-            return false;
+            const currentSectionQuestions = questions.filter(q => String(q.section_id) === String(sid));
+            return (currentSectionQuestions.length + questionIds.length) > limit;
         });
 
         if (sectionsWithOverflow.length > 0) {
@@ -423,16 +424,22 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
         });
         
         // Save order to backend
-        try {
-            const apiUrl = getApiUrl();
-            const activeToken = token || localStorage.getItem('auth_token');
-            await axios.post(`${apiUrl}/api/sections/${targetSid}/reorder_questions/`,
-                { ordered_ids: newSectionQuestions.map(q => q.id || q._id) },
-                { headers: { 'Authorization': `Bearer ${activeToken}` } }
-            );
-        } catch (err) {
-            console.error('Failed to save question order:', err);
+        if (reorderTimeoutRef.current) {
+            clearTimeout(reorderTimeoutRef.current);
         }
+
+        reorderTimeoutRef.current = setTimeout(async () => {
+            try {
+                const apiUrl = getApiUrl();
+                const activeToken = token || localStorage.getItem('auth_token');
+                await axios.post(`${apiUrl}/api/sections/${targetSid}/reorder_questions/`,
+                    { ordered_ids: newSectionQuestions.map(q => q.id || q._id) },
+                    { headers: { 'Authorization': `Bearer ${activeToken}` } }
+                );
+            } catch (err) {
+                console.error('Failed to save question order:', err);
+            }
+        }, 1000);
     };
 
     const handleMoveQuestion = async (id, direction, sid) => {
@@ -442,6 +449,9 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
         const sectionQuestions = questions.filter(q => String(q.section_id) === String(targetSid));
         const index = sectionQuestions.findIndex(q => (q.id || q._id) === id);
         if (index === -1) return;
+
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= sectionQuestions.length) return;
 
         const newQuestions = [...sectionQuestions];
         // Swap
@@ -463,6 +473,40 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
 
         handleReorder(shuffled, targetSid);
         setReorderKey(k => k + 1); // Force Framer Motion remount only for explicit shuffles
+    };
+
+    const handleForceSaveOrder = async (sid) => {
+        const targetSid = typeof sid === 'string' || typeof sid === 'number' ? sid : activeTab;
+        if (targetSid === 'combined') return;
+        
+        setIsActionLoading(true);
+        // Clear any pending debounced auto-saves to prevent duplicate requests
+        if (reorderTimeoutRef.current) {
+            clearTimeout(reorderTimeoutRef.current);
+        }
+        
+        try {
+            const apiUrl = getApiUrl();
+            const activeToken = token || localStorage.getItem('auth_token');
+            const sectionQs = questions.filter(q => String(q.section_id) === String(targetSid));
+            
+            const savePromise = axios.post(`${apiUrl}/api/sections/${targetSid}/reorder_questions/`,
+                { ordered_ids: sectionQs.map(q => q.id || q._id) },
+                { headers: { 'Authorization': `Bearer ${activeToken}` } }
+            );
+
+            toast.promise(savePromise, {
+                loading: 'Saving question order...',
+                success: 'Question order saved!',
+                error: 'Failed to save question order.'
+            });
+
+            await savePromise;
+        } catch (err) {
+            console.error('Failed to save question order:', err);
+        } finally {
+            setIsActionLoading(false);
+        }
     };
 
     const handleShuffleSections = () => {
@@ -605,13 +649,24 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                         </button>
 
                         {activeTab !== 'combined' ? (
-                            <button
-                                onClick={() => handleShuffleQuestions(activeTab)}
-                                title="Shuffle Questions in this Section"
-                                className={`p-3.5 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-emerald-500' : 'bg-slate-50 border-slate-200 text-emerald-600 hover:bg-white hover:shadow-lg'}`}
-                            >
-                                <Shuffle size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleForceSaveOrder(activeTab)}
+                                    title="Save Question Order"
+                                    disabled={isActionLoading}
+                                    className={`px-4 py-3.5 rounded-[5px] border transition-all ${isActionLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} duration-500 flex items-center gap-2 ${isDarkMode ? 'bg-blue-600/20 border-blue-500/30 text-blue-400 hover:bg-blue-600/40 hover:text-white' : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-600 hover:text-white shadow-sm'}`}
+                                >
+                                    {isActionLoading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Save Order</span>
+                                </button>
+                                <button
+                                    onClick={() => handleShuffleQuestions(activeTab)}
+                                    title="Shuffle Questions in this Section"
+                                    className={`p-3.5 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-emerald-500' : 'bg-slate-50 border-slate-200 text-emerald-600 hover:bg-white hover:shadow-lg'}`}
+                                >
+                                    <Shuffle size={20} />
+                                </button>
+                            </div>
                         ) : (
                             <button
                                 onClick={handleShuffleSections}
@@ -636,27 +691,29 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                     {/* Header for Div-based List */}
                     <div className={`flex items-center gap-6 px-10 py-5 text-[10px] font-black uppercase tracking-[0.2em] border-b ${isDarkMode ? 'bg-white/[0.02] text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                         <div className="w-10 text-center">
-                            <button 
-                                onClick={() => {
-                                    if (selectedQIds.length === filteredQuestions.length) setSelectedQIds([]);
-                                    else setSelectedQIds(filteredQuestions.map(q => q.id || q._id));
-                                }}
-                                className={`w-5 h-5 rounded-[4px] border-2 transition-all flex items-center justify-center mx-auto ${selectedQIds.length > 0 && selectedQIds.length === filteredQuestions.length
-                                    ? 'bg-blue-600 border-blue-600' 
-                                    : isDarkMode ? 'bg-white/5 border-white/10 hover:border-white/20' : 'bg-white border-slate-300'}`}
-                            >
-                                {selectedQIds.length > 0 && (
-                                    <div className={selectedQIds.length === filteredQuestions.length ? 'text-white' : 'w-2 h-0.5 bg-blue-500'} >
-                                        {selectedQIds.length === filteredQuestions.length && <X size={12} strokeWidth={4} />}
-                                    </div>
-                                )}
-                            </button>
+                            {activeTab !== 'combined' && (
+                                <button 
+                                    onClick={() => {
+                                        if (selectedQIds.length === filteredQuestions.length) setSelectedQIds([]);
+                                        else setSelectedQIds(filteredQuestions.map(q => q.id || q._id));
+                                    }}
+                                    className={`w-5 h-5 rounded-[4px] border-2 transition-all flex items-center justify-center mx-auto ${selectedQIds.length > 0 && selectedQIds.length === filteredQuestions.length
+                                        ? 'bg-blue-600 border-blue-600' 
+                                        : isDarkMode ? 'bg-white/5 border-white/10 hover:border-white/20' : 'bg-white border-slate-300'}`}
+                                >
+                                    {selectedQIds.length > 0 && (
+                                        <div className={selectedQIds.length === filteredQuestions.length ? 'text-white' : 'w-2 h-0.5 bg-blue-500'} >
+                                            {selectedQIds.length === filteredQuestions.length && <X size={12} strokeWidth={4} />}
+                                        </div>
+                                    )}
+                                </button>
+                            )}
                         </div>
-                        <div className="w-10 text-center">Drg</div>
+                        <div className="w-10 text-center">{activeTab !== 'combined' && 'Drg'}</div>
                         <div className="w-12 text-center">#</div>
                         <div className="flex-1">Question Content</div>
                         <div className="w-32 text-center">Preview</div>
-                        <div className="w-48 text-right pr-6">Action</div>
+                        <div className="w-48 text-right pr-6">{activeTab !== 'combined' && 'Action'}</div>
                     </div>
 
                     <div className="flex flex-col min-h-[400px]">
@@ -709,9 +766,8 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                                 key={`single-${activeTab}-${reorderKey}`}
                                 axis="y"
                                 values={filteredQuestions}
-                                onReorder={handleReorder}
+                                onReorder={(newOrder) => handleReorder(newOrder, activeTab)}
                                 className="divide-y divide-white/5"
-                                layoutScroll
                             >
                                 {filteredQuestions.map((q, idx) => {
                                     const qid = q.id || q._id;
@@ -850,10 +906,9 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                     </div>
 
                     {(() => {
-                        const totalAllowedForSelector = activeTab === 'combined' 
-                            ? sections.reduce((acc, s) => acc + (s.total_questions || 0), 0)
-                            : sections.find(s => s.id === activeTab)?.total_questions || 0;
-                        const currentCountForSelector = questions.length;
+                        const targetSection = activeTab === 'combined' ? sections[0] : sections.find(s => s.id === activeTab);
+                        const totalAllowedForSelector = targetSection?.total_questions || 0;
+                        const currentCountForSelector = questions.filter(q => String(q.section_id) === String(targetSection?.id)).length;
 
                         return (
                             <QuestionBank

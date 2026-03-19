@@ -36,7 +36,23 @@ class SectionViewSet(viewsets.ModelViewSet):
     def questions(self, request, pk=None):
         section = self.get_object()
         from questions.serializers import QuestionSerializer
-        serializer = QuestionSerializer(section.questions.all(), many=True)
+        # Deduplicate objects by PK to prevent ghost copies
+        seen_pks = set()
+        unique_qs_list = []
+        for q in section.questions.all():
+            if str(q.pk) not in seen_pks:
+                seen_pks.add(str(q.pk))
+                unique_qs_list.append(q)
+
+        order_list = section.question_order or []
+        order_map = {str(oid): index for index, oid in enumerate(order_list)}
+        
+        def sort_key(q):
+            return order_map.get(str(q.pk), 999999)
+            
+        unique_qs_list.sort(key=sort_key)
+        
+        serializer = QuestionSerializer(unique_qs_list, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
@@ -59,9 +75,20 @@ class SectionViewSet(viewsets.ModelViewSet):
         for vid in valid_ids:
             try:
                 q = Question.objects.get(pk=vid)
-                section.questions.add(q)
+                if not section.questions.filter(pk=vid).exists():
+                    section.questions.add(q)
+                
+                # Update our explicit order Array
+                vid_str = str(vid)
+                if not isinstance(section.question_order, list):
+                    section.question_order = []
+                if vid_str not in section.question_order:
+                    section.question_order.append(vid_str)
+                    
             except Question.DoesNotExist:
                 continue
+                
+        section.save()
         
         return Response({'status': 'questions assigned'})
 
@@ -81,6 +108,12 @@ class SectionViewSet(viewsets.ModelViewSet):
 
         questions = Question.objects.filter(pk__in=valid_ids)
         section.questions.remove(*questions)
+        
+        if isinstance(section.question_order, list):
+            for qid in [str(vid) for vid in valid_ids]:
+                if qid in section.question_order:
+                    section.question_order.remove(qid)
+            section.save()
         return Response({'status': 'questions removed'})
 
     @action(detail=True, methods=['post'])
@@ -105,14 +138,11 @@ class SectionViewSet(viewsets.ModelViewSet):
             else:
                 valid_ids.append(qid)
         
-        # This is a bit hacky for ManyToMany but let's try to clear and add in sequence
-        section.questions.clear()
-        for vid in valid_ids:
-            try:
-                q = Question.objects.get(pk=vid)
-                section.questions.add(q)
-            except Question.DoesNotExist:
-                continue
+        if not isinstance(section.question_order, list):
+            section.question_order = []
+        
+        section.question_order = [str(vid) for vid in valid_ids]
+        section.save()
                 
         return Response({'status': 'questions reordered'})
 

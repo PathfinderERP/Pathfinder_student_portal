@@ -21,6 +21,7 @@ class Section(models.Model):
     
     # Relationships
     questions = models.ManyToManyField('questions.Question', related_name='assigned_sections', blank=True)
+    question_order = models.JSONField(default=list, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
