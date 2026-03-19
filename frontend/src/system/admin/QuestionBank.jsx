@@ -1601,7 +1601,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
                                 <Plus size={16} strokeWidth={3} />
                             </div>
-                            Assign {selectedIds.length} / {totalAllowed > 0 ? totalAllowed : '??'} Questions
+                            Assign {selectedIds.length} ({totalAllowed > 0 ? `Total: ${currentCount + selectedIds.length} / ${totalAllowed}` : 'Questions'})
                         </button>
                     </div>
                 )}
