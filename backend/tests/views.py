@@ -121,9 +121,23 @@ class TestViewSet(viewsets.ModelViewSet):
         sections_data = []
         for section in sections:
             section_dict = SectionSerializer(section).data
-            # Fetch detailed questions
-            questions = section.questions.all()
-            section_dict['questions_detail'] = QuestionSerializer(questions, many=True).data
+            # Fetch detailed questions and deduplicate/sort them
+            seen_pks = set()
+            unique_qs_list = []
+            for q in section.questions.all():
+                if str(q.pk) not in seen_pks:
+                    seen_pks.add(str(q.pk))
+                    unique_qs_list.append(q)
+            
+            order_list = section.question_order or []
+            order_map = {str(oid): index for index, oid in enumerate(order_list)}
+            
+            def sort_key(q):
+                return order_map.get(str(q.pk), 999999)
+                
+            unique_qs_list.sort(key=sort_key)
+
+            section_dict['questions_detail'] = QuestionSerializer(unique_qs_list, many=True).data
             sections_data.append(section_dict)
             
         return Response({

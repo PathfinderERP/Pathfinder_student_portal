@@ -91,8 +91,11 @@ const QuestionPaperView = ({ test, onBack }) => {
                         <div key={section.id} className="section-block">
                             {/* Section Header */}
                             <div className={`flex justify-between items-center border-b pb-1 mb-6 ${isDarkMode ? 'border-white/10' : 'border-slate-300'}`}>
-                                <h3 className={`text-[11px] font-black uppercase tracking-tighter ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                    {section.name} ({section.subject_code})
+                                <h3 className={`text-[11px] font-black uppercase tracking-tighter flex items-center gap-3 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                    <span>{section.name} ({section.subject_code})</span>
+                                    <span className={`px-2 py-0.5 rounded-[4px] text-[9px] ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
+                                        {section.questions_detail?.length || 0} Questions
+                                    </span>
                                 </h3>
                                 <div className={`flex gap-4 text-[9px] font-black uppercase ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>
                                     <span>Maximum Mark : {section.correct_marks}</span>
