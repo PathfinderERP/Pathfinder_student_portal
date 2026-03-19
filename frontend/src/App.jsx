@@ -10,6 +10,7 @@ import StudentDashboard from './pages/student/StudentDashboard';
 import ParentDashboard from './pages/parent/ParentDashboard';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import ExamInstructions from './pages/student/exam/ExamInstructions';
+import ExamEngine from './pages/student/exam/ExamEngine';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
 
@@ -49,6 +50,7 @@ function App() {
 
             <Route element={<PrivateRoute roles={['student']} />}>
               <Route path="/student/exam/instructions/:id" element={<ExamInstructions />} />
+              <Route path="/student/exam/:id/paper" element={<ExamEngine />} />
               <Route path="/student/*" element={<StudentDashboard />} />
             </Route>
 

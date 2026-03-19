@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Maximize2 } from 'lucide-react';
 
 const ExamInstructions = () => {
     const { id: testId } = useParams();
@@ -44,6 +44,26 @@ const ExamInstructions = () => {
             </div>
         );
     }
+
+    const handleReadyToBegin = () => {
+        if (!isChecked) return;
+        
+        // Request Fullscreen on the document element
+        const elem = document.documentElement;
+        const requestFS = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+        
+        if (requestFS) {
+            requestFS.call(elem).then(() => {
+                navigate(`/student/exam/${testId}/paper`);
+            }).catch(err => {
+                console.error("Fullscreen error:", err);
+                // Navigate anyway if FS fails, Engine will handle the fallback blocker
+                navigate(`/student/exam/${testId}/paper`);
+            });
+        } else {
+            navigate(`/student/exam/${testId}/paper`);
+        }
+    };
 
     if (!paperData) return null;
 
@@ -249,7 +269,7 @@ const ExamInstructions = () => {
                     <div className="flex justify-end mt-4">
                         <button
                             disabled={!isChecked}
-                            onClick={() => alert('Exam engine will be implemented here.')}
+                            onClick={handleReadyToBegin}
                             className={`px-8 py-2.5 font-semibold transition-all border rounded-[4px] text-[15px]
                             ${isChecked 
                                 ? 'bg-[#1976D2] text-white border-[#1976D2] hover:bg-[#1565C0] cursor-pointer shadow-md' 
