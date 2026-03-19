@@ -83,20 +83,25 @@ const StartExamModal = ({ isOpen, onClose, onConfirm, test, isDarkMode }) => {
                             
                             {/* Visual Boxes */}
                             <div className="flex gap-2 sm:gap-3" onClick={() => inputRef.current?.focus()}>
-                                {[...Array(6)].map((_, index) => (
-                                    <div 
-                                        key={index}
-                                        className={`w-10 h-14 sm:w-12 sm:h-16 flex items-center justify-center rounded-xl border-2 text-xl sm:text-2xl font-black transition-all duration-300 pointer-events-none
-                                            ${code[index] 
-                                                ? 'border-indigo-600 bg-indigo-600/5 text-indigo-600' 
-                                                : isDarkMode ? 'border-white/5 bg-white/5 text-slate-700' : 'border-slate-100 bg-slate-50 text-slate-300'
-                                            }
-                                            ${index === code.length ? 'border-indigo-500 animate-pulse scale-105' : ''}
-                                        `}
-                                    >
-                                        {code[index] || '•'}
-                                    </div>
-                                ))}
+                                {[...Array(6)].map((_, index) => {
+                                    const isActive = index === code.length;
+                                    return (
+                                        <div 
+                                            key={index}
+                                            className={`w-10 h-14 sm:w-12 sm:h-16 flex items-center justify-center rounded-xl border-2 text-xl sm:text-2xl font-black transition-all duration-300 pointer-events-none relative
+                                                ${code[index] 
+                                                    ? 'border-indigo-600 bg-indigo-600/5 text-indigo-600' 
+                                                    : isDarkMode ? 'border-white/5 bg-white/5 text-slate-700' : 'border-slate-100 bg-slate-50 text-slate-300'
+                                                }
+                                                ${isActive ? 'border-indigo-500 scale-105 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : ''}
+                                            `}
+                                        >
+                                            {code[index] || (isActive ? (
+                                                <span className="text-indigo-500 animate-[blink_1s_infinite] font-light">|</span>
+                                            ) : '•')}
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {/* Actual Hidden Input */}
@@ -158,5 +163,19 @@ const StartExamModal = ({ isOpen, onClose, onConfirm, test, isDarkMode }) => {
         document.body
     );
 };
+
+const styles = `
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+`;
+
+// Add styles to head mapping
+if (typeof document !== 'undefined') {
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = styles;
+    document.head.appendChild(styleTag);
+}
 
 export default StartExamModal;

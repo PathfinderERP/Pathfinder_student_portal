@@ -666,7 +666,7 @@ const TestAllotment = () => {
                                                                 <input
                                                                     type="datetime-local"
                                                                     className={`p-2 rounded-[3px] border text-[9px] font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
-                                                                    value={allotment.start_time ? new Date(allotment.start_time).toISOString().slice(0, 16) : ''}
+                                                                    value={allotment.start_time ? allotment.start_time.slice(0, 16) : ''}
                                                                     onChange={(e) => {
                                                                         const val = e.target.value;
                                                                         setModalAllotments(prev => {
@@ -686,7 +686,7 @@ const TestAllotment = () => {
                                                                 <input
                                                                     type="datetime-local"
                                                                     className={`p-2 rounded-[3px] border text-[9px] font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}
-                                                                    value={allotment.end_time ? new Date(allotment.end_time).toISOString().slice(0, 16) : ''}
+                                                                    value={allotment.end_time ? allotment.end_time.slice(0, 16) : ''}
                                                                     onChange={(e) => {
                                                                         const val = e.target.value;
                                                                         setModalAllotments(prev => {

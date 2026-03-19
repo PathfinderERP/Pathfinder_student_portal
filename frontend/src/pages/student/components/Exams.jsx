@@ -3,10 +3,12 @@ import { FileText, Calendar, Clock, Award, TrendingUp, Search, RefreshCw, Chevro
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import StartExamModal from './StartExamModal';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const Exams = ({ isDarkMode, onRefresh }) => {
     const { user, getApiUrl, token } = useAuth();
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('ongoing'); // 'ongoing' or 'previous'
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -68,10 +70,9 @@ const Exams = ({ isDarkMode, onRefresh }) => {
             });
 
             if (response.data.success) {
-                toast.success('Access code verified! Starting exam...');
+                toast.success('Access code verified! Launching instructions...');
                 setIsModalOpen(false);
-                // In a real scenario, you would navigate to the actual exam interface here:
-                // navigate(`/student/exam/${selectedTest.id}`);
+                navigate(`/student/exam/instructions/${selectedTest.id}`);
             }
         } catch (err) {
             // Rethrow so the modal can handle it

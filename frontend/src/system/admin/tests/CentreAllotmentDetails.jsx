@@ -104,8 +104,8 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     const handleEditClick = (allotment) => {
         setSelectedAllotment(allotment);
         setEditForm({
-            start_time: allotment.start_time ? new Date(allotment.start_time).toISOString().slice(0, 16) : '',
-            end_time: allotment.end_time ? new Date(allotment.end_time).toISOString().slice(0, 16) : ''
+            start_time: allotment.start_time ? allotment.start_time.slice(0, 16) : '',
+            end_time: allotment.end_time ? allotment.end_time.slice(0, 16) : ''
         });
         setIsEditModalOpen(true);
     };
@@ -186,7 +186,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
 
     const formatDate = (dateString) => {
         if (!dateString) return '---';
-        return new Date(dateString).toLocaleString('en-US', {
+        return new Date(dateString).toLocaleString('en-IN', {
             year: 'numeric',
             month: 'short',
             day: '2-digit',
@@ -291,10 +291,10 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             </div>
 
             {/* Table Area */}
-            <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+            <div className={`rounded-[5px] border shadow-2xl h-[600px] flex flex-col ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
                 <div
                     ref={tableContainerRef}
-                    className={`overflow-x-auto overflow-y-visible cursor-grab ${isDragging ? 'cursor-grabbing select-none' : ''}`}
+                    className={`flex-1 overflow-auto overflow-y-visible cursor-grab ${isDragging ? 'cursor-grabbing select-none' : ''}`}
                     onMouseDown={handleMouseDown}
                     onMouseLeave={handleMouseLeave}
                     onMouseUp={handleMouseUp}
@@ -338,7 +338,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     </td>
                                 </tr>
                             ) : filteredAllotments.map((allotment) => (
-                                <tr key={allotment.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'} ${selectedAllotmentIds.includes(allotment.id) ? (isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50/50') : ''}`}>
+                                <tr key={allotment.id} className={`group relative transition-all hover:z-[50] ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'} ${selectedAllotmentIds.includes(allotment.id) ? (isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50/50') : ''}`}>
                                     <td className="py-5 px-6 text-center">
                                         <button onClick={() => toggleSelect(allotment.id)} className="p-1 hover:bg-white/10 rounded transition-all">
                                             {selectedAllotmentIds.includes(allotment.id)
@@ -391,7 +391,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                                     </span>
                                                     {/* History Tooltip */}
                                                     {allotment.code_history?.length > 0 && (
-                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-[5px] shadow-2xl overflow-hidden border transition-all z-[999] pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-[5px] shadow-2xl overflow-hidden border transition-all z-[99999] pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
                                                             {/* Tooltip Header */}
                                                             <div className={`p-3 border-b flex items-center justify-between ${isDarkMode ? 'bg-orange-500/10 border-white/5' : 'bg-orange-50 border-orange-100'}`}>
                                                                 <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>History</span>
@@ -456,6 +456,8 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     </td>
                                 </tr>
                             ))}
+                            {/* Spacer to prevent clipping on tooltips when the table has few rows or is scrolls */}
+                            {allotments.length > 0 && <tr><td colSpan="8" className="h-40 border-0"></td></tr>}
                         </tbody>
                     </table>
                 </div>
