@@ -327,32 +327,76 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                 </div>
             )}
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 pb-4 md:pb-6 border-b border-dashed border-slate-200/50 dark:border-white/5">
-                <div>
-                    <h1 className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tight mb-1 sm:mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Welcome Back, {(student?.studentName || "Student").split(' ')[0]}!
-                    </h1>
-                    <p className={`text-xs sm:text-sm md:text-base font-medium ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
-                        Here's your comprehensive learning snapshot & AI-powered insights for today
-                    </p>
-                </div>
-                <div className="flex flex-col items-start md:items-end gap-3">
-                    <button
-                        onClick={() => onSync(true)}
-                        className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border transition-all
-                            ${isDarkMode ? 'border-white/10 text-white/40 hover:text-white hover:bg-white/5' : 'border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
-                    >
-                        Force ERP Refresh
-                    </button>
-                    <div className={`flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-5 sm:py-2.5 rounded-[5px] border shadow-lg backdrop-blur-md
-                        ${isDarkMode ? 'bg-[#151A25]/80 border-white/10 text-slate-300' : 'bg-white/80 border-slate-200 text-slate-600'}`}>
-                        <span className="font-bold sm:text-base text-sm">{(student?.studentName || "Student").split(' ')[0]}</span>
-                        <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-[5px] ${isDarkMode ? 'bg-slate-500' : 'bg-slate-300'}`}></span>
-                        <span className="text-xs sm:text-sm font-medium">ID: {rollNo}</span>
-                        <div className={`ml-1 sm:ml-2 w-6 h-6 sm:w-8 sm:h-8 rounded-[5px] flex items-center justify-center text-[10px] sm:text-xs font-bold ${isDarkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
-                            {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
+            {/* Premium Dynamic Header - Midnight Navy Edition */}
+            <div className={`relative overflow-hidden rounded-[5px] border shadow-2xl transition-all duration-700 p-8 sm:p-12 mb-10
+                ${isDarkMode 
+                    ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40' 
+                    : 'bg-gradient-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200 shadow-slate-900/10'}`}>
+                
+                {/* Decorative Background Elements */}
+                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                
+                {/* Subtle Grid Pattern Overlay */}
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+                
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+                    <div className="max-w-2xl">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-0.5 w-12 bg-orange-500 rounded-full"></div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-400">Student Intelligence Hub</span>
                         </div>
+                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-[1.1] mb-4 antialiased">
+                            Welcome Back, <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{(student?.studentName || "Student").split(' ')[0]}!</span>
+                        </h1>
+                        <p className="text-sm sm:text-base md:text-lg font-medium text-white/70 max-w-xl leading-relaxed">
+                            Your comprehensive learning snapshot is ready. We've analyzed your progress and prepared <span className="text-white font-bold underline decoration-orange-500/50 underline-offset-4">AI-powered insights</span> for your goals today.
+                        </p>
+                        
+                        <div className="flex flex-wrap items-center gap-4 mt-8">
+                            <button
+                                onClick={() => onSync(true)}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] border border-white/10 backdrop-blur-md transition-all active:scale-95 group shadow-lg"
+                            >
+                                <RefreshCw size={14} className={`group-hover:rotate-180 transition-transform duration-500 ${silentLoading ? 'animate-spin' : ''}`} />
+                                Force ERP Refresh
+                            </button>
+                            <div className="flex items-center gap-2 text-white/40 text-[10px] font-bold uppercase tracking-widest">
+                                <Clock size={12} />
+                                Last sync: Just now
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Profile Card Refined */}
+                    <div className="flex flex-col items-center lg:items-end gap-6 shrink-0">
+                        <div className={`p-1 rounded-[5px] backdrop-blur-3xl shadow-2xl transition-all duration-500 hover:scale-[1.02]
+                            ${isDarkMode ? 'bg-white/5 border border-white/10' : 'bg-white/10 border border-white/20'}`}>
+                            <div className={`flex items-center gap-4 px-6 py-4 rounded-[4px] min-w-[280px]
+                                ${isDarkMode ? 'bg-slate-900/40' : 'bg-white/5'}`}>
+                                <div className="relative">
+                                    <div className="w-16 h-16 rounded-[5px] bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-black text-white shadow-lg ring-4 ring-white/10">
+                                        {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-[#1E3A8A] flex items-center justify-center shadow-md">
+                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-white font-black text-lg tracking-tight">{(student?.studentName || "Student")}</span>
+                                    <div className="flex items-center gap-2 text-white/50">
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Enrollment</span>
+                                        <span className="w-1 h-1 rounded-full bg-orange-500/50"></span>
+                                        <span className="text-xs font-bold font-mono text-orange-400">{rollNo}</span>
+                                    </div>
+                                    <div className="mt-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/30 bg-white/5 py-1 px-3 rounded-full w-fit">
+                                        Class: {className}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
