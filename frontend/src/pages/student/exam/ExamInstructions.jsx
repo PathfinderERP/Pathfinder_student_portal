@@ -243,11 +243,13 @@ const ExamInstructions = () => {
                     })}
 
                     {/* Red Rules */}
-                    <div className="text-[#FF0000] font-bold space-y-1">
-                        <p>1.You will entered into fullScreen Mode.</p>
-                        <p>2.Please Don't exit from Full Screen Mode by any process.</p>
-                        <p>3.Please don't leave the exam site during the exam.</p>
-                        <p>The above activity (2,3) will lead you to exam submission at that point only.</p>
+                    <div className="text-[#FF0000] font-bold space-y-2 mt-8 border-2 border-[#FF0000]/20 p-6 rounded-xl bg-red-50/30">
+                        <p className="text-lg mb-2 underline">IMPORTANT SECURITY RULES:</p>
+                        <p>1. You will be entered into Full Screen Mode automatically.</p>
+                        <p>2. Exiting Full Screen Mode or switching tabs/windows (Alt+Tab) is strictly prohibited.</p>
+                        <p>3. If a violation is detected, you will have exactly 5 seconds to resume the exam.</p>
+                        <p>4. If 5 seconds pass without resuming, your session will be TERMINATED and submitted immediately due to security violation.</p>
+                        <p className="pt-2 italic">* Any attempt to bypass these security measures will result in disqualification.</p>
                     </div>
                 </div>
 

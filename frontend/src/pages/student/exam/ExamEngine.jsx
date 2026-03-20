@@ -8,14 +8,17 @@ import {
     User, 
     ChevronLeft, 
     ChevronRight, 
-    Maximize2 
+    Maximize2,
+    AlertCircle,
+    Sun,
+    Moon
 } from 'lucide-react';
 
 const ExamEngine = () => {
     const { id: testId } = useParams();
     const navigate = useNavigate();
     const { getApiUrl, token, user } = useAuth();
-    const { isDarkMode } = useTheme();
+    const { isDarkMode, toggleTheme } = useTheme();
     const containerRef = useRef(null);
 
     // Removed auto-fullscreen to prevent 'user gesture' errors
@@ -37,6 +40,9 @@ const ExamEngine = () => {
     const [violationMessage, setViolationMessage] = useState('');
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '' });
+    const [violationTimer, setViolationTimer] = useState(5);
+    const [submissionType, setSubmissionType] = useState('MANUAL'); // 'MANUAL', 'TIME_UP', 'VIOLATION'
+    const [questionTimes, setQuestionTimes] = useState({}); // { qId: seconds }
 
     const triggerToast = (msg) => {
         setToast({ show: true, message: msg });
@@ -74,18 +80,25 @@ const ExamEngine = () => {
 
     // Timer
     useEffect(() => {
-        if (timeLeft <= 0) return;
+        if (timeLeft <= 0) {
+            if (!isSubmitted && paperData) {
+                handleSubmit('TIME_UP');
+            }
+            return;
+        }
         const timer = setInterval(() => {
             setTimeLeft(prev => prev - 1);
         }, 1000);
         return () => clearInterval(timer);
-    }, [timeLeft]);
+    }, [timeLeft, isSubmitted, paperData]);
 
     const formatTime = (seconds) => {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = seconds % 60;
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        return h > 0 
+            ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+            : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
     // Derived Data (Safe check because hooks are above returns)
@@ -160,7 +173,10 @@ const ExamEngine = () => {
     const enterFullscreen = () => {
         const elem = document.documentElement;
         if (elem.requestFullscreen) {
-            elem.requestFullscreen();
+            elem.requestFullscreen().catch(err => {
+                console.error("Error entering fullscreen:", err);
+                triggerToast("Please allow Full Screen to continue.");
+            });
         } else if (elem.webkitRequestFullscreen) { /* Safari */
             elem.webkitRequestFullscreen();
         } else if (elem.msRequestFullscreen) { /* IE11 */
@@ -168,37 +184,81 @@ const ExamEngine = () => {
         }
     };
 
+    const exitFullscreen = () => {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(err => console.error("Error exiting fullscreen:", err));
+        } else if (document.webkitExitFullscreen) { /* Safari */
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* IE11 */
+            document.msExitFullscreen();
+        }
+    };
+
+    // Use a ref to track submission status for event listeners
+    const isSubmittedRef = useRef(false);
+    useEffect(() => {
+        isSubmittedRef.current = isSubmitted;
+    }, [isSubmitted]);
+
     // Strict Integrity Enforcement
     useEffect(() => {
         // Detect Fullscreen Exit
         const handleFullscreenChange = () => {
-            if (!document.fullscreenElement) {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
                 setIsFullscreen(false);
-                setShowViolation(true);
-                setViolationMessage("Security Alert: Exiting Full Screen is prohibited. Your activity has been logged. Please return to Full Screen immediately to continue.");
+                // Unlock keyboard if exited
+                if (navigator.keyboard && navigator.keyboard.unlock) {
+                    navigator.keyboard.unlock();
+                }
+                
+                // Only show violation if the exam hasn't been submitted yet
+                if (!isSubmittedRef.current) {
+                    setShowViolation(true);
+                    setViolationMessage("Security Alert: Exiting Full Screen is prohibited. Your activity has been logged. Please return to Full Screen immediately to resume.");
+                }
             } else {
                 setIsFullscreen(true);
                 setShowViolation(false);
+                
+                // Attempt to lock Escape key ONLY after we are successfully in Full Screen
+                // This is more likely to be granted by the browser
+                if (navigator.keyboard && navigator.keyboard.lock) {
+                    navigator.keyboard.lock(['Escape']).catch(() => {
+                        // Silent fail - some browsers/security settings might block this
+                    });
+                }
             }
         };
 
-        // Detect Tab/Window Switch
+        // Detect Tab/Window Switch (Alt+Tab, window focus lost)
         const handleVisibilityChange = () => {
-            if (document.hidden) {
+            if (document.hidden && !isSubmittedRef.current) {
                 setShowViolation(true);
                 setViolationMessage("Security Alert: Tab switching is strictly prohibited. Your activity has been logged. Further attempts will result in immediate disqualification.");
             }
         };
 
+        const handleBlur = () => {
+            // Check if focus is truly lost (ignore if focus just moved to a sub-element inside the doc)
+            if (!document.hasFocus() && !isSubmittedRef.current) {
+                setShowViolation(true);
+                setViolationMessage("Security Alert: System focus lost. Alt+Tab, Window switching or Tab switching is strictly prohibited. Your activity has been logged.");
+            }
+        };
+
         // Disable Escape and common shortcuts
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && !isSubmittedRef.current) {
                 e.preventDefault();
-                // Browsers usually exit fullscreen before this, but we handle the change above
+                // When keyboard.lock is active, preventDefault blocks Esc from exiting.
+                // We show the violation immediately while staying in fullscreen.
+                setShowViolation(true);
+                setViolationMessage("Security Alert: Use of the Escape key to exit Full Screen is strictly prohibited. Your activity has been logged.");
             }
             
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
                 e.preventDefault();
+                // Only show violation for dev tools regardless of submission (optional)
                 setShowViolation(true);
                 setViolationMessage("Security Alert: Developer tools access is prohibited.");
             }
@@ -206,14 +266,16 @@ const ExamEngine = () => {
 
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-        window.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('blur', handleBlur);
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('contextmenu', (e) => e.preventDefault());
 
         return () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('blur', handleBlur);
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('contextmenu', (e) => e.preventDefault());
         };
@@ -228,8 +290,9 @@ const ExamEngine = () => {
         });
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = (type = 'MANUAL') => {
         if (!paperData) return;
+        setSubmissionType(type);
 
         // Calculate Stats
         const summary = paperData.sections.map(section => {
@@ -262,6 +325,40 @@ const ExamEngine = () => {
         }
     }, [activeQuestionIdx, activeSectionIdx, paperData, isLoading, currentQuestion, responses, updateStatus]);
 
+    // Violation Auto-Submit Timer
+    useEffect(() => {
+        let interval = null;
+        if (showViolation && !isSubmitted && violationTimer > 0) {
+            interval = setInterval(() => {
+                setViolationTimer(prev => prev - 1);
+            }, 1000);
+        } else if (showViolation && !isSubmitted && violationTimer === 0) {
+            handleSubmit('VIOLATION');
+        }
+
+        if (!showViolation) {
+            setViolationTimer(5);
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [showViolation, violationTimer, isSubmitted]);
+
+    // Individual Question Timer (Persistent per question)
+    useEffect(() => {
+        if (isSubmitted || showViolation || !currentQuestion) return;
+        
+        const interval = setInterval(() => {
+            const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
+            setQuestionTimes(prev => ({
+                ...prev,
+                [qId]: (prev[qId] || 0) + 1
+            }));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [activeSectionIdx, activeQuestionIdx, isSubmitted, showViolation, currentQuestion]);
+
     // NOW handle conditional returns
     if (isLoading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -286,33 +383,49 @@ const ExamEngine = () => {
             <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-500">
                 {/* VIOLATION OVERLAY - Fixed to the top of everything */}
                 {showViolation && (
-                    <div className="fixed inset-0 bg-red-600/95 backdrop-blur-[10px] z-[99999] flex items-center justify-center p-8 animate-in fade-in duration-300">
-                        <div className="max-w-2xl bg-white p-12 rounded-2xl shadow-[0_30px_100px_rgba(220,38,38,0.5)] text-center border-4 border-red-500">
-                            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
-                                <span className="text-red-600 text-6xl font-black italic">!</span>
+                    <div className="fixed inset-0 bg-white/95 backdrop-blur-[15px] z-[99999] flex items-center justify-center p-8 animate-in fade-in zoom-in-95 duration-500">
+                        <div className="max-w-xl bg-white p-12 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.1)] text-center border border-gray-100 relative overflow-hidden">
+                            {/* Decorative background circle */}
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-red-50 rounded-full -mt-32 -z-10 blur-3xl opacity-50"></div>
+                            
+                            <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce transition-all">
+                                <AlertCircle className="text-red-600 w-12 h-12" />
                             </div>
-                            <h2 className="text-red-700 text-4xl font-black uppercase mb-4 tracking-tighter">VIOLATION DETECTED</h2>
-                            <p className="text-gray-800 text-lg font-bold mb-10 leading-relaxed italic border-y py-6 border-red-100">
-                                {violationMessage}
-                                <br/><br/>
-                                <span className="text-red-600 underline">WARNING:</span> THIS INCIDENT HAS BEEN REPORTED TO THE ADMINISTRATOR. YOUR EXAM MAY BE TERMINATED IMMEDIATELY.
-                            </p>
-                            <div className="flex flex-col gap-4">
+                            
+                            <h2 className="text-red-600 text-4xl font-black uppercase mb-4 tracking-tighter">Violation Detected</h2>
+                            
+                            <div className="text-gray-600 space-y-6">
+                                <p className="text-lg font-bold leading-relaxed border-y py-6 border-red-50/50 italic px-4">
+                                    {violationMessage}
+                                </p>
+                                
+                            <div className="bg-red-50/80 px-8 py-4 rounded-2xl border border-red-100 flex flex-col gap-1 items-center">
+                                <span className="text-red-700 font-black text-xs uppercase tracking-widest">Auto-Submit Countdown</span>
+                                <p className="text-red-700 font-black text-4xl animate-pulse">
+                                    00:0{violationTimer}
+                                </p>
+                                <p className="text-red-700 font-bold text-sm text-center">
+                                    THE EXAM WILL BE AUTOMATICALLY TERMINATED AND SUBMITTED IF NOT RESUMED IMMEDIATELY.
+                                </p>
+                            </div>
+                            </div>
+                            
+                            <div className="mt-10 flex flex-col gap-6">
                                 <button 
                                     onClick={() => {
                                         setShowViolation(false);
                                         enterFullscreen();
                                     }}
-                                    className="px-10 py-4 bg-red-600 text-white font-black rounded-lg uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                                    className="px-12 py-5 bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest hover:bg-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-600/20"
                                 >
                                     Re-Enter Full Screen & Resume
                                 </button>
                                 <button 
                                     onClick={() => {
-                                        if (document.exitFullscreen) document.exitFullscreen();
+                                        exitFullscreen();
                                         navigate('/student/dashboard');
                                     }}
-                                    className="text-gray-500 hover:text-red-700 font-bold transition-colors"
+                                    className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
                                 >
                                     Quit and Return to Dashboard
                                 </button>
@@ -321,13 +434,25 @@ const ExamEngine = () => {
                     </div>
                 )}
                 <div className="w-full max-w-4xl bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)] rounded-xl border border-gray-100 overflow-hidden">
-                    <div className="bg-[#0D47A1] p-8 text-center relative overflow-hidden">
+                    <div className={`${
+                        submissionType === 'VIOLATION' ? 'bg-red-600' : 
+                        submissionType === 'TIME_UP' ? 'bg-[#EF6C00]' : 
+                        'bg-[#0D47A1]'
+                    } p-8 text-center relative overflow-hidden`}>
                         {/* Decorative background elements */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/10 rounded-full -ml-16 -mb-16 blur-2xl"></div>
                         
-                        <h1 className="text-white text-3xl font-black uppercase tracking-tight relative z-10">Submission Report</h1>
-                        <p className="text-blue-100 text-sm mt-2 font-medium opacity-80 tracking-wide uppercase">Your exam has been successfully recorded</p>
+                        <h1 className="text-white text-3xl font-black uppercase tracking-tight relative z-10">
+                            {submissionType === 'VIOLATION' ? 'Terminated (Violation)' : 
+                             submissionType === 'TIME_UP' ? 'Exam Time Over' : 
+                             'Submission Report'}
+                        </h1>
+                        <p className="text-blue-100 text-sm mt-2 font-medium opacity-80 tracking-wide uppercase">
+                            {submissionType === 'VIOLATION' ? 'Your exam was automatically submitted due to security breach' : 
+                             submissionType === 'TIME_UP' ? 'Your session expired and answers were auto-saved' : 
+                             'Your exam has been successfully recorded'}
+                        </p>
                     </div>
 
                     <div className="p-10">
@@ -373,15 +498,28 @@ const ExamEngine = () => {
                             </table>
                         </div>
 
-                        <div className="mt-12 flex justify-center">
+                        <div className="mt-12 flex flex-col items-center gap-4">
+                            {submissionType === 'VIOLATION' && (
+                                <p className="text-red-600 font-bold text-xs uppercase animate-pulse">
+                                    Final attempt log registered. Result pending review.
+                                </p>
+                            )}
                             <button 
-                                onClick={() => navigate('/student/dashboard')}
-                                className="group relative px-10 py-4 bg-[#0D47A1] text-white font-black text-sm uppercase tracking-widest rounded-lg shadow-[0_10px_30px_rgba(13,71,161,0.2)] hover:shadow-[0_15px_40px_rgba(13,71,161,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all overflow-hidden"
+                                onClick={() => {
+                                    exitFullscreen();
+                                    navigate('/student/dashboard');
+                                }}
+                                className={`group relative px-10 py-4 ${
+                                    submissionType === 'VIOLATION' ? 'bg-red-600' : 
+                                    submissionType === 'TIME_UP' ? 'bg-[#EF6C00]' : 
+                                    'bg-[#0D47A1]'
+                                } text-white font-black text-sm uppercase tracking-widest rounded-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all overflow-hidden`}
                             >
                                 <span className="relative z-10 flex items-center gap-3 italic">
-                                    All Good <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    {submissionType === 'VIOLATION' ? 'Exit Portal' : 'All Good'} 
+                                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </span>
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             </button>
                         </div>
                     </div>
@@ -403,17 +541,27 @@ const ExamEngine = () => {
     const studentEmail = studentInfo.studentEmail || user?.email || user?.username || 'N/A';
 
     return (
-        <div className="flex flex-col h-screen bg-white font-sans overflow-hidden select-none">
+        <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-white text-gray-900'} font-sans overflow-hidden select-none transition-colors duration-300`}>
             {/* Header - Row Based Styled Timer Area */}
             <div className="bg-[#EF6C00] text-white px-6 py-2 flex justify-between items-center shadow-md z-10 min-h-[60px]">
                 <h1 className="text-xl font-black truncate uppercase tracking-tight antialiased">
                     {paperData.test_name}
                 </h1>
 
-                <div className="bg-white px-8 py-2 shadow-lg flex items-center justify-center">
-                    <div className={`text-[#EF6C00] font-black text-xl tracking-tight transition-opacity
-                        ${timeLeft < 300 && (timeLeft % 2 === 0) ? 'opacity-50' : 'opacity-100'}`}>
-                        Time Left: {formatTime(timeLeft)}
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={toggleTheme}
+                        className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white border border-white/20 flex items-center justify-center h-[40px] w-[40px] shadow-sm active:scale-95"
+                        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                    >
+                        {isDarkMode ? <Sun className="w-5 h-5 text-yellow-300" /> : <Moon className="w-5 h-5 text-blue-100" />}
+                    </button>
+                    
+                    <div className="bg-white px-8 py-2 shadow-lg flex items-center justify-center transition-colors min-w-[200px]">
+                        <div className={`text-[#EF6C00] font-black text-xl tracking-tight transition-opacity
+                            ${timeLeft < 300 && (timeLeft % 2 === 0) ? 'opacity-50' : 'opacity-100'}`}>
+                            Time Left: {formatTime(timeLeft)}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -438,11 +586,11 @@ const ExamEngine = () => {
             {/* Main Layout */}
             <div className="flex flex-1 overflow-hidden">
                 {/* Left Side - Question Content */}
-                <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden bg-white border-r border-gray-200 relative">
-                    <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center text-xs font-bold text-gray-600">
+                <div className={`flex-1 flex flex-col overflow-y-auto overflow-x-hidden ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-gray-200'} border-r relative transition-colors`}>
+                    <div className={`px-6 py-3 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50 text-slate-400' : 'border-gray-100 bg-gray-50/50 text-gray-600'} flex justify-between items-center text-xs font-bold`}>
                         <span>Question Type : {currentQuestion.question_type || 'MCQ'}</span>
                         <div className="flex gap-4">
-                            <span className="text-green-600">Maximum Mark : {currentSection.correct_marks}</span>
+                            <span className="text-green-600 dark:text-green-400">Maximum Mark : {currentSection.correct_marks}</span>
                             <span className="text-[#EF6C00]">Negative Mark : {currentSection.negative_marks}</span>
                         </div>
                     </div>
@@ -450,18 +598,30 @@ const ExamEngine = () => {
                     <div className="flex-1 p-8 relative overflow-x-hidden">
                         {/* Watermark - Clipped Container */}
                         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-                            <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-[0.035] select-none flex flex-wrap gap-x-12 gap-y-10 items-center justify-center rotate-[-35deg]">
+                            <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] opacity-[0.035] dark:opacity-[0.02] select-none flex flex-wrap gap-x-12 gap-y-10 items-center justify-center rotate-[-35deg]">
                                 {Array(400).fill(`${studentName} - ${admissionNo}`).map((text, i) => (
-                                    <span key={i} className="text-[12px] font-black text-gray-900 whitespace-nowrap uppercase tracking-[0.1em]">
+                                    <span key={i} className={`text-[12px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} whitespace-nowrap uppercase tracking-[0.1em]`}>
                                         {text}
                                     </span>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-4 mb-8 relative z-10">
-                            <span className="font-bold text-gray-800 shrink-0">Question No: {activeQuestionIdx + 1}</span>
-                            <div className="prose max-w-none w-full">
+                        <div className="flex flex-col mb-8 relative z-10">
+                            <div className={`flex items-center justify-between pb-4 border-b mb-6 ${isDarkMode ? 'border-slate-800' : 'border-gray-100'}`}>
+                                <h3 className={`text-lg font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    Question No : {activeQuestionIdx + 1}
+                                </h3>
+                                <div className="flex items-center gap-3 bg-white/5 p-1 rounded-[5px] pl-4 border border-transparent">
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Focus Time</span>
+                                    <div className={`px-4 py-1.5 rounded-[5px] font-black font-mono text-sm border shadow-sm transition-all
+                                        ${isDarkMode ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                                        {formatTime(questionTimes[currentQuestion?.id || `${activeSectionIdx}-${activeQuestionIdx}`] || 0)}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className={`prose max-w-none w-full ${isDarkMode ? 'prose-invert text-slate-300' : ''}`}>
                                 
                                 {currentQuestion.content && (
                                     <div dangerouslySetInnerHTML={{ __html: currentQuestion.content }} />
@@ -469,41 +629,83 @@ const ExamEngine = () => {
                                 
                                 {currentQuestion.question_img && (
                                     <div className="my-6">
-                                        <img src={currentQuestion.question_img} alt="Question" className="max-w-full h-auto border p-2 bg-white shadow-sm" />
+                                        <img src={currentQuestion.question_img} alt="Question" className={`max-w-full h-auto border p-2 ${isDarkMode ? 'bg-white/10 border-slate-700' : 'bg-white border-gray-200'} shadow-sm`} />
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Options */}
-                        <div className="space-y-4 ml-12 relative z-10">
-                            {['A', 'B', 'C', 'D'].map((opt) => {
-                                const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
-                                const isSelected = responses[qId]?.selectedOption === opt;
-                                
-                                return (
-                                    <label key={opt} className={`flex items-center gap-4 p-3 border rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-blue-50/50 border-gray-100 bg-white/10'}`}>
+                        {/* Question Content/Options */}
+                        <div className="space-y-6 ml-12 relative z-10">
+                            {/* MCQ / Choice Based Questions */}
+                            {(currentQuestion.question_type === 'SINGLE_CHOICE' || currentQuestion.question_type === 'MULTI_CHOICE') && (
+                                <div className="space-y-4">
+                                    {(currentQuestion.question_options || []).map((opt, idx) => {
+                                        const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
+                                        const label = String.fromCharCode(65 + idx); // 0 -> A, 1 -> B, etc.
+                                        const isSelected = responses[qId]?.selectedOption === label;
+                                        
+                                        return (
+                                            <label key={idx} className={`flex items-start gap-4 p-4 border rounded-[5px] cursor-pointer transition-colors shadow-sm
+                                                ${isSelected 
+                                                    ? (isDarkMode ? 'bg-blue-500/20 border-blue-500/50 text-blue-100 ring-1 ring-blue-500/20' : 'bg-blue-50 border-blue-200 ring-1 ring-blue-100 shadow-md') 
+                                                    : (isDarkMode ? 'hover:bg-slate-800 border-slate-800 text-slate-300' : 'hover:bg-gray-50 border-gray-200 bg-white')}`}>
+                                                
+                                                <div className="pt-1">
+                                                    <input 
+                                                        type="radio" 
+                                                        name={`q-${activeSectionIdx}-${activeQuestionIdx}`}
+                                                        checked={isSelected}
+                                                        onChange={() => updateStatus(responses[qId]?.status || 'VISITED', label)}
+                                                        className="w-4 h-4 accent-blue-600 cursor-pointer" 
+                                                    />
+                                                </div>
+
+                                                <div className="flex flex-col gap-3 w-full">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`font-black text-sm ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}>({label})</span>
+                                                        <div className={`prose-sm ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`} dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Numerical / Integer Type Questions */}
+                            {(currentQuestion.question_type === 'NUMERICAL' || currentQuestion.question_type === 'INTEGER_TYPE') && (
+                                <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-gray-50 border-gray-200'}`}>
+                                    <p className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Numerical Answer :</p>
+                                    <div className="max-w-xs">
                                         <input 
-                                            type="radio" 
-                                            name={`q-${activeSectionIdx}-${activeQuestionIdx}`}
-                                            checked={isSelected}
-                                            onChange={() => updateStatus(responses[qId]?.status || 'VISITED', opt)}
-                                            className="w-4 h-4 accent-blue-600" 
+                                            type="number"
+                                            step="any"
+                                            placeholder="Enter your answer here..."
+                                            value={responses[currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`]?.selectedOption || ''}
+                                            onChange={(e) => updateStatus('ANSWERED', e.target.value)}
+                                            className={`w-full px-5 py-4 text-lg font-black rounded-[5px] border outline-none transition-all
+                                                ${isDarkMode 
+                                                    ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10' 
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/5'}`}
                                         />
-                                        <span className="text-sm">({opt}) Option content follows here...</span>
-                                    </label>
-                                );
-                            })}
+                                    </div>
+                                    <p className="mt-4 text-[10px] font-bold opacity-40 uppercase italic tracking-wider">Note: Answer can be a decimal or an integer as per the question requirements.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* Bottom Action Bar - Multi-row Layout per Requirement */}
-                    <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                    <div className={`p-4 border-t transition-colors ${isDarkMode ? 'bg-[#0f172a] border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.2)]' : 'bg-white border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]'}`}>
                         {/* Row 1: Main Actions */}
                         <div className="flex gap-3 mb-4">
                             <button 
                                 onClick={handleClear}
-                                className="px-5 py-2.5 border-2 bg-white border-blue-400 text-blue-600 font-black text-[12px] rounded-[4px] uppercase hover:bg-blue-50 transition-all shadow-sm"
+                                className={`px-5 py-2.5 border-2 font-black text-[12px] rounded-[4px] uppercase transition-all shadow-sm
+                                    ${isDarkMode 
+                                        ? 'bg-transparent border-slate-700 text-slate-400 hover:bg-slate-800' 
+                                        : 'bg-white border-blue-400 text-blue-600 hover:bg-blue-50'}`}
                             >
                                 Clear
                             </button>
@@ -525,13 +727,19 @@ const ExamEngine = () => {
                         <div className="flex justify-start gap-3">
                             <button 
                                 onClick={handleBack}
-                                className="px-8 py-2.5 bg-white border-2 border-gray-300 text-gray-700 font-black text-[12px] rounded-[4px] uppercase hover:bg-gray-50 transition-all active:scale-95"
+                                className={`px-8 py-2.5 border-2 font-black text-[12px] rounded-[4px] uppercase transition-all active:scale-95
+                                    ${isDarkMode 
+                                        ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                             >
                                 &lt;&lt; Back
                             </button>
                             <button 
                                 onClick={handleNext}
-                                className="px-8 py-2.5 bg-white border-2 border-gray-300 text-gray-700 font-black text-[12px] rounded-[4px] uppercase hover:bg-gray-50 transition-all active:scale-95"
+                                className={`px-8 py-2.5 border-2 font-black text-[12px] rounded-[4px] uppercase transition-all active:scale-95
+                                    ${isDarkMode 
+                                        ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' 
+                                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                             >
                                 Next &gt;&gt;
                             </button>
@@ -540,21 +748,21 @@ const ExamEngine = () => {
                 </div>
 
                 {/* Right Side - Sidebar (Increased Width) */}
-                <div className="w-[380px] flex flex-col bg-white border-l border-gray-200">
+                <div className={`w-[380px] flex flex-col border-l transition-colors ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-gray-200'}`}>
                     {/* User Profile */}
-                    <div className="p-4 flex gap-4 bg-gray-50/80 border-b border-gray-100">
-                        <div className="w-20 h-20 bg-white border-2 border-gray-200 rounded-sm flex items-center justify-center shrink-0">
-                            <User className="w-12 h-12 text-gray-300" />
+                    <div className={`p-4 flex gap-4 border-b transition-colors ${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-gray-50/80 border-gray-100'}`}>
+                        <div className={`w-20 h-20 border-2 rounded-sm flex items-center justify-center shrink-0 transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                            <User className={`w-12 h-12 ${isDarkMode ? 'text-slate-600' : 'text-gray-300'}`} />
                         </div>
                         <div className="flex flex-col justify-center overflow-hidden gap-1">
-                            <p className="text-[12px] text-gray-900 uppercase font-black truncate leading-tight">Name : {studentName}</p>
-                            <p className="text-[12px] text-gray-900 uppercase font-black truncate leading-tight">Enrollment Id : {admissionNo}</p>
-                            <p className="text-[12px] text-gray-900 uppercase font-black truncate leading-tight italic opacity-70">Email : {studentEmail}</p>
+                            <p className={`text-[12px] uppercase font-black truncate leading-tight ${isDarkMode ? 'text-slate-200' : 'text-gray-900'}`}>Name : {studentName}</p>
+                            <p className={`text-[12px] uppercase font-black truncate leading-tight ${isDarkMode ? 'text-slate-200' : 'text-gray-900'}`}>Enrollment Id : {admissionNo}</p>
+                            <p className={`text-[12px] uppercase font-black truncate leading-tight italic opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-gray-900'}`}>Email : {studentEmail}</p>
                         </div>
                     </div>
 
                     {/* Question Palette */}
-                    <div className="flex-1 p-5 bg-blue-50/30 overflow-y-auto">
+                    <div className={`flex-1 p-5 overflow-y-auto transition-colors ${isDarkMode ? 'bg-slate-900/30' : 'bg-blue-50/30'}`}>
                         <div className="grid grid-cols-6 gap-y-5 gap-x-3">
                             {currentSection.questions_detail.map((q, idx) => {
                                 const qId = q.id || `${activeSectionIdx}-${idx}`;
@@ -572,7 +780,7 @@ const ExamEngine = () => {
                                         key={idx}
                                         onClick={() => setActiveQuestionIdx(idx)}
                                         className={`relative w-[38px] h-[34px] flex items-center justify-center text-[13px] font-bold transition-all
-                                        ${isActive ? 'scale-110 ring-2 ring-blue-400 ring-offset-1 z-10' : ''}`}
+                                        ${isActive ? (isDarkMode ? 'scale-110 ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0f172a] z-10' : 'scale-110 ring-2 ring-blue-400 ring-offset-1 z-10') : ''}`}
                                     >
                                         {/* Background Shapes */}
                                         {isAnswered ? (
@@ -590,12 +798,12 @@ const ExamEngine = () => {
                                             <div className="absolute inset-0 bg-[#EF6C00]" style={{clipPath: 'polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%)'}}></div>
                                         ) : (
                                             // Not Visited: Standard Gray
-                                            <div className="absolute inset-0 bg-[#EEEEEE] border border-gray-300 rounded-[4px]"></div>
+                                            <div className={`absolute inset-0 border rounded-[4px] transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-[#EEEEEE] border-gray-300'}`}></div>
                                         )}
                                         
                                         {/* Question Number - High Visibility Fix */}
                                         <span className={`relative z-[10] font-black text-[13px] drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)] antialiased
-                                            ${(isAnswered || isMarked || isMarkedAnswered || isNotAnswered) ? 'text-white' : 'text-gray-900'}`}
+                                            ${(isAnswered || isMarked || isMarkedAnswered || isNotAnswered) ? 'text-white' : (isDarkMode ? 'text-slate-400' : 'text-gray-900')}`}
                                         >
                                             {idx + 1}
                                         </span>
@@ -606,7 +814,7 @@ const ExamEngine = () => {
                     </div>
 
                     {/* Submit Section */}
-                    <div className="p-4 bg-gray-100/50 border-t border-gray-200">
+                    <div className={`p-4 border-t transition-colors ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-gray-100/50 border-gray-200'}`}>
                         <div className="flex items-center gap-3 mb-4">
                             <input 
                                 type="checkbox" 
@@ -615,15 +823,15 @@ const ExamEngine = () => {
                                 onChange={(e) => setCanSubmit(e.target.checked)}
                                 className="w-4 h-4 cursor-pointer accent-blue-600" 
                             />
-                            <label htmlFor="submit_lock" className="text-[11px] font-bold text-gray-700 cursor-pointer select-none">I want to submit.</label>
+                            <label htmlFor="submit_lock" className={`text-[11px] font-bold cursor-pointer select-none ${isDarkMode ? 'text-slate-400' : 'text-gray-700'}`}>I want to submit.</label>
                         </div>
                         <button 
-                            onClick={handleSubmit}
+                            onClick={() => handleSubmit('MANUAL')}
                             disabled={!canSubmit}
                             className={`w-full py-2 font-black text-[11px] uppercase rounded-[3px] transition-all
                             ${canSubmit 
-                                ? 'bg-blue-600 text-white cursor-pointer hover:bg-blue-700 shadow-lg' 
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                ? 'bg-blue-600 text-white cursor-pointer hover:bg-blue-700 shadow-lg shadow-blue-600/20' 
+                                : (isDarkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')}`}
                         >
                             Submit
                         </button>
@@ -641,6 +849,59 @@ const ExamEngine = () => {
                         <span className="text-[13px] font-black uppercase tracking-tight antialiased">
                             {toast.message}
                         </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Violation Overlay during active exam */}
+            {showViolation && (
+                <div className="fixed inset-0 bg-white/95 backdrop-blur-[15px] z-[99999] flex items-center justify-center p-8 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="max-w-xl bg-white p-12 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.1)] text-center border border-gray-100 relative overflow-hidden">
+                        {/* Decorative background circle */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-red-50 rounded-full -mt-32 -z-10 blur-3xl opacity-50"></div>
+                        
+                        <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce transition-all">
+                            <AlertCircle className="text-red-600 w-12 h-12" />
+                        </div>
+                        
+                        <h2 className="text-red-600 text-4xl font-black uppercase mb-4 tracking-tighter">Violation Detected</h2>
+                        
+                        <div className="text-gray-600 space-y-6">
+                            <p className="text-lg font-bold leading-relaxed border-y py-6 border-red-50/50 italic px-4">
+                                {violationMessage}
+                            </p>
+                            
+                            <div className="bg-red-50/80 px-8 py-4 rounded-2xl border border-red-100 flex flex-col gap-1 items-center">
+                                <span className="text-red-700 font-black text-xs uppercase tracking-widest">Auto-Submit Countdown</span>
+                                <p className="text-red-700 font-black text-4xl animate-pulse">
+                                    00:0{violationTimer}
+                                </p>
+                                <p className="text-red-700 font-bold text-sm text-center">
+                                    THE EXAM WILL BE AUTOMATICALLY TERMINATED AND SUBMITTED IF NOT RESUMED IMMEDIATELY.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-10 flex flex-col gap-6">
+                            <button 
+                                onClick={() => {
+                                    setShowViolation(false);
+                                    enterFullscreen();
+                                }}
+                                className="px-12 py-5 bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest hover:bg-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-600/20"
+                            >
+                                Re-Enter Full Screen & Resume
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    exitFullscreen();
+                                    navigate('/student/dashboard');
+                                }}
+                                className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
+                            >
+                                Quit and Return to Dashboard
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
