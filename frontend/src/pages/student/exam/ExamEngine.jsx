@@ -146,6 +146,11 @@ const ExamEngine = () => {
                 navigate('/student/dashboard');
             } finally {
                 setIsLoading(false);
+                // Trigger an initial "Handshake" save to consume the allow_resume token
+                // and mark this browser session as active.
+                setTimeout(() => {
+                    handleSaveProgress();
+                }, 1000);
             }
         };
         fetchAll();

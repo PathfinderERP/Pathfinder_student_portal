@@ -166,11 +166,23 @@ class TestViewSet(viewsets.ModelViewSet):
         test = self.get_object()
         user = request.user
         from .models import TestSubmission
-        sub = TestSubmission.objects.filter(test=test, student=user).first()
-        if sub:
-            # Consume the unlock token
-            sub.allow_resume = False
-            sub.save()
+        
+        # DJONGO WORKAROUND: Pull to list early and handle in Python to bypass RecursionError in SQL parser
+        sub_list = list(TestSubmission.objects.filter(test=test, student=user))
+        if sub_list:
+            # Sort by submitted_at DESC in Python
+            sub_list.sort(key=lambda x: x.submitted_at, reverse=True)
+            sub = sub_list[0]
+            # Self-heal: Use timestamp-based delete to avoid Djongo's ID/ObjectId type mismatch crash
+            if len(sub_list) > 1:
+                TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=sub.submitted_at).delete()
+        else:
+            sub = TestSubmission.objects.create(test=test, student=user)
+
+        # Grant a one-time "Handshake" permission to enter the engine.
+        # This will be consumed by the first 'save_progress' call inside the engine.
+        sub.allow_resume = True
+        sub.save()
         return Response({'success': True})
 
     @action(detail=True, methods=['post'], url_path='submit')
@@ -338,10 +350,16 @@ class TestViewSet(viewsets.ModelViewSet):
         time_spent = request.data.get('time_spent', 0)
         
         from .models import TestSubmission
-        sub, created = TestSubmission.objects.get_or_create(
-            test=test,
-            student=user
-        )
+        # DJONGO WORKAROUND: Handle filtering/sorting in Python to avoid SQLParse recursion crash
+        sub_list = list(TestSubmission.objects.filter(test=test, student=user))
+        if sub_list:
+            sub_list.sort(key=lambda x: x.submitted_at, reverse=True)
+            sub = sub_list[0]
+            # Bulk delete orphans via timestamp to avoid Djongo ID type mismatch errors
+            if len(sub_list) > 1:
+                TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=sub.submitted_at).delete()
+        else:
+            sub = TestSubmission.objects.create(test=test, student=user)
         
         # Don't allow saving over a finalized submission
         if sub.is_finalized:
@@ -349,9 +367,9 @@ class TestViewSet(viewsets.ModelViewSet):
             
         sub.responses = responses
         sub.time_spent = time_spent
-        # Initially allow_resume is False. It only becomes True if an admin clicks "Resume".
-        # But wait! If they are JUST saving while they're drafting, they are still "in".
-        # If they lose connection and come back, the 'allow_resume' logic kicks in at the START.
+        # Consume the "Resume Permission" as they are now successfully active.
+        # This keeps the session secure by requiring a new unlock if they exit again.
+        sub.allow_resume = False
         sub.save()
         return Response({'status': 'progress_saved'})
 
@@ -553,18 +571,28 @@ class TestViewSet(viewsets.ModelViewSet):
             else:
                 total_score -= q_info['negative_marks']
         
-        # Save or Update Submission
+        # Save or Update Submission (Self-heal duplicates via Python-side resolution for Djongo stability)
         from .models import TestSubmission
-        submission, created = TestSubmission.objects.update_or_create(
-            test=test,
-            student=user,
-            defaults={
-                'responses': responses,
-                'submission_type': submission_type,
-                'time_spent': time_spent,
-                'score': round(total_score, 2)
-            }
-        )
+        sub_list = list(TestSubmission.objects.filter(test=test, student=user))
+        
+        upd_data = {
+            'responses': responses,
+            'submission_type': submission_type,
+            'time_spent': time_spent,
+            'score': round(total_score, 2)
+        }
+        
+        if sub_list:
+            sub_list.sort(key=lambda x: x.submitted_at, reverse=True)
+            submission = sub_list[0]
+            for key, val in upd_data.items():
+                setattr(submission, key, val)
+            submission.save()
+            # Clean up duplicates via timestamp to bypass Djongo SQL translation bugs
+            if len(sub_list) > 1:
+                TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=submission.submitted_at).delete()
+        else:
+            submission = TestSubmission.objects.create(test=test, student=user, **upd_data)
         
         return Response({
             'success': True,
