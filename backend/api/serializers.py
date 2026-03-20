@@ -10,8 +10,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'employee_id', 'permissions', 'is_active', 'date_joined', 'created_by_username', 'exam_section', 'study_section', 'omr_code', 'rm_code', 'centre_code', 'centre_name']
-        read_only_fields = ['username', 'date_joined', 'created_by_username']
+        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'employee_id', 'permissions', 'is_active', 'date_joined', 'created_by_username', 'exam_section', 'study_section', 'omr_code', 'rm_code', 'admission_number', 'centre_code', 'centre_name']
+        read_only_fields = ['username', 'date_joined', 'created_by_username', 'admission_number']
 
     def validate_user_type(self, value):
         request = self.context.get('request')

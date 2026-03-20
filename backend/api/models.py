@@ -39,6 +39,7 @@ class CustomUser(AbstractUser):
     # Centre identity
     centre_code = models.CharField(max_length=50, null=True, blank=True)
     centre_name = models.CharField(max_length=255, null=True, blank=True)
+    admission_number = models.CharField(max_length=100, null=True, blank=True, help_text="Admission Number from ERP")
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"

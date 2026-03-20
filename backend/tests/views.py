@@ -105,11 +105,97 @@ class TestViewSet(viewsets.ModelViewSet):
                 TestCentreAllotment.objects.get_or_create(test=test, centre=centre)
                 
         # Re-fetch fresh list
-        allotments = test.centre_allotments.all()
-        serializer = TestCentreAllotmentSerializer(allotments, many=True)
-        return Response(serializer.data)
+        from api.models import CustomUser
+        from .models import TestSubmission
+        
+        all_allotments = test.centre_allotments.all()
+        data = []
+        for allotment in all_allotments:
+            c_code = allotment.centre.code
+            sub_count = TestSubmission.objects.filter(test=test, student__centre_code=c_code).count()
+            total_students = CustomUser.objects.filter(centre_code=c_code, user_type='student').count()
+            
+            allot_data = TestCentreAllotmentSerializer(allotment).data
+            allot_data['submission_count'] = sub_count
+            allot_data['total_students_in_centre'] = total_students
+            data.append(allot_data)
+            
+        return Response(data)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='submissions')
+    def submissions(self, request, pk=None):
+        from .models import TestSubmission
+        from api.models import CustomUser
+        from api.erp_views import get_student_lookup_index
+        
+        test = self.get_object()
+        centre_code = request.query_params.get('centre_code')
+        if not centre_code:
+            return Response({'detail': 'centre_code is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Fetch matching submissions (filter via student relationship for centre_code)
+        submissions = TestSubmission.objects.filter(test=test, student__centre_code=centre_code)
+        sub_map = {str(s.student_id): s for s in submissions}
+
+        # 2. Fetch ALL students from the centre (active rooster)
+        all_students = CustomUser.objects.filter(
+            user_type='student',
+            centre_code=centre_code
+        )
+
+        # 3. Get ERP index for enrichment if local data is thin
+        erp_index = get_student_lookup_index()
+
+        data = []
+        for student in all_students:
+            uid_str = str(student.pk)
+            sub = sub_map.get(uid_str)
+            
+            # Try to grab official IDs from ERP cache if local DB is missing it
+            erp_data = None
+            if erp_index:
+                search_email = str(student.email or student.username).strip().lower()
+                search_user = str(student.username).strip().upper()
+                erp_data = erp_index.get(f"email_{search_email}") or erp_index.get(f"adm_{search_user}")
+            
+            # Extract academic IDs from ERP if available
+            lib_adm = erp_data.get('admissionNumber') if erp_data else None
+            lib_rm = erp_data.get('sectionAllotment', {}).get('rm') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else None
+            
+            enroll = (student.admission_number or student.rm_code or lib_adm or lib_rm or student.omr_code or student.employee_id or '').upper()
+            
+            # Final cleanliness check
+            if not enroll or '@' in enroll:
+                enroll = '---'
+
+            data.append({
+                'id': str(sub.id) if sub else None,
+                'student_id': uid_str,
+                'student_name': (f"{student.first_name} {student.last_name}".strip() or student.username).upper(),
+                'username': student.username,
+                'email': student.email,
+                'enroll_number': enroll,
+                'score': sub.score if sub else None,
+                'submission_type': sub.submission_type if sub else None,
+                'time_spent': sub.time_spent if sub else 0,
+                'submitted_at': sub.submitted_at.isoformat() if sub else None,
+                'status': 'Submitted' if sub else 'Available'
+            })
+            
+        return Response(data)
+
+    @action(detail=True, methods=['post'], url_path='reset_test')
+    def reset_test(self, request, pk=None):
+        test = self.get_object()
+        student_id = request.data.get('student_id')
+        if not student_id:
+            return Response({'error': 'Student ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from .models import TestSubmission
+        TestSubmission.objects.filter(test=test, student_id=student_id).delete()
+        return Response({'message': 'Submission reset successfully. Student can now re-take the test.'})
+
+    @action(detail=True, methods=['get'], url_path='question_paper')
     def question_paper(self, request, pk=None):
         try:
             test = Test.objects.get(pk=pk)
@@ -233,6 +319,88 @@ class TestViewSet(viewsets.ModelViewSet):
             return Response({'success': True, 'message': 'Access code verified.'})
         else:
             return Response({'error': 'Invalid access code. Please check with your centre/teacher.'}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request, pk=None):
+        test = self.get_object()
+        user = request.user
+        data = request.data
+        
+        responses = data.get('responses', {})
+        submission_type = data.get('submission_type', 'MANUAL')
+        time_spent = data.get('time_spent', 0)
+        
+        total_score = 0.0
+        
+        # We need to fetch ALL allotted sections and questions for scoring
+        # BUT fetching everything at once can be slow. 
+        # Better: iterate through questions in submitted responses.
+        
+        from questions.models import Question
+        from sections.models import Section
+        
+        # Resolve all questions in this test's allotted sections to correctly map marks
+        questions_map = {}
+        for section in test.allotted_sections.all():
+            for q in section.questions.all():
+                questions_map[str(q.pk)] = {
+                    'question': q,
+                    'correct_marks': float(section.correct_marks or 0),
+                    'negative_marks': float(section.negative_marks or 0),
+                    # Partial scoring not fully implemented here but structure is ready
+                }
+        
+        for q_id, response in responses.items():
+            if q_id not in questions_map:
+                continue
+            
+            q_info = questions_map[q_id]
+            q_obj = q_info['question']
+            received_answer = response.get('answer')
+            
+            # SCORING LOGIC
+            is_correct = False
+            
+            if q_obj.question_type in ['SINGLE_CHOICE', 'MULTI_CHOICE']:
+                # For MCQ, correct options are in question_options list
+                correct_options = [str(opt['id']) for opt in q_obj.question_options if opt.get('isCorrect')]
+                if q_obj.question_type == 'SINGLE_CHOICE':
+                    is_correct = str(received_answer) in correct_options
+                else:
+                    # Multi choice: needs exact match or partial (simplifying for now)
+                    is_correct = set(map(str, received_answer or [])) == set(correct_options)
+            
+            elif q_obj.question_type in ['NUMERICAL', 'INTEGER_TYPE']:
+                try:
+                    val = float(received_answer)
+                    is_correct = q_obj.answer_from <= val <= q_obj.answer_to
+                except (TypeError, ValueError):
+                    is_correct = False
+            
+            if is_correct:
+                total_score += q_info['correct_marks']
+            else:
+                total_score -= q_info['negative_marks']
+        
+        # Save or Update Submission
+        from .models import TestSubmission
+        submission, created = TestSubmission.objects.update_or_create(
+            test=test,
+            student=user,
+            defaults={
+                'responses': responses,
+                'submission_type': submission_type,
+                'time_spent': time_spent,
+                'score': round(total_score, 2)
+            }
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Exam submitted successfully.',
+            'score': submission.score,
+            'submission_id': str(submission.id)
+        })
 
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     queryset = TestCentreAllotment.objects.all()

@@ -84,7 +84,7 @@ def _is_profile_rich(data):
     # We previously required 2, but 1 is fine for a fast initial UI
     return real_count >= 1
 
-def _get_student_index():
+def get_student_lookup_index():
     """
     Best Algorithm: O(1) Hash Map lookup instead of O(N) list iteration.
     Indexes all students by Email and Admission ID for instant retrieval.
@@ -151,7 +151,7 @@ def get_student_erp_data(request):
     # ── Strategy 2: O(1) Hash Map Index Lookup ───────────────────────────────
     # We use a pre-built dictionary for constant time retrieval
     if not force_refresh:
-        index = _get_student_index()
+        index = get_student_lookup_index()
         if index:
             print(f"[ERP] Strategy 2: Using Hash Map Index for {search_email}/{search_username}...")
             # Try lookup by Email then by Admission ID
@@ -303,6 +303,9 @@ def _sync_user_to_erp(user, admission_data):
     """Updates local user fields with fresh data from ERP."""
     if not isinstance(admission_data, dict): return
     try:
+        # 0. Sync Admission Number
+        user.admission_number = admission_data.get('admissionNumber')
+
         # 1. Sync Section/Codes
         sec = admission_data.get('sectionAllotment', {})
         if isinstance(sec, dict):

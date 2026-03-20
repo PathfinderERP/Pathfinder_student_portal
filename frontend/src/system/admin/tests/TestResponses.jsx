@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileSearch, Search, RefreshCw, Users, FileText } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -65,8 +65,46 @@ const TestResponses = () => {
         tableContainerRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    const handleViewCentres = (testId) => {
-        navigate(`/admin/tests/${testId}/centres`);
+    const [viewMode, setViewMode] = useState('TESTS'); // 'TESTS', 'CENTRES', 'STUDENTS'
+    const [selectedTest, setSelectedTest] = useState(null);
+    const [selectedCentre, setSelectedCentre] = useState(null);
+    const [centres, setCentres] = useState([]);
+    const [submissions, setSubmissions] = useState([]);
+    const [isCentresLoading, setIsCentresLoading] = useState(false);
+    const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
+
+    const handleViewCentres = async (test) => {
+        setSelectedTest(test);
+        setViewMode('CENTRES');
+        setIsCentresLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(`${apiUrl}/api/tests/${test.id}/centres/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setCentres(res.data);
+        } catch (err) {
+            console.error('Error fetching centres:', err);
+        } finally {
+            setIsCentresLoading(false);
+        }
+    };
+
+    const handleViewSubmissions = async (centre) => {
+        setSelectedCentre(centre);
+        setViewMode('STUDENTS');
+        setIsSubmissionsLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/submissions/?centre_code=${centre.centre_details?.code}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSubmissions(res.data);
+        } catch (err) {
+            console.error('Error fetching submissions:', err);
+        } finally {
+            setIsSubmissionsLoading(false);
+        }
     };
 
     const handleGenerateResult = (testId) => {
@@ -74,17 +112,223 @@ const TestResponses = () => {
         console.log('Generate result for test:', testId);
     };
 
+    // --- Page Views ---
+
+    if (viewMode === 'CENTRES') {
+        return (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                {/* Centres Page Header */}
+                <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => setViewMode('TESTS')}
+                                className={`p-2 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <div>
+                                <h2 className="text-2xl font-black tracking-tight uppercase">
+                                    All <span className="text-orange-500">Centre Responses</span>
+                                </h2>
+                                <p className={`text-xs font-bold opacity-40 uppercase tracking-widest mt-1`}>
+                                    Test: {selectedTest?.name}
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => handleViewCentres(selectedTest)}
+                            className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
+                        >
+                            <RefreshCw size={20} className={isCentresLoading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Centres Table */}
+                <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                    <th className="py-5 px-6">#</th>
+                                    <th className="py-5 px-6">Centre Name</th>
+                                    <th className="py-5 px-6 text-center">Number Students</th>
+                                    <th className="py-5 px-6 text-right">Students</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
+                                {isCentresLoading ? (
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td colSpan="4" className="py-8 px-6">
+                                                <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : centres.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="4" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Centres Found</td>
+                                    </tr>
+                                ) : centres.map((centre, index) => (
+                                    <tr key={centre.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
+                                        <td className="py-5 px-6 text-xs font-black opacity-30">{index + 1}</td>
+                                        <td className="py-5 px-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black uppercase tracking-tight">{centre.centre_details?.name}</span>
+                                                <span className="text-[9px] font-bold opacity-40">{centre.centre_details?.code}</span>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <span className="text-sm font-black">{centre.submission_count || 0}</span>
+                                        </td>
+                                        <td className="py-5 px-6 text-right">
+                                            <button
+                                                onClick={() => handleViewSubmissions(centre)}
+                                                className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                                            >
+                                                Students
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const handleResetSession = async (studentId, studentName) => {
+        if (!window.confirm(`Are you sure you want to reset the session for ${studentName}? All current progress will be lost and the student can restart the test.`)) return;
+        
+        setIsSubmissionsLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/reset_test/`, 
+                { student_id: studentId },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            // Refresh list
+            handleViewSubmissions(selectedCentre);
+        } catch (err) {
+            console.error('Error resetting session:', err);
+            alert('Failed to reset session');
+            setIsSubmissionsLoading(false);
+        }
+    };
+
+    if (viewMode === 'STUDENTS') {
+        return (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                {/* Students Page Header */}
+                <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => setViewMode('CENTRES')}
+                                className={`p-2 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <div>
+                                <h2 className="text-2xl font-black tracking-tight uppercase">
+                                    <span className="text-orange-500">{selectedCentre?.centre_details?.name}</span> Responses
+                                </h2>
+                                <p className={`text-[10px] font-black opacity-40 uppercase tracking-[0.2em] mt-1`}>
+                                    Test: {selectedTest?.name} ({selectedTest?.code})
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => handleViewSubmissions(selectedCentre)}
+                            className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
+                        >
+                            <RefreshCw size={20} className={isSubmissionsLoading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Students Table */}
+                <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                    <th className="py-6 px-6 text-center w-16">#</th>
+                                    <th className="py-6 px-6">Name</th>
+                                    <th className="py-6 px-6">Email</th>
+                                    <th className="py-6 px-6">Enroll Number</th>
+                                    <th className="py-6 px-4 text-center">Resume</th>
+                                    <th className="py-6 px-4 text-center">Delete</th>
+                                    <th className="py-6 px-4 text-center">Force Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
+                                {isSubmissionsLoading ? (
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td colSpan="7" className="py-8 px-6">
+                                                <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : submissions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Students Found in this Centre</td>
+                                    </tr>
+                                ) : submissions.map((sub, index) => (
+                                    <tr key={sub.student_id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/5'}`}>
+                                        <td className="py-5 px-6 text-xs text-center font-black opacity-30">{index + 1}</td>
+                                        <td className="py-5 px-6">
+                                            <span className="text-xs font-black uppercase tracking-tight">{sub.student_name}</span>
+                                        </td>
+                                        <td className="py-5 px-6">
+                                            <span className="text-[10px] font-bold opacity-60 lowercase">{sub.email || '---'}</span>
+                                        </td>
+                                        <td className="py-5 px-6 font-mono text-xs font-black opacity-70 uppercase">
+                                            {sub.enroll_number || sub.username}
+                                        </td>
+                                        <td className="py-5 px-4 text-center">
+                                            <button className="px-5 py-2.5 rounded-[5px] bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/30 transition-all active:scale-95">
+                                                Resume
+                                            </button>
+                                        </td>
+                                        <td className="py-5 px-4 text-center">
+                                            <button 
+                                                onClick={() => handleResetSession(sub.student_id, sub.student_name)}
+                                                className="px-5 py-2.5 rounded-[5px] bg-red-500 hover:bg-red-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-red-500/30 transition-all active:scale-95"
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+                                        <td className="py-5 px-4 text-center">
+                                            <button className="px-5 py-2.5 rounded-[5px] bg-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest cursor-not-allowed">
+                                                Force Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header */}
+            {/* Main Test List Header */}
             <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                            Test <span className="text-orange-500">Result List</span>
+                            Test <span className="text-orange-500">Response Analysis</span>
                         </h2>
                         <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            View test centres and generate results for students
+                            Track student participation and responses across centres
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
@@ -169,7 +413,7 @@ const TestResponses = () => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => handleViewCentres(test.id)}
+                                            onClick={() => handleViewCentres(test)}
                                             className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                                         >
                                             Centres
@@ -194,4 +438,3 @@ const TestResponses = () => {
 };
 
 export default TestResponses;
-

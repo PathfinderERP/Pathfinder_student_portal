@@ -49,3 +49,26 @@ class TestCentreAllotment(models.Model):
 
     def __str__(self):
         return f"{self.test.name} - {self.centre.name}"
+
+
+class TestSubmission(models.Model):
+    SUBMISSION_CHOICES = (
+        ('MANUAL', 'Manual'),
+        ('TIME_UP', 'Time Up'),
+        ('VIOLATION', 'Violation Detection'),
+    )
+    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='submissions')
+    student = models.ForeignKey('api.CustomUser', on_delete=models.CASCADE, related_name='test_submissions')
+    responses = models.JSONField(default=dict)
+    submission_type = models.CharField(max_length=20, choices=SUBMISSION_CHOICES, default='MANUAL')
+    time_spent = models.IntegerField(default=0, help_text="Total time spent in seconds")
+    score = models.FloatField(default=0.0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Ensures a student can only submit once for a given test
+        unique_together = ('test', 'student')
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"{self.student.username} - {self.test.name} ({self.score})"

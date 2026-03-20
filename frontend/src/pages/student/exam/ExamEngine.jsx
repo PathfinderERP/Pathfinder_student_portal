@@ -290,30 +290,61 @@ const ExamEngine = () => {
         });
     };
 
-    const handleSubmit = (type = 'MANUAL') => {
-        if (!paperData) return;
+    const handleSubmit = async (type = 'MANUAL') => {
+        if (!paperData || isSubmitting) return;
+        setIsSubmitting(true);
         setSubmissionType(type);
 
-        // Calculate Stats
-        const summary = paperData.sections.map(section => {
-            let attempted = 0;
-            section.questions_detail.forEach(q => {
-                const qId = q.id;
-                const resp = responses[qId];
-                if (resp?.status === 'ANSWERED' || resp?.status === 'MARKED_ANSWERED') {
-                    attempted++;
-                }
-            });
-            return {
-                name: section.name,
-                attempted: attempted,
-                total: section.questions_detail.length,
-                unattempted: section.questions_detail.length - attempted
-            };
+        const totalDurationSeconds = parseInt(paperData.duration || 180) * 60;
+        const timeSpent = totalDurationSeconds - timeLeft;
+
+        // Prepare responses for backend (Map to {questionId: {answer: ...}})
+        const backendResponses = {};
+        Object.entries(responses).forEach(([qId, data]) => {
+            if (data.selectedOption) {
+                backendResponses[qId] = { answer: data.selectedOption };
+            }
         });
 
-        setReportData(summary);
-        setIsSubmitted(true);
+        try {
+            const apiUrl = getApiUrl();
+            await axios.post(`${apiUrl}/api/tests/${testId}/submit/`, {
+                responses: backendResponses,
+                submission_type: type,
+                time_spent: timeSpent
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            // Calculate Stats for local report
+            const summary = paperData.sections.map(section => {
+                let attempted = 0;
+                section.questions_detail.forEach(q => {
+                    const qId = q.id;
+                    const resp = responses[qId];
+                    if (resp?.status === 'ANSWERED' || resp?.status === 'MARKED_ANSWERED') {
+                        attempted++;
+                    }
+                });
+                return {
+                    name: section.name,
+                    attempted: attempted,
+                    total: section.questions_detail.length,
+                    unattempted: section.questions_detail.length - attempted
+                };
+            });
+
+            setReportData(summary);
+            setIsSubmitted(true);
+            exitFullscreen(); // Automatically exit fullscreen on submission
+        } catch (err) {
+            console.error('Error submitting exam:', err);
+            triggerToast('Connection error. Retrying submission...');
+            // Optional: fallback to local "submit" or keep trying? 
+            // For now, let's keep it simple.
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // Auto-mark as visited when viewing
