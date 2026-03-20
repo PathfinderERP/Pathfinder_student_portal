@@ -11,7 +11,8 @@ import {
     Maximize2,
     AlertCircle,
     Sun,
-    Moon
+    Moon,
+    Lock
 } from 'lucide-react';
 
 const ExamEngine = () => {
@@ -49,34 +50,115 @@ const ExamEngine = () => {
         setTimeout(() => setToast({ show: false, message: '' }), 3000);
     };
 
-    // Fetch Paper
+    const [isLocked, setIsLocked] = useState(false);
+    const [lockReason, setLockReason] = useState('');
+    const [showResumeModal, setShowResumeModal] = useState(false);
+
+    // Prepare responses for backend (Map to {questionId: {answer: ...}})
+    // Local: {qId: {status, selectedOption}}
+    const getBackendResponses = useCallback(() => {
+        const backendResponses = {};
+        Object.entries(responses).forEach(([qId, data]) => {
+            if (data.selectedOption || data.status) {
+                backendResponses[qId] = { 
+                    answer: data.selectedOption,
+                    status: data.status 
+                };
+            }
+        });
+        return backendResponses;
+    }, [responses]);
+
+    const handleSaveProgress = useCallback(async (isFinal = false) => {
+        if (isSubmitted || isLocked || !paperData) return;
+        try {
+            await axios.post(`${getApiUrl()}/api/tests/${testId}/save_progress/`, {
+                responses: getBackendResponses(),
+                time_spent: parseInt(paperData.duration * 60) - timeLeft
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log("Progress auto-saved...");
+        } catch (err) {
+            console.error("Save failed:", err);
+        }
+    }, [testId, token, getApiUrl, responses, timeLeft, paperData, isSubmitted, isLocked, getBackendResponses]);
+
+    // Fetch Paper & Session Status
     useEffect(() => {
-        const fetchPaper = async () => {
+        const fetchAll = async () => {
             try {
+                // 1. Check Status
+                const statusResp = await axios.get(`${getApiUrl()}/api/tests/${testId}/status/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const sData = statusResp.data;
+
+                if (sData.is_finalized) {
+                    setIsSubmitted(true);
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (sData.status === 'interrupted' && !sData.allow_resume) {
+                    setIsLocked(true);
+                    setLockReason("SESSION INTERRUPTED. Your previous session was terminated unexpectedly. In accordance with security protocols, your account is now locked. Please contact the administrator to authorize a resume.");
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 2. Fetch Paper
                 const response = await axios.get(`${getApiUrl()}/api/tests/${testId}/question_paper/`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 setPaperData(response.data);
-                setTimeLeft(parseInt(response.data.duration || 180) * 60);
+                
+                // Restore time or set default
+                if (sData.time_spent > 0) {
+                    setTimeLeft(Math.max(1, (parseInt(response.data.duration || 180) * 60) - sData.time_spent));
+                    setShowResumeModal(true);
+                } else {
+                    setTimeLeft(parseInt(response.data.duration || 180) * 60);
+                }
 
-                // Also fetch ERP data for student details
+                // Restore responses
+                if (sData.responses) {
+                    const localResps = {};
+                    Object.entries(sData.responses).forEach(([qId, data]) => {
+                        localResps[qId] = {
+                            status: data.status || (data.answer ? 'ANSWERED' : 'VISITED'),
+                            selectedOption: data.answer || null
+                        };
+                    });
+                    setResponses(localResps);
+                }
+
+                // 3. EPR Data
                 try {
                     const erpResponse = await axios.get(`${getApiUrl()}/api/student/erp-data/`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     setStudentData(erpResponse.data);
-                } catch (erpErr) {
-                    console.error('Error fetching ERP data:', erpErr);
-                }
+                } catch (erpErr) {}
+
             } catch (err) {
-                console.error('Error fetching paper:', err);
+                console.error('Initialization error:', err);
                 navigate('/student/dashboard');
             } finally {
                 setIsLoading(false);
             }
         };
-        fetchPaper();
+        fetchAll();
     }, [testId, token, getApiUrl, navigate]);
+
+    // Fast Auto-Save Loop
+    useEffect(() => {
+        if (isSubmitted || isLocked || !paperData) return;
+        const interval = setInterval(() => {
+            handleSaveProgress();
+        }, 60000); // Every 60 seconds
+        return () => clearInterval(interval);
+    }, [handleSaveProgress, isSubmitted, isLocked, paperData]);
 
     // Timer
     useEffect(() => {
@@ -116,6 +198,10 @@ const ExamEngine = () => {
                 selectedOption: option || prev[qId]?.selectedOption || null 
             }
         }));
+        // Auto-save on specific status changes to be safe
+        if (status === 'ANSWERED' || status === 'MARKED_ANSWERED' || status === 'MARKED') {
+            // We can throttled save here or just wait for the interval
+        }
     }, [currentQuestion, activeSectionIdx, activeQuestionIdx]);
 
     const handleNext = useCallback(() => {
@@ -298,13 +384,9 @@ const ExamEngine = () => {
         const totalDurationSeconds = parseInt(paperData.duration || 180) * 60;
         const timeSpent = totalDurationSeconds - timeLeft;
 
-        // Prepare responses for backend (Map to {questionId: {answer: ...}})
-        const backendResponses = {};
-        Object.entries(responses).forEach(([qId, data]) => {
-            if (data.selectedOption) {
-                backendResponses[qId] = { answer: data.selectedOption };
-            }
-        });
+        // Prepare responses for backend
+        const backendResponses = getBackendResponses();
+        console.log("Submitting final answers:", backendResponses);
 
         try {
             const apiUrl = getApiUrl();
@@ -396,6 +478,36 @@ const ExamEngine = () => {
             <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
         </div>
     );
+
+    if (isLocked) {
+        return (
+            <div className="min-h-screen w-full bg-[#f8fafc] flex items-center justify-center p-6 animate-in fade-in duration-500">
+                <div className="max-w-2xl bg-white p-12 rounded-[2rem] shadow-[0_50px_100px_rgba(0,0,0,0.08)] text-center border border-gray-100 flex flex-col items-center gap-8 relative overflow-hidden">
+                    <div className="absolute top-0 inset-x-0 h-2 bg-red-600"></div>
+                    
+                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center animate-pulse">
+                        <Lock className="text-red-600 w-12 h-12" />
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <h2 className="text-red-700 text-4xl font-black uppercase tracking-tighter">Security Lock</h2>
+                        <div className="bg-red-50 p-8 rounded-2xl border border-red-100 italic text-red-800 font-bold leading-relaxed px-10">
+                            {lockReason}
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={() => navigate('/student/dashboard')}
+                        className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
+                    >
+                        Return to Dashboard
+                    </button>
+                    
+                    <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.2em]">Security Protocol v2.4.0 • Academic Integrity Protection</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!paperData || !currentQuestion) return (
         <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 gap-4">

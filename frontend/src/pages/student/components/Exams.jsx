@@ -101,10 +101,11 @@ const Exams = ({ isDarkMode, onRefresh }) => {
         (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
         (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
     ).filter(test => {
+        const isStudentCompleted = test.submission?.is_finalized;
         if (activeTab === 'ongoing') {
-            return !test.is_completed; 
+            return !isStudentCompleted; 
         } else {
-            return test.is_completed;
+            return isStudentCompleted;
         }
     });
 
@@ -204,43 +205,48 @@ const Exams = ({ isDarkMode, onRefresh }) => {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredTests.map((test, index) => (
-                                    <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
-                                        <td className="py-5 px-6 text-center text-xs font-bold opacity-40">{index + 1}</td>
-                                        <td className="py-5 px-6">
-                                            <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                {test.name}
-                                            </span>
-                                        </td>
-                                        <td className="py-5 px-6">
-                                            <span className="text-[11px] font-bold font-mono opacity-50 uppercase">{test.code}</span>
-                                        </td>
-                                        <td className="py-5 px-6 text-center">
-                                            <span className="text-[11px] font-black opacity-60">{test.duration} MIN</span>
-                                        </td>
-                                        <td className="py-5 px-6">
-                                            <span className="text-[11px] font-bold font-mono opacity-50">
-                                                {formatDateTime(test.start_time)}
-                                            </span>
-                                        </td>
-                                        <td className="py-5 px-6">
-                                            <span className="text-[11px] font-bold font-mono opacity-50">
-                                                {formatDateTime(test.end_time)}
-                                            </span>
-                                        </td>
-                                        <td className="py-5 px-6 text-center">
-                                            <button 
-                                                disabled={test.is_completed}
-                                                onClick={() => handleStartClick(test)}
-                                                className={`px-4 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${test.is_completed
-                                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                                                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 active:scale-95'}`}
-                                            >
-                                                {test.is_completed ? 'Completed' : 'Start Test'}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                filteredTests.map((test, index) => {
+                                    const studentCompleted = test.submission?.is_finalized;
+                                    const hasStarted = test.submission?.time_spent > 0;
+                                    
+                                    return (
+                                        <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
+                                            <td className="py-5 px-6 text-center text-xs font-bold opacity-40">{index + 1}</td>
+                                            <td className="py-5 px-6">
+                                                <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                    {test.name}
+                                                </span>
+                                            </td>
+                                            <td className="py-5 px-6">
+                                                <span className="text-[11px] font-bold font-mono opacity-50 uppercase">{test.code}</span>
+                                            </td>
+                                            <td className="py-5 px-6 text-center">
+                                                <span className="text-[11px] font-black opacity-60">{test.duration} MIN</span>
+                                            </td>
+                                            <td className="py-5 px-6">
+                                                <span className="text-[11px] font-bold font-mono opacity-50">
+                                                    {formatDateTime(test.start_time)}
+                                                </span>
+                                            </td>
+                                            <td className="py-5 px-6">
+                                                <span className="text-[11px] font-bold font-mono opacity-50">
+                                                    {formatDateTime(test.end_time)}
+                                                </span>
+                                            </td>
+                                            <td className="py-5 px-6 text-center">
+                                                <button 
+                                                    disabled={studentCompleted}
+                                                    onClick={() => handleStartClick(test)}
+                                                    className={`px-4 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${studentCompleted
+                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 active:scale-95'}`}
+                                                >
+                                                    {studentCompleted ? 'Completed' : (hasStarted ? 'Resume' : 'Start Test')}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

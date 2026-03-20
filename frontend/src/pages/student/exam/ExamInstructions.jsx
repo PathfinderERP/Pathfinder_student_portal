@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { Loader2, Maximize2 } from 'lucide-react';
+import { Loader2, Maximize2, Lock } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const ExamInstructions = () => {
     const { id: testId } = useParams();
@@ -13,10 +14,30 @@ const ExamInstructions = () => {
     const [paperData, setPaperData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isChecked, setIsChecked] = useState(false);
+    const [isLocked, setIsLocked] = useState(false);
+    const [lockReason, setLockReason] = useState('');
+    const [statusData, setStatusData] = useState(null);
 
     useEffect(() => {
         const fetchInstructions = async () => {
             try {
+                // Check Status First
+                const statusResp = await axios.get(`${getApiUrl()}/api/tests/${testId}/status/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const sData = statusResp.data;
+                setStatusData(sData);
+
+                if (sData.is_finalized) {
+                    navigate('/student/dashboard');
+                    return;
+                }
+
+                if (sData.status === 'interrupted' && !sData.allow_resume) {
+                    setIsLocked(true);
+                    setLockReason("SESSION INTERRUPTED. Your previous session was terminated unexpectedly. In accordance with security protocols, your account is now locked. Please contact the administrator to authorize a resume.");
+                }
+
                 const response = await axios.get(`${getApiUrl()}/api/tests/${testId}/question_paper/`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -39,29 +60,64 @@ const ExamInstructions = () => {
             <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-[#F2F5F8] text-slate-900'}`}>
                 <div className="flex flex-col items-center">
                     <Loader2 className="w-10 h-10 animate-spin mb-4 text-orange-500" />
-                    <p className="text-sm font-bold opacity-60">Loading Exam Instructions...</p>
+                    <p className="text-sm font-bold opacity-60">Validating Session Status...</p>
                 </div>
             </div>
         );
     }
 
-    const handleReadyToBegin = () => {
+    if (isLocked) {
+        return (
+            <div className={`min-h-screen w-full flex items-center justify-center p-6 ${isDarkMode ? 'bg-[#0B0F15]' : 'bg-[#f8fafc]'}`}>
+                <div className={`max-w-2xl p-12 rounded-[2rem] shadow-2xl text-center border flex flex-col items-center gap-8 relative overflow-hidden ${isDarkMode ? 'bg-[#161B22] border-white/5' : 'bg-white border-gray-100'}`}>
+                    <div className="absolute top-0 inset-x-0 h-2 bg-red-600"></div>
+                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center animate-pulse">
+                        <Lock className="text-red-600 w-12 h-12" />
+                    </div>
+                    <div className="space-y-4">
+                        <h2 className="text-red-700 text-4xl font-black uppercase tracking-tighter">Security Lock</h2>
+                        <div className="bg-red-50/50 p-8 rounded-2xl border border-red-100 italic text-red-800 font-bold leading-relaxed px-10">
+                            {lockReason}
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => navigate('/student/dashboard')}
+                        className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
+                    >
+                        Return to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const handleReadyToBegin = async () => {
         if (!isChecked) return;
         
-        // Request Fullscreen on the document element
-        const elem = document.documentElement;
-        const requestFS = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
-        
-        if (requestFS) {
-            requestFS.call(elem).then(() => {
-                navigate(`/student/exam/${testId}/paper`);
-            }).catch(err => {
-                console.error("Fullscreen error:", err);
-                // Navigate anyway if FS fails, Engine will handle the fallback blocker
-                navigate(`/student/exam/${testId}/paper`);
+        try {
+            // Consume the resume permission (if any) before entering
+            await axios.post(`${getApiUrl()}/api/tests/${testId}/start_exam/`, {}, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
-        } else {
+
+            // Enter Fullscreen
+            try {
+                const element = document.documentElement;
+                if (element.requestFullscreen) {
+                    await element.requestFullscreen();
+                } else if (element.webkitRequestFullscreen) {
+                    await element.webkitRequestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    await element.msRequestFullscreen();
+                }
+            } catch (fsErr) {
+                console.warn("Fullscreen rejected:", fsErr);
+            }
+
             navigate(`/student/exam/${testId}/paper`);
+        } catch (err) {
+            console.error("Failed to start session:", err);
+            toast.error("Security Handshake Failed. Please refresh and try again.");
         }
     };
 

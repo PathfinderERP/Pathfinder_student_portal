@@ -109,18 +109,91 @@ class TestViewSet(viewsets.ModelViewSet):
         from .models import TestSubmission
         
         all_allotments = test.centre_allotments.all()
+        
+        # Pre-fetch all student IDs who have submitted for this test
+        all_submitted_student_ids = set(TestSubmission.objects.filter(test=test).values_list('student_id', flat=True))
+        
         data = []
         for allotment in all_allotments:
             c_code = allotment.centre.code
-            sub_count = TestSubmission.objects.filter(test=test, student__centre_code=c_code).count()
-            total_students = CustomUser.objects.filter(centre_code=c_code, user_type='student').count()
+            c_name = allotment.centre.name
+            from django.db.models import Q
+            
+            # Count unique attempted students for this centre
+            # Djongo workaround: fetch list then use set() to bypass SQL parser crash
+            # This counts students who have submitted AND belong to this centre
+            submitted_students_in_centre_ids = TestSubmission.objects.filter(test=test).filter(
+                Q(student__centre_code__iexact=c_code) | Q(student__centre_name__iexact=c_name)
+            ).values_list('student', flat=True)
+            submission_count = len(set(submitted_students_in_centre_ids))
+            
+            # Filtered Rooster Count (Matches the logic in 'submissions' view)
+            # Only count students who belong to this centre AND are "Active"
+            # (Either have an ID, a Section, or they started the test)
+            centre_query = Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
+            active_roster_count = CustomUser.objects.filter(user_type='student').filter(centre_query).filter(
+                Q(admission_number__isnull=False) & ~Q(admission_number='') |
+                Q(exam_section__isnull=False) & ~Q(exam_section='') |
+                Q(pk__in=all_submitted_student_ids)
+            ).count()
             
             allot_data = TestCentreAllotmentSerializer(allotment).data
-            allot_data['submission_count'] = sub_count
-            allot_data['total_students_in_centre'] = total_students
+            allot_data['submission_count'] = submission_count # This reflects attempted tests
+            allot_data['total_students_in_centre'] = active_roster_count # This reflects the visible list
             data.append(allot_data)
             
         return Response(data)
+
+    @action(detail=True, methods=['get'], url_path='status')
+    def status(self, request, pk=None):
+        test = self.get_object()
+        user = request.user
+        from .models import TestSubmission
+        sub = TestSubmission.objects.filter(test=test, student=user).first()
+        if not sub:
+            return Response({'status': 'available', 'is_finalized': False, 'allow_resume': True})
+        return Response({
+            'status': 'submitted' if sub.is_finalized else 'interrupted',
+            'is_finalized': sub.is_finalized,
+            'allow_resume': sub.allow_resume,
+            'responses': sub.responses,
+            'time_spent': sub.time_spent,
+            'submission_type': sub.submission_type
+        })
+
+    @action(detail=True, methods=['post'], url_path='start_exam')
+    def start_exam(self, request, pk=None):
+        test = self.get_object()
+        user = request.user
+        from .models import TestSubmission
+        sub = TestSubmission.objects.filter(test=test, student=user).first()
+        if sub:
+            # Consume the unlock token
+            sub.allow_resume = False
+            sub.save()
+        return Response({'success': True})
+
+    @action(detail=True, methods=['post'], url_path='submit')
+    def submit(self, request, pk=None):
+        test = self.get_object()
+        user = request.user
+        responses = request.data.get('responses', {})
+        time_spent = request.data.get('time_spent', 0)
+        sub_type = request.data.get('submission_type', 'MANUAL')
+        
+        from .models import TestSubmission
+        sub, created = TestSubmission.objects.get_or_create(test=test, student=user)
+        
+        if sub.is_finalized:
+            return Response({'error': 'Already submitted'}, status=403)
+            
+        sub.responses = responses
+        sub.time_spent = time_spent
+        sub.submission_type = sub_type
+        sub.is_finalized = True
+        sub.allow_resume = False 
+        sub.save()
+        return Response({'status': 'submitted'})
 
     @action(detail=True, methods=['get'], url_path='submissions')
     def submissions(self, request, pk=None):
@@ -133,40 +206,63 @@ class TestViewSet(viewsets.ModelViewSet):
         if not centre_code:
             return Response({'detail': 'centre_code is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Fetch matching submissions (filter via student relationship for centre_code)
-        submissions = TestSubmission.objects.filter(test=test, student__centre_code=centre_code)
-        sub_map = {str(s.student_id): s for s in submissions}
+        # 1. Fetch ALL relevant submissions for this test
+        all_submissions_list = TestSubmission.objects.filter(test=test)
+        sub_map = {str(s.student_id): s for s in all_submissions_list}
 
-        # 2. Fetch ALL students from the centre (active rooster)
-        all_students = CustomUser.objects.filter(
-            user_type='student',
-            centre_code=centre_code
-        )
+        from centres.models import Centre
+        cent_obj = Centre.objects.filter(code__iexact=centre_code).first()
+        cent_name = cent_obj.name if cent_obj else None
 
-        # 3. Get ERP index for enrichment if local data is thin
+        from django.db.models import Q
+        # 2. Identify all potential students for this centre
+        centre_query = Q(centre_code__iexact=centre_code)
+        if cent_name:
+            centre_query |= Q(centre_name__iexact=cent_name)
+            
+        rooster_students = list(CustomUser.objects.filter(user_type='student').filter(centre_query))
+        
+        # 3. Refined Selection: ONLY keep students who are "Active"
+        # (Must have ID, Section, or an Active Submission)
+        all_students = []
+        for student in rooster_students:
+            uid_str = str(student.pk)
+            has_sub = uid_str in sub_map
+            
+            if not student.admission_number and not student.exam_section and not has_sub:
+                continue
+            all_students.append(student)
+
+        # 4. Get ERP index for enrichment
         erp_index = get_student_lookup_index()
 
         data = []
         for student in all_students:
             uid_str = str(student.pk)
             sub = sub_map.get(uid_str)
+            # 3. Get ERP index lookup keys from student profile
+            # Prefer official email then lower/upper username variations
+            search_email = str(student.email or "").strip().lower()
+            u_clean = str(student.username or "").strip()
             
-            # Try to grab official IDs from ERP cache if local DB is missing it
             erp_data = None
             if erp_index:
-                search_email = str(student.email or student.username).strip().lower()
-                search_user = str(student.username).strip().upper()
-                erp_data = erp_index.get(f"email_{search_email}") or erp_index.get(f"adm_{search_user}")
+                erp_data = erp_index.get(f"email_{search_email}") or \
+                           erp_index.get(f"adm_{u_clean.upper()}") or \
+                           erp_index.get(f"adm_{u_clean.lower()}")
             
             # Extract academic IDs from ERP if available
             lib_adm = erp_data.get('admissionNumber') if erp_data else None
+            lib_sec = erp_data.get('sectionAllotment', {}).get('examSection') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else None
             lib_rm = erp_data.get('sectionAllotment', {}).get('rm') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else None
             
-            enroll = (student.admission_number or student.rm_code or lib_adm or lib_rm or student.omr_code or student.employee_id or '').upper()
+            # Prioritize Admissions Number over RM/OMR codes
+            enroll = (student.admission_number or lib_adm or student.rm_code or student.omr_code or lib_rm or student.employee_id or '').upper().strip()
+            section = (student.exam_section or lib_sec or '—').upper().strip()
             
-            # Final cleanliness check
+            # Cleanliness check: ensure we don't return garbage or emails as enrollment
             if not enroll or '@' in enroll:
-                enroll = '---'
+                enroll = 'ID MISSING'
 
             data.append({
                 'id': str(sub.id) if sub else None,
@@ -175,14 +271,89 @@ class TestViewSet(viewsets.ModelViewSet):
                 'username': student.username,
                 'email': student.email,
                 'enroll_number': enroll,
+                'section': section,
                 'score': sub.score if sub else None,
                 'submission_type': sub.submission_type if sub else None,
                 'time_spent': sub.time_spent if sub else 0,
                 'submitted_at': sub.submitted_at.isoformat() if sub else None,
-                'status': 'Submitted' if sub else 'Available'
+                'status': 'Submitted' if sub and sub.is_finalized else ('In Progress' if sub else 'Available'),
+                'allow_resume': sub.allow_resume if sub else False,
+                'is_finalized': sub.is_finalized if sub else False
             })
             
         return Response(data)
+
+    @action(detail=True, methods=['post'], url_path='resume_test')
+    def resume_test(self, request, pk=None):
+        test = self.get_object()
+        student_id = request.data.get('student_id')
+        if not student_id:
+            return Response({'error': 'Student ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from bson import ObjectId
+        from .models import TestSubmission
+        
+        # Robust ID lookup for Djongo
+        try:
+            sid = ObjectId(student_id)
+        except:
+            sid = student_id
+
+        sub = TestSubmission.objects.filter(test=test, student_id=sid).first()
+        if sub:
+            sub.allow_resume = True
+            sub.save()
+            return Response({'message': 'System unlocked. Student can now resume their exam.'})
+        
+        # If no session found, it means the student is in 'Available' state already
+        return Response({'message': 'Student is already in Available state (no session to unlock).'})
+
+    @action(detail=True, methods=['post'], url_path='reset_test')
+    def reset_test(self, request, pk=None):
+        test = self.get_object()
+        student_id = request.data.get('student_id')
+        if not student_id:
+            return Response({'error': 'Student ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from bson import ObjectId
+        from .models import TestSubmission
+        
+        try:
+            sid = ObjectId(student_id)
+        except:
+            sid = student_id
+
+        # Direct deletion of student's submission for this test
+        subs = TestSubmission.objects.filter(test=test, student_id=sid)
+        if subs.exists():
+            subs.delete()
+            return Response({'success': True, 'message': 'Exam reset successfully. Student can now restart.'})
+        return Response({'success': True, 'message': 'No session found to reset.'})
+
+    @action(detail=True, methods=['post'], url_path='save_progress')
+    def save_progress(self, request, pk=None):
+        test = self.get_object()
+        user = request.user
+        responses = request.data.get('responses', {})
+        time_spent = request.data.get('time_spent', 0)
+        
+        from .models import TestSubmission
+        sub, created = TestSubmission.objects.get_or_create(
+            test=test,
+            student=user
+        )
+        
+        # Don't allow saving over a finalized submission
+        if sub.is_finalized:
+            return Response({'error': 'Test already submitted. Contact admin to reset.'}, status=403)
+            
+        sub.responses = responses
+        sub.time_spent = time_spent
+        # Initially allow_resume is False. It only becomes True if an admin clicks "Resume".
+        # But wait! If they are JUST saving while they're drafting, they are still "in".
+        # If they lose connection and come back, the 'allow_resume' logic kicks in at the START.
+        sub.save()
+        return Response({'status': 'progress_saved'})
 
     @action(detail=True, methods=['post'], url_path='reset_test')
     def reset_test(self, request, pk=None):

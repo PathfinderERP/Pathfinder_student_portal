@@ -63,6 +63,8 @@ class TestSubmission(models.Model):
     submission_type = models.CharField(max_length=20, choices=SUBMISSION_CHOICES, default='MANUAL')
     time_spent = models.IntegerField(default=0, help_text="Total time spent in seconds")
     score = models.FloatField(default=0.0)
+    is_finalized = models.BooleanField(default=False, help_text="Set to True when student manually submits")
+    allow_resume = models.BooleanField(default=False, help_text="Admin must set to True to allow student to resume an interrupted session")
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

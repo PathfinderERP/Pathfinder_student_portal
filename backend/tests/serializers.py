@@ -87,9 +87,41 @@ class TestSerializer(serializers.ModelSerializer):
             'centres', 'centres_count', 'codes_sent_count', 'allotted_sections', 'sections_count', 
             'allotted_master_count', 'duration', 'total_marks', 'description', 'instructions', 
             'is_completed', 'has_calculator', 'option_type_numeric', 'created_at', 'updated_at',
-            'start_time', 'end_time'
+            'start_time', 'end_time', 'submission', 'total_students'
         ]
         
+    submission = serializers.SerializerMethodField()
+    total_students = serializers.SerializerMethodField()
+
+    def get_total_students(self, obj):
+        from .models import TestSubmission
+        from django.db.models import Q
+        try:
+            # Djongo Workaround: Fetch unique student IDs into Python set
+            # Avoids SQL subquery crash: AttributeError: 'Identifier' object has no attribute 'get_parameters'
+            student_ids = TestSubmission.objects.filter(test=obj).filter(
+                Q(student__admission_number__isnull=False) & ~Q(student__admission_number='') |
+                Q(student__exam_section__isnull=False) & ~Q(student__exam_section='')
+            ).values_list('student', flat=True)
+            return len(set(student_ids))
+        except Exception as e:
+            print(f"ERROR: Serializer Count Failed - {str(e)}")
+            return 0
+
+    def get_submission(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or request.user.is_anonymous:
+            return None
+        from .models import TestSubmission
+        sub = TestSubmission.objects.filter(test=obj, student=request.user).first()
+        if not sub:
+            return None
+        return {
+            'is_finalized': sub.is_finalized,
+            'allow_resume': sub.allow_resume,
+            'time_spent': sub.time_spent
+        }
+
     def _get_user_allotment(self, obj):
         request = self.context.get('request')
         if not request or not request.user or request.user.is_anonymous:
@@ -99,12 +131,16 @@ class TestSerializer(serializers.ModelSerializer):
         if getattr(user, 'user_type', None) != 'student':
             return None
             
-        centre_code = getattr(user, 'centre_code', None)
-        if not centre_code:
+        c_code = getattr(user, 'centre_code', None)
+        c_name = getattr(user, 'centre_name', None)
+        if not c_code and not c_name:
             return None
             
-        # Return the allotment for this student's centre
-        return obj.centre_allotments.filter(centre__code=centre_code).first()
+        from django.db.models import Q
+        # Robust lookup: return the schedule allotment matching this user's centre (code or name)
+        return obj.centre_allotments.filter(
+            Q(centre__code__iexact=c_code) | Q(centre__name__iexact=c_name)
+        ).first()
 
     def get_start_time(self, obj):
         allotment = self._get_user_allotment(obj)
