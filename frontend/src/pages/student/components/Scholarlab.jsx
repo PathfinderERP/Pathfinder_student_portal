@@ -4,7 +4,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { Loader2, ExternalLink, BookOpen, GraduationCap, Beaker } from 'lucide-react';
 import axios from 'axios';
 
-const Scholarlab = () => {
+const Scholarlab = ({ studentClass }) => {
     const { isDarkMode } = useTheme();
     const { user, token, getApiUrl } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -95,15 +95,24 @@ const Scholarlab = () => {
         }
     };
 
+    const assignedGrade = studentClass && studentClass !== "N/A" ? studentClass.match(/\d+/)?.[0] : null;
+
     // Filter Logic
     const filteredSimulations = simulations.filter(sim => {
+        const simGrade = sim.grade ? String(sim.grade) : '';
+        
+        // 1. Hard filter based on student's actual class if valid
+        if (assignedGrade && simGrade !== assignedGrade) {
+            return false;
+        }
+
         const matchesSearch = sim.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (sim.description && sim.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        const simGrade = sim.grade ? String(sim.grade) : '';
         const simSubject = sim.subject ? String(sim.subject) : '';
 
-        const matchesGrade = selectedGrade === 'All' || simGrade === selectedGrade;
+        // 2. Dropdown Filter
+        const matchesGrade = assignedGrade ? true : (selectedGrade === 'All' || simGrade === selectedGrade);
         const matchesSubject = selectedSubject === 'All' || simSubject === selectedSubject;
 
         return matchesSearch && matchesGrade && matchesSubject;
@@ -111,11 +120,13 @@ const Scholarlab = () => {
 
     // Extract unique subjects and grades for filter options
     const subjects = ['All', ...new Set(simulations.map(sim => sim.subject).filter(s => s && s !== 'All'))];
-    const grades = ['All', ...new Set(simulations.map(sim => String(sim.grade)).filter(g => g && g !== 'undefined' && g !== 'All'))].sort((a, b) => {
-        if (a === 'All') return -1;
-        if (b === 'All') return 1;
-        return parseInt(a) - parseInt(b);
-    });
+    const grades = assignedGrade 
+        ? [assignedGrade] 
+        : ['All', ...new Set(simulations.map(sim => String(sim.grade)).filter(g => g && g !== 'undefined' && g !== 'All'))].sort((a, b) => {
+            if (a === 'All') return -1;
+            if (b === 'All') return 1;
+            return parseInt(a) - parseInt(b);
+        });
 
     if (loading) {
         return (
