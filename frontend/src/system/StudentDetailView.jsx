@@ -85,6 +85,7 @@ const StudentDetailView = ({ student, onClose }) => {
                                     <InfoItem label="Admission Number" value={student.admissionNumber} isDark={isDarkMode} Icon={FileText} />
                                     <InfoItem label="Email" value={details.studentEmail} isDark={isDarkMode} Icon={Mail} />
                                     <InfoItem label="Mobile" value={`+91 ${details.mobileNum}`} isDark={isDarkMode} Icon={Phone} />
+                                    <InfoItem label="Class" value={student.class?.name || details.className || student.class} isDark={isDarkMode} Icon={BookOpen} />
                                     <InfoItem label="School" value={details.schoolName} isDark={isDarkMode} Icon={BookOpen} />
                                     <InfoItem label="Board" value={details.board} isDark={isDarkMode} Icon={Award} />
                                     <InfoItem label="Address" value={details.address} isDark={isDarkMode} Icon={MapPin} isFullWidth />
