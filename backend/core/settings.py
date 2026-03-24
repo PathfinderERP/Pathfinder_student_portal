@@ -322,3 +322,7 @@ SIMPLE_JWT = {
     'USER_ID_FIELD': 'username',
     'USER_ID_CLAIM': 'user_id',
 }
+
+# Upload size limits (100MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600

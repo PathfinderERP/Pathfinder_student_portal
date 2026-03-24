@@ -15,6 +15,7 @@ const LibraryRegistry = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [thumbnailError, setThumbnailError] = useState(null);
+    const [pdfError, setPdfError] = useState(null);
 
     const safeArray = (arr) => Array.isArray(arr) ? arr : [];
 
@@ -132,14 +133,25 @@ const LibraryRegistry = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Ensure thumbnail image size does not exceed 1MB
+        // Ensure thumbnail image size does not exceed 5MB
         if (field === 'thumbnail') {
-            if (file.size > 1024 * 1024) {
-                setThumbnailError("Image size exceeds 1MB max limit");
+            if (file.size > 5 * 1024 * 1024) {
+                setThumbnailError("Image size exceeds 5MB max limit");
                 e.target.value = ''; // Reset input
                 return;
             } else {
                 setThumbnailError(null);
+            }
+        }
+
+        // Ensure PDF size does not exceed 25MB
+        if (field === 'pdf') {
+            if (file.size > 25 * 1024 * 1024) {
+                setPdfError("PDF size exceeds 25MB max limit");
+                e.target.value = ''; // Reset input
+                return;
+            } else {
+                setPdfError(null);
             }
         }
 
@@ -185,7 +197,12 @@ const LibraryRegistry = () => {
             fetchLibraryItems();
         } catch (error) {
             console.error("Failed to add item", error);
-            toast.error("Failed to add library item");
+            const errorMsg = error.response?.data?.error || error.response?.data?.message || error.response?.data?.detail || "Failed to add library item";
+            if (error.response?.status === 413) {
+                toast.error("File size rejected by server. Increase Nginx client_max_body_size.");
+            } else {
+                toast.error(errorMsg);
+            }
         } finally {
             setIsActionLoading(false);
         }
@@ -242,7 +259,12 @@ const LibraryRegistry = () => {
             fetchLibraryItems();
         } catch (error) {
             console.error("Failed to update item", error);
-            toast.error("Failed to update library item");
+            const errorMsg = error.response?.data?.error || error.response?.data?.message || error.response?.data?.detail || "Failed to update library item";
+            if (error.response?.status === 413) {
+                toast.error("File size rejected by server. Increase Nginx client_max_body_size.");
+            } else {
+                toast.error(errorMsg);
+            }
         } finally {
             setIsActionLoading(false);
         }
@@ -265,6 +287,7 @@ const LibraryRegistry = () => {
 
     const resetForm = () => {
         setThumbnailError(null);
+        setPdfError(null);
         setNewItem({ 
             name: '', 
             description: '', 
@@ -790,6 +813,11 @@ const LibraryRegistry = () => {
                                                     </div>
                                                 )}
                                             </div>
+                                            {pdfError && (
+                                                <p className="text-red-500 text-[10px] font-black uppercase flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-top-1">
+                                                    <AlertCircle size={12} /> {pdfError}
+                                                </p>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="space-y-6 animate-in fade-in duration-300">
