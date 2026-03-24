@@ -75,6 +75,14 @@ jobs:
             sudo cp -r ~/temp_build/* /var/www/frontend/
             rm -rf ~/temp_build
 
+            echo "Ensuring Nginx allows large uploads..."
+            # Idempotently add or update client_max_body_size to 100M in global nginx.conf
+            if ! sudo grep -q "client_max_body_size" /etc/nginx/nginx.conf; then
+              sudo sed -i '/http {/a \    client_max_body_size 100M;' /etc/nginx/nginx.conf
+            else
+              sudo sed -i 's/client_max_body_size [0-9]*[MG];/client_max_body_size 100M;/g' /etc/nginx/nginx.conf
+            fi
+
             echo "Restarting services..."
             sudo systemctl restart gunicorn
             sudo systemctl restart nginx
