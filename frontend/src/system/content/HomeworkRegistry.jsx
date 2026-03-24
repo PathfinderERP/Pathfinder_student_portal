@@ -504,14 +504,14 @@ const HomeworkRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
                                                 {((currentPage - 1) * itemsPerPage) + index + 1}
                                             </span>
                                         </td>
                                         <td className="py-5 px-6">
-                                            <span className="font-bold text-sm block group-hover:text-orange-500 transition-colors uppercase tracking-tight">{item.name}</span>
+                                            <span className="font-bold text-sm block text-orange-500 transition-colors uppercase tracking-tight">{item.name}</span>
                                             <div className="flex items-center gap-2 mt-1">
                                                 {item.session_name && <span className="text-[9px] font-bold text-orange-500/60 uppercase">{item.session_name}</span>}
                                                 {item.class_name && (
@@ -625,7 +625,7 @@ const HomeworkRegistry = () => {
             {/* Combined Add/Edit Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
+                    <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className={`p-6 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-[5px]"><FileText size={20} /></div>
@@ -649,14 +649,14 @@ const HomeworkRegistry = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setNewItem({ ...newItem, is_general: false })}
-                                                className={`px-6 py-2 rounded-[5px] text-xs font-black transition-all ${!newItem.is_general ? 'bg-orange-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                                                className={`px-6 py-2 rounded-[5px] text-xs font-black transition-all ${!newItem.is_general ? 'bg-orange-500 text-white shadow-lg' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
                                             >
                                                 Packages
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setNewItem({ ...newItem, is_general: true })}
-                                                className={`px-6 py-2 rounded-[5px] text-xs font-black transition-all ${newItem.is_general ? 'bg-orange-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                                                className={`px-6 py-2 rounded-[5px] text-xs font-black transition-all ${newItem.is_general ? 'bg-orange-500 text-white shadow-lg' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
                                             >
                                                 General
                                             </button>
@@ -777,7 +777,7 @@ const HomeworkRegistry = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Homework Name *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Homework Name *</label>
                                         <input
                                             required
                                             type="text"
@@ -831,7 +831,7 @@ const HomeworkRegistry = () => {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Assignment PDF *</label>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Assignment PDF *</label>
                                     <div className={`relative h-[200px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
                                         {(newItem.pdf_file || previews.pdf_file) && (
                                             <button

@@ -131,14 +131,14 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                 : (isDarkMode ? "text-slate-500 group-hover:text-slate-400" : "text-slate-400 group-hover:text-slate-600")
                                             }`}
                                     />
-                                    <span className={`whitespace-nowrap text-[15px] font-semibold transition-opacity duration-200 ${isOpen ? "opacity-100" : "hidden opacity-0 w-0 overflow-hidden"}`}>
+                                    <span className={`text-[15px] font-semibold transition-opacity duration-200 flex-1 text-left truncate ${isOpen ? "opacity-100" : "hidden opacity-0 w-0 overflow-hidden"}`}>
                                         {item.label}
                                     </span>
 
                                     {isOpen && hasSubItems && (
                                         <ChevronDown
                                             size={16}
-                                            className={`ml-auto transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                            className={`flex-shrink-0 ml-1 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                                         />
                                     )}
 
@@ -179,11 +179,11 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                     }`}
                                                             />
                                                         )}
-                                                        <span className="flex-1 text-left whitespace-nowrap">{subItem.label}</span>
+                                                        <span className="flex-1 text-left truncate">{subItem.label}</span>
                                                         {hasNestedSubs && (
                                                             <ChevronDown
                                                                 size={14}
-                                                                className={`transition-transform duration-200 ${isNestedExpanded ? 'rotate-180' : ''}`}
+                                                                className={`flex-shrink-0 ml-1 transition-transform duration-200 ${isNestedExpanded ? 'rotate-180' : ''}`}
                                                             />
                                                         )}
                                                     </button>

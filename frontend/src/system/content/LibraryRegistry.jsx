@@ -14,6 +14,7 @@ const LibraryRegistry = () => {
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
+    const [thumbnailError, setThumbnailError] = useState(null);
 
     const safeArray = (arr) => Array.isArray(arr) ? arr : [];
 
@@ -128,7 +129,21 @@ const LibraryRegistry = () => {
     }, [fetchLibraryItems, fetchMasterData, authLoading]);
 
     const handleFileChange = (e, field) => {
-        setNewItem({ ...newItem, [field]: e.target.files[0] });
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Ensure thumbnail image size does not exceed 1MB
+        if (field === 'thumbnail') {
+            if (file.size > 1024 * 1024) {
+                setThumbnailError("Image size exceeds 1MB max limit");
+                e.target.value = ''; // Reset input
+                return;
+            } else {
+                setThumbnailError(null);
+            }
+        }
+
+        setNewItem({ ...newItem, [field]: file });
     };
 
     const handleRemoveFile = (field) => {
@@ -249,6 +264,7 @@ const LibraryRegistry = () => {
     };
 
     const resetForm = () => {
+        setThumbnailError(null);
         setNewItem({ 
             name: '', 
             description: '', 
@@ -321,7 +337,7 @@ const LibraryRegistry = () => {
                                 <span className="px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20">
                                     Content Management
                                 </span>
-                                <h2 className="text-3xl font-black tracking-tight uppercase">
+                                <h2 className={`text-3xl font-black tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                     Study <span className="text-emerald-500">Library</span>
                                 </h2>
                             </div>
@@ -347,7 +363,7 @@ const LibraryRegistry = () => {
                                     placeholder="Search by book name..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none font-bold transition-all text-sm ${isDarkMode
+                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none font-bold transition-colors text-sm ${isDarkMode
                                         ? 'bg-white/[0.01] border-white/5 text-white focus:border-emerald-500/50'
                                         : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500/50'
                                         }`}
@@ -355,7 +371,7 @@ const LibraryRegistry = () => {
                             </div>
                             <button
                                 onClick={() => { fetchLibraryItems(); fetchMasterData(); }}
-                                className={`p-4 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-emerald-400 border border-white/5' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100'}`}
+                                className={`p-4 rounded-[5px] transition-colors ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-emerald-400 border border-white/5' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100'}`}
                             >
                                 <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                             </button>
@@ -370,7 +386,7 @@ const LibraryRegistry = () => {
                                 value={activeFilters.session}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, session: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Sessions</option>
                                 {dynamicFilterOptions.sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -379,7 +395,7 @@ const LibraryRegistry = () => {
                                 value={activeFilters.class_level}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, class_level: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Classes</option>
                                 {dynamicFilterOptions.classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -388,7 +404,7 @@ const LibraryRegistry = () => {
                                 value={activeFilters.subject}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, subject: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Subjects</option>
                                 {dynamicFilterOptions.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -397,7 +413,7 @@ const LibraryRegistry = () => {
                                 value={activeFilters.exam_type}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, exam_type: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Exam Types</option>
                                 {dynamicFilterOptions.examTypes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -406,7 +422,7 @@ const LibraryRegistry = () => {
                                 value={activeFilters.target_exam}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Target Exams</option>
                                 {dynamicFilterOptions.targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -415,7 +431,7 @@ const LibraryRegistry = () => {
                                 value={activeFilters.section}
                                 onChange={(e) => setActiveFilters({ ...activeFilters, section: e.target.value })}
                                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
                             >
                                 <option value="">All Sections</option>
                                 {dynamicFilterOptions.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -434,7 +450,7 @@ const LibraryRegistry = () => {
             </div>
 
             {/* Table */}
-            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-colors ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
@@ -480,7 +496,7 @@ const LibraryRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
                                                 {((currentPage - 1) * itemsPerPage) + index + 1}
@@ -488,7 +504,7 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-sm block group-hover:text-emerald-500 transition-colors uppercase tracking-tight">{item.name}</span>
+                                                <span className="font-bold text-sm block text-emerald-500 transition-colors uppercase tracking-tight">{item.name}</span>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     {item.session_name && <span className="text-[10px] font-bold text-emerald-500/60 uppercase">{item.session_name}</span>}
                                                     {item.class_name && (
@@ -515,20 +531,20 @@ const LibraryRegistry = () => {
                                                         setIsViewModalOpen(true);
                                                         setIsFullScreen(false);
                                                     }}
-                                                    className="relative group/img overflow-hidden rounded-[5px] shadow-lg w-12 h-16 border border-white/10 bg-black/5 cursor-pointer flex items-center justify-center"
+                                                    className="relative group/img overflow-hidden rounded-[5px] w-12 h-16 border border-slate-200 dark:border-white/10 bg-black/5 cursor-pointer flex items-center justify-center"
                                                 >
                                                     {item.thumbnail ? (
-                                                        <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                        <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 will-change-transform" />
                                                     ) : item.video_link && getYouTubeThumbnail(item.video_link) ? (
-                                                        <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                        <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 will-change-transform" />
                                                     ) : (item.video_link || item.video_file) ? (
                                                         <div className="w-full h-full bg-slate-800 flex items-center justify-center text-emerald-500 group-hover/img:scale-110 transition-transform duration-500">
                                                             <PlayCircle size={24} strokeWidth={2.5} />
                                                         </div>
                                                     ) : (
-                                                        <img src={'https://via.placeholder.com/100x130?text=NO+IMAGE'} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                        <img src={'https://via.placeholder.com/100x130?text=NO+IMAGE'} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 will-change-transform" />
                                                     )}
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <div className="absolute inset-0 bg-black/40 opacity-100 transition-opacity duration-300 flex items-center justify-center">
                                                         <Eye size={16} className="text-white" />
                                                     </div>
                                                 </div>
@@ -558,10 +574,10 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => handleEditClick(item)} className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-blue-500/5">
+                                                <button onClick={() => handleEditClick(item)} className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-colors active:scale-95">
                                                     <Edit2 size={14} strokeWidth={3} />
                                                 </button>
-                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2.5 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-red-500/5">
+                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2.5 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white transition-colors active:scale-95">
                                                     <Trash2 size={14} strokeWidth={3} />
                                                 </button>
                                             </div>
@@ -618,7 +634,7 @@ const LibraryRegistry = () => {
             {/* Modals */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
+                    <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className={`p-6 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-[5px]"><FileText size={20} /></div>
@@ -645,7 +661,7 @@ const LibraryRegistry = () => {
                                         { label: 'Section', field: 'section', options: sections }
                                     ].map((meta, idx) => (
                                         <div key={idx} className="space-y-1.5">
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">{meta.label}</label>
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
                                             <select
                                                 required
                                                 value={newItem[meta.field]}
@@ -663,12 +679,12 @@ const LibraryRegistry = () => {
 
                             {/* Content Type Toggle */}
                             <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
-                                <span className="text-xs font-black uppercase tracking-widest opacity-60 ml-2">Content Type:</span>
+                                <span className={`text-xs font-black uppercase tracking-widest ml-2 ${isDarkMode ? 'opacity-60 text-white' : 'text-slate-500'}`}>Content Type:</span>
                                 <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
                                     <button
                                         type="button"
                                         onClick={() => setNewItem({ ...newItem, content_type: 'pdf' })}
-                                        className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${newItem.content_type === 'pdf' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'opacity-40 hover:opacity-100'}`}
+                                        className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${newItem.content_type === 'pdf' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
                                     >
                                         <FileText size={14} strokeWidth={3} />
                                         PDF Document
@@ -676,7 +692,7 @@ const LibraryRegistry = () => {
                                     <button
                                         type="button"
                                         onClick={() => setNewItem({ ...newItem, content_type: 'video' })}
-                                        className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${newItem.content_type === 'video' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'opacity-40 hover:opacity-100'}`}
+                                        className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${newItem.content_type === 'video' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
                                     >
                                         <PlayCircle size={14} strokeWidth={3} />
                                         Video Content
@@ -688,7 +704,7 @@ const LibraryRegistry = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Resource Name *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Resource Name *</label>
                                         <input
                                             required
                                             type="text"
@@ -700,7 +716,7 @@ const LibraryRegistry = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Short Description</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Short Description</label>
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
@@ -712,7 +728,7 @@ const LibraryRegistry = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div className="space-y-2">
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Thumbnail</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Thumbnail</label>
                                         <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-emerald-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-emerald-500 bg-slate-50'}`}>
                                             {(newItem.thumbnail || newItem.existing_thumbnail) && (
                                                 <button
@@ -733,15 +749,20 @@ const LibraryRegistry = () => {
                                                     <div className="p-4 rounded-[5px] bg-emerald-500/10 text-emerald-500">
                                                         <Upload size={32} />
                                                     </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Cover Image</span>
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Cover Image</span>
                                                 </div>
                                             )}
                                         </div>
+                                        {thumbnailError && (
+                                            <p className="text-red-500 text-[10px] font-black uppercase flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-top-1">
+                                                <AlertCircle size={12} /> {thumbnailError}
+                                            </p>
+                                        )}
                                     </div>
 
                                     {newItem.content_type === 'pdf' ? (
                                         <div className="space-y-2 animate-in fade-in duration-300">
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">PDF File</label>
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>PDF File</label>
                                             <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
                                                 {newItem.pdf && (
                                                     <button
@@ -765,7 +786,7 @@ const LibraryRegistry = () => {
                                                         <div className="p-4 rounded-[5px] bg-blue-500/10 text-blue-500">
                                                             <FileText size={32} />
                                                         </div>
-                                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Main Document</span>
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Main Document</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -773,7 +794,7 @@ const LibraryRegistry = () => {
                                     ) : (
                                         <div className="space-y-6 animate-in fade-in duration-300">
                                             <div className="space-y-2">
-                                                <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Video Link (YouTube/Vimeo)</label>
+                                                <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Video Link (YouTube/Vimeo)</label>
                                                 <input
                                                     type="url"
                                                     value={newItem.video_link}
@@ -784,7 +805,7 @@ const LibraryRegistry = () => {
                                             </div>
                                             
                                             <div className="space-y-2">
-                                                <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Or Upload Video File</label>
+                                                <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Or Upload Video File</label>
                                                 <div className={`relative h-[120px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-2 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
                                                     {newItem.video_file && (
                                                         <button
@@ -804,7 +825,7 @@ const LibraryRegistry = () => {
                                                     ) : (
                                                         <div className="flex flex-col items-center gap-2">
                                                             <Upload size={20} className="text-amber-500/50" />
-                                                            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Choose Video</span>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Choose Video</span>
                                                         </div>
                                                     )}
                                                 </div>

@@ -305,7 +305,7 @@ const LiveClassRegistry = () => {
                                 <span className="px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-amber-500/20">
                                     LIVE SESSIONS
                                 </span>
-                                <h2 className="text-3xl font-black tracking-tight uppercase">
+                                <h2 className={`text-3xl font-black tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                     ALL <span className="text-amber-500">Live Class</span>
                                 </h2>
                             </div>
@@ -511,13 +511,13 @@ const LiveClassRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>{((currentPage - 1) * itemsPerPage) + index + 1}</span>
                                         </td>
                                         <td className="py-5 px-6">
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-sm block group-hover:text-amber-500 transition-colors uppercase tracking-tight">{item.name}</span>
+                                                <span className="font-bold text-sm block text-amber-500 transition-colors uppercase tracking-tight">{item.name}</span>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     {item.session_name && <span className="text-[10px] font-bold text-amber-500/60 uppercase">{item.session_name}</span>}
                                                 </div>
@@ -625,7 +625,7 @@ const LiveClassRegistry = () => {
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
+                    <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-amber-500 rounded-[5px] text-white shadow-lg shadow-amber-500/20"><Bell size={20} /></div>
@@ -639,19 +639,19 @@ const LiveClassRegistry = () => {
                             <div className="flex flex-col gap-6">
                                 {/* Type Toggle */}
                                 <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
-                                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Targeting Type:</span>
+                                    <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'opacity-60 text-white' : 'text-slate-500'}`}>Targeting Type:</span>
                                     <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
                                         <button
                                             type="button"
                                             onClick={() => setNewItem({ ...newItem, is_general: false })}
-                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
                                         >
                                             Packages
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setNewItem({ ...newItem, is_general: true })}
-                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : 'opacity-40 hover:opacity-100'}`}
+                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
                                         >
                                             General (Master Data)
                                         </button>
@@ -661,7 +661,7 @@ const LiveClassRegistry = () => {
                                 {!newItem.is_general ? (
                                     /* Package Selection */
                                     <div className="space-y-3">
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Select Packages *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Select Packages *</label>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-[5px] border border-dashed border-slate-300 dark:border-white/10">
                                             {packages.map(pkg => (
                                                 <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent hover:bg-slate-50 dark:hover:bg-white/10'}`}>
@@ -707,7 +707,7 @@ const LiveClassRegistry = () => {
                                             { label: 'Section', field: 'section', options: sections }
                                         ].map((meta, idx) => (
                                             <div key={idx} className="space-y-1.5">
-                                                <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">{meta.label}</label>
+                                                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
                                                 <select
                                                     value={newItem[meta.field]}
                                                     onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
@@ -727,7 +727,7 @@ const LiveClassRegistry = () => {
                             <div className="grid grid-cols-1 gap-8">
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Live Class Title *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Live Class Title *</label>
                                         <input
                                             required
                                             type="text"
@@ -740,7 +740,7 @@ const LiveClassRegistry = () => {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Live Link *</label>
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Live Link *</label>
                                             <input
                                                 required
                                                 type="url"

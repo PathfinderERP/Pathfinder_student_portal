@@ -268,7 +268,7 @@ const VideoRegistry = () => {
                             <div className="p-2 bg-amber-500/10 rounded-[5px]">
                                 <Video className="text-amber-500" size={24} />
                             </div>
-                            <h1 className="text-3xl font-black uppercase tracking-tight">
+                            <h1 className={`text-3xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                 All <span className="text-amber-500">Videos</span>
                             </h1>
                         </div>
@@ -439,7 +439,7 @@ const VideoRegistry = () => {
                                 </thead>
                                 <tbody>
                                     {paginatedVideos.map((item, index) => (
-                                        <tr key={item.id} className={`border-t ${isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-100 hover:bg-slate-50'} transition-colors`}>
+                                        <tr key={item.id} className={`border-t ${isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-100 hover:bg-slate-50'} transition-colors duration-200`}>
                                             <td className="py-5 px-6 text-sm font-bold">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                             <td className="py-5 px-6 text-sm font-bold max-w-xs truncate">{item.title}</td>
                                             <td className="py-5 px-6 text-xs max-w-xs truncate">
@@ -480,13 +480,13 @@ const VideoRegistry = () => {
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button
                                                         onClick={() => handleEditClick(item)}
-                                                        className="p-2 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all"
+                                                        className="p-2 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
                                                     >
                                                         <Edit2 size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteClick(item.id)}
-                                                        className="p-2 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                                                        className="p-2 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>
@@ -629,7 +629,7 @@ const VideoRegistry = () => {
                             {!newItem.is_general ? (
                                 /* Package Selection */
                                 <div className="space-y-3">
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Select Packages *</label>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Select Packages *</label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-[5px] border border-dashed border-slate-300 dark:border-white/10">
                                         {packages.map(pkg => (
                                             <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent hover:bg-slate-50 dark:hover:bg-white/10'}`}>
@@ -666,7 +666,7 @@ const VideoRegistry = () => {
                                         { label: 'Section', field: 'section', options: sections }
                                     ].map(meta => (
                                         <div key={meta.field}>
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">{meta.label}</label>
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
                                             <select
                                                 value={newItem[meta.field]}
                                                 onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
@@ -685,7 +685,7 @@ const VideoRegistry = () => {
                             <div className="grid grid-cols-1 gap-8">
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Video Title *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Video Title *</label>
                                         <input
                                             required
                                             type="text"
@@ -697,7 +697,7 @@ const VideoRegistry = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Video Link *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Video Link *</label>
                                         <input
                                             required
                                             type="url"
@@ -709,7 +709,7 @@ const VideoRegistry = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Description</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Description</label>
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}

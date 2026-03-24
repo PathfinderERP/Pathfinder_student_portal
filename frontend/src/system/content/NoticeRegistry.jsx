@@ -272,7 +272,7 @@ const NoticeRegistry = () => {
                                 <span className="px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-amber-500/20">
                                     Announcements
                                 </span>
-                                <h2 className="text-3xl font-black tracking-tight uppercase">
+                                <h2 className={`text-3xl font-black tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                     Academic <span className="text-amber-500">Notices</span>
                                 </h2>
                             </div>
@@ -432,7 +432,7 @@ const NoticeRegistry = () => {
                                 ))
                             ) : paginatedNotices.length > 0 ? (
                                 paginatedNotices.map((notice, index) => (
-                                    <tr key={notice.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={notice.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>{((currentPage - 1) * itemsPerPage) + index + 1}</span>
                                         </td>
@@ -474,9 +474,9 @@ const NoticeRegistry = () => {
                                                                     setSelectedItemForView(notice);
                                                                     setIsViewModalOpen(true);
                                                                 }}
-                                                                className="relative group/img overflow-hidden rounded-[5px] shadow-md w-12 h-12 border border-white/10 bg-black/5 cursor-pointer active:scale-90 transition-all"
+                                                                className="relative group/img overflow-hidden rounded-[5px] w-12 h-12 border border-slate-200 dark:border-white/10 bg-black/5 cursor-pointer active:scale-90 transition-transform"
                                                             >
-                                                                <img src={notice.file_attachment} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                                                                <img src={notice.file_attachment} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110 will-change-transform" />
                                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                                                     <Eye size={14} className="text-white" />
                                                                 </div>
@@ -487,7 +487,7 @@ const NoticeRegistry = () => {
                                                                     setSelectedItemForView(notice);
                                                                     setIsViewModalOpen(true);
                                                                 }}
-                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-[5px] text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                                                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-[5px] text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 hover:text-white transition-colors"
                                                             >
                                                                 <FileText size={12} /> View Document
                                                             </button>
@@ -504,10 +504,10 @@ const NoticeRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => handleEditClick(notice)} className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-blue-500/5">
+                                                <button onClick={() => handleEditClick(notice)} className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-colors active:scale-95">
                                                     <Edit2 size={14} strokeWidth={3} />
                                                 </button>
-                                                <button onClick={() => handleDeleteItem(notice.id)} className="p-2.5 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white transition-all active:scale-95 shadow-lg shadow-red-500/5">
+                                                <button onClick={() => handleDeleteItem(notice.id)} className="p-2.5 rounded-[5px] bg-red-500/10 text-red-500 hover:bg-red-600 hover:text-white transition-colors active:scale-95">
                                                     <Trash2 size={14} strokeWidth={3} />
                                                 </button>
                                             </div>
@@ -591,7 +591,7 @@ const NoticeRegistry = () => {
                                         { label: 'Section', field: 'section', options: sections }
                                     ].map((meta, idx) => (
                                         <div key={idx} className="space-y-1.5">
-                                            <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">{meta.label}</label>
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
                                             <select
                                                 value={newItem[meta.field]}
                                                 onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
@@ -610,7 +610,7 @@ const NoticeRegistry = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Notice Title *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Notice Title *</label>
                                         <input
                                             required
                                             type="text"
@@ -622,7 +622,7 @@ const NoticeRegistry = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Description (Optional)</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Description (Optional)</label>
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
@@ -633,7 +633,7 @@ const NoticeRegistry = () => {
                                 </div>
 
                                 <div className="flex flex-col">
-                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 ml-1">Attachment</label>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Attachment</label>
                                     <div className={`relative flex-grow min-h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-6 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
                                         {(previews.image_preview || previews.file_attachment) ? (
                                             <div className="relative w-full h-full flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">

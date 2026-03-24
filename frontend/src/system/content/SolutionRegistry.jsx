@@ -420,7 +420,7 @@ const SolutionRegistry = () => {
                                 <span className="px-3 py-1 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-amber-500/20">
                                     Digital Resource
                                 </span>
-                                <h2 className="text-3xl font-black tracking-tight uppercase">
+                                <h2 className={`text-3xl font-black tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                     Solution To <span className="text-amber-500">DPP & RPP</span>
                                 </h2>
                             </div>
@@ -558,7 +558,7 @@ const SolutionRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-sm font-black ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{((currentPage - 1) * itemsPerPage) + index + 1}</span>
                                         </td>
@@ -721,18 +721,18 @@ const SolutionRegistry = () => {
                         </div>
 
                         {/* Body */}
-                        <div className={`overflow-y-auto custom-scrollbar flex-grow p-6 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
+                        <div className={`overflow-y-auto custom-scrollbar flex-grow p-6 ${isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-800'}`}>
                             <form onSubmit={isEditModalOpen ? handleUpdateItem : handleAddItem} className="space-y-6">
 
                                 {/* 1. Basic Info & Categories */}
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Solution Item Name *</label>
+                                            <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-50' : 'opacity-70 text-slate-500'}`}>Solution Item Name *</label>
                                             <input required type="text" placeholder="e.g. Maths Physics DPP 01" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className={`w-full px-5 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Resource Categories (Multiple)</label>
+                                            <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-50' : 'opacity-70 text-slate-500'}`}>Resource Categories (Multiple)</label>
                                             <div className="flex flex-wrap gap-4 mt-1">
                                                 <button type="button" onClick={() => setNewItem({ ...newItem, resource_type_dpp: !newItem.resource_type_dpp })} className={`flex items-center gap-2 px-4 py-2 rounded-[5px] transition-all font-bold text-xs uppercase ${newItem.resource_type_dpp ? 'bg-emerald-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     {newItem.resource_type_dpp ? <CheckSquare size={16} /> : <Square size={16} />} DPP
@@ -752,7 +752,7 @@ const SolutionRegistry = () => {
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Overall Description</label>
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-50' : 'opacity-70 text-slate-500'}`}>Overall Description</label>
                                         <textarea rows={2} placeholder="Brief details about this bundle" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className={`w-full px-5 py-3 rounded-[5px] border-2 outline-none font-bold transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border-slate-100 focus:border-amber-500/50'}`} />
                                     </div>
                                 </div>
@@ -772,7 +772,7 @@ const SolutionRegistry = () => {
                                             { label: 'Target Exam', value: newItem.target_exam, options: targetExams, field: 'target_exam' }
                                         ].map((sel, idx) => (
                                             <div key={idx} className="space-y-2">
-                                                <label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-40">{sel.label}</label>
+                                                <label className={`text-[9px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{sel.label}</label>
                                                 <div className="relative">
                                                     <select
                                                         value={sel.value}
@@ -797,7 +797,7 @@ const SolutionRegistry = () => {
 
                                         {/* CUSTOM MULTI-SELECT DROPDOWN FOR SECTIONS */}
                                         <div className="space-y-2 relative" ref={sectionDropdownRef}>
-                                            <label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-40">Assign to SECTION</label>
+                                            <label className={`text-[9px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Assign to SECTION</label>
                                             <button
                                                 type="button"
                                                 onClick={() => setIsSectionDropdownOpen(!isSectionDropdownOpen)}
