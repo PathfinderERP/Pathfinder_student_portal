@@ -51,7 +51,10 @@ class TestCentreAllotment(models.Model):
         return f"{self.test.name} - {self.centre.name}"
 
 
+from djongo import models as djongo_models
+
 class TestSubmission(models.Model):
+    _id = djongo_models.ObjectIdField(primary_key=True)
     SUBMISSION_CHOICES = (
         ('MANUAL', 'Manual'),
         ('TIME_UP', 'Time Up'),
