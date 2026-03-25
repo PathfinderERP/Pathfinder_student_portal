@@ -236,7 +236,7 @@ const StudentDashboard = () => {
             case 'SWOT Analysis':
                 return <SWOTAnalysis isDarkMode={isDarkMode} />;
             case 'Study Materials':
-                return <StudyMaterials isDarkMode={isDarkMode} cache={studyMaterialsCache} setCache={setStudyMaterialsCache} />;
+                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} />;
             case 'Scholarlab':
                 return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} />;
             case 'Advanced Analytics':

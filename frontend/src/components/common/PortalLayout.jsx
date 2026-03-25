@@ -82,7 +82,7 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
                 />
 
                 <main className="flex-1 overflow-auto px-2 pb-4 sm:px-4 sm:pb-6 lg:px-8 lg:pb-8 scrollbar-thin">
-                    <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 mt-12 lg:mt-20">
+                    <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 mt-6 lg:mt-8">
                         {children}
                     </div>
                 </main>

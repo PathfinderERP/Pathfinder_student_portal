@@ -311,12 +311,12 @@ const LibraryRegistry = () => {
         const safeItems = safeArray(libraryItems);
         return safeItems.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesSession = !activeFilters.session || item.session === activeFilters.session;
-            const matchesClass = !activeFilters.class_level || item.class_level === activeFilters.class_level;
-            const matchesSubject = !activeFilters.subject || item.subject === activeFilters.subject;
-            const matchesExamType = !activeFilters.exam_type || item.exam_type === activeFilters.exam_type;
-            const matchesTargetExam = !activeFilters.target_exam || item.target_exam === activeFilters.target_exam;
-            const matchesSection = !activeFilters.section || item.section === activeFilters.section;
+            const matchesSession = !activeFilters.session || String(item.session) === String(activeFilters.session);
+            const matchesClass = !activeFilters.class_level || String(item.class_level) === String(activeFilters.class_level);
+            const matchesSubject = !activeFilters.subject || String(item.subject) === String(activeFilters.subject);
+            const matchesExamType = !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
+            const matchesTargetExam = !activeFilters.target_exam || String(item.target_exam) === String(activeFilters.target_exam);
+            const matchesSection = !activeFilters.section || String(item.section) === String(activeFilters.section);
             return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam && matchesSection;
         });
     }, [libraryItems, searchQuery, activeFilters]);
