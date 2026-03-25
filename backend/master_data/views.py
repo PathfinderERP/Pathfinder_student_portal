@@ -36,7 +36,17 @@ class StudentSectionFilterMixin:
 class CachedListViewSetMixin(object):
     """Mixin to cache the list response for master data and invalidate on change."""
     def get_cache_key(self):
-        return f"master_data_{self.__class__.__name__}_list"
+        user = self.request.user
+        base_key = f"master_data_{self.__class__.__name__}_list"
+        
+        # If this viewset uses StudentSectionFilterMixin, we must include the section in the cache key
+        if isinstance(self, StudentSectionFilterMixin) and user.is_authenticated:
+            exam_section = getattr(user, 'exam_section', 'none')
+            study_section = getattr(user, 'study_section', 'none')
+            # Create a unique key based on the student's context
+            return f"{base_key}_E{exam_section}_S{study_section}"
+            
+        return base_key
 
     def list(self, request, *args, **kwargs):
         cache_key = self.get_cache_key()
@@ -46,7 +56,9 @@ class CachedListViewSetMixin(object):
             return response.Response(cached_data)
         
         res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
-        cache.set(cache_key, res.data, timeout=300) # Cache for 5 minutes
+        # Cache master data for 30 minutes, student content for 5 minutes
+        timeout = 1800 if not isinstance(self, StudentSectionFilterMixin) else 300
+        cache.set(cache_key, res.data, timeout=timeout)
         return res
 
     def perform_create(self, serializer):
@@ -142,7 +154,7 @@ class TeacherViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Teacher.objects.select_related('subject').all().order_by('-created_at')
     serializer_class = TeacherSerializer
 
-class LibraryItemViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = LibraryItem.objects.all()
     serializer_class = LibraryItemSerializer
     parser_classes = (MultiPartParser, FormParser)
@@ -150,11 +162,11 @@ class LibraryItemViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = LibraryItem.objects.select_related(
-            'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+            'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
-class SolutionItemViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class SolutionItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = SolutionItem.objects.all()
     serializer_class = SolutionItemSerializer
     parser_classes = (MultiPartParser, FormParser)
@@ -166,7 +178,7 @@ class SolutionItemViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
         ).prefetch_related('sections').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'sections')
 
-class NoticeViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class NoticeViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = Notice.objects.all()
     serializer_class = NoticeSerializer
     parser_classes = (MultiPartParser, FormParser)
@@ -178,7 +190,7 @@ class NoticeViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
-class LiveClassViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class LiveClassViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = LiveClass.objects.all()
     serializer_class = LiveClassSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -189,7 +201,7 @@ class LiveClassViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
         ).prefetch_related('packages').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
-class VideoViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = Video.objects.all()
     serializer_class = VideoSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -200,7 +212,7 @@ class VideoViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
         ).prefetch_related('packages').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
-class PenPaperTestViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class PenPaperTestViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = PenPaperTest.objects.all()
     serializer_class = PenPaperTestSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -211,7 +223,7 @@ class PenPaperTestViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
         ).prefetch_related('packages', 'sections').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'sections')
 
-class HomeworkViewSet(StudentSectionFilterMixin, viewsets.ModelViewSet):
+class HomeworkViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = Homework.objects.all()
     serializer_class = HomeworkSerializer
     parser_classes = (MultiPartParser, FormParser)
