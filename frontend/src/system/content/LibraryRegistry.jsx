@@ -334,12 +334,39 @@ const LibraryRegistry = () => {
         };
     }, [libraryItems]);
 
+    // Stats logic
+    const stats = useMemo(() => {
+        const items = safeArray(libraryItems);
+        return {
+            total: items.length,
+            pdfs: items.filter(item => item.pdf_file).length,
+            videos: items.filter(item => item.video_link || item.video_file).length
+        };
+    }, [libraryItems]);
+
     // Pagination logic
     const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
     const paginatedItems = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredItems.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredItems, currentPage, itemsPerPage]);
+
+    // Generate page numbers for numeric pagination
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let end = Math.min(totalPages, start + maxVisible - 1);
+
+        if (end - start + 1 < maxVisible) {
+            start = Math.max(1, end - maxVisible + 1);
+        }
+
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+        return pages;
+    };
 
     const handleJumpToPage = (e) => {
         e.preventDefault();
@@ -368,6 +395,25 @@ const LibraryRegistry = () => {
                                 Manage educational materials, PDFs, and thumbnails with advanced academic targeting.
                             </p>
                         </div>
+
+                        {/* Stats Section */}
+                        <div className="flex flex-wrap items-center gap-4 bg-slate-50 dark:bg-white/5 p-4 rounded-[5px] border border-slate-100 dark:border-white/5">
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Materials</span>
+                                <span className="text-xl font-black text-emerald-500">{stats.total}</span>
+                            </div>
+                            <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>PDF Documents</span>
+                                <span className="text-xl font-black text-blue-500">{stats.pdfs}</span>
+                            </div>
+                            <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Video Content</span>
+                                <span className="text-xl font-black text-amber-500">{stats.videos}</span>
+                            </div>
+                        </div>
+
                         <button
                             onClick={() => { resetForm(); setIsAddModalOpen(true); }}
                             className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center gap-2 group"
@@ -630,15 +676,34 @@ const LibraryRegistry = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsLeft size={18} strokeWidth={2.5} /></button>
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
-                        <div className="flex items-center gap-1 mx-4">
-                            <span className="text-[10px] font-black uppercase opacity-40 tracking-tighter">Page</span>
-                            <span className="px-4 py-1.5 bg-emerald-500 text-white rounded-[5px] font-black text-xs shadow-lg shadow-emerald-500/20">{currentPage}</span>
-                            <span className="text-[10px] font-black uppercase opacity-40 tracking-tighter">of {totalPages || 1}</span>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
+                        
+                        <div className="flex items-center gap-1.5">
+                            {getPageNumbers().map(pageNum => (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                    className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum 
+                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
+                                        : (isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
+                                >
+                                    {pageNum}
+                                </button>
+                            ))}
+                            {totalPages > 5 && getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
+                                <>
+                                    <span className="text-slate-400 font-bold px-1">...</span>
+                                    <button
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm'}`}
+                                    >
+                                        {totalPages}
+                                    </button>
+                                </>
+                            )}
                         </div>
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => prev + 1)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(totalPages)} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronsRight size={18} strokeWidth={2.5} /></button>
+
+                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
                     </div>
 
                     <form onSubmit={handleJumpToPage} className="flex items-center gap-2">

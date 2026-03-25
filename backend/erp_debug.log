@@ -1297,3 +1297,16 @@ Fetched 549 from hr/employee, mapped 549 IDs
 Successfully parsed 217 teacher records
 --- Request at /api/admin/erp-teachers/ ---
 [TOKEN] Serving token from cache
+[TOKEN] Attempting login for atanu@gmail.com at https://pfndrerp.in
+--- Request at /api/admin/erp-teachers/ ---
+[TOKEN] Attempting login for atanu@gmail.com at https://pfndrerp.in
+[TOKEN] Attempting login for atanu@gmail.com at https://pfndrerp.in
+[TOKEN] Login response status: 200
+[TOKEN] Token obtained successfully
+[TOKEN] Login response status: 200
+[TOKEN] Token obtained successfully
+[TOKEN] Login response status: 200
+[TOKEN] Token obtained successfully
+Fetched 217 from student-portal/teachers
+Fetched 549 from hr/employee, mapped 549 IDs
+Successfully parsed 217 teacher records

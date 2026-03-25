@@ -391,12 +391,39 @@ const SolutionRegistry = () => {
         });
     }, [solutionItems, searchQuery, activeFilters]);
 
+    // Stats logic
+    const stats = useMemo(() => {
+        const items = filteredItems;
+        return {
+            total: items.length,
+            questionPdfs: items.filter(item => item.question_pdf).length,
+            answerPdfs: items.filter(item => item.answer_pdf).length
+        };
+    }, [filteredItems]);
+
     // Handle pagination
     const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
     const paginatedItems = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredItems.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredItems, currentPage, itemsPerPage]);
+
+    // Generate page numbers for numeric pagination
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let end = Math.min(totalPages, start + maxVisible - 1);
+
+        if (end - start + 1 < maxVisible) {
+            start = Math.max(1, end - maxVisible + 1);
+        }
+
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+        return pages;
+    };
 
     const handleJumpToPage = (e) => {
         e.preventDefault();
@@ -428,6 +455,25 @@ const SolutionRegistry = () => {
                                 Post resources with academic metadata and dual (Question/Answer) files.
                             </p>
                         </div>
+
+                        {/* Stats Section */}
+                        <div className="flex flex-wrap items-center gap-4 bg-slate-50 dark:bg-white/5 p-4 rounded-[5px] border border-slate-100 dark:border-white/5">
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Solutions</span>
+                                <span className="text-xl font-black text-amber-500">{stats.total}</span>
+                            </div>
+                            <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Question PDFs</span>
+                                <span className="text-xl font-black text-emerald-500">{stats.questionPdfs}</span>
+                            </div>
+                            <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Answer PDFs</span>
+                                <span className="text-xl font-black text-blue-500">{stats.answerPdfs}</span>
+                            </div>
+                        </div>
+
                         <button
                             onClick={() => { resetForm(); setIsAddModalOpen(true); }}
                             className="px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-[5px] font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-600/20 active:scale-95"
@@ -652,40 +698,43 @@ const SolutionRegistry = () => {
                     <div className="flex items-center gap-2 order-1 md:order-2">
                         <button
                             disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(1)}
-                            className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
-                        >
-                            <ChevronsLeft size={18} strokeWidth={2.5} />
-                        </button>
-                        <button
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(prev => prev - 1)}
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                             className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
                         >
                             <ChevronLeft size={18} strokeWidth={2.5} />
                         </button>
 
-                        <div className="flex items-center gap-1 mx-4">
-                            <span className="text-sm font-black">Page</span>
-                            <span className={`px-4 py-1.5 rounded-[5px] font-black text-sm ${isDarkMode ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-amber-500 text-white shadow-lg'}`}>
-                                {currentPage}
-                            </span>
-                            <span className="text-sm font-black opacity-40">of {totalPages || 1}</span>
+                        <div className="flex items-center gap-1.5">
+                            {getPageNumbers().map(pageNum => (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                    className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum 
+                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' 
+                                        : (isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
+                                >
+                                    {pageNum}
+                                </button>
+                            ))}
+                            {totalPages > 5 && getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
+                                <>
+                                    <span className="text-slate-400 font-bold px-1">...</span>
+                                    <button
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm'}`}
+                                    >
+                                        {totalPages}
+                                    </button>
+                                </>
+                            )}
                         </div>
 
                         <button
                             disabled={currentPage === totalPages || totalPages === 0}
-                            onClick={() => setCurrentPage(prev => prev + 1)}
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                             className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
                         >
                             <ChevronRight size={18} strokeWidth={2.5} />
-                        </button>
-                        <button
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            onClick={() => setCurrentPage(totalPages)}
-                            className="p-2 rounded-[5px] bg-white/5 hover:bg-amber-500 hover:text-white disabled:opacity-20 transition-all active:scale-90"
-                        >
-                            <ChevronsRight size={18} strokeWidth={2.5} />
                         </button>
                     </div>
 

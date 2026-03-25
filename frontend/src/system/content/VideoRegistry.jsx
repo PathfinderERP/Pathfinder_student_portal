@@ -258,6 +258,23 @@ const VideoRegistry = () => {
     const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
     const paginatedVideos = filteredVideos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+    // Generate page numbers for numeric pagination
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let end = Math.min(totalPages, start + maxVisible - 1);
+
+        if (end - start + 1 < maxVisible) {
+            start = Math.max(1, end - maxVisible + 1);
+        }
+
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+        return pages;
+    };
+
     return (
         <div className={`min-h-screen p-8 ${isDarkMode ? 'bg-[#0f1419] text-white' : 'bg-gray-50 text-gray-900'}`}>
             <div className="max-w-[1600px] mx-auto space-y-8">
@@ -526,56 +543,44 @@ const VideoRegistry = () => {
 
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(1)}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
                                     className={`p-2 rounded-[5px] transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
                                 >
-                                    First
-                                </button>
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className={`px-4 py-2 rounded-[5px] font-bold text-sm transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
-                                >
-                                    Previous
+                                    <ChevronLeft size={18} strokeWidth={2.5} />
                                 </button>
 
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Page</span>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max={totalPages}
-                                        value={jumpToPage}
-                                        onChange={(e) => setJumpToPage(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const page = parseInt(jumpToPage);
-                                                if (page >= 1 && page <= totalPages) {
-                                                    setCurrentPage(page);
-                                                    setJumpToPage('');
-                                                }
-                                            }
-                                        }}
-                                        placeholder={currentPage.toString()}
-                                        className={`w-12 px-2 py-1 rounded-[5px] text-center font-bold text-sm outline-none border-2 transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500' : 'bg-white border-slate-200 text-slate-700 focus:border-amber-500'}`}
-                                    />
-                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>of {totalPages}</span>
+                                <div className="flex items-center gap-1.5">
+                                    {getPageNumbers().map(pageNum => (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum 
+                                                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' 
+                                                : (isDarkMode ? 'bg-[#1a1f2e] text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    ))}
+                                    {totalPages > 5 && getPageNumbers()[getPageNumbers().length - 1] < totalPages && (
+                                        <>
+                                            <span className="text-slate-400 font-bold px-1">...</span>
+                                            <button
+                                                onClick={() => setCurrentPage(totalPages)}
+                                                className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${isDarkMode ? 'bg-[#1a1f2e] text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm'}`}
+                                            >
+                                                {totalPages}
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
 
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages}
-                                    className={`px-4 py-2 rounded-[5px] font-bold text-sm transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
-                                >
-                                    Next
-                                </button>
-                                <button
-                                    onClick={() => setCurrentPage(totalPages)}
-                                    disabled={currentPage === totalPages}
                                     className={`p-2 rounded-[5px] transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-white'} ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-white text-slate-700'}`}
                                 >
-                                    Last
+                                    <ChevronRight size={18} strokeWidth={2.5} />
                                 </button>
                             </div>
                         </div>
