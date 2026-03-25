@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { Loader2, ExternalLink, BookOpen, GraduationCap, Beaker } from 'lucide-react';
+import { Loader2, ExternalLink, BookOpen, GraduationCap, Beaker, WifiOff, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 const Scholarlab = ({ studentClass }) => {
@@ -139,7 +139,41 @@ const Scholarlab = ({ studentClass }) => {
         );
     }
 
+    const isServiceOffline = error && (
+        error.toLowerCase().includes('offline') ||
+        error.toLowerCase().includes('authentication service') ||
+        error.toLowerCase().includes('service unavailable')
+    );
+
     if (error) {
+        if (isServiceOffline) {
+            return (
+                <div className={`p-10 rounded-2xl border text-center ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-sm'} animate-in fade-in zoom-in duration-300`}>
+                    <div className="flex justify-center mb-6">
+                        <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 flex items-center justify-center">
+                            <WifiOff className="w-10 h-10 text-orange-500" />
+                        </div>
+                    </div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-[10px] font-black uppercase tracking-widest mb-4">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                        Service Temporarily Unavailable
+                    </div>
+                    <h3 className={`text-2xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Scholar<span className="text-orange-500 italic">lab</span> is Under Maintenance
+                    </h3>
+                    <p className={`text-sm max-w-sm mx-auto mb-6 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        The Scholarlab simulation service is currently undergoing scheduled maintenance. All your progress is safe. Please check back in a few hours.
+                    </p>
+                    <button
+                        onClick={fetchSchoolarlabData}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:bg-orange-600 active:scale-95"
+                    >
+                        <RefreshCw className="w-3 h-3" /> Check Again
+                    </button>
+                </div>
+            );
+        }
+
         return (
             <div className={`p-8 rounded-2xl border ${isDarkMode ? 'bg-red-500/10 border-red-500/20' : 'bg-red-50 border-red-200'} animate-in fade-in zoom-in duration-300`}>
                 <div className="flex items-center gap-3 mb-2">
@@ -158,6 +192,7 @@ const Scholarlab = ({ studentClass }) => {
             </div>
         );
     }
+
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">

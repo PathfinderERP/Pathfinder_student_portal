@@ -16,15 +16,17 @@ class StudentSectionFilterMixin:
             return queryset
             
         exam_section = getattr(user, 'exam_section', None)
-        if not exam_section:
-            # If student has no section, only show general content (where section is null/empty)
-            if '__' in section_field: # Handle M2M or complex paths
-                return queryset.filter(**{f"{section_field}__isnull": True})
-            return queryset.filter(**{f"{section_field}__isnull": True})
-
-        # Filter by section name matching student's exam_section OR null (general)
-        filter_q = Q(**{f"{section_field}__name": exam_section}) | Q(**{f"{section_field}__isnull": True})
+        study_section = getattr(user, 'study_section', None)
         
+        # Filter by section name matching student's exam_section OR study_section OR null (general)
+        filter_q = Q(**{f"{section_field}__isnull": True})
+        
+        if exam_section:
+            filter_q |= Q(**{f"{section_field}__name": exam_section})
+            
+        if study_section:
+            filter_q |= Q(**{f"{section_field}__name": study_section})
+
         # Check if the model has 'is_general' field
         if hasattr(queryset.model, 'is_general'):
             filter_q |= Q(is_general=True)

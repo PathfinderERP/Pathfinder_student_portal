@@ -139,7 +139,13 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                             <div key={idx} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <InfoField label="Exam Name" value={exam.examName} icon={BookOpen} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
-                                    <InfoField label="Class" value={exam.class} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                                    <InfoField 
+                                        label="Class" 
+                                        value={exam.class === 'ALL CLASS' ? null : exam.class} 
+                                        icon={Award} 
+                                        isDark={isDarkMode} 
+                                        isSyncing={isActuallyRefreshing} 
+                                    />
                                     <InfoField label="Status" value={exam.examStatus} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                                     <InfoField label="Aggregate %" value={exam.markAgregate} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                                     <InfoField label="Science/Math %" value={exam.scienceMathParcent} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
@@ -158,6 +164,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InfoField label="Course Name" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth isSyncing={isActuallyRefreshing} />
                     <InfoField label="Session" value={studentData?.course?.courseSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
+                    <InfoField label="Class" value={studentData?.class?.name} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                     <InfoField label="Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                     <InfoField label="Admission No" value={studentData?.admissionNumber} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
                     <InfoField label="Admission Date" value={studentData?.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A'} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} />
