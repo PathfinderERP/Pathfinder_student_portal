@@ -305,6 +305,7 @@ if _redis_url:
             "LOCATION": _redis_url,
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,
             }
         }
     }

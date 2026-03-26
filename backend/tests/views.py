@@ -311,10 +311,10 @@ class TestViewSet(viewsets.ModelViewSet):
         except:
             sid = student_id
 
-        sub = TestSubmission.objects.filter(test=test, student_id=sid).first()
-        if sub:
-            sub.allow_resume = True
-            sub.save()
+        # Use update() directly to avoid save() issues with primary keys in Djongo
+        updated_count = TestSubmission.objects.filter(test=test, student_id=sid).update(allow_resume=True)
+        
+        if updated_count > 0:
             return Response({'message': 'System unlocked. Student can now resume their exam.'})
         
         # If no session found, it means the student is in 'Available' state already
