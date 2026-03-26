@@ -103,6 +103,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', # CORS First
+    'django.middleware.gzip.GZipMiddleware',  # Compress large JSON responses (Critical for AWS)
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', # WhiteNoise
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -155,7 +156,9 @@ if MONGO_USERNAME and MONGO_PASSWORD and MONGO_CLUSTER:
     # These are the actual underlying nodes of your Atlas cluster
     DIRECT_HOSTS = "ac-sozji20-shard-00-00.ariihtc.mongodb.net:27017,ac-sozji20-shard-00-01.ariihtc.mongodb.net:27017,ac-sozji20-shard-00-02.ariihtc.mongodb.net:27017"
     
-    MONGO_URI = f"mongodb://{_user}:{_pwd}@{DIRECT_HOSTS}/{MONGO_DB_NAME}?ssl=true&replicaSet=atlas-38xoz1-shard-0&authSource=admin&retryWrites=true&w=majority"
+    # Tune connection pool to avoid SSL handshake overhead on every request
+    # maxPoolSize=50 ensures we reuse connections; waitQueueTimeoutMS=5000 prevents hanging
+    MONGO_URI = f"mongodb://{_user}:{_pwd}@{DIRECT_HOSTS}/{MONGO_DB_NAME}?ssl=true&replicaSet=atlas-38xoz1-shard-0&authSource=admin&retryWrites=true&w=majority&maxPoolSize=50&waitQueueTimeoutMS=5000"
     
     DATABASES = {
         'default': {

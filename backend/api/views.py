@@ -1,5 +1,6 @@
 from rest_framework import viewsets, permissions, generics, status, response, views
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice
 from .serializers import (
@@ -7,6 +8,34 @@ from .serializers import (
     UserSerializer, UserCreateSerializer, LoginLogSerializer,
     GrievanceSerializer, StudyTaskSerializer, NoticeSerializer
 )
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def system_status(request):
+    """Diagnose backend health and Cache/DB connectivity on AWS"""
+    from django.core.cache import cache
+    from django.conf import settings
+    import os
+    
+    redis_url = os.getenv('REDIS_URL')
+    cache_backend = cache.__class__.__name__
+    
+    # Test Redis connectivity
+    redis_alive = False
+    try:
+        cache.set('health_check_ping', 'pong', timeout=10)
+        redis_alive = (cache.get('health_check_ping') == 'pong')
+    except Exception:
+        pass
+        
+    print(f"📊 SYSTEM STATUS CHECK: Redis={redis_alive}, Backend={cache_backend}")
+    return response.Response({
+        "status": "online",
+        "cache_backend": cache_backend,
+        "redis_configured": bool(redis_url),
+        "redis_alive": redis_alive,
+        "database": "Atlas MongoDB (Direct)"
+    })
 
 class IsSuperAdmin(permissions.BasePermission):
     """

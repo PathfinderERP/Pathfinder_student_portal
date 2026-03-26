@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import FileViewSet, CustomTokenObtainPairView, ProfileView, UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, StudyTaskViewSet, NoticeViewSet, UserSearchView
+from .views import system_status, FileViewSet, CustomTokenObtainPairView, ProfileView, UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, StudyTaskViewSet, NoticeViewSet, UserSearchView
 from .erp_views import get_student_erp_data, get_all_students_erp_data, get_student_attendance, get_student_classes, get_all_centres_erp_data, get_all_teachers_erp_data
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
 
@@ -13,6 +13,7 @@ router.register(r'study-tasks', StudyTaskViewSet, basename='study-task')
 router.register(r'notices', NoticeViewSet)
 
 urlpatterns = [
+    path('system-status/', system_status, name='system-status'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),

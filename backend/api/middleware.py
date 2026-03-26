@@ -37,7 +37,7 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
                 'code': 'ACCOUNT_DEACTIVATED'
             }, status=403)
         
-        # Periodic ERP validation (every 5 minutes to reduce API load)
+        # Periodic ERP validation (every 15 minutes to reduce API and network load)
         cache_key = f"erp_validation_{request.user.pk}"
         last_validated = cache.get(cache_key)
         
@@ -58,10 +58,10 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
                     'error': 'Your account has been deactivated in the ERP system. Please contact administration.',
                     'code': 'ERP_ACCOUNT_DEACTIVATED',
                     'logout': True  # Signal frontend to logout
-                }, status=403)
+                 }, status=403)
             else:
-                # Student is valid - cache validation for 60 seconds (INSTANT SYNC)
-                cache.set(cache_key, True, timeout=60)  # Check every 1 minute
+                 # Student is valid - cache for 15 minutes (900s) instead of 60s
+                 cache.set(cache_key, True, timeout=900)
         
         return None
     
