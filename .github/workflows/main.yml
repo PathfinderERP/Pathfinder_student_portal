@@ -75,16 +75,27 @@ jobs:
             sudo cp -r ~/temp_build/* /var/www/frontend/
             rm -rf ~/temp_build
 
-            echo "Ensuring Nginx allows large uploads..."
-            # Idempotently add or update client_max_body_size to 100M in global nginx.conf
+            echo "Ensuring Redis is installed and running on AWS..."
+            # Non-interactive install to skip prompts
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server
+            sudo systemctl enable redis-server.service
+            sudo systemctl start redis-server.service
+
+            echo "Ensuring Nginx allows large uploads and handles compression..."
+            # Add client_max_body_size if not present
             if ! sudo grep -q "client_max_body_size" /etc/nginx/nginx.conf; then
               sudo sed -i '/http {/a \    client_max_body_size 100M;' /etc/nginx/nginx.conf
             else
               sudo sed -i 's/client_max_body_size [0-9]*[MG];/client_max_body_size 100M;/g' /etc/nginx/nginx.conf
             fi
 
+            # Enable Nginx Gzip for faster frontend (JS/CSS) delivery
+            if ! sudo grep -q "gzip_types" /etc/nginx/nginx.conf; then
+               sudo sed -i '/http {/a \    gzip on;\n    gzip_comp_level 5;\n    gzip_min_length 256;\n    gzip_proxied any;\n    gzip_vary on;\n    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;' /etc/nginx/nginx.conf
+            fi
+
             echo "Restarting services..."
             sudo systemctl restart gunicorn
             sudo systemctl restart nginx
             
-            echo "Deployment completed successfully!"
+            echo "Deployment completed successfully! Redis and Compression are now active."
