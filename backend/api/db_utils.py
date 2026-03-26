@@ -3,14 +3,28 @@ from pymongo import MongoClient
 from django.conf import settings
 from datetime import datetime
 
+_mongo_client = None
+_mongo_db = None
+
 def get_db():
+    global _mongo_client, _mongo_db
     try:
-        # Try to get existing connection from settings if available
-        # But for reliability, let's just initialize a small client
+        if _mongo_client is not None:
+            return _mongo_db
+            
         host = settings.DATABASES['default']['CLIENT']['host']
         db_name = settings.DATABASES['default']['NAME']
-        client = MongoClient(host)
-        return client[db_name]
+        
+        # Initialize client with connection pooling and timeouts
+        _mongo_client = MongoClient(
+            host, 
+            serverSelectionTimeoutMS=5000, 
+            connectTimeoutMS=5000,
+            socketTimeoutMS=5000,
+            retryWrites=True
+        )
+        _mongo_db = _mongo_client[db_name]
+        return _mongo_db
     except Exception as e:
         print(f"Direct DB Access Error: {e}")
         return None

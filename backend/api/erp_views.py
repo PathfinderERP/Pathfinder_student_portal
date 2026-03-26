@@ -138,8 +138,7 @@ def get_student_erp_data(request):
 
     # If we have RICH cached data, and NOT forcing refresh, return it immediately
     if not force_refresh and _is_profile_rich(cached):
-        print(f"[ERP] Strategy 1 HIT: Serving rich data for {search_email} from O(1) cache.")
-        _sync_user_to_erp(user, cached)
+        print(f"[ERP] Strategy 1 HIT: serving {search_email} from cache.")
         return Response(cached, status=200)
 
     print(f"[ERP] O(1) Strategy Search Start for {search_email}...")
@@ -302,39 +301,59 @@ def get_student_erp_data(request):
 def _sync_user_to_erp(user, admission_data):
     """Updates local user fields with fresh data from ERP."""
     if not isinstance(admission_data, dict): return
+    
     try:
+        has_changed = False
+        
         # 0. Sync Admission Number
-        user.admission_number = admission_data.get('admissionNumber')
+        new_adm = admission_data.get('admissionNumber')
+        if user.admission_number != new_adm:
+            user.admission_number = new_adm; has_changed = True
 
         # 1. Sync Section/Codes
         sec = admission_data.get('sectionAllotment', {})
         if isinstance(sec, dict):
-            user.exam_section = sec.get('examSection')
-            user.study_section = sec.get('studySection')
-            user.omr_code = sec.get('omrCode')
-            user.rm_code = sec.get('rm')
+            new_es = sec.get('examSection')
+            new_ss = sec.get('studySection')
+            new_omr = sec.get('omrCode')
+            new_rm = sec.get('rm')
+            
+            if user.exam_section != new_es: user.exam_section = new_es; has_changed = True
+            if user.study_section != new_ss: user.study_section = new_ss; has_changed = True
+            if user.omr_code != new_omr: user.omr_code = new_omr; has_changed = True
+            if user.rm_code != new_rm: user.rm_code = new_rm; has_changed = True
         
-        # 2. Sync Name from studentsDetails
+        # 2. Sync Names
         details_list = admission_data.get('student', {}).get('studentsDetails', [])
         if details_list and isinstance(details_list, list) and len(details_list) > 0:
             details = details_list[0]
             name = details.get('studentName', '')
             if name:
                 parts = name.strip().split(' ')
-                user.first_name = parts[0]
-                user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                f_name = parts[0]
+                l_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                if user.first_name != f_name: user.first_name = f_name; has_changed = True
+                if user.last_name != l_name: user.last_name = l_name; has_changed = True
         
         # 3. Sync Centre Info
         venue = admission_data.get('venue') or admission_data.get('centre')
         if venue:
+            new_cc = None
+            new_cn = None
             if isinstance(venue, dict):
-                user.centre_code = venue.get('centreCode') or venue.get('code')
-                user.centre_name = venue.get('centreName') or venue.get('name')
+                new_cc = venue.get('centreCode') or venue.get('code')
+                new_cn = venue.get('centreName') or venue.get('name')
             else:
-                user.centre_name = str(venue)
+                new_cn = str(venue)
+                
+            if user.centre_code != new_cc: user.centre_code = new_cc; has_changed = True
+            if user.centre_name != new_cn: user.centre_name = new_cn; has_changed = True
 
-        user.save()
-        print(f"[SYNC] ✓ User {user.username} synced with ERP.")
+        if has_changed:
+            user.save()
+            print(f"[SYNC] ✓ User {user.username} updated and saved.")
+        else:
+            print(f"[SYNC] ℹ User {user.username} already up to date.")
     except Exception as e:
         print(f"[SYNC] ⚠ Failed to sync user {user.username}: {e}")
 
@@ -405,7 +424,8 @@ def get_all_students_erp_data(request):
             print(f"[ERP DEBUG] Parsed {len(final_data)} student records — caching")
             # Only cache if data is manageable
             if len(final_data) > 0:
-                cache.set(CACHE_KEY, final_data, 3600)
+                # Cache for 24 hours to avoid heavy streaming on every admin login
+                cache.set(CACHE_KEY, final_data, 86400)
             return Response(final_data, status=200)
 
         return Response([], status=200)
@@ -420,6 +440,14 @@ def get_all_students_erp_data(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_centres_erp_data(request):
+    CACHE_KEY = 'erp_all_centres_v1'
+    force_refresh = request.GET.get('refresh') in ['true', '1', 'True']
+    
+    if not force_refresh:
+        cached = cache.get(CACHE_KEY)
+        if cached is not None:
+            return Response(cached, status=200)
+
     try:
         erp_url = _get_erp_url()
         erp_token = _get_erp_admin_token()
@@ -428,17 +456,22 @@ def get_all_centres_erp_data(request):
             print("[ERP ERROR] Admin token unavailable for centres")
             return Response([], status=200)
 
-        resp = requests.get(f"{erp_url}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+        # Added timeout to prevent hanging the server
+        resp = requests.get(f"{erp_url}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=30)
         
         if resp.status_code == 401:
             erp_token = _get_erp_admin_token(force_refresh=True)
-            resp = requests.get(f"{erp_url}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
+            resp = requests.get(f"{erp_url}/api/centre", headers={"Authorization": f"Bearer {erp_token}"}, timeout=30)
             
         if resp.status_code == 200:
             data = resp.json()
             if isinstance(data, dict):
                 data = data.get('data') or data.get('centres') or data
-            return Response(data if isinstance(data, list) else [data], status=200)
+            
+            final_data = data if isinstance(data, list) else [data]
+            if final_data:
+                cache.set(CACHE_KEY, final_data, 86400) # 24 Hours
+            return Response(final_data, status=200)
 
         return Response([], status=200)
     except Exception as e:
@@ -605,7 +638,8 @@ def get_all_teachers_erp_data(request):
                     debug_log(f"Error mapping item: {e_item}")
 
             debug_log(f"Successfully parsed {len(final_data)} teacher records")
-            cache.set(CACHE_KEY, final_data, 3600)
+            # Cache for 24 hours
+            cache.set(CACHE_KEY, final_data, 86400)
             return Response(final_data, status=200)
 
         debug_log("All endpoints failed or no response")

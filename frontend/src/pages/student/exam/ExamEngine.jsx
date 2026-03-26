@@ -179,20 +179,19 @@ const ExamEngine = () => {
         return () => clearInterval(timer);
     }, [timeLeft, isSubmitted, paperData]);
 
-    const formatTime = (seconds) => {
+    const formatTime = useCallback((seconds) => {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = seconds % 60;
         return h > 0 
             ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
             : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    };
+    }, []);
 
-    // Derived Data (Safe check because hooks are above returns)
-    const currentSection = paperData?.sections?.[activeSectionIdx];
-    const currentQuestion = currentSection?.questions_detail?.[activeQuestionIdx];
+    // Derived Data
+    const currentSection = useMemo(() => paperData?.sections?.[activeSectionIdx], [paperData, activeSectionIdx]);
+    const currentQuestion = useMemo(() => currentSection?.questions_detail?.[activeQuestionIdx], [currentSection, activeQuestionIdx]);
 
-    // Define all functions first (they are stable)
     const updateStatus = useCallback((status, option = null) => {
         if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
@@ -203,14 +202,10 @@ const ExamEngine = () => {
                 selectedOption: option || prev[qId]?.selectedOption || null 
             }
         }));
-        // Auto-save on specific status changes to be safe
-        if (status === 'ANSWERED' || status === 'MARKED_ANSWERED' || status === 'MARKED') {
-            // We can throttled save here or just wait for the interval
-        }
     }, [currentQuestion, activeSectionIdx, activeQuestionIdx]);
 
     const handleNext = useCallback(() => {
-        if (!paperData) return;
+        if (!paperData || !currentSection) return;
         if (activeQuestionIdx < currentSection.questions_detail.length - 1) {
             setActiveQuestionIdx(prev => prev + 1);
         } else if (activeSectionIdx < paperData.sections.length - 1) {
@@ -231,7 +226,8 @@ const ExamEngine = () => {
         }
     }, [activeQuestionIdx, activeSectionIdx, paperData]);
 
-    const handleSaveAndNext = () => {
+    const handleSaveAndNext = useCallback(() => {
+        if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
         const currentResp = responses[qId];
         
@@ -242,26 +238,19 @@ const ExamEngine = () => {
 
         updateStatus('ANSWERED', currentResp?.selectedOption);
         handleNext();
-    };
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, handleNext]);
 
-    const handleMarkForReview = () => {
+    const handleMarkForReview = useCallback(() => {
+        if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
         const currentResp = responses[qId];
         
-        // In real portals, if option is selected, status is 'MARKED_ANSWERED'
-        // If no option, status is just 'MARKED'
         const newStatus = currentResp?.selectedOption ? 'MARKED_ANSWERED' : 'MARKED';
         updateStatus(newStatus, currentResp?.selectedOption);
         handleNext();
-    };
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, handleNext]);
 
-    useEffect(() => {
-        if (document.fullscreenElement) {
-            setIsFullscreen(true);
-        }
-    }, [isLoading]);
-
-    const enterFullscreen = () => {
+    const enterFullscreen = useCallback(() => {
         const elem = document.documentElement;
         if (elem.requestFullscreen) {
             elem.requestFullscreen().catch(err => {
@@ -273,9 +262,9 @@ const ExamEngine = () => {
         } else if (elem.msRequestFullscreen) { /* IE11 */
             elem.msRequestFullscreen();
         }
-    };
+    }, []);
 
-    const exitFullscreen = () => {
+    const exitFullscreen = useCallback(() => {
         if (document.exitFullscreen) {
             document.exitFullscreen().catch(err => console.error("Error exiting fullscreen:", err));
         } else if (document.webkitExitFullscreen) { /* Safari */
@@ -283,105 +272,19 @@ const ExamEngine = () => {
         } else if (document.msExitFullscreen) { /* IE11 */
             document.msExitFullscreen();
         }
-    };
-
-    // Use a ref to track submission status for event listeners
-    const isSubmittedRef = useRef(false);
-    useEffect(() => {
-        isSubmittedRef.current = isSubmitted;
-    }, [isSubmitted]);
-
-    // Strict Integrity Enforcement
-    useEffect(() => {
-        // Detect Fullscreen Exit
-        const handleFullscreenChange = () => {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-                setIsFullscreen(false);
-                // Unlock keyboard if exited
-                if (navigator.keyboard && navigator.keyboard.unlock) {
-                    navigator.keyboard.unlock();
-                }
-                
-                // Only show violation if the exam hasn't been submitted yet
-                if (!isSubmittedRef.current) {
-                    setShowViolation(true);
-                    setViolationMessage("Security Alert: Exiting Full Screen is prohibited. Your activity has been logged. Please return to Full Screen immediately to resume.");
-                }
-            } else {
-                setIsFullscreen(true);
-                setShowViolation(false);
-                
-                // Attempt to lock Escape key ONLY after we are successfully in Full Screen
-                // This is more likely to be granted by the browser
-                if (navigator.keyboard && navigator.keyboard.lock) {
-                    navigator.keyboard.lock(['Escape']).catch(() => {
-                        // Silent fail - some browsers/security settings might block this
-                    });
-                }
-            }
-        };
-
-        // Detect Tab/Window Switch (Alt+Tab, window focus lost)
-        const handleVisibilityChange = () => {
-            if (document.hidden && !isSubmittedRef.current) {
-                setShowViolation(true);
-                setViolationMessage("Security Alert: Tab switching is strictly prohibited. Your activity has been logged. Further attempts will result in immediate disqualification.");
-            }
-        };
-
-        const handleBlur = () => {
-            // Check if focus is truly lost (ignore if focus just moved to a sub-element inside the doc)
-            if (!document.hasFocus() && !isSubmittedRef.current) {
-                setShowViolation(true);
-                setViolationMessage("Security Alert: System focus lost. Alt+Tab, Window switching or Tab switching is strictly prohibited. Your activity has been logged.");
-            }
-        };
-
-        // Disable Escape and common shortcuts
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && !isSubmittedRef.current) {
-                e.preventDefault();
-                // When keyboard.lock is active, preventDefault blocks Esc from exiting.
-                // We show the violation immediately while staying in fullscreen.
-                setShowViolation(true);
-                setViolationMessage("Security Alert: Use of the Escape key to exit Full Screen is strictly prohibited. Your activity has been logged.");
-            }
-            
-            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
-                e.preventDefault();
-                // Only show violation for dev tools regardless of submission (optional)
-                setShowViolation(true);
-                setViolationMessage("Security Alert: Developer tools access is prohibited.");
-            }
-        };
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('blur', handleBlur);
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('blur', handleBlur);
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('contextmenu', (e) => e.preventDefault());
-        };
     }, []);
 
-    const handleClear = () => {
+    const handleClear = useCallback(() => {
+        if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
         setResponses(prev => {
             const newRes = { ...prev };
             delete newRes[qId];
             return newRes;
         });
-    };
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx]);
 
-    const handleSubmit = async (type = 'MANUAL') => {
+    const handleSubmit = useCallback(async (type = 'MANUAL') => {
         if (!paperData || isSubmitting) return;
         setIsSubmitting(true);
         setSubmissionType(type);
@@ -389,9 +292,7 @@ const ExamEngine = () => {
         const totalDurationSeconds = parseInt(paperData.duration || 180) * 60;
         const timeSpent = totalDurationSeconds - timeLeft;
 
-        // Prepare responses for backend
         const backendResponses = getBackendResponses();
-        console.log("Submitting final answers:", backendResponses);
 
         try {
             const apiUrl = getApiUrl();
@@ -403,7 +304,6 @@ const ExamEngine = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // Calculate Stats for local report
             const summary = paperData.sections.map(section => {
                 let attempted = 0;
                 section.questions_detail.forEach(q => {
@@ -423,16 +323,88 @@ const ExamEngine = () => {
 
             setReportData(summary);
             setIsSubmitted(true);
-            exitFullscreen(); // Automatically exit fullscreen on submission
+            exitFullscreen();
         } catch (err) {
             console.error('Error submitting exam:', err);
             triggerToast('Connection error. Retrying submission...');
-            // Optional: fallback to local "submit" or keep trying? 
-            // For now, let's keep it simple.
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [paperData, isSubmitting, timeLeft, getBackendResponses, getApiUrl, testId, token, responses, exitFullscreen]);
+
+    // Use a ref to track submission status for event listeners
+    const isSubmittedRef = useRef(false);
+    useEffect(() => {
+        isSubmittedRef.current = isSubmitted;
+    }, [isSubmitted]);
+
+    // Handlers (Moved outside useEffect for stability)
+    const handleFullscreenChange = useCallback(() => {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+            setIsFullscreen(false);
+            if (navigator.keyboard && navigator.keyboard.unlock) {
+                navigator.keyboard.unlock();
+            }
+            if (!isSubmittedRef.current) {
+                setShowViolation(true);
+                setViolationMessage("Security Alert: Exiting Full Screen is prohibited. Your activity has been logged. Please return to Full Screen immediately to resume.");
+            }
+        } else {
+            setIsFullscreen(true);
+            setShowViolation(false);
+            if (navigator.keyboard && navigator.keyboard.lock) {
+                navigator.keyboard.lock(['Escape']).catch(() => {});
+            }
+        }
+    }, []);
+
+    const handleVisibilityChange = useCallback(() => {
+        if (document.hidden && !isSubmittedRef.current) {
+            setShowViolation(true);
+            setViolationMessage("Security Alert: Tab switching is strictly prohibited. Your activity has been logged. Further attempts will result in immediate disqualification.");
+        }
+    }, []);
+
+    const handleBlur = useCallback(() => {
+        if (!document.hasFocus() && !isSubmittedRef.current) {
+            setShowViolation(true);
+            setViolationMessage("Security Alert: System focus lost. Alt+Tab, Window switching or Tab switching is strictly prohibited. Your activity has been logged.");
+        }
+    }, []);
+
+    const handleKeyDown = useCallback((e) => {
+        if (e.key === 'Escape' && !isSubmittedRef.current) {
+            e.preventDefault();
+            setShowViolation(true);
+            setViolationMessage("Security Alert: Use of the Escape key to exit Full Screen is strictly prohibited. Your activity has been logged.");
+        }
+        
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
+            e.preventDefault();
+            setShowViolation(true);
+            setViolationMessage("Security Alert: Developer tools access is prohibited.");
+        }
+    }, []);
+    
+    // Strict Integrity Enforcement
+    useEffect(() => {
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('blur', handleBlur);
+        window.addEventListener('keydown', handleKeyDown);
+        const handleContext = (e) => e.preventDefault();
+        window.addEventListener('contextmenu', handleContext);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('blur', handleBlur);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('contextmenu', handleContext);
+        };
+    }, [handleFullscreenChange, handleVisibilityChange, handleBlur, handleKeyDown]);
 
     // Auto-mark as visited when viewing
     useEffect(() => {
@@ -476,6 +448,12 @@ const ExamEngine = () => {
         }, 1000);
         return () => clearInterval(interval);
     }, [activeSectionIdx, activeQuestionIdx, isSubmitted, showViolation, currentQuestion]);
+
+    // Correct extraction from ERP Data
+    const studentInfo = useMemo(() => studentData?.student?.studentsDetails?.[0] || {}, [studentData]);
+    const admissionNo = useMemo(() => studentData?.admissionNumber || user?.enrollment_id || user?.id || 'ID_PENDING', [studentData, user]);
+    const studentName = useMemo(() => studentInfo.studentName || user?.full_name || user?.username || 'STUDENT', [studentInfo, user]);
+    const studentEmail = useMemo(() => studentInfo.studentEmail || user?.email || user?.username || 'N/A', [studentInfo, user]);
 
     // NOW handle conditional returns
     if (isLoading) return (
@@ -682,11 +660,6 @@ const ExamEngine = () => {
         );
     }
 
-    // Correct extraction from ERP Data
-    const studentInfo = studentData?.student?.studentsDetails?.[0] || {};
-    const admissionNo = studentData?.admissionNumber || user?.enrollment_id || user?.id || 'ID_PENDING';
-    const studentName = studentInfo.studentName || user?.full_name || user?.username || 'STUDENT';
-    const studentEmail = studentInfo.studentEmail || user?.email || user?.username || 'N/A';
 
     return (
         <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-white text-gray-900'} font-sans overflow-hidden select-none transition-colors duration-300`}>

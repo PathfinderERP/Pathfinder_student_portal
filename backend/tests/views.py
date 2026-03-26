@@ -54,12 +54,21 @@ class TestViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         instance = serializer.save()
+        # Clear admin test list cache
+        from django.core.cache import cache
+        cache.delete("admin_test_list")
+        
         # Auto-create allotment records for centres
         for centre in instance.centres.all():
             TestCentreAllotment.objects.get_or_create(test=instance, centre=centre)
 
     def perform_update(self, serializer):
         instance = serializer.save()
+        
+        # Clear related caches
+        from django.core.cache import cache
+        cache.delete("admin_test_list")
+        cache.delete(f"test_paper_{instance.pk}") # Clear the exam paper cache too if test details changed
         
         # Get current allowed centres - safer fetching for Djongo/Mongo
         centres = list(instance.centres.all())
@@ -76,6 +85,31 @@ class TestViewSet(viewsets.ModelViewSet):
         # Create missing allotments for newly added centres
         for centre in centres:
             TestCentreAllotment.objects.get_or_create(test=instance, centre=centre)
+
+    def list(self, request, *args, **kwargs):
+        # Cache the test list for staff users (admin panel) to avoid heavy student count queries
+        from django.core.cache import cache
+        is_staff = request.user.is_staff or request.user.is_superuser
+        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
+        
+        if is_staff and not force_refresh:
+            cache_key = "admin_test_list"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(cached_data)
+        
+        response = super().list(request, *args, **kwargs)
+        
+        if is_staff:
+            # Cache for a short time to keep it fresh but fast
+            cache.set("admin_test_list", response.data, 60)
+            
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        cache.delete("admin_test_list")
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['get'])
     def sections(self, request, pk=None):
@@ -386,14 +420,25 @@ class TestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='question_paper')
     def question_paper(self, request, pk=None):
+        from django.core.cache import cache
+        cache_key = f"test_paper_{pk}"
+        cached_data = cache.get(cache_key)
+        
+        if cached_data:
+            return Response(cached_data)
+
         try:
             test = Test.objects.get(pk=pk)
         except Test.DoesNotExist:
             return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
+            
         # Order by priority
         sections = test.allotted_sections.all().order_by('priority')
         
         sections_data = []
+        from sections.serializers import SectionSerializer
+        from questions.serializers import QuestionSerializer
+        
         for section in sections:
             section_dict = SectionSerializer(section).data
             # Fetch detailed questions and deduplicate/sort them
@@ -415,12 +460,16 @@ class TestViewSet(viewsets.ModelViewSet):
             section_dict['questions_detail'] = QuestionSerializer(unique_qs_list, many=True).data
             sections_data.append(section_dict)
             
-        return Response({
+        response_data = {
             'test_name': test.name,
             'test_code': test.code,
             'duration': test.duration,
             'sections': sections_data
-        })
+        }
+        
+        # Cache for 60 minutes
+        cache.set(cache_key, response_data, timeout=3600)
+        return Response(response_data)
 
     @action(detail=True, methods=['post'])
     def duplicate_test(self, request, pk=None):

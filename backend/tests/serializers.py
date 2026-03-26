@@ -97,13 +97,13 @@ class TestSerializer(serializers.ModelSerializer):
         from .models import TestSubmission
         from django.db.models import Q
         try:
-            # Djongo Workaround: Fetch unique student IDs into Python set
-            # Avoids SQL subquery crash: AttributeError: 'Identifier' object has no attribute 'get_parameters'
-            student_ids = TestSubmission.objects.filter(test=obj).filter(
+            # We already have a unique_together constraint on (test, student),
+            # so each TestSubmission corresponds to a unique student.
+            # Using .count() is much faster than fetching all IDs and converting to a set.
+            return TestSubmission.objects.filter(test=obj).filter(
                 Q(student__admission_number__isnull=False) & ~Q(student__admission_number='') |
                 Q(student__exam_section__isnull=False) & ~Q(student__exam_section='')
-            ).values_list('student', flat=True)
-            return len(set(student_ids))
+            ).count()
         except Exception as e:
             print(f"ERROR: Serializer Count Failed - {str(e)}")
             return 0

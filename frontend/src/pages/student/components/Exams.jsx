@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { FileText, Calendar, Clock, Award, TrendingUp, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -6,21 +6,21 @@ import StartExamModal from './StartExamModal';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
-const Exams = ({ isDarkMode, onRefresh }) => {
+const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
     const { user, getApiUrl, token } = useAuth();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('ongoing'); // 'ongoing' or 'previous'
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const [tests, setTests] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [tests, setTests] = useState(cache?.data || []);
+    const [loading, setLoading] = useState(!cache?.loaded);
     const [error, setError] = useState(null);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTest, setSelectedTest] = useState(null);
 
-    const fetchTests = async (forceRefresh = false) => {
+    const fetchTests = useCallback(async (forceRefresh = false) => {
         setLoading(true);
         setError(null);
         try {
@@ -31,36 +31,38 @@ const Exams = ({ isDarkMode, onRefresh }) => {
             
             // Map the backend structure to our local state if necessary
             // In a real app, we might also filter by 'package' or other params
-            setTests(response.data || []);
+            const data = response.data || [];
+            setTests(data);
+            if (setCache) setCache({ data, loaded: true });
         } catch (err) {
             console.error("Error fetching tests:", err);
             setError("Failed to load exams. Please try again later.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [getApiUrl, token, setCache]);
 
-    const handleRefresh = async () => {
+    const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
         // Step 1: Tell parent to refresh ERP data (if it has the callback)
         if (onRefresh) await onRefresh(true);
         // Step 2: Fetch fresh tests from our backend
         await fetchTests();
         setTimeout(() => setIsRefreshing(false), 1000);
-    };
+    }, [onRefresh, fetchTests]);
 
-    React.useEffect(() => {
-        if (token) {
+    useEffect(() => {
+        if (token && (!cache || !cache.loaded)) {
             fetchTests();
         }
-    }, [token]);
+    }, [token, fetchTests, cache]);
 
-    const handleStartClick = (test) => {
+    const handleStartClick = useCallback((test) => {
         setSelectedTest(test);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleVerifyCode = async (code) => {
+    const handleVerifyCode = useCallback(async (code) => {
         const apiUrl = getApiUrl();
         try {
             const response = await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/verify_access_code/`, {
@@ -78,9 +80,9 @@ const Exams = ({ isDarkMode, onRefresh }) => {
             // Rethrow so the modal can handle it
             throw err;
         }
-    };
+    }, [getApiUrl, selectedTest, token, navigate]);
 
-    const formatDateTime = (dateStr) => {
+    const formatDateTime = useCallback((dateStr) => {
         if (!dateStr) return '—';
         try {
             const date = new Date(dateStr);
@@ -95,19 +97,21 @@ const Exams = ({ isDarkMode, onRefresh }) => {
         } catch (e) {
             return '—';
         }
-    };
+    }, []);
 
-    const filteredTests = tests.filter(test => 
-        (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
-    ).filter(test => {
-        const isStudentCompleted = test.submission?.is_finalized;
-        if (activeTab === 'ongoing') {
-            return !isStudentCompleted; 
-        } else {
-            return isStudentCompleted;
-        }
-    });
+    const filteredTests = useMemo(() => {
+        return tests.filter(test => 
+            (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+            (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+        ).filter(test => {
+            const isStudentCompleted = test.submission?.is_finalized;
+            if (activeTab === 'ongoing') {
+                return !isStudentCompleted; 
+            } else {
+                return isStudentCompleted;
+            }
+        });
+    }, [tests, searchTerm, activeTab]);
 
     return (
         <>

@@ -52,7 +52,6 @@ class ClassLevelSerializer(serializers.ModelSerializer):
 class ChapterSerializer(serializers.ModelSerializer):
     class_level_name = serializers.CharField(source='class_level.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
-
     order = serializers.IntegerField(source='sort_order', required=False)
 
     class Meta:
@@ -78,7 +77,6 @@ class TopicSerializer(serializers.ModelSerializer):
     class_level_name = serializers.CharField(source='class_level.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     chapter_name = serializers.CharField(source='chapter.name', read_only=True)
-
     order = serializers.IntegerField(source='sort_order', required=False)
 
     class Meta:
@@ -87,7 +85,6 @@ class TopicSerializer(serializers.ModelSerializer):
 
 class SubTopicSerializer(serializers.ModelSerializer):
     topic_name = serializers.CharField(source='topic.name', read_only=True)
-
     order = serializers.IntegerField(source='sort_order', required=False)
 
     class Meta:
@@ -101,44 +98,26 @@ class TeacherSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class LibraryItemSerializer(serializers.ModelSerializer):
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
-    section_name = serializers.SerializerMethodField()
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
+    section_name = serializers.CharField(source='section.name', read_only=True)
     section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = LibraryItem
         fields = '__all__'
 
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
-
-    def get_section_name(self, obj):
-        return obj.section.name if obj.section else None
-
 class SolutionItemSerializer(serializers.ModelSerializer):
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
     section_names = serializers.SerializerMethodField()
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
 
     class Meta:
         model = SolutionItem
@@ -146,73 +125,35 @@ class SolutionItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Explicitly ensure sections are returned as ID strings
-        # This fixes Djongo's tendency to return __str__ values for ManyToMany fields
         if 'sections' in ret:
             ret['sections'] = [str(s.pk) for s in instance.sections.all()]
         return ret
 
     def get_section_names(self, obj):
-        try:
-            return [section.name for section in obj.sections.all()]
-        except:
-            return []
-
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
+        try: return [section.name for section in obj.sections.all()]
+        except: return []
 
 class NoticeSerializer(serializers.ModelSerializer):
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
-    section_name = serializers.SerializerMethodField()
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
+    section_name = serializers.CharField(source='section.name', read_only=True)
     section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = Notice
         fields = '__all__'
 
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
-
-    def get_section_name(self, obj):
-        return obj.section.name if obj.section else None
-
 class LiveClassSerializer(serializers.ModelSerializer):
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
-    section_name = serializers.SerializerMethodField()
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
+    section_name = serializers.CharField(source='section.name', read_only=True)
     section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
-    
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -222,44 +163,22 @@ class LiveClassSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Explicitly ensure packages are returned as ID strings
         if 'packages' in ret:
              ret['packages'] = [str(p.pk) for p in instance.packages.all()]
         return ret
 
     def get_package_names(self, obj):
-        try:
-            return [p.name for p in obj.packages.all()]
-        except:
-            return []
-
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
-
-    def get_section_name(self, obj):
-        return obj.section.name if obj.section else None
+        try: return [p.name for p in obj.packages.all()]
+        except: return []
 
 class VideoSerializer(serializers.ModelSerializer):
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
-    section_name = serializers.SerializerMethodField()
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
+    section_name = serializers.CharField(source='section.name', read_only=True)
     section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
-    
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -269,41 +188,22 @@ class VideoSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Explicitly ensure packages are returned as ID strings
         if 'packages' in ret:
              ret['packages'] = [str(p.pk) for p in instance.packages.all()]
         return ret
 
     def get_package_names(self, obj):
-        try:
-            return [p.name for p in obj.packages.all()]
-        except:
-            return []
-
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
+        try: return [p.name for p in obj.packages.all()]
+        except: return []
 
 class PenPaperTestSerializer(serializers.ModelSerializer):
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_names = serializers.SerializerMethodField()
     sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
-    
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -313,7 +213,6 @@ class PenPaperTestSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # Explicitly ensure packages and sections are returned as ID strings
         if 'packages' in ret:
              ret['packages'] = [str(p.pk) for p in instance.packages.all()]
         if 'sections' in ret:
@@ -321,48 +220,21 @@ class PenPaperTestSerializer(serializers.ModelSerializer):
         return ret
 
     def get_package_names(self, obj):
-        try:
-            return [p.name for p in obj.packages.all()]
-        except:
-            return []
+        try: return [p.name for p in obj.packages.all()]
+        except: return []
 
     def get_section_names(self, obj):
-        try:
-            return [section.name for section in obj.sections.all()]
-        except:
-            return []
-
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
-
-    def update(self, instance, validated_data):
-        # Handle manual removal of thumbnail
-        request = self.context.get('request')
-        if request and request.data.get('remove_thumbnail') == 'true':
-            instance.thumbnail = None
-        
-        return super().update(instance, validated_data)
+        try: return [section.name for section in obj.sections.all()]
+        except: return []
 
 class HomeworkSerializer(serializers.ModelSerializer):
+    session_name = serializers.CharField(source='session.name', read_only=True)
+    class_name = serializers.CharField(source='class_level.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
     section_names = serializers.SerializerMethodField()
-    session_name = serializers.SerializerMethodField()
-    class_name = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    exam_type_name = serializers.SerializerMethodField()
-    target_exam_name = serializers.SerializerMethodField()
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -379,31 +251,12 @@ class HomeworkSerializer(serializers.ModelSerializer):
         return ret
 
     def get_section_names(self, obj):
-        try:
-            return [section.name for section in obj.sections.all()]
-        except:
-            return []
-
-    def get_session_name(self, obj):
-        return obj.session.name if obj.session else None
-
-    def get_class_name(self, obj):
-        return obj.class_level.name if obj.class_level else None
-
-    def get_subject_name(self, obj):
-        return obj.subject.name if obj.subject else None
-
-    def get_exam_type_name(self, obj):
-        return obj.exam_type.name if obj.exam_type else None
-
-    def get_target_exam_name(self, obj):
-        return obj.target_exam.name if obj.target_exam else None
+        try: return [section.name for section in obj.sections.all()]
+        except: return []
 
     def get_package_names(self, obj):
-        try:
-            return [p.name for p in obj.packages.all()]
-        except:
-            return []
+        try: return [p.name for p in obj.packages.all()]
+        except: return []
 
 class BannerSerializer(serializers.ModelSerializer):
     class Meta:

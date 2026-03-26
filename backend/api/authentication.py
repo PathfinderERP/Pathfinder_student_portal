@@ -43,6 +43,22 @@ class ERPStudentBackend(BaseBackend):
             pass
 
         try:
+            # ── PERFORMANCE: Short-lived Credential Cache ──────────────────────────
+            # Avoid hitting ERP on every single login attempt if validated within 5 mins
+            import hashlib
+            cred_hash = hashlib.sha256(f"{username}:{password}".encode()).hexdigest()
+            success_cache_key = f"erp_auth_success_{cred_hash}"
+            cached_user_pk = cache.get(success_cache_key)
+            
+            if cached_user_pk:
+                try:
+                    user = CustomUser.objects.get(pk=cached_user_pk)
+                    if user.is_active:
+                        print(f"✓ ERP Auth BYPASS: Found recent success cache for {username}")
+                        return user
+                except:
+                    pass
+
             # Payload for Student Portal Login
             auth_payload = {
                 "username": username,
@@ -51,7 +67,8 @@ class ERPStudentBackend(BaseBackend):
             
             # ALWAYS validate against ERP for students
             login_url = f"{erp_url}/api/student-portal/login"
-            resp = requests.post(login_url, json=auth_payload, timeout=20)
+            # Reduced timeout to 10s for faster failover
+            resp = requests.post(login_url, json=auth_payload, timeout=10)
             
             if resp.status_code == 200:
                 data = resp.json()
@@ -139,6 +156,11 @@ class ERPStudentBackend(BaseBackend):
                     cache.set(cache_key, erp_token, timeout=604800)  # 7 days (to survive long sessions)
                     print(f"✓ Cached ERP token for user {user.pk}")
                     
+                    # Cache the success to avoid hitting ERP repeatedly within 5 mins
+                    import hashlib
+                    cred_hash = hashlib.sha256(f"{username}:{password}".encode()).hexdigest()
+                    cache.set(f"erp_auth_success_{cred_hash}", user.pk, 300)
+
                     return user
                     
             else:

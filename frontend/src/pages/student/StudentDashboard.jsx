@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     LayoutDashboard, User, CheckSquare, FileText,
     TrendingUp, Activity, AlertCircle, BookOpen,
@@ -40,12 +40,13 @@ const StudentDashboard = () => {
     const [classesCache, setClassesCache] = useState({ data: [], loaded: false });
     const [attendanceCache, setAttendanceCache] = useState({ data: null, loaded: false });
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
+    const [examsCache, setExamsCache] = useState({ data: [], loaded: false });
 
     // Flag to prevent multiple auto-sync attempts in one session
     const hasAutoSynced = useRef(false);
 
     // Fetch Student Data from backend API (which proxies to ERP)
-    const fetchStudentData = async (forceRefresh = false, silentBackground = false) => {
+    const fetchStudentData = useCallback(async (forceRefresh = false, silentBackground = false) => {
         if (authLoading) return;
         if (!user) {
             setLoading(false);
@@ -81,14 +82,16 @@ const StudentDashboard = () => {
 
             if (response.data) {
                 // Prevent overwriting rich data with offline fallback
-                const isNewDataOffline = response.data.is_offline;
-                const hasExistingData = studentData && !studentData.is_offline;
+                setStudentData(prevData => {
+                    const isNewDataOffline = response.data.is_offline;
+                    const hasExistingData = prevData && !prevData.is_offline;
 
-                if (hasExistingData && isNewDataOffline && !forceRefresh) {
-                    console.warn("Skipping update: Prevented overwriting valid data with offline fallback");
-                } else {
-                    setStudentData(response.data);
-                }
+                    if (hasExistingData && isNewDataOffline && !forceRefresh) {
+                        console.warn("Skipping update: Prevented overwriting valid data with offline fallback");
+                        return prevData;
+                    }
+                    return response.data;
+                });
             }
             return response.data;
         } catch (err) {
@@ -110,7 +113,7 @@ const StudentDashboard = () => {
             setLoading(false);
             setSilentLoading(false);
         }
-    };
+    }, [authLoading, user, getApiUrl, token, refreshUser]);
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -129,9 +132,9 @@ const StudentDashboard = () => {
         };
 
         loadInitialData();
-    }, [user, token, getApiUrl, authLoading]);
+    }, [user, fetchStudentData, authLoading]);
 
-    const navItems = [
+    const navItems = useMemo(() => [
         { name: 'Dashboard', icon: LayoutDashboard },
         { name: 'Nexus Hub', icon: Compass },
         { name: 'My Profile', icon: User },
@@ -148,14 +151,29 @@ const StudentDashboard = () => {
         { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
         { name: 'Notice Board', icon: Bell },
-    ];
+    ], []);
 
-    const sidebarItems = navItems.map(item => ({
+    const sidebarItems = useMemo(() => navItems.map(item => ({
         label: item.name,
         icon: item.icon,
         active: activeTab === item.name,
         onClick: () => setActiveTab(item.name)
-    }));
+    })), [navItems, activeTab]);
+
+    // Extract Details safely
+    const { basicInfo, rollNo, classNameValue } = useMemo(() => {
+        const detailsList = studentData?.student?.studentsDetails || [];
+        const basic = detailsList.find(d =>
+            (user?.email && d?.studentEmail?.toLowerCase() === user.email.toLowerCase()) ||
+            d?.studentEmail?.toLowerCase() === user?.username?.toLowerCase()
+        ) || detailsList[0] || {};
+
+        return {
+            basicInfo: basic,
+            rollNo: studentData?.admissionNumber || "N/A",
+            classNameValue: studentData?.class?.name || "N/A"
+        };
+    }, [studentData, user]);
 
     if (loading) {
         return (
@@ -205,15 +223,6 @@ const StudentDashboard = () => {
         );
     }
 
-    // Extract Details safely
-    const detailsList = studentData?.student?.studentsDetails || [];
-    const basicInfo = detailsList.find(d =>
-        (user?.email && d?.studentEmail?.toLowerCase() === user.email.toLowerCase()) ||
-        d?.studentEmail?.toLowerCase() === user?.username?.toLowerCase()
-    ) || detailsList[0] || {};
-
-    const rollNo = studentData?.admissionNumber || "N/A";
-    const classNameValue = studentData?.class?.name || "N/A";
 
     const renderContent = () => {
         switch (activeTab) {
@@ -226,7 +235,7 @@ const StudentDashboard = () => {
             case 'Attendance':
                 return <Attendance isDarkMode={isDarkMode} cache={attendanceCache} setCache={setAttendanceCache} />;
             case 'Exams':
-                return <Exams isDarkMode={isDarkMode} onRefresh={fetchStudentData} />;
+                return <Exams isDarkMode={isDarkMode} onRefresh={fetchStudentData} cache={examsCache} setCache={setExamsCache} />;
             case 'Results':
                 return <Results isDarkMode={isDarkMode} />;
             case 'Performance':
@@ -288,12 +297,12 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
     const isPending = studentData?.sync_status === 'pending';
     const isActuallySyncing = isPending || silentLoading;
 
-    const stats = [
+    const stats = useMemo(() => [
         { label: 'ATTENDANCE RATE', value: '92%', subtext: '37 of 40 classes | 3 absences', trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
         { label: 'NEXT EXAM', value: 'PHYSICS', subtext: '5 days | 10:00 AM - 1:00 PM', pill: 'Preparation: 75%', color: 'orange', icon: CalendarDays },
         { label: 'STUDY STREAK', value: '12 days', subtext: 'Keep it up!', pill: 'Avg: 2.5 hrs/day', color: 'purple', icon: Flame },
-    ];
+    ], []);
 
     return (
         <div className="space-y-8 animate-fade-in-up">

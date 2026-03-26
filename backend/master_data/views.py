@@ -35,15 +35,36 @@ class StudentSectionFilterMixin:
 
 class CachedListViewSetMixin(object):
     """Mixin to cache the list response for master data and invalidate on change."""
+    def get_cache_version(self):
+        """Gets the current version for this viewset class. IncrementING this clears all lists."""
+        v_key = f"version_{self.__class__.__name__}"
+        v = cache.get(v_key)
+        if v is None:
+            v = 1
+            cache.set(v_key, v, 86400 * 30) # Lasts 30 days
+        return v
+
+    def clear_cache(self):
+        """Increment version to effectively invalidate all cached list responses instantly."""
+        v_key = f"version_{self.__class__.__name__}"
+        try:
+            cache.incr(v_key)
+            print(f"✓ Cache Version Incremented: All {self.__class__.__name__} lists invalidated.")
+        except:
+            # Fallback if incr fails
+            v = cache.get(v_key, 1)
+            cache.set(v_key, v + 1, 86400 * 30)
+            print(f"✓ Cache Version Updated: All {self.__class__.__name__} lists invalidated.")
+
     def get_cache_key(self):
         user = self.request.user
-        base_key = f"master_data_{self.__class__.__name__}_list"
+        base_key = f"md_{self.__class__.__name__}_v{self.get_cache_version()}"
         
         # If this viewset uses StudentSectionFilterMixin, we must include the section in the cache key
         if isinstance(self, StudentSectionFilterMixin) and user.is_authenticated:
-            exam_section = getattr(user, 'exam_section', 'none')
-            study_section = getattr(user, 'study_section', 'none')
-            # Create a unique key based on the student's context
+            # Use lower-case and normalize to avoid key issues
+            exam_section = str(getattr(user, 'exam_section', 'none')).lower()
+            study_section = str(getattr(user, 'study_section', 'none')).lower()
             return f"{base_key}_E{exam_section}_S{study_section}"
             
         return base_key
@@ -56,22 +77,23 @@ class CachedListViewSetMixin(object):
             return response.Response(cached_data)
         
         res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
-        # Cache master data for 30 minutes, student content for 5 minutes
-        timeout = 1800 if not isinstance(self, StudentSectionFilterMixin) else 300
+        # Master data (e.g. Teachers, Subjects) cache for 24h
+        # Student items (e.g. Library, Notices) cache for 1h (versioning handles updates)
+        timeout = 86400 if not isinstance(self, StudentSectionFilterMixin) else 3600
         cache.set(cache_key, res.data, timeout=timeout)
         return res
 
     def perform_create(self, serializer):
-        super(CachedListViewSetMixin, self).perform_create(serializer)
-        cache.delete(self.get_cache_key())
+        serializer.save()
+        self.clear_cache()
 
     def perform_update(self, serializer):
-        super(CachedListViewSetMixin, self).perform_update(serializer)
-        cache.delete(self.get_cache_key())
+        serializer.save()
+        self.clear_cache()
 
     def perform_destroy(self, instance):
-        super(CachedListViewSetMixin, self).perform_destroy(instance)
-        cache.delete(self.get_cache_key())
+        instance.delete()
+        self.clear_cache()
 
 class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')

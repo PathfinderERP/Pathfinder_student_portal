@@ -267,16 +267,18 @@ const TestCreate = () => {
         }
     };
 
-    const filteredData = data.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredData = useMemo(() => {
+        return data.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.code.toLowerCase().includes(searchTerm.toLowerCase());
 
-        let matchesStatus = true;
-        if (statusFilter === 'completed') matchesStatus = item.is_completed === true;
-        if (statusFilter === 'pending') matchesStatus = item.is_completed === false;
+            let matchesStatus = true;
+            if (statusFilter === 'completed') matchesStatus = item.is_completed === true;
+            if (statusFilter === 'pending') matchesStatus = item.is_completed === false;
 
-        return matchesSearch && matchesStatus;
-    });
+            return matchesSearch && matchesStatus;
+        });
+    }, [data, searchTerm, statusFilter]);
 
     const renderHeader = () => (
         <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
