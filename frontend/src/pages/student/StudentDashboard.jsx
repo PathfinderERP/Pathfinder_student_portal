@@ -41,6 +41,7 @@ const StudentDashboard = () => {
     const [attendanceCache, setAttendanceCache] = useState({ data: null, loaded: false });
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
     const [examsCache, setExamsCache] = useState({ data: [], loaded: false });
+    const [scholarlabCache, setScholarlabCache] = useState({ data: [], loaded: false });
 
     // Flag to prevent multiple auto-sync attempts in one session
     const hasAutoSynced = useRef(false);
@@ -265,7 +266,7 @@ const StudentDashboard = () => {
                 // Default to Video Content if parent is clicked
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Scholarlab':
-                return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} />;
+                return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} cache={scholarlabCache} setCache={setScholarlabCache} />;
             case 'Advanced Analytics':
                 return <AdvancedAnalytics isDarkMode={isDarkMode} />;
             case 'AI Insights':

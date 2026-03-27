@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { Loader2, ExternalLink, BookOpen, GraduationCap, Beaker, WifiOff, RefreshCw } from 'lucide-react';
+import { Loader2, ExternalLink, BookOpen, Beaker, WifiOff, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
-const Scholarlab = ({ studentClass }) => {
+const Scholarlab = ({ studentClass, cache, setCache }) => {
     const { isDarkMode } = useTheme();
     const { user, token, getApiUrl } = useAuth();
-    const [loading, setLoading] = useState(true);
-    const [simulations, setSimulations] = useState([]);
+    const [loading, setLoading] = useState(!cache?.loaded);
+    const [simulations, setSimulations] = useState(cache?.data || []);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGrade, setSelectedGrade] = useState('All');
     const [selectedSubject, setSelectedSubject] = useState('All');
 
-    useEffect(() => {
-        fetchSchoolarlabData();
-    }, []);
+    const fetchSchoolarlabData = useCallback(async (forceRefresh = false) => {
+        // If we already have data in cache and we aren't forcing a refresh, just use it
+        if (cache?.loaded && !forceRefresh) {
+            setSimulations(cache.data);
+            setLoading(false);
+            return;
+        }
 
-    const fetchSchoolarlabData = async () => {
         setLoading(true);
         setError(null);
 
@@ -41,16 +44,33 @@ const Scholarlab = ({ studentClass }) => {
                 }
             );
 
-            setSimulations(response.data.simulations || []);
+            const fetchedSimulations = response.data.simulations || [];
+            setSimulations(fetchedSimulations);
+            
+            // Update parent cache
+            if (setCache) {
+                setCache({
+                    data: fetchedSimulations,
+                    loaded: true,
+                    timestamp: new Date().toISOString()
+                });
+            }
         } catch (err) {
             console.error('Scholarlab API Error:', err);
             setError(err.response?.data?.error || 'Failed to load Scholarlab simulations');
         } finally {
             setLoading(false);
         }
-    };
+    }, [token, getApiUrl, cache, setCache]);
 
-    const initializeSimulation = async (simulation) => {
+    useEffect(() => {
+        // Only fetch if not already loaded or if specifically requested
+        if (!cache?.loaded) {
+            fetchSchoolarlabData();
+        }
+    }, [cache?.loaded, fetchSchoolarlabData]);
+
+    const initializeSimulation = useCallback(async (simulation) => {
         try {
             const apiUrl = getApiUrl();
 
@@ -93,40 +113,49 @@ const Scholarlab = ({ studentClass }) => {
             console.error('Failed to initialize simulation:', err);
             alert(err.response?.data?.error || 'Failed to launch simulation. Please try again.');
         }
-    };
+    }, [token, getApiUrl]);
 
-    const assignedGrade = studentClass && studentClass !== "N/A" ? studentClass.match(/\d+/)?.[0] : null;
+    const assignedGrade = useMemo(() => 
+        studentClass && studentClass !== "N/A" ? studentClass.match(/\d+/)?.[0] : null
+    , [studentClass]);
 
     // Filter Logic
-    const filteredSimulations = simulations.filter(sim => {
-        const simGrade = sim.grade ? String(sim.grade) : '';
-        
-        // 1. Hard filter based on student's actual class if valid
-        if (assignedGrade && simGrade !== assignedGrade) {
-            return false;
-        }
+    const filteredSimulations = useMemo(() => {
+        return simulations.filter(sim => {
+            const simGrade = sim.grade ? String(sim.grade) : '';
+            
+            // 1. Hard filter based on student's actual class if valid
+            if (assignedGrade && simGrade !== assignedGrade) {
+                return false;
+            }
 
-        const matchesSearch = sim.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (sim.description && sim.description.toLowerCase().includes(searchQuery.toLowerCase()));
+            const matchesSearch = sim.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (sim.description && sim.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        const simSubject = sim.subject ? String(sim.subject) : '';
+            const simSubject = sim.subject ? String(sim.subject) : '';
 
-        // 2. Dropdown Filter
-        const matchesGrade = assignedGrade ? true : (selectedGrade === 'All' || simGrade === selectedGrade);
-        const matchesSubject = selectedSubject === 'All' || simSubject === selectedSubject;
+            // 2. Dropdown Filter
+            const matchesGrade = assignedGrade ? true : (selectedGrade === 'All' || simGrade === selectedGrade);
+            const matchesSubject = selectedSubject === 'All' || simSubject === selectedSubject;
 
-        return matchesSearch && matchesGrade && matchesSubject;
-    });
+            return matchesSearch && matchesGrade && matchesSubject;
+        });
+    }, [simulations, searchQuery, selectedGrade, selectedSubject, assignedGrade]);
 
     // Extract unique subjects and grades for filter options
-    const subjects = ['All', ...new Set(simulations.map(sim => sim.subject).filter(s => s && s !== 'All'))];
-    const grades = assignedGrade 
-        ? [assignedGrade] 
-        : ['All', ...new Set(simulations.map(sim => String(sim.grade)).filter(g => g && g !== 'undefined' && g !== 'All'))].sort((a, b) => {
+    const subjects = useMemo(() => 
+        ['All', ...new Set(simulations.map(sim => sim.subject).filter(s => s && s !== 'All'))]
+    , [simulations]);
+
+    const grades = useMemo(() => {
+        if (assignedGrade) return [assignedGrade];
+        
+        return ['All', ...new Set(simulations.map(sim => String(sim.grade)).filter(g => g && g !== 'undefined' && g !== 'All'))].sort((a, b) => {
             if (a === 'All') return -1;
             if (b === 'All') return 1;
             return parseInt(a) - parseInt(b);
         });
+    }, [simulations, assignedGrade]);
 
     if (loading) {
         return (
