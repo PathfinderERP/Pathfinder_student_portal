@@ -5,7 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { toast } from 'react-hot-toast';
 
-const StudyMaterials = ({ cache, setCache, studentClass }) => {
+const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }) => {
     const { getApiUrl, token } = useAuth();
     const { isDarkMode } = useTheme();
 
@@ -20,7 +20,14 @@ const StudyMaterials = ({ cache, setCache, studentClass }) => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSubject, setActiveSubject] = useState('All');
-    const [activeContentType, setActiveContentType] = useState('All'); // 'All' | 'PDF' | 'Video'
+    const [activeContentType, setActiveContentType] = useState(initialType); // 'VIDEO' | 'STUDY_MATERIAL'
+    
+    // Sync with sidebar navigation
+    useEffect(() => {
+        if (initialType) {
+            setActiveContentType(initialType);
+        }
+    }, [initialType]);
 
     // View Modal State
     const [selectedItem, setSelectedItem] = useState(null);
@@ -67,10 +74,10 @@ const StudyMaterials = ({ cache, setCache, studentClass }) => {
 
             const mockData = [
                 { id: 1, name: 'Physics Module: Kinematics', subject_name: 'Physics', description: 'Comprehensive guide covering 1D and 2D motion with practice problems.', thumbnail: null, pdf_file: '#' },
-                { id: 2, name: 'Organic Chemistry: Basics', subject_name: 'Chemistry', description: 'Introduction to carbon compounds and functional groups.', thumbnail: null, pdf_file: '#' },
-                { id: 3, name: 'Calculus: Integration Techniques', subject_name: 'Mathematics', description: 'Advanced methods for solving complex integrals.', thumbnail: null, pdf_file: '#' },
+                { id: 2, name: 'Organic Chemistry: Basics (Video)', subject_name: 'Chemistry', description: 'Video introduction to carbon compounds and functional groups.', thumbnail: null, video_link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+                { id: 3, name: 'Calculus: Integration Techniques', subject_name: 'Mathematics', description: 'Advanced methods for solving complex integrals (Handwritten Notes).', thumbnail: null, pdf_file: '#' },
                 { id: 4, name: 'Biology: Cell Structure', subject_name: 'Biology', description: 'Detailed analysis of plant and animal cell components.', thumbnail: null, pdf_file: '#' },
-                { id: 5, name: 'Modern Physics Notes', subject_name: 'Physics', description: 'Key concepts of quantum mechanics and relativity.', thumbnail: null, pdf_file: '#' },
+                { id: 5, name: 'Modern Physics Notes', subject_name: 'Physics', description: 'Key concepts of quantum mechanics and relativity.', thumbnail: null, video_link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
             ];
 
             const isDataSame = JSON.stringify(mockData) === JSON.stringify(materialsRef.current);
@@ -110,8 +117,8 @@ const StudyMaterials = ({ cache, setCache, studentClass }) => {
             }
             // Content type filter
             const isVideo = !!(item.video_link || item.video_file);
-            if (activeContentType === 'PDF' && isVideo) return false;
-            if (activeContentType === 'Video' && !isVideo) return false;
+            if (activeContentType === 'STUDY_MATERIAL' && isVideo) return false;
+            if (activeContentType === 'VIDEO' && !isVideo) return false;
 
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesSubject = activeSubject === 'All' || item.subject_name === activeSubject;
@@ -247,39 +254,13 @@ const StudyMaterials = ({ cache, setCache, studentClass }) => {
             )}
 
             <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up">
-                {/* Simplified Stats Group */}
-                <div className="flex flex-wrap gap-4 items-center">
-                    <div className={`px-5 py-4 rounded-[5px] border flex-1 min-w-[120px] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                            <FileText size={12} className="text-red-500" />
-                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">PDF Modules</p>
-                        </div>
-                        <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{pdfCount}</p>
-                    </div>
-                    <div className={`px-5 py-4 rounded-[5px] border flex-1 min-w-[120px] ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                            <PlayCircle size={12} className="text-blue-500" />
-                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Video Tutorials</p>
-                        </div>
-                        <p className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{videoCount}</p>
-                    </div>
-                    <button
-                        onClick={() => fetchMaterials(false)}
-                        disabled={isLoading}
-                        className={`px-6 py-4 rounded-[5px] flex items-center gap-3 transition-all active:scale-95 border font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}`}
-                    >
-                        <RefreshCw size={18} className={isLoading ? "animate-spin text-orange-500" : "text-orange-500"} />
-                        Sync content
-                    </button>
-                </div>
-
-            {/* Filter and Search Bar */}
-            <div className="flex flex-col xl:flex-row gap-4">
+            {/* Row 1: Filter and Search Bar */}
+            <div className="flex flex-col xl:flex-row gap-4 mb-4">
                 <div className="relative flex-1 group">
                     <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-orange-500' : 'text-slate-400 group-focus-within:text-orange-500'}`} size={16} />
                     <input
                         type="text"
-                        placeholder="Search materials..."
+                        placeholder={`Search in ${activeContentType === 'VIDEO' ? 'Videos' : 'PDFs'}...`}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className={`w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-[5px] border-2 outline-none font-bold text-xs sm:text-sm transition-all
@@ -287,71 +268,73 @@ const StudyMaterials = ({ cache, setCache, studentClass }) => {
                     />
                 </div>
 
-                <div className="flex flex-wrap lg:flex-nowrap gap-4 items-center">
-                    {/* Content Type Filter Group */}
-                    <div className={`flex p-1 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-100'}`}>
-                        {['All', 'PDF', 'Video'].map(type => (
-                            <button
-                                key={type}
-                                onClick={() => setActiveContentType(type)}
-                                className={`px-4 py-1.5 rounded-[3px] font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-1.5
-                                    ${ activeContentType === type
-                                        ? type === 'PDF' 
-                                            ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' 
-                                            : type === 'Video' 
-                                                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
-                                                : 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                        : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900')}`}
-                            >
-                                {type === 'PDF' && <FileText size={10} strokeWidth={3} />}
-                                {type === 'Video' && <PlayCircle size={10} strokeWidth={3} />}
-                                {type}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="flex overflow-x-auto pb-1 md:pb-0 gap-2 no-scrollbar scroll-smooth">
-                        {subjects.map(subject => (
-                            <button
-                                key={subject}
-                                onClick={() => setActiveSubject(subject)}
-                                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-[5px] font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
-                                    ${activeSubject === subject
-                                        ? 'bg-white border-white text-orange-500 shadow-lg'
-                                        : (isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:border-orange-200 hover:text-orange-600')}`}
-                            >
-                                {subject}
-                            </button>
-                        ))}
-                    </div>
+                <div className="flex gap-2 items-center overflow-x-auto no-scrollbar">
+                    {subjects.map(subject => (
+                        <button
+                            key={subject}
+                            onClick={() => setActiveSubject(subject)}
+                            className={`px-5 py-2.5 rounded-[5px] font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
+                                ${activeSubject === subject
+                                    ? 'bg-white border-white text-orange-500 shadow-xl scale-105 active:scale-95'
+                                    : (isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:border-orange-200 hover:text-orange-600')}`}
+                        >
+                            {subject}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* Materials Grid */}
+            {/* Row 2: Compact Dynamic Stats Card & Sync */}
+            <div className="flex flex-wrap gap-4 items-center">
+                <div className={`px-5 py-3.5 rounded-[5px] border flex items-center gap-4 transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm hover:shadow-md'}`}>
+                    <div className={`w-10 h-10 rounded-[5px] flex items-center justify-center flex-shrink-0 ${activeContentType === 'VIDEO' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'}`}>
+                        {activeContentType === 'VIDEO' ? <PlayCircle size={18} strokeWidth={2.5} /> : <FileText size={18} strokeWidth={2.5} />}
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-0.5 leading-none">
+                            {activeContentType === 'VIDEO' ? 'Total Videos' : 'Total Notes'}
+                        </p>
+                        <p className={`text-2xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {activeContentType === 'VIDEO' ? videoCount : pdfCount}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex-1"></div>
+                <button
+                    onClick={() => fetchMaterials(false)}
+                    disabled={isLoading}
+                    className={`px-6 py-4 rounded-[5px] flex items-center gap-3 transition-all active:scale-95 border font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+                >
+                    <RefreshCw size={18} className={isLoading ? "animate-spin text-orange-500" : "text-orange-500"} />
+                    Sync content
+                </button>
+            </div>
+
+            {/* Large 4-Column Grid Materials Layout */}
             {isLoading ? (
                 <div className="py-20 flex flex-col items-center justify-center gap-4">
                     <Loader2 size={40} className="animate-spin text-orange-500" />
                     <p className="font-bold opacity-50 uppercase tracking-widest">Loading Resources...</p>
                 </div>
             ) : filteredMaterials.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     {filteredMaterials.map((item) => (
                         <div
                             key={item.id}
-                            className={`group p-4 rounded-[5px] border transition-all duration-300 hover:shadow-2xl hover:-translate-y-1
+                            className={`group p-5 rounded-[5px] border transition-all duration-300 hover:shadow-2xl hover:-translate-y-3
                                 ${isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200'}`}
                         >
-                            <div className="relative aspect-video rounded-[5px] overflow-hidden mb-3 bg-slate-50 dark:bg-white/5 border border-white/5 shadow-inner">
+                            <div className="relative aspect-video rounded-[5px] overflow-hidden mb-6 bg-slate-50 dark:bg-white/5 border border-white/5 shadow-inner">
                                 {item.thumbnail ? (
                                     <img src={item.thumbnail} alt={item.name} className={`w-full h-full ${ (item.video_link || item.video_file) ? 'object-cover' : 'object-contain' } transition-transform duration-700 group-hover:scale-110`} />
                                 ) : (item.video_link && getYouTubeThumbnail(item.video_link)) ? (
                                     <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                 ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center opacity-30 group-hover:opacity-50 transition-opacity">
-                                        <div className={`w-12 h-12 rounded-[5px] mb-2 flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)}`}>
-                                            {(item.video_link || item.video_file) ? <PlayCircle size={24} className="text-white" /> : <FileText size={24} className="text-white" />}
+                                    <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center opacity-30 group-hover:opacity-50 transition-opacity">
+                                        <div className={`w-16 h-16 rounded-[5px] mb-4 flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)}`}>
+                                            {(item.video_link || item.video_file) ? <PlayCircle size={32} className="text-white" /> : <FileText size={32} className="text-white" />}
                                         </div>
-                                        <p className="text-[8px] font-black uppercase tracking-widest">{item.subject_name}</p>
+                                        <p className="text-[12px] font-black uppercase tracking-[0.2em]">{item.subject_name}</p>
                                     </div>
                                 )}
 
@@ -376,35 +359,35 @@ const StudyMaterials = ({ cache, setCache, studentClass }) => {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <span className={`px-2 py-0.5 rounded-[5px] text-[7px] font-black uppercase tracking-widest border
+                                    <span className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest border
                                         ${isDarkMode ? 'bg-white/5 border-white/5 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-600'}`}>
                                         {item.subject_name}
                                     </span>
                                     {/* Content type badge — PDF (red) vs Video (blue) */}
                                     {(item.video_link || item.video_file) ? (
-                                        <span className="flex items-center gap-1 text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[5px] bg-blue-500/10 border border-blue-500/20 text-blue-500">
-                                            <PlayCircle size={9} strokeWidth={3} /> Video
+                                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-blue-500/10 border border-blue-500/20 text-blue-500">
+                                            <PlayCircle size={12} strokeWidth={3} /> Video
                                         </span>
                                     ) : (
-                                        <span className="flex items-center gap-1 text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[5px] bg-red-500/10 border border-red-500/20 text-red-500">
-                                            <FileText size={9} strokeWidth={3} /> PDF
+                                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-red-500/10 border border-red-500/20 text-red-500">
+                                            <FileText size={12} strokeWidth={3} /> PDF
                                         </span>
                                     )}
                                 </div>
-                                <h3 className={`font-black text-sm sm:text-base leading-tight uppercase tracking-tight group-hover:text-orange-500 transition-colors line-clamp-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                <h3 className={`font-black text-xl sm:text-2xl leading-tight uppercase tracking-tight group-hover:text-orange-500 transition-colors line-clamp-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                     {item.name}
                                 </h3>
-                                <p className={`text-[10px] font-medium line-clamp-1 opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                <p className={`text-xs font-semibold line-clamp-2 opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                     {item.description || 'No description available'}
                                 </p>
 
                                 <button 
                                     onClick={() => { setSelectedItem(item); setViewPage(1); }}
-                                    className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all group-hover:translate-x-1 ${isDarkMode ? 'text-orange-500' : 'text-orange-600'}`}
+                                    className={`flex items-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all group-hover:translate-x-1 ${isDarkMode ? 'text-orange-500' : 'text-orange-600'}`}
                                 >
-                                    Learn More <ChevronRight size={12} />
+                                    Learn More <ChevronRight size={14} strokeWidth={3} />
                                 </button>
                             </div>
                         </div>

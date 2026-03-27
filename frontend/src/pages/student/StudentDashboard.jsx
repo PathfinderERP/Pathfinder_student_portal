@@ -4,7 +4,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -145,7 +145,14 @@ const StudentDashboard = () => {
         { name: 'Performance', icon: TrendingUp },
         { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
-        { name: 'Study Materials', icon: BookOpen },
+        { 
+            name: 'Study Materials', 
+            icon: BookOpen,
+            subItems: [
+                { name: 'Video Content', icon: PlayCircle },
+                { name: 'Notes', icon: FileText }
+            ]
+        },
         { name: 'Scholarlab', icon: Beaker },
         { name: 'Advanced Analytics', icon: BarChart2 },
         { name: 'AI Insights', icon: Brain },
@@ -156,8 +163,14 @@ const StudentDashboard = () => {
     const sidebarItems = useMemo(() => navItems.map(item => ({
         label: item.name,
         icon: item.icon,
-        active: activeTab === item.name,
-        onClick: () => setActiveTab(item.name)
+        active: activeTab === item.name || item.subItems?.some(s => s.name === activeTab),
+        onClick: item.subItems ? undefined : () => setActiveTab(item.name),
+        subItems: item.subItems?.map(sub => ({
+            label: sub.name,
+            icon: sub.icon,
+            active: activeTab === sub.name,
+            onClick: () => setActiveTab(sub.name)
+        }))
     })), [navItems, activeTab]);
 
     // Extract Details safely
@@ -244,8 +257,13 @@ const StudentDashboard = () => {
                 return <Grievances isDarkMode={isDarkMode} />;
             case 'SWOT Analysis':
                 return <SWOTAnalysis isDarkMode={isDarkMode} />;
+            case 'Video Content':
+                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
+            case 'Notes':
+                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="STUDY_MATERIAL" />;
             case 'Study Materials':
-                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} />;
+                // Default to Video Content if parent is clicked
+                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Scholarlab':
                 return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} />;
             case 'Advanced Analytics':
