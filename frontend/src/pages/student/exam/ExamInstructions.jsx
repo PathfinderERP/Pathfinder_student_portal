@@ -22,14 +22,14 @@ const ExamInstructions = () => {
         const fetchInstructions = async () => {
             try {
                 // Check Status First
-                const statusResp = await axios.get(`${getApiUrl()}/api/tests/${testId}/status/`, {
+                const statusResp = await axios.get(`${getApiUrl()}/api/tests/${testId}/status/?_t=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const sData = statusResp.data;
                 setStatusData(sData);
 
                 if (sData.is_finalized) {
-                    navigate('/student/dashboard');
+                    navigate('/student');
                     return;
                 }
 
@@ -38,13 +38,13 @@ const ExamInstructions = () => {
                     setLockReason("SESSION INTERRUPTED. Your previous session was terminated unexpectedly. In accordance with security protocols, your account is now locked. Please contact the administrator to authorize a resume.");
                 }
 
-                const response = await axios.get(`${getApiUrl()}/api/tests/${testId}/question_paper/`, {
+                const response = await axios.get(`${getApiUrl()}/api/tests/${testId}/question_paper/?_t=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 setPaperData(response.data);
             } catch (err) {
                 console.error('Error fetching instructions:', err);
-                navigate('/student/dashboard');
+                navigate('/student');
             } finally {
                 setIsLoading(false);
             }
@@ -81,7 +81,7 @@ const ExamInstructions = () => {
                         </div>
                     </div>
                     <button 
-                        onClick={() => navigate('/student/dashboard')}
+                        onClick={() => navigate('/student')}
                         className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
                     >
                         Return to Dashboard

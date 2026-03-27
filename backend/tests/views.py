@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,18 +30,38 @@ class TestViewSet(viewsets.ModelViewSet):
             study_section = getattr(user, 'study_section', '')
             allowed_names = [n.strip() for n in [exam_section, study_section] if n and str(n).strip()]
             
-            # Smart Restricted Access:
-            # - Student ONLY sees tests explicitly allotted to their exam or study section.
-            # - Tests with NO allotments (draft/orphan) are hidden from students.
+            from .models import TestSubmission
+            # 1. Tests explicitly allotted to their section
+            section_tests = Q()
             if allowed_names:
-                from django.db.models import Q
-                q_filter = Q()
                 for section_name in allowed_names:
-                    q_filter |= Q(allotted_sections__name__iexact=section_name)
-                # Note: Avoiding .distinct() here because Djongo SQL parser often crashes on it with M2M.
-                queryset = queryset.filter(q_filter)
-            else:
-                # Tight security: students without section info can't see any tests
+                    section_tests |= Q(allotted_sections__name__iexact=section_name)
+            
+            # 2. Tests they have already interacted with (Submitted AND Finalized)
+            # This ensures they can see past exam results in 'Previous Tests' even if their section changed.
+            # We explicitly EXCLUDE unfinished/unlocked submissions for unassigned tests to prevent rogue tests from showing up in 'Ongoing'.
+            # IMPORTANT: We MUST use a simple list comprehension instead of .values_list() here.
+            # Djongo has a known bug where .values_list() combined with model default ordering triggers a RecursionError.
+            subs = TestSubmission.objects.filter(
+                student=user, 
+                is_finalized=True,
+                allow_resume=False
+            )
+            submission_test_ids = [sub.test_id for sub in subs]
+            interacted_tests = Q(id__in=submission_test_ids)
+            
+            queryset = queryset.filter(section_tests | interacted_tests)
+            # DEDUP REQUIRED: Djongo M2M joins create duplicate rows for each match.
+            # We must manually dedup by IDs to ensure each test appears exactly once on student portal.
+            unique_ids = set(queryset.values_list('id', flat=True))
+            # Re-fetch the clean queryset (using the already prefetched one as a base if possible, 
+            # but re-filtering is safer for data consistency in Djongo)
+            queryset = Test.objects.filter(id__in=unique_ids).prefetch_related(
+                'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
+                'allotted_sections', 'centres', 'sections', 'centre_allotments'
+            ).order_by('-created_at')
+
+            if not allowed_names and not submission_test_ids:
                 queryset = queryset.none()
         
         package_id = self.request.query_params.get('package', None)
@@ -161,15 +182,31 @@ class TestViewSet(viewsets.ModelViewSet):
             ).values_list('student', flat=True)
             submission_count = len(set(submitted_students_in_centre_ids))
             
+            # Identify allowed section names for this test for precise counting (lower case for robust matching)
+            allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
+            
             # Filtered Rooster Count (Matches the logic in 'submissions' view)
-            # Only count students who belong to this centre AND are "Active"
-            # (Either have an ID, a Section, or they started the test)
+            # Only count students who belong to this centre AND match an allotted section of this test
             centre_query = Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
-            active_roster_count = CustomUser.objects.filter(user_type='student').filter(centre_query).filter(
-                Q(admission_number__isnull=False) & ~Q(admission_number='') |
-                Q(exam_section__isnull=False) & ~Q(exam_section='') |
-                Q(pk__in=all_submitted_student_ids)
-            ).count()
+            centre_pool = CustomUser.objects.filter(user_type='student').filter(centre_query)
+            
+            # Filter pool to strictly relevant students
+            active_roster_count = 0
+            for student in centre_pool:
+                # 1. Always count if they have an active submission
+                if str(student.pk) in all_submitted_student_ids:
+                    active_roster_count += 1
+                    continue
+                
+                # 2. Otherwise, check if they match the test's section allotments
+                s_exam = (student.exam_section or "").strip().lower()
+                s_study = (student.study_section or "").strip().lower()
+                
+                # Fallback: if test has no sections (orphan), show all active, otherwise restrict
+                in_section = not allowed_sections_list or (s_exam in allowed_sections_list or s_study in allowed_sections_list)
+                
+                if in_section and (student.admission_number or student.exam_section):
+                    active_roster_count += 1
             
             allot_data = TestCentreAllotmentSerializer(allotment).data
             allot_data['submission_count'] = submission_count # This reflects attempted tests
@@ -200,23 +237,36 @@ class TestViewSet(viewsets.ModelViewSet):
         test = self.get_object()
         user = request.user
         from .models import TestSubmission
-        
-        # DJONGO WORKAROUND: Pull to list early and handle in Python to bypass RecursionError in SQL parser
-        sub_list = list(TestSubmission.objects.filter(test=test, student=user))
-        if sub_list:
-            # Sort by submitted_at DESC in Python
-            sub_list.sort(key=lambda x: x.submitted_at, reverse=True)
-            sub = sub_list[0]
-            # Self-heal: Use timestamp-based delete to avoid Djongo's ID/ObjectId type mismatch crash
-            if len(sub_list) > 1:
-                TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=sub.submitted_at).delete()
-        else:
-            sub = TestSubmission.objects.create(test=test, student=user)
 
-        # Grant a one-time "Handshake" permission to enter the engine.
-        # This will be consumed by the first 'save_progress' call inside the engine.
-        sub.allow_resume = True
-        sub.save()
+        # Validation: Ensure student matches the allotted section for this test
+        if user.user_type == 'student':
+            allowed_sections = [s.name.strip().lower() for s in test.allotted_sections.all()]
+            if allowed_sections:
+                s_exam = (user.exam_section or "").strip().lower()
+                s_study = (user.study_section or "").strip().lower()
+                
+                # Check if student is in any allowed section
+                is_allotted = s_exam in allowed_sections or s_study in allowed_sections
+                
+                # If they don't match, block entry UNLESS they already have an existing submission 
+                # (to avoid locking out students who might have had their section's name changed)
+                if not is_allotted:
+                    if not TestSubmission.objects.filter(test=test, student=user).exists():
+                        return Response({
+                            'error': 'This test is not allotted to your section. Please contact your administrator.'
+                        }, status=status.HTTP_403_FORBIDDEN)
+
+        # DJONGO WORKAROUND: Use update() to avoid duplicate key errors during save() for existing submissions
+        # and handle race conditions during creation across parallel requests.
+        updated = TestSubmission.objects.filter(test=test, student=user).update(allow_resume=True)
+        
+        if not updated:
+            try:
+                TestSubmission.objects.create(test=test, student=user, allow_resume=True)
+            except:
+                # Race condition: someone created it just now
+                TestSubmission.objects.filter(test=test, student=user).update(allow_resume=True)
+
         return Response({'success': True})
 
     @action(detail=True, methods=['post'], url_path='submit')
@@ -268,16 +318,21 @@ class TestViewSet(viewsets.ModelViewSet):
             
         rooster_students = list(CustomUser.objects.filter(user_type='student').filter(centre_query))
         
-        # 3. Refined Selection: ONLY keep students who are "Active"
-        # (Must have ID, Section, or an Active Submission)
+        # Identify allowed section names for this test (robust case-insensitive)
+        allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
+        
+        # 3. Refined Selection: ONLY keep students who are relevant to this SPECIFIC test
         all_students = []
         for student in rooster_students:
-            uid_str = str(student.pk)
-            has_sub = uid_str in sub_map
+            # Check if student is in any of the test's allotted sections
+            # If test has no sections, it's open to the entire centre; otherwise, restrict
+            s_exam = (student.exam_section or "").strip().lower()
+            s_study = (student.study_section or "").strip().lower()
             
-            if not student.admission_number and not student.exam_section and not has_sub:
-                continue
-            all_students.append(student)
+            in_section = not allowed_sections_list or (s_exam in allowed_sections_list or s_study in allowed_sections_list)
+            
+            if in_section:
+                all_students.append(student)
 
         # 4. Get ERP index for enrichment
         erp_index = get_student_lookup_index()
@@ -302,9 +357,10 @@ class TestViewSet(viewsets.ModelViewSet):
             lib_sec = erp_data.get('sectionAllotment', {}).get('examSection') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else None
             lib_rm = erp_data.get('sectionAllotment', {}).get('rm') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else None
             
-            # Prioritize Admissions Number over RM/OMR codes
-            enroll = (student.admission_number or lib_adm or student.rm_code or student.omr_code or lib_rm or student.employee_id or '').upper().strip()
-            section = (student.exam_section or lib_sec or '—').upper().strip()
+            # Prioritize Admissions Number over RM/OMR codes (ERP data is freshest)
+            enroll = (lib_adm or student.admission_number or student.rm_code or student.omr_code or lib_rm or student.employee_id or '').upper().strip()
+            # Prioritize Section from ERP Registry over local profile (Sync sometimes lags)
+            section = (lib_sec or student.exam_section or '—').upper().strip()
             
             # Cleanliness check: ensure we don't return garbage or emails as enrollment
             if not enroll or '@' in enroll:
@@ -327,7 +383,10 @@ class TestViewSet(viewsets.ModelViewSet):
                 'is_finalized': sub.is_finalized if sub else False
             })
             
-        return Response(data)
+        return Response({
+            'allotted_sections': list(test.allotted_sections.values_list('name', flat=True)),
+            'data': data
+        })
 
     @action(detail=True, methods=['post'], url_path='resume_test')
     def resume_test(self, request, pk=None):
@@ -346,10 +405,14 @@ class TestViewSet(viewsets.ModelViewSet):
             sid = student_id
 
         # Use update() directly to avoid save() issues with primary keys in Djongo
-        updated_count = TestSubmission.objects.filter(test=test, student_id=sid).update(allow_resume=True)
+        # We also un-finalize it so it moves from 'Submitted' back to 'In Progress' for the student
+        updated_count = TestSubmission.objects.filter(test=test, student_id=sid).update(
+            allow_resume=True,
+            is_finalized=False
+        )
         
         if updated_count > 0:
-            return Response({'message': 'System unlocked. Student can now resume their exam.'})
+            return Response({'message': 'Session unfinalized and unlocked. Student can now resume their exam.'})
         
         # If no session found, it means the student is in 'Available' state already
         return Response({'message': 'Student is already in Available state (no session to unlock).'})
@@ -383,40 +446,32 @@ class TestViewSet(viewsets.ModelViewSet):
         responses = request.data.get('responses', {})
         time_spent = request.data.get('time_spent', 0)
         
-        from .models import TestSubmission
-        # DJONGO WORKAROUND: Handle filtering/sorting in Python to avoid SQLParse recursion crash
-        sub_list = list(TestSubmission.objects.filter(test=test, student=user))
-        if sub_list:
-            sub_list.sort(key=lambda x: x.submitted_at, reverse=True)
-            sub = sub_list[0]
-            # Bulk delete orphans via timestamp to avoid Djongo ID type mismatch errors
-            if len(sub_list) > 1:
-                TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=sub.submitted_at).delete()
-        else:
-            sub = TestSubmission.objects.create(test=test, student=user)
+        # DJONGO WORKAROUND: Use update() to avoid duplicate key errors during save()
+        updated = TestSubmission.objects.filter(test=test, student=user, is_finalized=False).update(
+            responses=responses,
+            time_spent=time_spent,
+            allow_resume=False
+        )
         
-        # Don't allow saving over a finalized submission
-        if sub.is_finalized:
-            return Response({'error': 'Test already submitted. Contact admin to reset.'}, status=403)
+        if not updated:
+            if TestSubmission.objects.filter(test=test, student=user, is_finalized=True).exists():
+                return Response({'error': 'Test already submitted. Contact admin to reset.'}, status=403)
             
-        sub.responses = responses
-        sub.time_spent = time_spent
-        # Consume the "Resume Permission" as they are now successfully active.
-        # This keeps the session secure by requiring a new unlock if they exit again.
-        sub.allow_resume = False
-        sub.save()
-        return Response({'status': 'progress_saved'})
+            try:
+                TestSubmission.objects.create(
+                    test=test, student=user, 
+                    responses=responses, 
+                    time_spent=time_spent, 
+                    allow_resume=False
+                )
+            except:
+                TestSubmission.objects.filter(test=test, student=user, is_finalized=False).update(
+                    responses=responses,
+                    time_spent=time_spent,
+                    allow_resume=False
+                )
 
-    @action(detail=True, methods=['post'], url_path='reset_test')
-    def reset_test(self, request, pk=None):
-        test = self.get_object()
-        student_id = request.data.get('student_id')
-        if not student_id:
-            return Response({'error': 'Student ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        from .models import TestSubmission
-        TestSubmission.objects.filter(test=test, student_id=student_id).delete()
-        return Response({'message': 'Submission reset successfully. Student can now re-take the test.'})
+        return Response({'status': 'progress_saved'})
 
     @action(detail=True, methods=['get'], url_path='question_paper')
     def question_paper(self, request, pk=None):
@@ -530,17 +585,25 @@ class TestViewSet(viewsets.ModelViewSet):
         if not entered_code:
             return Response({'error': 'Access code is required'}, status=status.HTTP_400_BAD_REQUEST)
             
-        student_centre_code = getattr(user, 'centre_code', None)
-        if not student_centre_code:
+        c_code = getattr(user, 'centre_code', None)
+        c_name = getattr(user, 'centre_name', None)
+        
+        if not c_code and not c_name:
             return Response({'error': 'Student centre information not found. Please contact admin.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        try:
-            # We use direct 모델 lookup to avoid get_queryset filters if necessary, 
-            # though get_queryset for students already filters for their sections.
-            # But the centre allotment is a better source of truth for "active status".
-            allotment = TestCentreAllotment.objects.get(test=test, centre__code=student_centre_code)
-        except TestCentreAllotment.DoesNotExist:
+        from django.db.models import Q
+        # Resolve allotment based on either code or name for robustness
+        allotment = None
+        if c_code:
+            allotment = TestCentreAllotment.objects.filter(test=test, centre__code__iexact=c_code).first()
+        if not allotment and c_name:
+            allotment = TestCentreAllotment.objects.filter(test=test, centre__name__iexact=c_name).first()
+        
+        if not allotment:
             return Response({'error': 'Test is not allotted to your centre.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Sync with latest DB state to avoid stale key issues
+        allotment.refresh_from_db()
             
         if not allotment.is_active:
             return Response({'error': 'Test is currently inactive for your centre.'}, status=status.HTTP_403_FORBIDDEN)
@@ -620,28 +683,30 @@ class TestViewSet(viewsets.ModelViewSet):
             else:
                 total_score -= q_info['negative_marks']
         
-        # Save or Update Submission (Self-heal duplicates via Python-side resolution for Djongo stability)
+        # Save or Update Submission (DJONGO WORKAROUND: Use update() to avoid E11000 duplicate key errors on save())
         from .models import TestSubmission
-        sub_list = list(TestSubmission.objects.filter(test=test, student=user))
-        
         upd_data = {
             'responses': responses,
             'submission_type': submission_type,
             'time_spent': time_spent,
-            'score': round(total_score, 2)
+            'score': round(total_score, 2),
+            'is_finalized': True # Submitting finalizes it
         }
         
-        if sub_list:
-            sub_list.sort(key=lambda x: x.submitted_at, reverse=True)
-            submission = sub_list[0]
-            for key, val in upd_data.items():
-                setattr(submission, key, val)
-            submission.save()
-            # Clean up duplicates via timestamp to bypass Djongo SQL translation bugs
-            if len(sub_list) > 1:
-                TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=submission.submitted_at).delete()
+        updated = TestSubmission.objects.filter(test=test, student=user).update(**upd_data)
+        
+        if not updated:
+            try:
+                submission = TestSubmission.objects.create(test=test, student=user, **upd_data)
+            except:
+                # Race condition
+                TestSubmission.objects.filter(test=test, student=user).update(**upd_data)
+                submission = TestSubmission.objects.get(test=test, student=user)
         else:
-            submission = TestSubmission.objects.create(test=test, student=user, **upd_data)
+            submission = TestSubmission.objects.get(test=test, student=user)
+
+        # Cleanup any stray duplicates via timestamp
+        TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=submission.submitted_at).delete()
         
         return Response({
             'success': True,
@@ -657,6 +722,7 @@ class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def generate_code(self, request, pk=None):
         allotment = self.get_object()
+        allotment.refresh_from_db()
         
         # Archive current code if exists
         if allotment.access_code:
@@ -682,6 +748,7 @@ class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):
         allotment = self.get_object()
+        allotment.refresh_from_db()
         if not allotment.access_code:
             return Response({'error': 'Generate code first'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -719,6 +786,7 @@ Pathfinder Test Management System
                 fail_silently=False,
             )
             allotment.is_code_sent = True
+            allotment.was_sent = True
             allotment.save()
             return Response({'message': f'Access code sent to {email}'})
         except Exception as e:

@@ -73,6 +73,7 @@ const TestResponses = () => {
     const [submissions, setSubmissions] = useState([]);
     const [isCentresLoading, setIsCentresLoading] = useState(false);
     const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
+    const [allottedSections, setAllottedSections] = useState([]);
 
     const handleViewCentres = async (test) => {
         setSelectedTest(test);
@@ -100,7 +101,8 @@ const TestResponses = () => {
             const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/submissions/?centre_code=${centre.centre_details?.code}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setSubmissions(res.data);
+            setSubmissions(res.data.data || []);
+            setAllottedSections(res.data.allotted_sections || []);
         } catch (err) {
             console.error('Error fetching submissions:', err);
         } finally {
@@ -488,8 +490,7 @@ const TestResponses = () => {
                                             <td colSpan="8" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Students Found in this Centre</td>
                                         </tr>
                                     ) : submissions.map((sub, index) => {
-                                        const canResume = sub.status === 'In Progress' && !sub.allow_resume;
-                                        const isSubmitting = sub.is_finalized;
+                                        const canResume = sub.status !== 'Available' && !sub.allow_resume;
                                         
                                         return (
                                             <tr key={sub.student_id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/5'}`}>
@@ -511,16 +512,27 @@ const TestResponses = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-6">
-                                                    <span className="text-[11px] font-mono font-black opacity-60 uppercase tracking-tighter">
-                                                        {sub.section || '---'}
-                                                    </span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${
+                                                            allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase())
+                                                            ? 'text-orange-600'
+                                                            : 'opacity-60'
+                                                        }`}>
+                                                            {sub.section || '---'}
+                                                        </span>
+                                                        {allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase()) && (
+                                                            <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-[2px] w-fit uppercase tracking-tighter animate-pulse">
+                                                                Section Mismatch
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="py-5 px-4 text-center">
                                                     <button 
                                                         onClick={() => handleResumeSession(sub.student_id, sub.student_name)}
-                                                        disabled={!canResume || isSubmitting}
+                                                        disabled={!canResume}
                                                         className={`px-5 py-2.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95
-                                                        ${(!canResume || isSubmitting) 
+                                                        ${(!canResume) 
                                                             ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
                                                             : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'}`}
                                                     >

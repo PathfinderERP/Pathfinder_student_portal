@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -52,7 +52,14 @@ const ExamEngine = () => {
 
     const [isLocked, setIsLocked] = useState(false);
     const [lockReason, setLockReason] = useState('');
-    const [showResumeModal, setShowResumeModal] = useState(false);
+    const [isStabilizing, setIsStabilizing] = useState(true);
+    const isSubmittedRef = useRef(false);
+
+    // Initial stabilization period to prevent false violations during load/transition
+    useEffect(() => {
+        const timer = setTimeout(() => setIsStabilizing(false), 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Prepare responses for backend (Map to {questionId: {answer: ...}})
     // Local: {qId: {status, selectedOption}}
@@ -89,7 +96,7 @@ const ExamEngine = () => {
         const fetchAll = async () => {
             try {
                 // 1. Check Status
-                const statusResp = await axios.get(`${getApiUrl()}/api/tests/${testId}/status/`, {
+                const statusResp = await axios.get(`${getApiUrl()}/api/tests/${testId}/status/?_t=${Date.now()}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const sData = statusResp.data;
@@ -135,7 +142,7 @@ const ExamEngine = () => {
 
                 // 3. EPR Data
                 try {
-                    const erpResponse = await axios.get(`${getApiUrl()}/api/student/erp-data/`, {
+                    const erpResponse = await axios.get(`${getApiUrl()}/api/student/erp-data/?_t=${Date.now()}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     setStudentData(erpResponse.data);
@@ -143,7 +150,7 @@ const ExamEngine = () => {
 
             } catch (err) {
                 console.error('Initialization error:', err);
-                navigate('/student/dashboard');
+                navigate('/student');
             } finally {
                 setIsLoading(false);
                 // Trigger an initial "Handshake" save to consume the allow_resume token
@@ -333,7 +340,6 @@ const ExamEngine = () => {
     }, [paperData, isSubmitting, timeLeft, getBackendResponses, getApiUrl, testId, token, responses, exitFullscreen]);
 
     // Use a ref to track submission status for event listeners
-    const isSubmittedRef = useRef(false);
     useEffect(() => {
         isSubmittedRef.current = isSubmitted;
     }, [isSubmitted]);
@@ -345,7 +351,7 @@ const ExamEngine = () => {
             if (navigator.keyboard && navigator.keyboard.unlock) {
                 navigator.keyboard.unlock();
             }
-            if (!isSubmittedRef.current) {
+            if (!isSubmittedRef.current && !isStabilizing) {
                 setShowViolation(true);
                 setViolationMessage("Security Alert: Exiting Full Screen is prohibited. Your activity has been logged. Please return to Full Screen immediately to resume.");
             }
@@ -359,14 +365,14 @@ const ExamEngine = () => {
     }, []);
 
     const handleVisibilityChange = useCallback(() => {
-        if (document.hidden && !isSubmittedRef.current) {
+        if (document.hidden && !isSubmittedRef.current && !isStabilizing) {
             setShowViolation(true);
             setViolationMessage("Security Alert: Tab switching is strictly prohibited. Your activity has been logged. Further attempts will result in immediate disqualification.");
         }
     }, []);
 
     const handleBlur = useCallback(() => {
-        if (!document.hasFocus() && !isSubmittedRef.current) {
+        if (!document.hasFocus() && !isSubmittedRef.current && !isStabilizing) {
             setShowViolation(true);
             setViolationMessage("Security Alert: System focus lost. Alt+Tab, Window switching or Tab switching is strictly prohibited. Your activity has been logged.");
         }
@@ -480,7 +486,7 @@ const ExamEngine = () => {
                     </div>
                     
                     <button 
-                        onClick={() => navigate('/student/dashboard')}
+                        onClick={() => navigate('/student')}
                         className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
                     >
                         Return to Dashboard
@@ -549,7 +555,7 @@ const ExamEngine = () => {
                                 <button 
                                     onClick={() => {
                                         exitFullscreen();
-                                        navigate('/student/dashboard');
+                                        navigate('/student');
                                     }}
                                     className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
                                 >
@@ -633,7 +639,7 @@ const ExamEngine = () => {
                             <button 
                                 onClick={() => {
                                     exitFullscreen();
-                                    navigate('/student/dashboard');
+                                    navigate('/student');
                                 }}
                                 className={`group relative px-10 py-4 ${
                                     submissionType === 'VIOLATION' ? 'bg-red-600' : 
@@ -1016,7 +1022,7 @@ const ExamEngine = () => {
                             <button 
                                 onClick={() => {
                                     exitFullscreen();
-                                    navigate('/student/dashboard');
+                                    navigate('/student');
                                 }}
                                 className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
                             >

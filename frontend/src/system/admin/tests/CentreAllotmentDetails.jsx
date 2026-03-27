@@ -81,6 +81,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             await axios.post(`${apiUrl}/api/tests/allotments/${id}/send_email/`, {}, getAuthConfig());
+            setAllotments(allotments.map(a => a.id === id ? { ...a, is_code_sent: true, was_sent: true } : a));
             triggerAlert('Access code sent via email successfully!', 'success');
         } catch (err) {
             triggerAlert(err.response?.data?.error || 'Failed to send email', 'error');
@@ -115,7 +116,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/`, editForm, getAuthConfig());
+            await axios.patch(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/`, { ...editForm, is_code_sent: false }, getAuthConfig());
             await axios.post(`${apiUrl}/api/tests/allotments/${selectedAllotment.id}/generate_code/`, {}, getAuthConfig());
             fetchAllotments();
             setIsEditModalOpen(false);
@@ -133,7 +134,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             const updates = selectedAllotmentIds.map(id => 
-                axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, bulkEditForm, getAuthConfig())
+                axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, { ...bulkEditForm, is_code_sent: false }, getAuthConfig())
             );
             await Promise.all(updates);
             fetchAllotments();
@@ -433,11 +434,11 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     <td className="py-5 px-6 text-center">
                                         <div className="flex flex-col items-center gap-1">
                                             <button
-                                                disabled={!allotment.access_code || !allotment.is_active || !allotment.start_time || !allotment.end_time}
+                                                disabled={isActionLoading || allotment.is_code_sent || !allotment.access_code || !allotment.is_active || !allotment.start_time || !allotment.end_time}
                                                 onClick={() => handleSendEmail(allotment.id)}
-                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(allotment.access_code && allotment.is_active && allotment.start_time && allotment.end_time) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 mx-auto ${(!isActionLoading && !allotment.is_code_sent && allotment.access_code && allotment.is_active && allotment.start_time && allotment.end_time) ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                                             >
-                                                <Send size={12} /> {allotment.is_code_sent ? 'Resend' : 'Send'}
+                                                {isActionLoading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {allotment.was_sent ? 'Resend' : 'Send'}
                                             </button>
                                             {allotment.is_code_sent && (
                                                 <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter flex items-center gap-1 animate-in fade-in slide-in-from-bottom-1 duration-500">

@@ -104,7 +104,9 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
             (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
             (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
         ).filter(test => {
-            const isStudentCompleted = test.submission?.is_finalized;
+            // A test is only "completed" if it's finalized AND not explicitly unlocked by an admin
+            const isStudentCompleted = test.submission?.is_finalized && !test.submission?.allow_resume;
+            
             if (activeTab === 'ongoing') {
                 return !isStudentCompleted; 
             } else {
@@ -210,16 +212,31 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                 </tr>
                             ) : (
                                 filteredTests.map((test, index) => {
-                                    const studentCompleted = test.submission?.is_finalized;
+                                    const isUnlocked = test.submission?.allow_resume;
+                                    const studentCompleted = test.submission?.is_finalized && !test.submission?.allow_resume;
                                     const hasStarted = test.submission?.time_spent > 0;
                                     
                                     return (
                                         <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
                                             <td className="py-5 px-6 text-center text-xs font-bold opacity-40">{index + 1}</td>
                                             <td className="py-5 px-6">
-                                                <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                    {test.name}
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                            {test.name}
+                                                        </span>
+                                                        {isUnlocked && (
+                                                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] bg-orange-500/10 text-orange-500 text-[8px] font-black uppercase tracking-widest animate-pulse border border-orange-500/20">
+                                                                <RefreshCw size={8} /> Unlocked
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {!studentCompleted && hasStarted && (
+                                                        <span className="text-[9px] font-bold text-blue-500 opacity-80 uppercase tracking-tighter">
+                                                            Progress saved: {test.submission?.time_spent}m elapsed
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="py-5 px-6">
                                                 <span className="text-[11px] font-bold font-mono opacity-50 uppercase">{test.code}</span>
@@ -241,11 +258,14 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                                 <button 
                                                     disabled={studentCompleted}
                                                     onClick={() => handleStartClick(test)}
-                                                    className={`px-4 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${studentCompleted
-                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 active:scale-95'}`}
+                                                    className={`px-4 py-2 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg
+                                                    ${studentCompleted
+                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                                                        : isUnlocked || hasStarted
+                                                            ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/30'
+                                                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/30'}`}
                                                 >
-                                                    {studentCompleted ? 'Completed' : (hasStarted ? 'Resume' : 'Start Test')}
+                                                    {studentCompleted ? 'Completed' : (isUnlocked || hasStarted ? 'Resume Profile' : 'Start Test')}
                                                 </button>
                                             </td>
                                         </tr>

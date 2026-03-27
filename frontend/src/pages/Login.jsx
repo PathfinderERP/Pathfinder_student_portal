@@ -7,11 +7,25 @@ const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const { login } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [isSwapped, setIsSwapped] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+
+    React.useEffect(() => {
+        if (isAuthenticated && user) {
+            if (['superadmin', 'admin', 'staff'].includes(user.user_type)) {
+                navigate('/system');
+            } else if (user.user_type === 'student') {
+                navigate('/student');
+            } else if (user.user_type === 'parent') {
+                navigate('/parent');
+            } else if (user.user_type === 'teacher') {
+                navigate('/teacher');
+            }
+        }
+    }, [isAuthenticated, user, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
