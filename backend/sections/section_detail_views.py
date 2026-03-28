@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Section
@@ -111,7 +111,7 @@ def section_stats(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def list_master_sections(request):
     """
     GET /api/sections/master/
@@ -125,7 +125,8 @@ def list_master_sections(request):
         
         # 0. Check Cache First
         # Key depends on user ID since students see different filtered sections
-        cache_key = f"master_sections_v2_{user.pk}"
+        user_id = user.pk if user.is_authenticated else "public"
+        cache_key = f"master_sections_v2_{user_id}"
         cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data, status=status.HTTP_200_OK)
@@ -138,7 +139,7 @@ def list_master_sections(request):
         
         # Student specific filtering
         allowed_names = []
-        is_student = hasattr(user, 'user_type') and user.user_type == 'student'
+        is_student = user.is_authenticated and hasattr(user, 'user_type') and user.user_type == 'student'
         if is_student:
             if getattr(user, 'exam_section', None): allowed_names.append(user.exam_section)
             if getattr(user, 'study_section', None): allowed_names.append(user.study_section)
