@@ -58,11 +58,30 @@ class TestViewSet(viewsets.ModelViewSet):
                         'allow_resume': False
                     }, {'test_id': 1}))
                     submission_test_ids = {str(doc['test_id']) for doc in sub_docs if doc.get('test_id') is not None}
+
+                    # C. Fetch tests allotted to this student's Centre
+                    centre_test_ids = set()
+                    c_code = getattr(user, 'centre_code', None)
+                    c_name = getattr(user, 'centre_name', None)
+                    if c_code or c_name:
+                        # Case-insensitive centre lookup
+                        import re
+                        query = []
+                        if c_code: query.append({'code': re.compile(f'^{re.escape(str(c_code))}$', re.IGNORECASE)})
+                        if c_name: query.append({'name': re.compile(f'^{re.escape(str(c_name))}$', re.IGNORECASE)})
+                        
+                        centre_docs = list(db['centres_centre'].find({'$or': query}, {'_id': 1}))
+                        m_centre_ids = [doc['_id'] for doc in centre_docs]
+                        
+                        if m_centre_ids:
+                            # Collection for Test.centres: 'tests_test_centres'
+                            m2m_c_docs = list(db['tests_test_centres'].find({'centre_id': {'$in': m_centre_ids}}, {'test_id': 1}))
+                            centre_test_ids = {str(doc['test_id']) for doc in m2m_c_docs if doc.get('test_id') is not None}
                 except Exception as e:
                     print(f"[DEBUG] PyMongo direct fetch failed in TestViewSet: {e}")
             
-            # Combine all permissible unique IDs directly in Python memory!
-            unique_ids_raw = section_test_ids.union(submission_test_ids)
+            # Combine all permissible unique IDs (Sections + Submissions + Centres)
+            unique_ids_raw = section_test_ids.union(submission_test_ids).union(centre_test_ids)
             unique_ids = []
             for uid in unique_ids_raw:
                 try:
@@ -213,14 +232,10 @@ class TestViewSet(viewsets.ModelViewSet):
                     active_roster_count += 1
                     continue
                 
-                # 2. Otherwise, check if they match the test's section allotments
-                from api.db_utils import parse_section
-                s_exams = [s.lower() for s in parse_section(student.exam_section)]
-                s_studies = [s.lower() for s in parse_section(student.study_section)]
-                s_all = set(s_exams + s_studies)
-                
-                # Fallback: if test has no sections (orphan), show all active, otherwise restrict
-                in_section = not allowed_sections_list or any(s in allowed_sections_list for s in s_all)
+                # 2. Consistency Check: Matches the logic in the student dashboard (get_queryset)
+                # If the test is allotted to this centre, then all students in the centre_pool should be counted
+                # as potential candidates who can see and give the exam.
+                in_section = True
                 
                 if in_section and (student.admission_number or student.exam_section):
                     active_roster_count += 1
@@ -340,21 +355,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # Identify allowed section names for this test (robust case-insensitive)
         allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
         
-        # 3. Refined Selection: ONLY keep students who are relevant to this SPECIFIC test
-        all_students = []
-        for student in rooster_students:
-            # Check if student is in any of the test's allotted sections
-            # If test has no sections, it's open to the entire centre; otherwise, restrict
-            from api.db_utils import parse_section
-            s_exams = [s.lower() for s in parse_section(student.exam_section)]
-            s_studies = [s.lower() for s in parse_section(student.study_section)]
-            s_all = set(s_exams + s_studies)
-            
-            in_section = not allowed_sections_list or any(s in allowed_sections_list for s in s_all)
-            
-            if in_section:
-                all_students.append(student)
-
+        all_students = rooster_students
         # 4. Get ERP index for enrichment
         erp_index = get_student_lookup_index()
 
@@ -379,9 +380,16 @@ class TestViewSet(viewsets.ModelViewSet):
             lib_rm = erp_data.get('sectionAllotment', {}).get('rm') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else None
             
             # Prioritize Admissions Number over RM/OMR codes (ERP data is freshest)
-            enroll = (lib_adm or student.admission_number or student.rm_code or student.omr_code or lib_rm or student.employee_id or '').upper().strip()
+            # Prioritize Admissions Number over RM/OMR codes (ERP data is freshest)
+            enr_raw = lib_adm or student.admission_number or student.rm_code or student.omr_code or lib_rm or student.employee_id or ''
+            if isinstance(enr_raw, list):
+                enr_raw = "".join(map(str, enr_raw))
+            enroll = str(enr_raw).upper().strip()
             # Prioritize Section from ERP Registry over local profile (Sync sometimes lags)
-            section = (lib_sec or student.exam_section or '—').upper().strip()
+            sec_raw = lib_sec or student.exam_section or '—'
+            if isinstance(sec_raw, list):
+                sec_raw = ", ".join(map(str, sec_raw))
+            section = str(sec_raw).upper().strip()
             
             # Cleanliness check: ensure we don't return garbage or emails as enrollment
             if not enroll or '@' in enroll:
