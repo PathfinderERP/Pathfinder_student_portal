@@ -16,10 +16,11 @@ class PackageViewSet(viewsets.ModelViewSet):
         
         if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
             queryset = queryset.filter(is_published=True)
-            exam_section = getattr(user, 'exam_section', None)
-            if exam_section:
+            from api.db_utils import parse_section
+            exam_sections = parse_section(getattr(user, 'exam_section', None))
+            if exam_sections:
                 queryset = queryset.filter(
-                    Q(allotted_sections__name=exam_section) | Q(allotted_sections__isnull=True)
+                    Q(allotted_sections__name__in=exam_sections) | Q(allotted_sections__isnull=True)
                 )
         return queryset
 

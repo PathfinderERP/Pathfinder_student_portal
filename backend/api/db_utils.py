@@ -1,7 +1,21 @@
 import os
+import ast
 from pymongo import MongoClient
 from django.conf import settings
 from datetime import datetime
+
+def parse_section(sec_string):
+    if not sec_string:
+        return []
+    sec_string = str(sec_string).strip()
+    try:
+        if sec_string.startswith('['):
+            parsed = ast.literal_eval(sec_string)
+            if isinstance(parsed, list):
+                return [str(p).strip() for p in parsed if p]
+    except Exception:
+        pass
+    return [sec_string]
 
 _mongo_client = None
 _mongo_db = None

@@ -376,18 +376,18 @@ class NoticeViewSet(viewsets.ModelViewSet):
             # Public/General notices (no user assigned)
             public_notices_query = Notice.objects.filter(user__isnull=True)
             
-            # Apply section filtering for students
             if request.user.user_type == 'student':
-                exam_section = getattr(request.user, 'exam_section', None)
+                from api.db_utils import parse_section
+                exam_sections = parse_section(getattr(request.user, 'exam_section', None))
                 from django.db.models import Q
                 
                 # Filter for: (is_general=True) OR (no specific section) OR (matching student section)
                 section_filter = Q(is_general=True) | Q(targeted_section__isnull=True) | Q(targeted_section="")
-                if exam_section:
-                    section_filter |= Q(targeted_section=exam_section)
+                if exam_sections:
+                    section_filter |= Q(targeted_section__in=exam_sections)
                 
                 public_notices = list(public_notices_query.filter(section_filter))
-                print(f"[DEBUG] Found {len(public_notices)} targeted/general notices for section: {exam_section}")
+                print(f"[DEBUG] Found {len(public_notices)} targeted/general notices for section: {exam_sections}")
             else:
                 public_notices = list(public_notices_query)
 

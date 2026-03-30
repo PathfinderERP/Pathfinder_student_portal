@@ -141,8 +141,14 @@ def list_master_sections(request):
         allowed_names = []
         is_student = user.is_authenticated and hasattr(user, 'user_type') and user.user_type == 'student'
         if is_student:
-            if getattr(user, 'exam_section', None): allowed_names.append(user.exam_section)
-            if getattr(user, 'study_section', None): allowed_names.append(user.study_section)
+            from api.db_utils import parse_section
+            exam_sections = parse_section(getattr(user, 'exam_section', None))
+            study_sections = parse_section(getattr(user, 'study_section', None))
+            allowed_names.extend(exam_sections)
+            allowed_names.extend(study_sections)
+            # Remove empty/duplicates
+            allowed_names = list(set([n for n in allowed_names if n]))
+            
             if allowed_names:
                 sections_query = sections_query.filter(name__in=allowed_names)
             else:
@@ -195,8 +201,9 @@ def list_master_sections(request):
 
         # 4. Final Result Construction
         result = []
-        exam_sec = getattr(user, 'exam_section', None)
-        study_sec = getattr(user, 'study_section', None)
+        from api.db_utils import parse_section
+        exam_secs = parse_section(getattr(user, 'exam_section', None))
+        study_secs = parse_section(getattr(user, 'study_section', None))
         omr_sec = getattr(user, 'omr_code', None)
 
         for section in sections:
@@ -211,7 +218,7 @@ def list_master_sections(request):
             
             # Process Tests
             # For Admins, we should always allow seeing tests even if they don't have centre allotments
-            if not is_student or section.name == exam_sec or section.name == omr_sec:
+            if not is_student or section.name in exam_secs or section.name == omr_sec:
                 for test in s_tests:
                     t_type_name = (test.exam_type.name or "").lower() if test.exam_type else ""
                     is_omr = "omr" in t_type_name or "offline" in t_type_name
@@ -253,7 +260,7 @@ def list_master_sections(request):
 
             # Study Materials
             study_material_list = []
-            if not is_student or section.name == study_sec:
+            if not is_student or section.name in study_secs:
                 # Lib
                 for item in lib_by_section[s_id]:
                     study_material_list.append({'id': str(item.id), 'name': item.name, 'type': 'Library Item', 'centres': []})

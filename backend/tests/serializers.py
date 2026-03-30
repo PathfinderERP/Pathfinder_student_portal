@@ -94,33 +94,52 @@ class TestSerializer(serializers.ModelSerializer):
     total_students = serializers.SerializerMethodField()
 
     def get_total_students(self, obj):
+        request = self.context.get('request')
+        is_staff = request and (request.user.is_staff or getattr(request.user, 'user_type', '') != 'student')
+        
+        # Performance optimization: students don't need to know the total student count.
+        # This bypasses a complex cross-collection join that causes recursion in Djongo.
+        if not is_staff:
+            return 0
+
         from .models import TestSubmission
         from django.db.models import Q
         try:
-            # We already have a unique_together constraint on (test, student),
-            # so each TestSubmission corresponds to a unique student.
-            # Using .count() is much faster than fetching all IDs and converting to a set.
             return TestSubmission.objects.filter(test=obj).filter(
                 Q(student__admission_number__isnull=False) & ~Q(student__admission_number='') |
                 Q(student__exam_section__isnull=False) & ~Q(student__exam_section='')
             ).count()
         except Exception as e:
-            print(f"ERROR: Serializer Count Failed - {str(e)}")
             return 0
 
     def get_submission(self, obj):
         request = self.context.get('request')
         if not request or not request.user or request.user.is_anonymous:
             return None
-        from .models import TestSubmission
-        sub = TestSubmission.objects.filter(test=obj, student=request.user).first()
-        if not sub:
+            
+        # Optimization: Use PyMongo directly to bypass Djongo's SQL parser RecursionError (500)
+        from api.db_utils import get_db
+        db = get_db()
+        if db is None:
             return None
-        return {
-            'is_finalized': sub.is_finalized,
-            'allow_resume': sub.allow_resume,
-            'time_spent': sub.time_spent
-        }
+            
+        try:
+            # Match directly on the integer test_id and the student ObjectId
+            sub = db['tests_testsubmission'].find_one({
+                'test_id': obj.pk,
+                'student_id': request.user.pk
+            }, {'is_finalized': 1, 'allow_resume': 1, 'time_spent': 1})
+            
+            if not sub:
+                return None
+                
+            return {
+                'is_finalized': sub.get('is_finalized', False),
+                'allow_resume': sub.get('allow_resume', False),
+                'time_spent': sub.get('time_spent', 0)
+            }
+        except Exception:
+            return None
 
     def _get_user_allotment(self, obj):
         request = self.context.get('request')
@@ -136,11 +155,16 @@ class TestSerializer(serializers.ModelSerializer):
         if not c_code and not c_name:
             return None
             
-        from django.db.models import Q
-        # Robust lookup: return the schedule allotment matching this user's centre (code or name)
-        return obj.centre_allotments.filter(
-            Q(centre__code__iexact=c_code) | Q(centre__name__iexact=c_name)
-        ).first()
+        # Optimization: Iterate in memory over the prefetched centre_allotments
+        # to avoid triggering extra DB joins that enter the Djongo SQL-to-Mongo parser bug.
+        allotments = obj.centre_allotments.all()
+        for allotment in allotments:
+            # centre is also prefetched (check views.py)
+            c = allotment.centre
+            if (c_code and c.code.strip().lower() == c_code.strip().lower()) or \
+               (c_name and c.name.strip().lower() == c_name.strip().lower()):
+                return allotment
+        return None
 
     def get_start_time(self, obj):
         allotment = self._get_user_allotment(obj)

@@ -15,17 +15,18 @@ class StudentSectionFilterMixin:
         if user.is_staff or user.is_superuser or getattr(user, 'user_type', None) != 'student':
             return queryset
             
-        exam_section = getattr(user, 'exam_section', None)
-        study_section = getattr(user, 'study_section', None)
+        from api.db_utils import parse_section
+        exam_sections = parse_section(getattr(user, 'exam_section', None))
+        study_sections = parse_section(getattr(user, 'study_section', None))
         
         # Filter by section name matching student's exam_section OR study_section OR null (general)
         filter_q = Q(**{f"{section_field}__isnull": True})
         
-        if exam_section:
-            filter_q |= Q(**{f"{section_field}__name": exam_section})
+        if exam_sections:
+            filter_q |= Q(**{f"{section_field}__name__in": exam_sections})
             
-        if study_section:
-            filter_q |= Q(**{f"{section_field}__name": study_section})
+        if study_sections:
+            filter_q |= Q(**{f"{section_field}__name__in": study_sections})
 
         # Check if the model has 'is_general' field
         if hasattr(queryset.model, 'is_general'):

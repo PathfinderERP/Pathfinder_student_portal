@@ -26,42 +26,57 @@ class TestViewSet(viewsets.ModelViewSet):
         # If user is a student, enforce smart visibility rules
         # Main motiv: All students shouldn't see all exams, only privileged ones.
         if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
-            exam_section = getattr(user, 'exam_section', '')
-            study_section = getattr(user, 'study_section', '')
-            allowed_names = [n.strip() for n in [exam_section, study_section] if n and str(n).strip()]
+            # 1. Fetch section and submission IDs through PyMongo to avoid any SQL joining crash
+            from api.db_utils import parse_section, get_db
+            db = get_db()
             
-            from .models import TestSubmission
-            # 1. Tests explicitly allotted to their section
-            section_tests = Q()
-            if allowed_names:
-                for section_name in allowed_names:
-                    section_tests |= Q(allotted_sections__name__iexact=section_name)
+            exam_sections = parse_section(getattr(user, 'exam_section', ''))
+            study_sections = parse_section(getattr(user, 'study_section', ''))
+            allowed_names = list(set([n.strip() for n in exam_sections + study_sections if n and str(n).strip()]))
             
-            # 2. Tests they have already interacted with (Submitted AND Finalized)
-            # This ensures they can see past exam results in 'Previous Tests' even if their section changed.
-            # We explicitly EXCLUDE unfinished/unlocked submissions for unassigned tests to prevent rogue tests from showing up in 'Ongoing'.
-            # IMPORTANT: We MUST use a simple list comprehension instead of .values_list() here.
-            # Djongo has a known bug where .values_list() combined with model default ordering triggers a RecursionError.
-            subs = TestSubmission.objects.filter(
-                student=user, 
-                is_finalized=True,
-                allow_resume=False
-            )
-            submission_test_ids = [sub.test_id for sub in subs]
-            interacted_tests = Q(id__in=submission_test_ids)
+            section_test_ids = set()
+            submission_test_ids = set()
             
-            queryset = queryset.filter(section_tests | interacted_tests)
-            # DEDUP REQUIRED: Djongo M2M joins create duplicate rows for each match.
-            # We must manually dedup by IDs to ensure each test appears exactly once on student portal.
-            unique_ids = set(queryset.values_list('id', flat=True))
-            # Re-fetch the clean queryset (using the already prefetched one as a base if possible, 
-            # but re-filtering is safer for data consistency in Djongo)
+            if db is not None:
+                try:
+                    # A. Fetch tests allotted to these section names by matching Section IDs
+                    # We match section names first to avoid a cross-collection join in Djongo
+                    section_docs = list(db['sections_section'].find({'name': {'$in': allowed_names}}, {'_id': 1}))
+                    m_section_ids = [doc['_id'] for doc in section_docs]
+                    
+                    if m_section_ids:
+                        # Find all tests linked to these Sections in the M2M through collection: 'tests_test_allotted_sections'
+                        m2m_docs = list(db['tests_test_allotted_sections'].find({'section_id': {'$in': m_section_ids}}, {'test_id': 1}))
+                        # We convert to string for consistent ID-based __in set logic later
+                        section_test_ids = {str(doc['test_id']) for doc in m2m_docs if doc.get('test_id') is not None}
+                    
+                    # B. Fetch all tests this student has already interacted with (Submitted AND Finalized)
+                    # This ensures past results stay visible even if their section changes.
+                    sub_docs = list(db['tests_testsubmission'].find({
+                        'student_id': user.pk,
+                        'is_finalized': True,
+                        'allow_resume': False
+                    }, {'test_id': 1}))
+                    submission_test_ids = {str(doc['test_id']) for doc in sub_docs if doc.get('test_id') is not None}
+                except Exception as e:
+                    print(f"[DEBUG] PyMongo direct fetch failed in TestViewSet: {e}")
+            
+            # Combine all permissible unique IDs directly in Python memory!
+            unique_ids_raw = section_test_ids.union(submission_test_ids)
+            unique_ids = []
+            for uid in unique_ids_raw:
+                try:
+                    unique_ids.append(int(uid))
+                except (ValueError, TypeError):
+                    unique_ids.append(uid)
+            
+            # Final re-fetch is simple and efficient as it uses a flat ID list which Djongo handles flawlessly
             queryset = Test.objects.filter(id__in=unique_ids).prefetch_related(
                 'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
-                'allotted_sections', 'centres', 'sections', 'centre_allotments'
+                'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
 
-            if not allowed_names and not submission_test_ids:
+            if not unique_ids:
                 queryset = queryset.none()
         
         package_id = self.request.query_params.get('package', None)
@@ -199,11 +214,13 @@ class TestViewSet(viewsets.ModelViewSet):
                     continue
                 
                 # 2. Otherwise, check if they match the test's section allotments
-                s_exam = (student.exam_section or "").strip().lower()
-                s_study = (student.study_section or "").strip().lower()
+                from api.db_utils import parse_section
+                s_exams = [s.lower() for s in parse_section(student.exam_section)]
+                s_studies = [s.lower() for s in parse_section(student.study_section)]
+                s_all = set(s_exams + s_studies)
                 
                 # Fallback: if test has no sections (orphan), show all active, otherwise restrict
-                in_section = not allowed_sections_list or (s_exam in allowed_sections_list or s_study in allowed_sections_list)
+                in_section = not allowed_sections_list or any(s in allowed_sections_list for s in s_all)
                 
                 if in_section and (student.admission_number or student.exam_section):
                     active_roster_count += 1
@@ -242,11 +259,13 @@ class TestViewSet(viewsets.ModelViewSet):
         if user.user_type == 'student':
             allowed_sections = [s.name.strip().lower() for s in test.allotted_sections.all()]
             if allowed_sections:
-                s_exam = (user.exam_section or "").strip().lower()
-                s_study = (user.study_section or "").strip().lower()
+                from api.db_utils import parse_section
+                s_exams = [s.lower() for s in parse_section(user.exam_section)]
+                s_studies = [s.lower() for s in parse_section(user.study_section)]
+                s_all = set(s_exams + s_studies)
                 
                 # Check if student is in any allowed section
-                is_allotted = s_exam in allowed_sections or s_study in allowed_sections
+                is_allotted = any(s in allowed_sections for s in s_all)
                 
                 # If they don't match, block entry UNLESS they already have an existing submission 
                 # (to avoid locking out students who might have had their section's name changed)
@@ -326,10 +345,12 @@ class TestViewSet(viewsets.ModelViewSet):
         for student in rooster_students:
             # Check if student is in any of the test's allotted sections
             # If test has no sections, it's open to the entire centre; otherwise, restrict
-            s_exam = (student.exam_section or "").strip().lower()
-            s_study = (student.study_section or "").strip().lower()
+            from api.db_utils import parse_section
+            s_exams = [s.lower() for s in parse_section(student.exam_section)]
+            s_studies = [s.lower() for s in parse_section(student.study_section)]
+            s_all = set(s_exams + s_studies)
             
-            in_section = not allowed_sections_list or (s_exam in allowed_sections_list or s_study in allowed_sections_list)
+            in_section = not allowed_sections_list or any(s in allowed_sections_list for s in s_all)
             
             if in_section:
                 all_students.append(student)
