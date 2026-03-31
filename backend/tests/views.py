@@ -547,10 +547,27 @@ class TestViewSet(viewsets.ModelViewSet):
             sid = student_id
 
         # Direct deletion of student's submission for this test
-        subs = TestSubmission.objects.filter(test=test, student_id=sid)
-        if subs.exists():
-            subs.delete()
-            return Response({'success': True, 'message': 'Exam reset successfully. Student can now restart.'})
+        # DJONGO WORKAROUND: Use PyMongo directly to avoid RecursionError (500)
+        from api.db_utils import get_db
+        db = get_db()
+        if db is None:
+            # Fallback to standard if DB utils fail
+            subs = TestSubmission.objects.filter(test=test, student_id=sid)
+            if subs.exists():
+                subs.delete()
+                return Response({'success': True, 'message': 'Exam reset successfully. Student can now restart.'})
+        else:
+            try:
+                # Direct deletion on the collection
+                res = db['tests_testsubmission'].delete_one({
+                    'test_id': test.pk,
+                    'student_id': sid
+                })
+                if res.deleted_count > 0:
+                    return Response({'success': True, 'message': 'Exam reset successfully. Student can now restart.'})
+            except Exception as e:
+                return Response({'error': f'Database error during reset: {str(e)}'}, status=500)
+        
         return Response({'success': True, 'message': 'No session found to reset.'})
 
     @action(detail=True, methods=['post'], url_path='save_progress')
@@ -560,7 +577,37 @@ class TestViewSet(viewsets.ModelViewSet):
         responses = request.data.get('responses', {})
         time_spent = request.data.get('time_spent', 0)
         
-        # DJONGO WORKAROUND: Use update() to avoid duplicate key errors during save()
+        # DJONGO WORKAROUND: Use PyMongo directly to avoid duplicate key errors AND RecursionError (500)
+        from api.db_utils import get_db
+        db = get_db()
+        
+        if db is not None:
+            try:
+                # 1. Check for finalized submission directly
+                existing = db['tests_testsubmission'].find_one({
+                    'test_id': test.pk,
+                    'student_id': user.pk,
+                    'is_finalized': True
+                })
+                if existing:
+                    return Response({'error': 'Test already submitted. Contact admin to reset.'}, status=403)
+
+                # 2. Upsert the progress (update if exists, create if not)
+                db['tests_testsubmission'].update_one(
+                    {'test_id': test.pk, 'student_id': user.pk, 'is_finalized': False},
+                    {'$set': {
+                        'responses': responses,
+                        'time_spent': time_spent,
+                        'submission_type': 'MANUAL' # progress is always manual
+                    }},
+                    upsert=True
+                )
+                return Response({'status': 'progress_saved'})
+            except Exception as e:
+                # Fallback to original logic if PyMongo fails for any reason
+                print(f"PyMongo Upsert failed: {e}")
+        
+        # Original Fallback Logic (if PyMongo is unavailable)
         updated = TestSubmission.objects.filter(test=test, student=user, is_finalized=False).update(
             responses=responses,
             time_spent=time_spent
