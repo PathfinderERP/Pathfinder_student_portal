@@ -220,25 +220,61 @@ class TestViewSet(viewsets.ModelViewSet):
             allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
             
             # Filtered Rooster Count (Matches the logic in 'submissions' view)
-            # Only count students who belong to this centre AND match an allotted section of this test
+            allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
+            
+            # A. Count local students who match centre and (section OR has submission)
             centre_query = Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
             centre_pool = CustomUser.objects.filter(user_type='student').filter(centre_query)
             
-            # Filter pool to strictly relevant students
+            from api.db_utils import parse_section
             active_roster_count = 0
+            seen_local_identifiers = set()
+
             for student in centre_pool:
-                # 1. Always count if they have an active submission
+                # Store identifiers for deduplication in step B
+                if student.username: seen_local_identifiers.add(student.username.upper().strip())
+                if student.admission_number: seen_local_identifiers.add(student.admission_number.upper().strip())
+                if student.email: seen_local_identifiers.add(student.email.lower().strip())
+
+                # Always count if they have an active submission
                 if str(student.pk) in all_submitted_student_ids:
                     active_roster_count += 1
                     continue
                 
-                # 2. Consistency Check: Matches the logic in the student dashboard (get_queryset)
-                # If the test is allotted to this centre, then all students in the centre_pool should be counted
-                # as potential candidates who can see and give the exam.
-                in_section = True
+                # Filter by section if restricted
+                if allowed_sections_list:
+                    s_exams = [s.lower() for s in parse_section(student.exam_section)]
+                    s_studies = [s.lower() for s in parse_section(student.study_section)]
+                    if not any(sec in allowed_sections_list for sec in (s_exams + s_studies)):
+                        continue
                 
-                if in_section and (student.admission_number or student.exam_section):
-                    active_roster_count += 1
+                active_roster_count += 1
+
+            # B. Include students from ERP bulk data who match centre and section but haven't logged in
+            from django.core.cache import cache
+            erp_pool = cache.get('erp_all_students_v1') or []
+            for erp_student in erp_pool:
+                # Centre Match
+                e_centre = str(erp_student.get('centre') or '').upper().strip()
+                if not e_centre or (c_name.upper() not in e_centre and e_centre not in c_name.upper()):
+                    continue
+                
+                # Section Match
+                if allowed_sections_list:
+                    sec_allot = erp_student.get('sectionAllotment', {})
+                    e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
+                    e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
+                    if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
+                        continue
+                
+                # Deduplicate against local students
+                e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
+                e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
+                if (e_adm and e_adm in seen_local_identifiers) or (e_email and e_email in seen_local_identifiers):
+                    continue
+                
+                active_roster_count += 1
+
             
             allot_data = TestCentreAllotmentSerializer(allotment).data
             allot_data['submission_count'] = submission_count # This reflects attempted tests
@@ -355,8 +391,70 @@ class TestViewSet(viewsets.ModelViewSet):
         # Identify allowed section names for this test (robust case-insensitive)
         allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
         
-        all_students = rooster_students
-        # 4. Get ERP index for enrichment
+        # 3. Filter Local Students by Section allotted (Always include those who have a submission)
+        from api.db_utils import parse_section
+        all_students = []
+        seen_identifiers = set()
+
+        for student in rooster_students:
+            uid_str = str(student.pk)
+            # Always include if there is an active submission
+            has_submission = uid_str in sub_map
+            
+            # Identifier tracking for ERP merge
+            if student.username: seen_identifiers.add(student.username.upper().strip())
+            if student.admission_number: seen_identifiers.add(student.admission_number.upper().strip())
+            if student.email: seen_identifiers.add(student.email.lower().strip())
+
+            if not has_submission and allowed_sections_list:
+                # Restricted: Check if student section matches
+                s_exams = [s.lower() for s in parse_section(student.exam_section)]
+                s_studies = [s.lower() for s in parse_section(student.study_section)]
+                if not any(sec in allowed_sections_list for sec in (s_exams + s_studies)):
+                    continue
+            
+            all_students.append(student)
+
+        # 4. Merge students from ERP bulk data who match Centre and Section but haven't logged in yet
+        from django.core.cache import cache
+        erp_pool = cache.get('erp_all_students_v1') or []
+        for erp_student in erp_pool:
+            e_centre = str(erp_student.get('centre') or '').upper().strip()
+            if not e_centre or not cent_name or (cent_name.upper() not in e_centre and e_centre not in cent_name.upper()):
+                continue
+            
+            # Section check
+            if allowed_sections_list:
+                sec_allot = erp_student.get('sectionAllotment', {})
+                e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
+                e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
+                if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
+                    continue
+            
+            # Deduplicate
+            e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
+            e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
+            if (e_adm and e_adm in seen_identifiers) or (e_email and e_email in seen_identifiers):
+                continue
+            
+            # Create Mock Profile for listing
+            from types import SimpleNamespace
+            details = erp_student.get('student', {}).get('studentsDetails', [{}])[0]
+            sn = str(details.get('studentName') or 'Student').strip()
+            sp = sn.split(' ')
+            mock = SimpleNamespace(
+                pk=None, username=e_adm, email=e_email or f"{e_adm.lower()}@unknown.com",
+                first_name=sp[0], last_name=' '.join(sp[1:]) if len(sp) > 1 else '',
+                admission_number=e_adm, exam_section=erp_student.get('sectionAllotment', {}).get('examSection'),
+                study_section=erp_student.get('sectionAllotment', {}).get('studySection'),
+                rm_code=None, omr_code=None, employee_id=None, user_type='student'
+            )
+            all_students.append(mock)
+            if e_adm: seen_identifiers.add(e_adm)
+            if e_email: seen_identifiers.add(e_email)
+
+        # 5. Get ERP index for enrichment (used in loop below)
+        from api.erp_views import get_student_lookup_index
         erp_index = get_student_lookup_index()
 
         data = []
