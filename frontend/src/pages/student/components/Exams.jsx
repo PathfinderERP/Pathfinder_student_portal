@@ -104,8 +104,13 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
             (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
             (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
         ).filter(test => {
-            // A test is only "completed" if it's finalized AND not explicitly unlocked by an admin
-            const isStudentCompleted = test.submission?.is_finalized && !test.submission?.allow_resume;
+            const now = new Date();
+            const end = test.end_time ? new Date(test.end_time) : null;
+            const isExpired = end && now > end;
+            
+            // A test is "completed/archived" if it's finalized OR expired, 
+            // AND the admin hasn't explicitly unlocked it for a resume.
+            const isStudentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
             
             if (activeTab === 'ongoing') {
                 return !isStudentCompleted; 
@@ -212,8 +217,11 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                 </tr>
                             ) : (
                                 filteredTests.map((test, index) => {
+                                    const now = new Date();
+                                    const end = test.end_time ? new Date(test.end_time) : null;
+                                    const isExpired = end && now > end;
                                     const isUnlocked = test.submission?.allow_resume;
-                                    const studentCompleted = test.submission?.is_finalized && !test.submission?.allow_resume;
+                                    const studentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
                                     const hasStarted = test.submission?.time_spent > 0;
                                     
                                     return (
@@ -233,7 +241,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                                     </div>
                                                     {!studentCompleted && hasStarted && (
                                                         <span className="text-[9px] font-bold text-blue-500 opacity-80 uppercase tracking-tighter">
-                                                            Progress saved: {test.submission?.time_spent}m elapsed
+                                                            Progress saved: {Math.floor((test.submission?.time_spent || 0) / 60)}m elapsed
                                                         </span>
                                                     )}
                                                 </div>

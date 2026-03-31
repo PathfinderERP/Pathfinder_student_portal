@@ -801,7 +801,8 @@ class TestViewSet(viewsets.ModelViewSet):
             'submission_type': submission_type,
             'time_spent': time_spent,
             'score': round(total_score, 2),
-            'is_finalized': True # Submitting finalizes it
+            'is_finalized': True, # Submitting finalizes it
+            'allow_resume': False # Lock it after submission
         }
         
         updated = TestSubmission.objects.filter(test=test, student=user).update(**upd_data)
