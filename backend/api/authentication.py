@@ -348,7 +348,7 @@ class ERPTeacherBackend(BaseBackend):
                         if not local_user.check_password(password):
                             local_user.set_password(password)
                         local_user.is_active = True
-                        if local_user.user_type not in ['teacher', 'faculty']:
+                        if local_user.user_type in ['student', None, '']:
                             print(f"Upgrading user {username} from {local_user.user_type} to teacher.")
                             local_user.user_type = 'teacher'
                         user = local_user

@@ -840,13 +840,7 @@ const TestAllotment = () => {
                                             s.subject_code?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
                                             s.code?.toLowerCase().includes(sectionSearchTerm.toLowerCase())
                                         )
-                                        .sort((a, b) => {
-                                            const aSel = selectedSectionIds.includes(a.id);
-                                            const bSel = selectedSectionIds.includes(b.id);
-                                            if (aSel && !bSel) return -1;
-                                            if (!aSel && bSel) return 1;
-                                            return (a.name || "").localeCompare(b.name || "");
-                                        })
+                                        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
                                         .map(section => {
                                             const isSelected = selectedSectionIds.includes(section.id);
                                             return (
