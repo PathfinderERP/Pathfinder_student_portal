@@ -203,59 +203,64 @@ class TestViewSet(viewsets.ModelViewSet):
             centre_query = Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
             centre_pool = CustomUser.objects.filter(user_type='student').filter(centre_query)
             
-            from api.db_utils import parse_section
-            active_roster_count = 0
-            seen_local_identifiers = set()
-
-            for student in centre_pool:
-                # Store identifiers for deduplication in step B
-                if student.username: seen_local_identifiers.add(student.username.upper().strip())
-                if student.admission_number: seen_local_identifiers.add(student.admission_number.upper().strip())
-                if student.email: seen_local_identifiers.add(student.email.lower().strip())
-
-                # Always count if they have an active submission
-                if str(student.pk) in all_submitted_student_ids:
-                    active_roster_count += 1
-                    continue
-                
-                # Filter by section if restricted
-                if allowed_sections_list:
-                    s_exams = [s.lower() for s in parse_section(student.exam_section)]
-                    s_studies = [s.lower() for s in parse_section(student.study_section)]
-                    if not any(sec in allowed_sections_list for sec in (s_exams + s_studies)):
-                        continue
-                
-                active_roster_count += 1
-
-            # B. Include students from ERP bulk data who match centre and section but haven't logged in
             from django.core.cache import cache
-            erp_pool = cache.get('erp_all_students_v1') or []
-            for erp_student in erp_pool:
-                # Centre Match
-                e_centre = str(erp_student.get('centre') or '').upper().strip()
-                if not e_centre or (c_name.upper() not in e_centre and e_centre not in c_name.upper()):
-                    continue
-                
-                # Section Match
-                if allowed_sections_list:
-                    sec_allot = erp_student.get('sectionAllotment', {})
-                    e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
-                    e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
-                    if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
-                        continue
-                
-                # Deduplicate against local students
-                e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
-                e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
-                if (e_adm and e_adm in seen_local_identifiers) or (e_email and e_email in seen_local_identifiers):
-                    continue
-                
-                active_roster_count += 1
+            from api.db_utils import parse_section
+            
+            ROSTER_CACHE_TTL = 600  # 10 minutes
+            roster_cache_key = f'roster_count_{test.pk}_{c_code}'
+            cached_count = cache.get(roster_cache_key)
+            
+            if cached_count is not None:
+                # Use cached value from the authoritative /submissions/ endpoint
+                active_roster_count = cached_count
+            else:
+                # Compute fresh
+                active_roster_count = 0
+                seen_local_identifiers = set()
 
+                for student in centre_pool:
+                    if student.username: seen_local_identifiers.add(student.username.upper().strip())
+                    if student.admission_number: seen_local_identifiers.add(student.admission_number.upper().strip())
+                    if student.email: seen_local_identifiers.add(student.email.lower().strip())
+
+                    if str(student.pk) in all_submitted_student_ids:
+                        active_roster_count += 1
+                        continue
+                    
+                    if allowed_sections_list:
+                        s_exams = [s.lower() for s in parse_section(student.exam_section)]
+                        s_studies = [s.lower() for s in parse_section(student.study_section)]
+                        if not any(sec in allowed_sections_list for sec in (s_exams + s_studies)):
+                            continue
+                    
+                    active_roster_count += 1
+
+                erp_pool = cache.get('erp_all_students_v1') or []
+                for erp_student in erp_pool:
+                    e_centre = str(erp_student.get('centre') or '').upper().strip()
+                    if not e_centre or (c_name.upper() not in e_centre and e_centre not in c_name.upper()):
+                        continue
+                    
+                    if allowed_sections_list:
+                        sec_allot = erp_student.get('sectionAllotment', {})
+                        e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
+                        e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
+                        if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
+                            continue
+                    
+                    e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
+                    e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
+                    if (e_adm and e_adm in seen_local_identifiers) or (e_email and e_email in seen_local_identifiers):
+                        continue
+                    
+                    active_roster_count += 1
+
+                # Write to shared cache so /submissions/ sees the same value on first load
+                cache.set(roster_cache_key, active_roster_count, ROSTER_CACHE_TTL)
             
             allot_data = TestCentreAllotmentSerializer(allotment).data
-            allot_data['submission_count'] = submission_count # This reflects attempted tests
-            allot_data['total_students_in_centre'] = active_roster_count # This reflects the visible list
+            allot_data['submission_count'] = submission_count
+            allot_data['total_students_in_centre'] = active_roster_count
             data.append(allot_data)
             
         return Response(data)
@@ -487,6 +492,11 @@ class TestViewSet(viewsets.ModelViewSet):
                 'is_finalized': sub.is_finalized if sub else False
             })
             
+        # Write this roster count to the shared cache so /centres/ sees the same number
+        from django.core.cache import cache as django_cache
+        roster_cache_key = f'roster_count_{test.pk}_{centre_code}'
+        django_cache.set(roster_cache_key, len(all_students), 600)  # 10 min TTL
+
         return Response({
             'allotted_sections': list(test.allotted_sections.values_list('name', flat=True)),
             'data': data

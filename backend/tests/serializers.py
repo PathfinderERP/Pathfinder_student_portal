@@ -87,29 +87,121 @@ class TestSerializer(serializers.ModelSerializer):
             'centres', 'centres_count', 'codes_sent_count', 'allotted_sections', 'sections_count', 
             'allotted_master_count', 'duration', 'total_marks', 'description', 'instructions', 
             'is_completed', 'has_calculator', 'option_type_numeric', 'created_at', 'updated_at',
-            'start_time', 'end_time', 'submission', 'total_students'
+            'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count'
         ]
         
     submission = serializers.SerializerMethodField()
     total_students = serializers.SerializerMethodField()
+    total_roster_count = serializers.SerializerMethodField()
 
     def get_total_students(self, obj):
         request = self.context.get('request')
         is_staff = request and (request.user.is_staff or getattr(request.user, 'user_type', '') != 'student')
-        
-        # Performance optimization: students don't need to know the total student count.
-        # This bypasses a complex cross-collection join that causes recursion in Djongo.
         if not is_staff:
             return 0
 
-        from .models import TestSubmission
-        from django.db.models import Q
+        # High-performance submission count bypassing Djongo parser
+        from api.db_utils import get_db
+        db = get_db()
+        if db is None: return 0
+        
         try:
-            return TestSubmission.objects.filter(test=obj).filter(
-                Q(student__admission_number__isnull=False) & ~Q(student__admission_number='') |
-                Q(student__exam_section__isnull=False) & ~Q(student__exam_section='')
-            ).count()
+            return db['tests_testsubmission'].count_documents({'test_id': obj.pk})
+        except Exception:
+            return 0
+            
+    def get_total_roster_count(self, obj):
+        request = self.context.get('request')
+        is_staff = request and (request.user.is_staff or getattr(request.user, 'user_type', '') != 'student')
+        if not is_staff:
+            return 0
+
+        from api.models import CustomUser
+        from django.db.models import Q
+        from api.db_utils import parse_section
+        from django.core.cache import cache
+
+        try:
+            centres = list(obj.centres.all())
+            if not centres: 
+                return 0
+
+            # Sum of cached authoritative counts is the most accurate/consistent
+            has_all_cached = True
+            total_sum = 0
+            for centre in centres:
+                cached = cache.get(f'roster_count_{obj.pk}_{centre.code}')
+                if cached is not None:
+                    total_sum += int(cached)
+                else:
+                    has_all_cached = False
+                    break
+            
+            if has_all_cached:
+                return total_sum
+
+            # Fallback: Compute fresh global roster
+            allowed_sections = [s.name.strip().lower() for s in obj.allotted_sections.all()]
+            seen_identifiers = set()
+            total_count = 0
+            
+            # 1. Count Local Students (Global Deduplication)
+            for centre in centres:
+                c_code = centre.code
+                c_name = centre.name
+                centre_q = Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
+                local_pool = CustomUser.objects.filter(user_type='student').filter(centre_q)
+                
+                for student in local_pool:
+                    uid = (student.username or str(student.pk)).upper().strip()
+                    if uid in seen_identifiers: continue
+                    seen_identifiers.add(uid)
+                    
+                    if allowed_sections:
+                        s_exams = [s.lower() for s in parse_section(student.exam_section)]
+                        s_studies = [s.lower() for s in parse_section(student.study_section)]
+                        if not any(sec in allowed_sections for sec in (s_exams + s_studies)):
+                            continue
+                    total_count += 1
+
+            # 2. ERP Students (Global Deduplication)
+            erp_pool = cache.get('erp_all_students_v1') or []
+            centre_queries = [(c.name.upper(), c.code.upper()) for c in centres]
+            
+            for erp_student in erp_pool:
+                # Centre Match
+                e_centre = str(erp_student.get('centre') or '').upper().strip()
+                if not e_centre: continue
+                
+                matches_any = False
+                for c_name, c_code in centre_queries:
+                    if c_name in e_centre or e_centre in c_name or c_code == e_centre:
+                        matches_any = True
+                        break
+                if not matches_any: continue
+                
+                # Deduplicate
+                e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
+                e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
+                
+                if e_adm in seen_identifiers or e_email in seen_identifiers:
+                    continue
+                
+                # Section Match
+                if allowed_sections:
+                    sec_allot = erp_student.get('sectionAllotment', {})
+                    e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
+                    e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
+                    if not any(sec in allowed_sections for sec in (e_exams + e_studies)):
+                        continue
+                
+                if e_adm: seen_identifiers.add(e_adm)
+                if e_email: seen_identifiers.add(e_email)
+                total_count += 1
+
+            return total_count
         except Exception as e:
+            print(f"Error in get_total_roster_count: {e}")
             return 0
 
     def get_submission(self, obj):

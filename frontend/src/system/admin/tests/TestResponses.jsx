@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, Trash2, Unlock } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -75,6 +75,10 @@ const TestResponses = () => {
     const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
     const [allottedSections, setAllottedSections] = useState([]);
 
+    // Student search & filter
+    const [studentSearch, setStudentSearch] = useState('');
+    const [studentFilter, setStudentFilter] = useState('all'); // 'all', 'attempted', 'not_attempted', 'in_progress'
+
     const handleViewCentres = async (test) => {
         setSelectedTest(test);
         setViewMode('CENTRES');
@@ -93,8 +97,11 @@ const TestResponses = () => {
     };
 
     const handleViewSubmissions = async (centre) => {
+        setSubmissions([]); // Clear previous to prevent flickering
         setSelectedCentre(centre);
         setViewMode('STUDENTS');
+        setStudentSearch('');
+        setStudentFilter('all');
         setIsSubmissionsLoading(true);
         try {
             const apiUrl = getApiUrl();
@@ -109,6 +116,40 @@ const TestResponses = () => {
             setIsSubmissionsLoading(false);
         }
     };
+
+    // Robust helper for status checks
+    const getNormalizedStatus = (s) => (s || '').toString().trim().toLowerCase();
+
+    // Memoized filtered list for performance and consistency
+    const filteredSubmissions = useMemo(() => {
+        return submissions.filter(sub => {
+            const status = getNormalizedStatus(sub.status);
+            
+            // 1. Status Filter
+            if (studentFilter === 'attempted') {
+                if (status === 'available') return false;
+            } else if (studentFilter === 'not_attempted') {
+                if (status !== 'available') return false;
+            } else if (studentFilter === 'in_progress') {
+                if (status !== 'in progress') return false;
+            }
+
+            // 2. Search Filter
+            if (studentSearch) {
+                const q = studentSearch.toLowerCase();
+                return (
+                    sub.student_name?.toLowerCase().includes(q) ||
+                    sub.email?.toLowerCase().includes(q) ||
+                    sub.enroll_number?.toLowerCase().includes(q) ||
+                    sub.username?.toLowerCase().includes(q)
+                );
+            }
+            return true;
+        });
+    }, [submissions, studentFilter, studentSearch]);
+
+    const attemptedCountSummary = useMemo(() => submissions.filter(s => getNormalizedStatus(s.status) !== 'available').length, [submissions]);
+    const showingCountSummary = filteredSubmissions.length;
 
     const handleGenerateResult = (testId) => {
         // TODO: Implement result generation
@@ -128,7 +169,7 @@ const TestResponses = () => {
                 setIsModalLoading(true);
                 try {
                     const apiUrl = getApiUrl();
-                    const res = await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/reset_test/`, 
+                    const res = await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/reset_test/`,
                         { student_id: studentId },
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
@@ -155,7 +196,7 @@ const TestResponses = () => {
                 setIsModalLoading(true);
                 try {
                     const apiUrl = getApiUrl();
-                    const res = await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/resume_test/`, 
+                    const res = await axios.post(`${apiUrl}/api/tests/${selectedTest.id}/resume_test/`,
                         { student_id: studentId },
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
@@ -175,7 +216,7 @@ const TestResponses = () => {
     // Helper Component for Confirmation
     const ConfirmationModal = () => {
         if (!confirmModal.isOpen) return null;
-        
+
         return (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 backdrop-blur-sm bg-black/40 animate-in fade-in duration-300">
                 <div className={`w-full max-w-md rounded-[20px] shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-[#0F131A] border-white/5 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-300/50'}`}>
@@ -195,14 +236,14 @@ const TestResponses = () => {
                             {confirmModal.message}
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3">
-                            <button 
+                            <button
                                 onClick={() => !isModalLoading && setConfirmModal(prev => ({ ...prev, isOpen: false }))}
                                 disabled={isModalLoading}
                                 className={`flex-1 py-4 rounded-[12px] text-[10px] font-black uppercase tracking-widest border transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'} ${isModalLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={confirmModal.onConfirm}
                                 disabled={isModalLoading}
                                 className={`flex-1 py-4 rounded-[12px] text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2
@@ -279,6 +320,7 @@ const TestResponses = () => {
                                         <th className="py-5 px-6">Test Name</th>
                                         <th className="py-5 px-6">Test Code</th>
                                         <th className="py-5 px-6 text-center">No Of Student Attempted</th>
+                                        <th className="py-5 px-6 text-center">Total Student</th>
                                         <th className="py-5 px-6 text-center">Centre</th>
                                         <th className="py-5 px-6 text-center">Generate Result</th>
                                     </tr>
@@ -287,14 +329,14 @@ const TestResponses = () => {
                                     {isLoading ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
-                                                <td colSpan="6" className="py-8 px-6">
+                                                <td colSpan="7" className="py-8 px-6">
                                                     <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                                                 </td>
                                             </tr>
                                         ))
                                     ) : filteredTests.length === 0 ? (
                                         <tr>
-                                            <td colSpan="6" className="py-20 text-center">
+                                            <td colSpan="7" className="py-20 text-center">
                                                 <div className="opacity-20 flex flex-col items-center gap-3">
                                                     <FileSearch size={48} />
                                                     <p className="text-sm font-black uppercase tracking-[0.2em]">No Tests Found</p>
@@ -319,6 +361,12 @@ const TestResponses = () => {
                                                 <div className="flex items-center justify-center gap-2">
                                                     <Users size={14} className="text-orange-500" />
                                                     <span className="text-sm font-black">{test.total_students || 0}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-6 text-center">
+                                                <div className="flex items-center justify-center gap-2 text-blue-500">
+                                                    <Users size={14} />
+                                                    <span className="text-sm font-black">{test.total_roster_count || 0}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6 text-center">
@@ -352,7 +400,7 @@ const TestResponses = () => {
                     <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-4">
-                                <button 
+                                <button
                                     onClick={() => setViewMode('TESTS')}
                                     className={`p-2 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                                 >
@@ -367,7 +415,7 @@ const TestResponses = () => {
                                     </p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => handleViewCentres(selectedTest)}
                                 className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
                             >
@@ -384,7 +432,8 @@ const TestResponses = () => {
                                     <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                                         <th className="py-5 px-6">#</th>
                                         <th className="py-5 px-6">Centre Name</th>
-                                        <th className="py-5 px-6 text-center">Number Students</th>
+                                        <th className="py-5 px-6 text-center">Attempted Students</th>
+                                        <th className="py-5 px-6 text-center">Total Students</th>
                                         <th className="py-5 px-6 text-right">Students</th>
                                     </tr>
                                 </thead>
@@ -392,14 +441,14 @@ const TestResponses = () => {
                                     {isCentresLoading ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
-                                                <td colSpan="4" className="py-8 px-6">
+                                                <td colSpan="5" className="py-8 px-6">
                                                     <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                                                 </td>
                                             </tr>
                                         ))
                                     ) : centres.length === 0 ? (
                                         <tr>
-                                            <td colSpan="4" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Centres Found</td>
+                                            <td colSpan="5" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Centres Found</td>
                                         </tr>
                                     ) : centres.map((centre, index) => (
                                         <tr key={centre.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
@@ -411,7 +460,16 @@ const TestResponses = () => {
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6 text-center">
-                                                <span className="text-sm font-black">{centre.total_students_in_centre || 0}</span>
+                                                <div className="flex items-center justify-center gap-2 text-orange-500">
+                                                    <Users size={13} strokeWidth={3} />
+                                                    <span className="text-sm font-black tracking-tight">{centre.submission_count || 0}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-6 text-center">
+                                                <div className="flex items-center justify-center gap-2 text-blue-500">
+                                                    <Users size={13} strokeWidth={3} />
+                                                    <span className="text-sm font-black tracking-tight">{centre.total_students_in_centre || 0}</span>
+                                                </div>
                                             </td>
                                             <td className="py-5 px-6 text-right">
                                                 <button
@@ -430,140 +488,205 @@ const TestResponses = () => {
                 </div>
             )}
 
-            {viewMode === 'STUDENTS' && (
-                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                    {/* Students Page Header */}
-                    <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-4">
-                                <button 
-                                    onClick={() => setViewMode('CENTRES')}
-                                    className={`p-2 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                >
-                                    <ChevronLeft size={20} />
-                                </button>
-                                <div>
-                                    <h2 className="text-2xl font-black tracking-tight uppercase">
-                                        <span className="text-orange-500">{selectedCentre?.centre_details?.name}</span> Responses
-                                    </h2>
-                                    <p className={`text-[10px] font-black opacity-40 uppercase tracking-[0.2em] mt-1`}>
-                                        Test: {selectedTest?.name} ({selectedTest?.code})
-                                    </p>
+            {viewMode === 'STUDENTS' && (() => {
+                const notStartedCount = submissions.length - attemptedCountSummary;
+
+                return (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                        {/* Students Page Header */}
+                        <div className={`p-6 rounded-[5px] border shadow-xl mb-6 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+                            <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setViewMode('CENTRES')}
+                                        className={`p-2 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+                                    <div>
+                                        <h2 className="text-2xl font-black tracking-tight uppercase">
+                                            <span className="text-orange-500">{selectedCentre?.centre_details?.name}</span> Responses
+                                        </h2>
+                                        <p className={`text-[10px] font-black opacity-40 uppercase tracking-[0.2em] mt-1`}>
+                                            Test: {selectedTest?.name} ({selectedTest?.code})
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={15} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search name / email / enroll..."
+                                            value={studentSearch}
+                                            onChange={e => setStudentSearch(e.target.value)}
+                                            className={`pl-9 pr-4 py-2 rounded-[5px] border text-xs font-bold outline-none w-64 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200'}`}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => handleViewSubmissions(selectedCentre)}
+                                        className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
+                                    >
+                                        <RefreshCw size={18} className={isSubmissionsLoading ? 'animate-spin' : ''} />
+                                    </button>
                                 </div>
                             </div>
-                            <button 
-                                onClick={() => handleViewSubmissions(selectedCentre)}
-                                className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
-                            >
-                                <RefreshCw size={20} className={isSubmissionsLoading ? 'animate-spin' : ''} />
-                            </button>
+                            {/* Filter Pills + Stats */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                {[['all', 'All Students'], ['attempted', '✓ Attempted'], ['not_attempted', '✗ Not Attempted'], ['in_progress', '⏳ In Progress']].map(([val, label]) => (
+                                    <button
+                                        key={val}
+                                        onClick={() => setStudentFilter(val)}
+                                        className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border ${studentFilter === val
+                                                ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
+                                                : isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                                            }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                                <div className={`ml-auto flex items-center gap-3 text-[10px] font-black uppercase tracking-widest`}>
+                                    <span className="text-orange-500">{attemptedCountSummary} Started</span>
+                                    <span className="opacity-30">·</span>
+                                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{notStartedCount} Not Started</span>
+                                    <span className="opacity-30">·</span>
+                                    <span className="text-blue-500">{showingCountSummary} Showing</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Students Table */}
-                    <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                        <th className="py-6 px-6 text-center w-16">#</th>
-                                        <th className="py-6 px-6">Name</th>
-                                        <th className="py-6 px-6">Email</th>
-                                        <th className="py-6 px-6">Enroll Number</th>
-                                        <th className="py-6 px-6">Section</th>
-                                        <th className="py-6 px-4 text-center">Resume</th>
-                                        <th className="py-6 px-4 text-center">Delete</th>
-                                        <th className="py-6 px-4 text-center">Force Delete</th>
-                                    </tr>
-                                </thead>
-                                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                                    {isSubmissionsLoading ? (
-                                        Array(5).fill(0).map((_, i) => (
-                                            <tr key={i} className="animate-pulse">
-                                                <td colSpan="8" className="py-8 px-6">
-                                                    <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : submissions.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="8" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Students Found in this Centre</td>
+                        {/* Students Table */}
+                        <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                            <th className="py-5 px-6 text-center w-14">#</th>
+                                            <th className="py-5 px-6">Name</th>
+                                            <th className="py-5 px-6">Email</th>
+                                            <th className="py-5 px-6">Enroll Number</th>
+                                            <th className="py-5 px-6">Section</th>
+                                            <th className="py-5 px-6 text-center">Status</th>
+                                            <th className="py-5 px-4 text-center">Resume</th>
+                                            <th className="py-5 px-4 text-center">Delete</th>
+                                            <th className="py-5 px-4 text-center">Force Delete</th>
                                         </tr>
-                                    ) : submissions.map((sub, index) => {
-                                        const canResume = sub.status !== 'Available' && !sub.allow_resume;
-                                        
-                                        return (
-                                            <tr key={sub.student_id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/5'}`}>
-                                                <td className="py-5 px-6 text-xs text-center font-black opacity-30">{index + 1}</td>
-                                                <td className="py-5 px-6">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs font-black uppercase tracking-tight">{sub.student_name}</span>
-                                                        <span className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">
-                                                            {sub.username}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-5 px-6">
-                                                    <span className="text-[10px] font-bold opacity-60 lowercase">{sub.email || '---'}</span>
-                                                </td>
-                                                <td className="py-5 px-6">
-                                                    <span className={`text-[10px] font-black tracking-widest ${sub.enroll_number === 'ID MISSING' ? 'text-red-500/80 animate-pulse' : 'opacity-70 font-mono text-xs'}`}>
-                                                        {sub.enroll_number}
-                                                    </span>
-                                                </td>
-                                                <td className="py-5 px-6">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${
-                                                            allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase())
-                                                            ? 'text-orange-600'
-                                                            : 'opacity-60'
-                                                        }`}>
-                                                            {sub.section || '---'}
-                                                        </span>
-                                                        {allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase()) && (
-                                                            <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-[2px] w-fit uppercase tracking-tighter animate-pulse">
-                                                                Section Mismatch
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="py-5 px-4 text-center">
-                                                    <button 
-                                                        onClick={() => handleResumeSession(sub.student_id, sub.student_name)}
-                                                        disabled={!canResume}
-                                                        className={`px-5 py-2.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95
-                                                        ${(!canResume) 
-                                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                                                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'}`}
-                                                    >
-                                                        {sub.allow_resume ? 'Unlocked' : 'Resume'}
-                                                    </button>
-                                                </td>
-                                                <td className="py-5 px-4 text-center">
-                                                    <button 
-                                                        onClick={() => handleResetSession(sub.student_id, sub.student_name)}
-                                                        className="px-5 py-2.5 rounded-[5px] bg-red-500 hover:bg-red-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-red-500/30 transition-all active:scale-95"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </td>
-                                                <td className="py-5 px-4 text-center">
-                                                    <button 
-                                                        onClick={() => handleResetSession(sub.student_id, sub.student_name)}
-                                                        className="px-5 py-2.5 rounded-[5px] bg-white border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest hover:border-red-500 hover:text-red-500 transition-all active:scale-95"
-                                                    >
-                                                        Force Delete
-                                                    </button>
-                                                </td>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
+                                        {isSubmissionsLoading ? (
+                                            Array(5).fill(0).map((_, i) => (
+                                                <tr key={i} className="animate-pulse">
+                                                    <td colSpan="9" className="py-8 px-6">
+                                                        <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : filteredSubmissions.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="9" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Students Found</td>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                                        ) : filteredSubmissions.map((sub, index) => {
+                                            const hasSession = getNormalizedStatus(sub.status) !== 'available';
+                                            const canUnlock = hasSession && !sub.allow_resume;
+                                            const alreadyUnlocked = sub.allow_resume;
+                                            const currentStatus = getNormalizedStatus(sub.status);
+                                            return (
+                                                <tr key={sub.student_id ? `${sub.student_id}-${index}` : `erp-${index}`} className={`group transition-all ${hasSession ? (isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/5') : ''
+                                                    }`}>
+                                                    <td className="py-5 px-6 text-xs text-center font-black opacity-30">{index + 1}</td>
+                                                    <td className="py-5 px-6">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-black uppercase tracking-tight">{sub.student_name}</span>
+                                                            <span className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">
+                                                                {sub.username}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-5 px-6">
+                                                        <span className="text-[10px] font-bold opacity-60 lowercase">{sub.email || '---'}</span>
+                                                    </td>
+                                                    <td className="py-5 px-6">
+                                                        <span className={`text-[10px] font-black tracking-widest ${sub.enroll_number === 'ID MISSING' ? 'text-red-500/80 animate-pulse' : 'opacity-70 font-mono text-xs'}`}>
+                                                            {sub.enroll_number}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-5 px-6">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase())
+                                                                    ? 'text-orange-600'
+                                                                    : 'opacity-60'
+                                                                }`}>
+                                                                {sub.section || '---'}
+                                                            </span>
+                                                            {allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase()) && (
+                                                                <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-[2px] w-fit uppercase tracking-tighter animate-pulse">
+                                                                    Section Mismatch
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    {/* Status Badge */}
+                                                    <td className="py-5 px-6 text-center">
+                                                        {currentStatus === 'available' && (
+                                                            <span className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Not Started</span>
+                                                        )}
+                                                        {currentStatus === 'in progress' && (
+                                                            <span className="px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-amber-500/15 text-amber-500 border border-amber-500/20 animate-pulse">In Progress</span>
+                                                        )}
+                                                        {currentStatus === 'submitted' && (
+                                                            <span className="px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">Submitted</span>
+                                                        )}
+                                                    </td>
+                                                    {/* Resume Button */}
+                                                    <td className="py-5 px-4 text-center">
+                                                        {alreadyUnlocked ? (
+                                                            <span className="px-4 py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 inline-flex items-center gap-1">
+                                                                ✓ Unlocked
+                                                            </span>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleResumeSession(sub.student_id, sub.student_name)}
+                                                                disabled={!canUnlock}
+                                                                title={!hasSession ? 'Student has not started the exam yet' : 'Click to allow resume'}
+                                                                className={`px-4 py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${canUnlock
+                                                                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 cursor-pointer'
+                                                                        : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                    }`}
+                                                            >
+                                                                Resume
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-5 px-4 text-center">
+                                                        <button
+                                                            onClick={() => handleResetSession(sub.student_id, sub.student_name)}
+                                                            disabled={!hasSession}
+                                                            className={`px-4 py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${hasSession
+                                                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'
+                                                                    : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                }`}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </td>
+                                                    <td className="py-5 px-4 text-center">
+                                                        <button
+                                                            onClick={() => handleResetSession(sub.student_id, sub.student_name)}
+                                                            className="px-4 py-2 rounded-[5px] bg-white border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest hover:border-red-500 hover:text-red-500 transition-all active:scale-95"
+                                                        >
+                                                            Force Delete
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
             <ConfirmationModal />
         </div>
     );
