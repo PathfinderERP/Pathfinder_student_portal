@@ -53,7 +53,18 @@ const ExamEngine = () => {
     const [isLocked, setIsLocked] = useState(false);
     const [lockReason, setLockReason] = useState('');
     const [isStabilizing, setIsStabilizing] = useState(true);
+    const [error, setError] = useState(null);
+    const [showResumeModal, setShowResumeModal] = useState(false);
     const isSubmittedRef = useRef(false);
+
+    const handleReturnToDashboard = () => {
+        try {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        } catch (err) {}
+        navigate('/student');
+    };
 
     // Initial stabilization period to prevent false violations during load/transition
     useEffect(() => {
@@ -101,7 +112,7 @@ const ExamEngine = () => {
                 });
                 const sData = statusResp.data;
 
-                if (sData.is_finalized) {
+                if (sData.is_finalized && !sData.allow_resume) {
                     setIsSubmitted(true);
                     setIsLoading(false);
                     return;
@@ -150,7 +161,35 @@ const ExamEngine = () => {
 
             } catch (err) {
                 console.error('Initialization error:', err);
-                navigate('/student');
+                
+                let errorTitle = "Initialization Error";
+                let detailedMsg = "Failed to initialize exam environment.";
+
+                if (err.response) {
+                    // Server responded with an error
+                    const status = err.response.status;
+                    const errorData = err.response.data;
+                    
+                    if (status === 403) {
+                        errorTitle = "Access Denied";
+                        detailedMsg = errorData?.error || errorData?.detail || "You are not authorized for this test. Please check your allotment.";
+                    } else if (status === 404) {
+                        errorTitle = "Test Not Found";
+                        detailedMsg = "The requested test paper or session could not be located. It may have been un-allotted or deleted.";
+                    } else if (status >= 500) {
+                        errorTitle = "Server Error (500)";
+                        detailedMsg = "The server encountered an error while building your test environment. This is often caused by a database configuration issue. Error: " + (errorData?.detail || "Internal Server Overload");
+                    } else {
+                        detailedMsg = `Error ${status}: ${errorData?.detail || "An unexpected error occurred during setup."}`;
+                    }
+                } else if (err.request) {
+                    // Request was made but no response received
+                    detailedMsg = "Network Timeout: Could not connect to the exam server. Please check your internet connection.";
+                } else {
+                    detailedMsg = err.message;
+                }
+
+                setError({ title: errorTitle, message: detailedMsg });
             } finally {
                 setIsLoading(false);
                 // Trigger an initial "Handshake" save to consume the allow_resume token
@@ -362,21 +401,21 @@ const ExamEngine = () => {
                 navigator.keyboard.lock(['Escape']).catch(() => {});
             }
         }
-    }, []);
+    }, [isStabilizing]);
 
     const handleVisibilityChange = useCallback(() => {
         if (document.hidden && !isSubmittedRef.current && !isStabilizing) {
             setShowViolation(true);
             setViolationMessage("Security Alert: Tab switching is strictly prohibited. Your activity has been logged. Further attempts will result in immediate disqualification.");
         }
-    }, []);
+    }, [isStabilizing]);
 
     const handleBlur = useCallback(() => {
         if (!document.hasFocus() && !isSubmittedRef.current && !isStabilizing) {
             setShowViolation(true);
             setViolationMessage("Security Alert: System focus lost. Alt+Tab, Window switching or Tab switching is strictly prohibited. Your activity has been logged.");
         }
-    }, []);
+    }, [isStabilizing]);
 
     const handleKeyDown = useCallback((e) => {
         if (e.key === 'Escape' && !isSubmittedRef.current) {
@@ -390,7 +429,7 @@ const ExamEngine = () => {
             setShowViolation(true);
             setViolationMessage("Security Alert: Developer tools access is prohibited.");
         }
-    }, []);
+    }, [isStabilizing]);
     
     // Strict Integrity Enforcement
     useEffect(() => {
@@ -486,7 +525,7 @@ const ExamEngine = () => {
                     </div>
                     
                     <button 
-                        onClick={() => navigate('/student')}
+                        onClick={handleReturnToDashboard}
                         className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
                     >
                         Return to Dashboard
@@ -497,6 +536,28 @@ const ExamEngine = () => {
             </div>
         );
     }
+
+    if (error) return (
+        <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-6">
+            <div className={`max-w-md w-full bg-white p-12 rounded-[2rem] shadow-2xl border text-center space-y-8 animate-in zoom-in duration-500
+                ${error.title?.toLowerCase().includes('denied') ? 'border-red-100' : 'border-gray-100'}`}>
+                <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto animate-pulse
+                    ${error.title?.toLowerCase().includes('denied') ? 'bg-red-50' : 'bg-gray-50'}`}>
+                    <AlertCircle className={`w-12 h-12 ${error.title?.toLowerCase().includes('denied') ? 'text-red-500' : 'text-gray-500'}`} />
+                </div>
+                <div className="space-y-4">
+                    <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{error.title}</h2>
+                    <p className="text-gray-500 font-bold leading-relaxed px-4">{error.message}</p>
+                </div>
+                <button 
+                    onClick={handleReturnToDashboard}
+                    className="w-full py-5 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-xl active:scale-95"
+                >
+                    Return to Dashboard
+                </button>
+            </div>
+        </div>
+    );
 
     if (!paperData || !currentQuestion) return (
         <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 gap-4">
@@ -553,10 +614,7 @@ const ExamEngine = () => {
                                     Re-Enter Full Screen & Resume
                                 </button>
                                 <button 
-                                    onClick={() => {
-                                        exitFullscreen();
-                                        navigate('/student');
-                                    }}
+                                    onClick={handleReturnToDashboard}
                                     className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
                                 >
                                     Quit and Return to Dashboard
@@ -637,10 +695,7 @@ const ExamEngine = () => {
                                 </p>
                             )}
                             <button 
-                                onClick={() => {
-                                    exitFullscreen();
-                                    navigate('/student');
-                                }}
+                                onClick={handleReturnToDashboard}
                                 className={`group relative px-10 py-4 ${
                                     submissionType === 'VIOLATION' ? 'bg-red-600' : 
                                     submissionType === 'TIME_UP' ? 'bg-[#EF6C00]' : 
@@ -1020,10 +1075,7 @@ const ExamEngine = () => {
                                 Re-Enter Full Screen & Resume
                             </button>
                             <button 
-                                onClick={() => {
-                                    exitFullscreen();
-                                    navigate('/student');
-                                }}
+                                onClick={handleReturnToDashboard}
                                 className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
                             >
                                 Quit and Return to Dashboard

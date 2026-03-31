@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { Loader2, Maximize2, Lock } from 'lucide-react';
+import { Loader2, Maximize2, Lock, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const ExamInstructions = () => {
@@ -17,6 +17,16 @@ const ExamInstructions = () => {
     const [isLocked, setIsLocked] = useState(false);
     const [lockReason, setLockReason] = useState('');
     const [statusData, setStatusData] = useState(null);
+    const [error, setError] = useState(null);
+
+    const handleReturnToDashboard = () => {
+        try {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        } catch (err) {}
+        navigate('/student');
+    };
 
     useEffect(() => {
         const fetchInstructions = async () => {
@@ -28,7 +38,7 @@ const ExamInstructions = () => {
                 const sData = statusResp.data;
                 setStatusData(sData);
 
-                if (sData.is_finalized) {
+                if (sData.is_finalized && !sData.allow_resume) {
                     navigate('/student');
                     return;
                 }
@@ -44,7 +54,9 @@ const ExamInstructions = () => {
                 setPaperData(response.data);
             } catch (err) {
                 console.error('Error fetching instructions:', err);
-                navigate('/student');
+                let msg = "Failed to load test instructions.";
+                if (err.response?.status === 403) msg = "Access Denied: You are not authorized for this test.";
+                setError(msg);
             } finally {
                 setIsLoading(false);
             }
@@ -54,6 +66,26 @@ const ExamInstructions = () => {
             fetchInstructions();
         }
     }, [token, testId, getApiUrl, navigate]);
+
+    if (error) {
+        return (
+            <div className={`min-h-screen flex items-center justify-center p-6 ${isDarkMode ? 'bg-[#0B0F15]' : 'bg-[#f8fafc]'}`}>
+                <div className={`max-w-md w-full p-10 rounded-3xl shadow-2xl border text-center space-y-6 ${isDarkMode ? 'bg-[#161B22] border-white/5' : 'bg-white border-gray-100'}`}>
+                    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto">
+                        <AlertCircle className="text-red-600 w-8 h-8" />
+                    </div>
+                    <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Initialization Error</h2>
+                    <p className="text-gray-500 font-medium leading-relaxed">{error}</p>
+                    <button 
+                        onClick={handleReturnToDashboard}
+                        className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${isDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-black'}`}
+                    >
+                        Return to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (isLoading) {
         return (
@@ -81,7 +113,7 @@ const ExamInstructions = () => {
                         </div>
                     </div>
                     <button 
-                        onClick={() => navigate('/student')}
+                        onClick={handleReturnToDashboard}
                         className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
                     >
                         Return to Dashboard

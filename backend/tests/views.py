@@ -274,7 +274,7 @@ class TestViewSet(viewsets.ModelViewSet):
         if not sub:
             return Response({'status': 'available', 'is_finalized': False, 'allow_resume': True})
         return Response({
-            'status': 'submitted' if sub.is_finalized else 'interrupted',
+            'status': 'submitted' if sub.is_finalized else 'in_progress',
             'is_finalized': sub.is_finalized,
             'allow_resume': sub.allow_resume,
             'responses': sub.responses,
@@ -563,8 +563,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # DJONGO WORKAROUND: Use update() to avoid duplicate key errors during save()
         updated = TestSubmission.objects.filter(test=test, student=user, is_finalized=False).update(
             responses=responses,
-            time_spent=time_spent,
-            allow_resume=False
+            time_spent=time_spent
         )
         
         if not updated:
@@ -575,14 +574,12 @@ class TestViewSet(viewsets.ModelViewSet):
                 TestSubmission.objects.create(
                     test=test, student=user, 
                     responses=responses, 
-                    time_spent=time_spent, 
-                    allow_resume=False
+                    time_spent=time_spent
                 )
             except:
                 TestSubmission.objects.filter(test=test, student=user, is_finalized=False).update(
                     responses=responses,
-                    time_spent=time_spent,
-                    allow_resume=False
+                    time_spent=time_spent
                 )
 
         return Response({'status': 'progress_saved'})
