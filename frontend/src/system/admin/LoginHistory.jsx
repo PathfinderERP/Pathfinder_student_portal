@@ -30,7 +30,7 @@ const LoginHistory = ({ loginHistory, isDarkMode, isLoading }) => {
                                 <Clock size={18} strokeWidth={2.5} />
                             </div>
                             <div>
-                                <p className="font-black text-base tracking-tight text-white/90">{log.time}</p>
+                                <p className={`font-black text-base tracking-tight ${isDarkMode ? 'text-white/90' : 'text-slate-500'}`}>{log.time}</p>
                                 <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.2em]">Verified Login</p>
                             </div>
                         </div>
@@ -39,8 +39,8 @@ const LoginHistory = ({ loginHistory, isDarkMode, isLoading }) => {
                         </div>
                     </div>
                 )) : (
-                    <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">
-                        <div className="w-16 h-16 rounded-[5px] bg-white/5 flex items-center justify-center mb-4">
+                    <div className={`py-12 flex flex-col items-center justify-center text-center ${isDarkMode ? 'opacity-30' : 'text-slate-500'}`}>
+                        <div className={`w-16 h-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'} flex items-center justify-center mb-4`}>
                             <Clock size={32} />
                         </div>
                         <p className="font-bold">No Login History</p>

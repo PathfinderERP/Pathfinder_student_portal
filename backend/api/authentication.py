@@ -271,8 +271,7 @@ class ERPTeacherBackend(BaseBackend):
         try:
             local_user = CustomUser.objects.filter(Q(username=username) | Q(email=username)).first()
             if local_user and local_user.user_type not in ['teacher', 'faculty']:
-                print(f"→ User {username} exists but is not a teacher, skipping ERP teacher validation")
-                return None
+                print(f"→ User {username} exists as {local_user.user_type}. Proceeding with ERP teacher validation.")
         except Exception as e:
             print(f"⚠ Error searching for local teacher: {e}")
 
@@ -349,6 +348,9 @@ class ERPTeacherBackend(BaseBackend):
                         if not local_user.check_password(password):
                             local_user.set_password(password)
                         local_user.is_active = True
+                        if local_user.user_type not in ['teacher', 'faculty']:
+                            print(f"Upgrading user {username} from {local_user.user_type} to teacher.")
+                            local_user.user_type = 'teacher'
                         user = local_user
                     else:
                         print(f"Creating new local teacher for {username}")
