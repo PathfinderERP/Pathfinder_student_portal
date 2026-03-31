@@ -26,76 +26,53 @@ class TestViewSet(viewsets.ModelViewSet):
         # If user is a student, enforce smart visibility rules
         # Main motiv: All students shouldn't see all exams, only privileged ones.
         if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
-            # 1. Fetch section and submission IDs through PyMongo to avoid any SQL joining crash
             from api.db_utils import parse_section, get_db
             db = get_db()
             
-            exam_sections = parse_section(getattr(user, 'exam_section', ''))
-            study_sections = parse_section(getattr(user, 'study_section', ''))
-            allowed_names = list(set([n.strip() for n in exam_sections + study_sections if n and str(n).strip()]))
+            # Fetch ALL potential tests to filter in Python
+            all_tests = list(queryset)
+            visible_ids = []
             
-            section_test_ids = set()
-            submission_test_ids = set()
+            # Prep student metadata
+            s_exams = [s.lower() for s in parse_section(getattr(user, 'exam_section', ''))]
+            s_studies = [s.lower() for s in parse_section(getattr(user, 'study_section', ''))]
+            student_sections = set(s_exams + s_studies)
             
-            if db is not None:
-                try:
-                    # A. Fetch tests allotted to these section names by matching Section IDs
-                    # We match section names first to avoid a cross-collection join in Djongo
-                    section_docs = list(db['sections_section'].find({'name': {'$in': allowed_names}}, {'_id': 1}))
-                    m_section_ids = [doc['_id'] for doc in section_docs]
-                    
-                    if m_section_ids:
-                        # Find all tests linked to these Sections in the M2M through collection: 'tests_test_allotted_sections'
-                        m2m_docs = list(db['tests_test_allotted_sections'].find({'section_id': {'$in': m_section_ids}}, {'test_id': 1}))
-                        # We convert to string for consistent ID-based __in set logic later
-                        section_test_ids = {str(doc['test_id']) for doc in m2m_docs if doc.get('test_id') is not None}
-                    
-                    # B. Fetch all tests this student has already interacted with (Submitted AND Finalized)
-                    # This ensures past results stay visible even if their section changes.
-                    sub_docs = list(db['tests_testsubmission'].find({
-                        'student_id': user.pk,
-                        'is_finalized': True,
-                        'allow_resume': False
-                    }, {'test_id': 1}))
-                    submission_test_ids = {str(doc['test_id']) for doc in sub_docs if doc.get('test_id') is not None}
+            c_code = str(getattr(user, 'centre_code', '')).lower().strip()
+            c_name = str(getattr(user, 'centre_name', '')).lower().strip()
 
-                    # C. Fetch tests allotted to this student's Centre
-                    centre_test_ids = set()
-                    c_code = getattr(user, 'centre_code', None)
-                    c_name = getattr(user, 'centre_name', None)
-                    if c_code or c_name:
-                        # Case-insensitive centre lookup
-                        import re
-                        query = []
-                        if c_code: query.append({'code': re.compile(f'^{re.escape(str(c_code))}$', re.IGNORECASE)})
-                        if c_name: query.append({'name': re.compile(f'^{re.escape(str(c_name))}$', re.IGNORECASE)})
-                        
-                        centre_docs = list(db['centres_centre'].find({'$or': query}, {'_id': 1}))
-                        m_centre_ids = [doc['_id'] for doc in centre_docs]
-                        
-                        if m_centre_ids:
-                            # Collection for Test.centres: 'tests_test_centres'
-                            m2m_c_docs = list(db['tests_test_centres'].find({'centre_id': {'$in': m_centre_ids}}, {'test_id': 1}))
-                            centre_test_ids = {str(doc['test_id']) for doc in m2m_c_docs if doc.get('test_id') is not None}
-                except Exception as e:
-                    print(f"[DEBUG] PyMongo direct fetch failed in TestViewSet: {e}")
-            
-            # Combine all permissible unique IDs (Sections + Submissions + Centres)
-            unique_ids_raw = section_test_ids.union(submission_test_ids).union(centre_test_ids)
-            unique_ids = []
-            for uid in unique_ids_raw:
-                try:
-                    unique_ids.append(int(uid))
-                except (ValueError, TypeError):
-                    unique_ids.append(uid)
-            
-            # Final re-fetch is simple and efficient as it uses a flat ID list which Djongo handles flawlessly
-            queryset = Test.objects.filter(id__in=unique_ids).prefetch_related(
+            # Pre-fetch submission test IDs for this student
+            submission_test_ids = set()
+            if db is not None:
+                try: 
+                    sub_docs = list(db['tests_testsubmission'].find({'student_id': user.pk}, {'test_id': 1}))
+                    submission_test_ids = {str(d['test_id']) for d in sub_docs}
+                except: pass
+
+            for t in all_tests:
+                tid_str = str(t.pk)
+                # 1. ALWAYS show if they have a submission
+                if tid_str in submission_test_ids:
+                    visible_ids.append(t.pk)
+                    continue
+                
+                # 2. Centre AND Section check
+                t_centres = t.centres.all()
+                if not t_centres: continue
+                
+                match_centre = any(c_code == str(c.code).lower().strip() or c_name == str(c.name).lower().strip() for c in t_centres)
+                if not match_centre: continue
+                
+                t_sections = [s.name.lower().strip() for s in t.allotted_sections.all()]
+                if not t_sections or any(sec in student_sections for sec in t_sections):
+                    visible_ids.append(t.pk)
+
+            # Final re-filter
+            queryset = queryset.filter(id__in=visible_ids).prefetch_related(
                 'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
                 'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
-
-            if not unique_ids:
+            if not visible_ids:
                 queryset = queryset.none()
         
         package_id = self.request.query_params.get('package', None)

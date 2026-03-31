@@ -1,5 +1,0 @@
---- DETAILED STUDENT SECTION combinations ---
- 4088 students | Exam: None            | Study: ['STUDY MATERIAL']
- 1446 students | Exam: ['Foundation']  | Study: ['STUDY MATERIAL']
-   66 students | Exam: None            | Study: None           
-    1 students | Exam: ['Foundation']  | Study: ['Foundation'] 
