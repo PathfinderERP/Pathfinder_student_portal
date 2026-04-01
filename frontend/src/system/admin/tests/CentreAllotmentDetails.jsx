@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     ArrowLeft, Search, RefreshCw, Smartphone, Calendar, Clock,
-    Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail, CheckSquare, Square, Trash2, Check
+    Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail, CheckSquare, Square, Trash2, Check, FileText
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -71,6 +71,20 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             triggerAlert('Access code generated successfully!', 'success');
         } catch (err) {
             triggerAlert('Failed to generate code', 'error');
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleGenerateResult = async () => {
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(`${apiUrl}/api/tests/${test.id}/generate_result/`, {}, getAuthConfig());
+            triggerAlert(res.data.message || 'Results generated successfully!', 'success');
+            // Refresh to show updated test status if needed
+        } catch (err) {
+            triggerAlert(err.response?.data?.error || 'Failed to generate results', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -424,10 +438,17 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                             </div>
                                         ) : (
                                             <button
-                                                onClick={() => handleGenerateCode(allotment.id)}
-                                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2 mx-auto"
+                                                onClick={() => {
+                                                    const isOver = allotment.end_time && new Date(allotment.end_time) < new Date();
+                                                    if (isOver) handleGenerateResult();
+                                                    else handleGenerateCode(allotment.id);
+                                                }}
+                                                className={`px-4 py-2 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center gap-2 mx-auto
+                                                    ${(allotment.end_time && new Date(allotment.end_time) < new Date()) ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/20'}
+                                                `}
                                             >
-                                                <Wand2 size={12} /> Generate
+                                                {(allotment.end_time && new Date(allotment.end_time) < new Date()) ? <FileText size={12} /> : <Wand2 size={12} />}
+                                                {(allotment.end_time && new Date(allotment.end_time) < new Date()) ? 'Result' : 'Generate'}
                                             </button>
                                         )}
                                     </td>

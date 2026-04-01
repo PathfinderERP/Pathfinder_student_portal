@@ -137,7 +137,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     const loadData = useCallback(async (force = false) => {
         if (authLoading) return;
         if (!force && centres.length > 0 && localCentres.length > 0) return;
-        setIsLoading(true);
+        if (centres.length === 0) setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
             const authToken = token;
@@ -189,7 +189,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
         return matchesSearch && matchesState && matchesAllotment;
     });
 
-    if (isLoading || isERPLoading) {
+    if ((isLoading || isERPLoading) && (centres.length === 0 || filteredCentres.length === 0)) {
         return (
             <div className="animate-pulse">
                 <div className={`p-10 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/40'}`}>

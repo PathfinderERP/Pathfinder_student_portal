@@ -13,19 +13,25 @@ const TestResponses = () => {
     const [tests, setTests] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
 
-    const fetchTests = async () => {
-        setIsLoading(true);
+    const fetchTests = async (forceRefresh = false) => {
+        if (forceRefresh) setIsSyncing(true);
+        else if (tests.length === 0) setIsLoading(true);
+
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/`, {
+            const res = await axios.get(`${apiUrl}/api/tests/${forceRefresh ? '?refresh=true' : ''}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setTests(res.data);
+            if (forceRefresh) toast.success('ERP Data Synchronized Successfully!');
         } catch (err) {
             console.error('Error fetching tests:', err);
+            if (forceRefresh) toast.error('Failed to sync with ERP');
         } finally {
             setIsLoading(false);
+            setIsSyncing(false);
         }
     };
 
@@ -96,7 +102,7 @@ const TestResponses = () => {
         }
     };
 
-    const handleViewSubmissions = async (centre) => {
+    const handleViewSubmissions = async (centre, forceRefresh = false) => {
         setSubmissions([]); // Clear previous to prevent flickering
         setSelectedCentre(centre);
         setViewMode('STUDENTS');
@@ -105,13 +111,14 @@ const TestResponses = () => {
         setIsSubmissionsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/submissions/?centre_code=${centre.centre_details?.code}`, {
+            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/submissions/?centre_code=${centre.centre_details?.code}${forceRefresh ? '&refresh=true' : ''}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSubmissions(res.data.data || []);
             setAllottedSections(res.data.allotted_sections || []);
         } catch (err) {
             console.error('Error fetching submissions:', err);
+            toast.error('Failed to sync ERP data');
         } finally {
             setIsSubmissionsLoading(false);
         }
@@ -151,9 +158,21 @@ const TestResponses = () => {
     const attemptedCountSummary = useMemo(() => submissions.filter(s => getNormalizedStatus(s.status) !== 'available').length, [submissions]);
     const showingCountSummary = filteredSubmissions.length;
 
-    const handleGenerateResult = (testId) => {
-        // TODO: Implement result generation
-        console.log('Generate result for test:', testId);
+    const handleGenerateResult = async (testId) => {
+        setIsLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(`${apiUrl}/api/tests/${testId}/generate_result/`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success(res.data.message || 'Results generated successfully!');
+            fetchTests();
+        } catch (err) {
+            console.error('Error generating results:', err);
+            toast.error(err.response?.data?.error || 'Failed to generate results. Ensure exam is over for all centres.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const [isModalLoading, setIsModalLoading] = useState(false);
@@ -294,10 +313,11 @@ const TestResponses = () => {
                                     />
                                 </div>
                                 <button
-                                    onClick={fetchTests}
-                                    className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
+                                    onClick={() => fetchTests(true)}
+                                    className={`px-4 py-2.5 rounded-[5px] bg-orange-600 hover:bg-orange-700 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-orange-500/20 active:scale-95 ${isSyncing ? 'opacity-70 pointer-events-none' : ''}`}
                                 >
-                                    <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+                                    <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                                    {isSyncing ? 'Syncing...' : 'SYNC WITH ERP'}
                                 </button>
                             </div>
                         </div>
@@ -319,10 +339,10 @@ const TestResponses = () => {
                                         <th className="py-5 px-6">#</th>
                                         <th className="py-5 px-6">Test Name</th>
                                         <th className="py-5 px-6">Test Code</th>
-                                        <th className="py-5 px-6 text-center">No Of Student Attempted</th>
-                                        <th className="py-5 px-6 text-center">Total Student</th>
-                                        <th className="py-5 px-6 text-center">Centre</th>
-                                        <th className="py-5 px-6 text-center">Generate Result</th>
+                                        <th className="py-5 px-6 text-center">Attempts</th>
+                                        <th className="py-5 px-6 text-center">Total Roster</th>
+                                        <th className="py-5 px-6 text-center">Centres</th>
+                                        <th className="py-5 px-6 text-center">Results</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
@@ -374,15 +394,21 @@ const TestResponses = () => {
                                                     onClick={() => handleViewCentres(test)}
                                                     className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
                                                 >
-                                                    Centres
+                                                    View Centres
                                                 </button>
                                             </td>
                                             <td className="py-5 px-6 text-center">
                                                 <button
                                                     onClick={() => handleGenerateResult(test.id)}
-                                                    className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
+                                                    disabled={!test.is_over && !test.is_completed}
+                                                    title={(!test.is_over && !test.is_completed) ? "Exam is still in progress. Can only generate after end time of all centres." : "Click to generate result"}
+                                                    className={`px-4 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1.5 mx-auto
+                                                        ${(test.is_over || test.is_completed) 
+                                                            ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-600/20' 
+                                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none'}
+                                                     `}
                                                 >
-                                                    <FileText size={11} /> Generate Result
+                                                    <FileText size={11} /> {test.is_completed ? 'Regenerate' : 'Generate Result'}
                                                 </button>
                                             </td>
                                         </tr>
@@ -434,11 +460,11 @@ const TestResponses = () => {
                                         <th className="py-5 px-6">Centre Name</th>
                                         <th className="py-5 px-6 text-center">Attempted Students</th>
                                         <th className="py-5 px-6 text-center">Total Students</th>
-                                        <th className="py-5 px-6 text-right">Students</th>
+                                        <th className="py-5 px-6 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                                    {isCentresLoading ? (
+                                    {isCentresLoading && centres.length === 0 ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
                                                 <td colSpan="5" className="py-8 px-6">
@@ -472,12 +498,14 @@ const TestResponses = () => {
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6 text-right">
-                                                <button
-                                                    onClick={() => handleViewSubmissions(centre)}
-                                                    className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-                                                >
-                                                    Students
-                                                </button>
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <button
+                                                        onClick={() => handleViewSubmissions(centre)}
+                                                        className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                                                    >
+                                                        Students
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -524,7 +552,7 @@ const TestResponses = () => {
                                         />
                                     </div>
                                     <button
-                                        onClick={() => handleViewSubmissions(selectedCentre)}
+                                        onClick={() => handleViewSubmissions(selectedCentre, true)}
                                         className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
                                     >
                                         <RefreshCw size={18} className={isSubmissionsLoading ? 'animate-spin' : ''} />
@@ -573,7 +601,7 @@ const TestResponses = () => {
                                         </tr>
                                     </thead>
                                     <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                                        {isSubmissionsLoading ? (
+                                        {isSubmissionsLoading && submissions.length === 0 ? (
                                             Array(5).fill(0).map((_, i) => (
                                                 <tr key={i} className="animate-pulse">
                                                     <td colSpan="9" className="py-8 px-6">
@@ -612,13 +640,24 @@ const TestResponses = () => {
                                                     </td>
                                                     <td className="py-5 px-6">
                                                         <div className="flex flex-col gap-1">
-                                                            <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase())
+                                                            <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${(() => {
+                                                                    if (!allottedSections.length || !sub.section) return false;
+                                                                    // Check if any part of the student's section matches the allotted list
+                                                                    const studentSections = sub.section.split(',').map(s => s.trim().toLowerCase());
+                                                                    const allowedLower = allottedSections.map(s => s.toLowerCase());
+                                                                    return !studentSections.some(s => allowedLower.includes(s));
+                                                                })()
                                                                     ? 'text-orange-600'
                                                                     : 'opacity-60'
                                                                 }`}>
                                                                 {sub.section || '---'}
                                                             </span>
-                                                            {allottedSections.length > 0 && sub.section && !allottedSections.some(s => s.toLowerCase() === sub.section.toLowerCase()) && (
+                                                            {(() => {
+                                                                if (!allottedSections.length || !sub.section) return false;
+                                                                const studentSections = sub.section.split(',').map(s => s.trim().toLowerCase());
+                                                                const allowedLower = allottedSections.map(s => s.toLowerCase());
+                                                                return !studentSections.some(s => allowedLower.includes(s));
+                                                            })() && (
                                                                 <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-[2px] w-fit uppercase tracking-tighter animate-pulse">
                                                                     Section Mismatch
                                                                 </span>

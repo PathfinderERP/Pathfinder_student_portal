@@ -86,13 +86,23 @@ class TestSerializer(serializers.ModelSerializer):
             'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details',
             'centres', 'centres_count', 'codes_sent_count', 'allotted_sections', 'sections_count', 
             'allotted_master_count', 'duration', 'total_marks', 'description', 'instructions', 
-            'is_completed', 'has_calculator', 'option_type_numeric', 'created_at', 'updated_at',
+            'is_completed', 'is_over', 'has_calculator', 'option_type_numeric', 'created_at', 'updated_at',
             'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count'
         ]
         
     submission = serializers.SerializerMethodField()
     total_students = serializers.SerializerMethodField()
     total_roster_count = serializers.SerializerMethodField()
+    is_over = serializers.SerializerMethodField()
+
+    def get_is_over(self, obj):
+        from django.utils import timezone
+        allotments = list(obj.centre_allotments.all())
+        if not allotments:
+            return False
+        # A test is considered over if ALL allotments have ended
+        now = timezone.now()
+        return all(a.end_time and a.end_time < now for a in allotments)
 
     def get_total_students(self, obj):
         request = self.context.get('request')

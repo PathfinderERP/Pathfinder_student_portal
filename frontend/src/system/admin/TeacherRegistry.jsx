@@ -50,7 +50,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
         if (authLoading) return;
         if (!force && allTeachers.length > 0) return;
 
-        setIsLoading(true);
+        if (allTeachers.length === 0) setIsLoading(true);
         setError(null);
 
         try {
@@ -175,7 +175,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
         }
     };
 
-    if (isLoading) return (
+    if (isLoading && allTeachers.length === 0) return (
         <div className="animate-pulse space-y-8">
             <div className={`p-10 rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="overflow-x-auto">

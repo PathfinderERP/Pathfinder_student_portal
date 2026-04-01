@@ -57,7 +57,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
         if (authLoading) return;
 
         if (!force && allStudents.length > 0) return;
-        setIsLoading(true);
+        if (allStudents.length === 0) setIsLoading(true);
         setError(null);
 
         try {
@@ -264,7 +264,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
         tableRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    if (isLoading) return (
+    if (isLoading && allStudents.length === 0) return (
         <div className="animate-pulse">
             <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
                 <div className="overflow-x-auto">

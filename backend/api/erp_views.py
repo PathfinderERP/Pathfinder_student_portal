@@ -84,16 +84,23 @@ def _is_profile_rich(data):
     # We previously required 2, but 1 is fine for a fast initial UI
     return real_count >= 1
 
-def get_student_lookup_index():
+def get_student_lookup_index(force_refresh=False):
     """
     Best Algorithm: O(1) Hash Map lookup instead of O(N) list iteration.
     Indexes all students by Email and Admission ID for instant retrieval.
     """
     index_key = 'erp_student_lookup_index_v1'
-    index = cache.get(index_key)
-    if index: return index
     
-    bulk_cache = cache.get('erp_all_students_v1')
+    if force_refresh:
+        cache.delete(index_key)
+        # We don't call the view, we just rely on get_all_students_erp_data view being called 
+        # or we could move the logic to a helper.
+    
+    index = cache.get(index_key)
+    if index and not force_refresh: return index
+    
+    # helper for mass data fetch (reused by view and here)
+    bulk_cache = _fetch_all_students_erp(force_refresh=force_refresh)
     if not bulk_cache or not isinstance(bulk_cache, list): return None
     
     print(f"[ERP] O(1) Indexing {len(bulk_cache)} records for high-performance lookup...")
@@ -112,6 +119,40 @@ def get_student_lookup_index():
                 
     cache.set(index_key, idx, 3600) # 1 hour index life
     return idx
+
+def _fetch_all_students_erp(force_refresh=False):
+    CACHE_KEY = 'erp_all_students_v1'
+    if not force_refresh:
+        cached = cache.get(CACHE_KEY)
+        if cached is not None: return cached
+
+    try:
+        erp_url = _get_erp_url()
+        erp_token = _get_erp_admin_token(force_refresh=force_refresh)
+
+        if not erp_token: return []
+
+        print(f"[ERP SYNC] Fetching FRESH data for {CACHE_KEY} (Forced: {force_refresh})...")
+        resp = requests.get(
+            f"{erp_url}/api/admission",
+            headers={"Authorization": f"Bearer {erp_token}"},
+            timeout=90
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            final_data = []
+            if isinstance(data, dict):
+                final_data = data.get('data') or data.get('admissions') or data.get('students') or []
+            elif isinstance(data, list):
+                final_data = data
+            
+            if final_data:
+                cache.set(CACHE_KEY, final_data, 86400)
+                return final_data
+    except Exception as e:
+        print(f"[ERP SYNC ERROR] {e}")
+    return []
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -360,82 +401,10 @@ def _sync_user_to_erp(user, admission_data):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_students_erp_data(request):
-    CACHE_KEY = 'erp_all_students_v1'
-
     # Serve from cache unless a forced refresh is requested
     force_refresh = request.GET.get('refresh') in ['true', '1', 'True']
-    if not force_refresh:
-        cached = cache.get(CACHE_KEY)
-        if cached is not None:
-            print(f"[ERP DEBUG] Serving {len(cached)} students from cache.")
-            return Response(cached, status=200)
-
-    try:
-        erp_url = _get_erp_url()
-        erp_token = _get_erp_admin_token()
-
-        if not erp_token:
-            print("[ERP DEBUG] Admin token unavailable — ERP may be sleeping. Returning empty.")
-            # Return 200 with empty list so the frontend doesn't crash; user can retry later
-            return Response([], status=200)
-
-        # The ERP admission endpoint returns 52 MB — stream it with a 90s timeout
-        print(f"[ERP DEBUG] Fetching students from {erp_url}/api/admission (stream, 90s timeout)")
-        resp = requests.get(
-            f"{erp_url}/api/admission",
-            headers={"Authorization": f"Bearer {erp_token}"},
-            timeout=90,
-            stream=True
-        )
-
-        # Auto-retry once on 401
-        if resp.status_code == 401:
-            print("[ERP DEBUG] Admin Token 401. Retrying with fresh login...")
-            erp_token = _get_erp_admin_token(force_refresh=True)
-            resp = requests.get(
-                f"{erp_url}/api/admission",
-                headers={"Authorization": f"Bearer {erp_token}"},
-                timeout=90,
-                stream=True
-            )
-
-        print(f"[ERP DEBUG] Admission API Status: {resp.status_code}")
-
-        if resp.status_code == 200:
-            import json as _json
-            # Increase timeout specifically for large parsing
-            try:
-                data = resp.json()
-            except Exception as json_err:
-                # If JSON fails, it might be a partial stream or too big
-                print(f"[ERP ERROR] JSON Parse failed: {json_err}")
-                return Response([], status=200)
-
-            # Handle list vs wrapped dict safely
-            final_data = []
-            if isinstance(data, dict):
-                final_data = data.get('data') or data.get('admissions') or data.get('students') or []
-            elif isinstance(data, list):
-                final_data = data
-            
-            if not isinstance(final_data, list):
-                final_data = []
-
-            print(f"[ERP DEBUG] Parsed {len(final_data)} student records — caching")
-            # Only cache if data is manageable
-            if len(final_data) > 0:
-                # Cache for 24 hours to avoid heavy streaming on every admin login
-                cache.set(CACHE_KEY, final_data, 86400)
-            return Response(final_data, status=200)
-
-        return Response([], status=200)
-
-    except requests.exceptions.Timeout:
-        print("[ERP ERROR] Request timed out")
-        return Response([], status=200)
-    except Exception as e:
-        print(f"[ERP ERROR] get_all_students_erp_data: {e}")
-        return Response([], status=200)
+    data = _fetch_all_students_erp(force_refresh=force_refresh)
+    return Response(data, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
