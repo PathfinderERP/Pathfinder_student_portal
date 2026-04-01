@@ -391,10 +391,10 @@ const TestResponses = () => {
                                     <select
                                         value={selectedSession}
                                         onChange={(e) => setSelectedSession(e.target.value)}
-                                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
                                     >
-                                        <option value="all">All Sessions</option>
-                                        {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+                                        <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Sessions</option>
+                                        {sessions.map(s => <option key={s} value={s} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>{s}</option>)}
                                     </select>
                                 </div>
 
@@ -406,11 +406,11 @@ const TestResponses = () => {
                                     <select
                                         value={testFilter}
                                         onChange={(e) => setTestFilter(e.target.value)}
-                                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-green-500/10' : 'bg-white border-slate-200 focus:ring-green-500/5'}`}
+                                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-green-500/10' : 'bg-white border-slate-200 focus:ring-green-500/5'}`}
                                     >
-                                        <option value="all">Every Result</option>
-                                        <option value="completed">Completed Only</option>
-                                        <option value="in_progress">Processing / Ready</option>
+                                        <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Result</option>
+                                        <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
+                                        <option value="in_progress" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Processing / Ready</option>
                                     </select>
                                 </div>
 

@@ -4,6 +4,8 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import QuestionAnalysis from './QuestionAnalysis';
+import QuestionStudentAnalysis from './QuestionStudentAnalysis';
 
 const TestResult = () => {
     const { isDarkMode } = useTheme();
@@ -16,6 +18,8 @@ const TestResult = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedAnalysisTest, setSelectedAnalysisTest] = useState(null); // { id, name }
+    const [selectedStudentVsQuestionTest, setSelectedStudentVsQuestionTest] = useState(null); // { id, name }
 
     const fetchTests = async () => {
         setIsLoading(true);
@@ -98,20 +102,40 @@ const TestResult = () => {
         console.log('Toggle release result for test:', testId);
     };
 
-    const handleQuestionAnalysis = (testId) => {
-        // TODO: Navigate to question analysis page
-        console.log('View question analysis for test:', testId);
+    const handleQuestionAnalysis = (testId, testName) => {
+        setSelectedAnalysisTest({ id: testId, name: testName });
     };
 
-    const handleQuestionVsStudentAnalysis = (testId) => {
-        // TODO: Navigate to question vs student analysis page
-        console.log('View question vs student analysis for test:', testId);
+    const handleQuestionVsStudentAnalysis = (testId, testName) => {
+        setSelectedStudentVsQuestionTest({ id: testId, name: testName });
     };
 
     const handleShowStudentResponses = (testId) => {
         // TODO: Navigate to student responses page
         console.log('Show student responses for test:', testId);
     };
+
+    // ── If analysis mode is active, show it instead of the list ──
+    if (selectedAnalysisTest) {
+        return (
+            <QuestionAnalysis
+                testId={selectedAnalysisTest.id}
+                testName={selectedAnalysisTest.name}
+                onBack={() => setSelectedAnalysisTest(null)}
+            />
+        );
+    }
+
+    // ── If student vs question analysis mode is active ──
+    if (selectedStudentVsQuestionTest) {
+        return (
+            <QuestionStudentAnalysis
+                testId={selectedStudentVsQuestionTest.id}
+                testName={selectedStudentVsQuestionTest.name}
+                onBack={() => setSelectedStudentVsQuestionTest(null)}
+            />
+        );
+    }
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -147,10 +171,10 @@ const TestResult = () => {
                             <select
                                 value={selectedSession}
                                 onChange={(e) => setSelectedSession(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
                             >
-                                <option value="all">All Sessions</option>
-                                {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+                                <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Sessions</option>
+                                {sessions.map(s => <option key={s} value={s} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>{s}</option>)}
                             </select>
                         </div>
 
@@ -162,11 +186,11 @@ const TestResult = () => {
                             <select
                                 value={testFilter}
                                 onChange={(e) => setTestFilter(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-green-500/10' : 'bg-white border-slate-200 focus:ring-green-500/5'}`}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-green-500/10' : 'bg-white border-slate-200 focus:ring-green-500/5'}`}
                             >
-                                <option value="all">Every Result</option>
-                                <option value="completed">Completed Only</option>
-                                <option value="in_progress">Processing / Ready</option>
+                                <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Result</option>
+                                <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
+                                <option value="in_progress" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Processing / Ready</option>
                             </select>
                         </div>
 
@@ -251,16 +275,26 @@ const TestResult = () => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => handleQuestionAnalysis(test.id)}
-                                            className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
+                                            onClick={() => handleQuestionAnalysis(test.id, test.name)}
+                                            disabled={!test.is_completed}
+                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
+                                                test.is_completed 
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95' 
+                                                    : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
+                                            }`}
                                         >
                                             <BarChart3 size={11} /> Question Analysis
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => handleQuestionVsStudentAnalysis(test.id)}
-                                            className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
+                                            onClick={() => handleQuestionVsStudentAnalysis(test.id, test.name)}
+                                            disabled={!test.is_completed}
+                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
+                                                test.is_completed 
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95' 
+                                                    : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
+                                            }`}
                                         >
                                             <BarChart3 size={11} /> Analysis
                                         </button>
@@ -268,7 +302,12 @@ const TestResult = () => {
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleShowStudentResponses(test.id)}
-                                            className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-600/20 active:scale-95 flex items-center gap-1.5 mx-auto"
+                                            disabled={!test.is_completed}
+                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
+                                                test.is_completed 
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95' 
+                                                    : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
+                                            }`}
                                         >
                                             <Eye size={11} /> Students
                                         </button>

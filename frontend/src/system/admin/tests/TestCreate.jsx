@@ -343,11 +343,11 @@ const TestCreate = () => {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
+                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
                     >
-                        <option value="all">Every Test</option>
-                        <option value="completed">Completed Only</option>
-                        <option value="pending">Pending Only</option>
+                        <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Test</option>
+                        <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
+                        <option value="pending" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Pending Only</option>
                     </select>
                 </div>
             </div>

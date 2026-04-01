@@ -338,13 +338,13 @@ const TestAllotment = () => {
                             <select
                                 value={filterSession}
                                 onChange={(e) => setFilterSession(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
                             >
-                                <option value="">All Sessions</option>
+                                <option value="" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Sessions</option>
                                 {filteredSessionsForDropdown
                                     .sort((a, b) => b.name.localeCompare(a.name))
                                     .map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                        <option key={s.id} value={s.id} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>{s.name}</option>
                                     ))}
                             </select>
                         </div>
@@ -357,11 +357,11 @@ const TestAllotment = () => {
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
                             >
-                                <option value="">All Status</option>
-                                <option value="allotted">Allotted Only</option>
-                                <option value="not_allotted">Not Allotted Only</option>
+                                <option value="" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Status</option>
+                                <option value="allotted" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Allotted Only</option>
+                                <option value="not_allotted" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Not Allotted Only</option>
                             </select>
                         </div>
                     </div>

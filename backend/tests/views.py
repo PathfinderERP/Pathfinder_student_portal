@@ -638,7 +638,274 @@ class TestViewSet(viewsets.ModelViewSet):
         
         return Response({'message': 'Results generated and test marked as completed successfully.'})
 
+    @action(detail=True, methods=['get'], url_path='question_analysis')
+    def question_analysis(self, request, pk=None):
+        """
+        Per-question analysis: for every question in this test, returns
+        counts of correct / incorrect / partial / not_attempted across all submissions.
+        """
+        from api.db_utils import get_db
+        from bson import ObjectId
+
+        test = self.get_object()
+        sections_data = []
+
+        for section in test.allotted_sections.all().order_by('priority'):
+            seen = set()
+            order_list = section.question_order or []
+            order_map = {str(oid): i for i, oid in enumerate(order_list)}
+
+            unique_qs = []
+            for q in section.questions.all():
+                if str(q.pk) not in seen:
+                    seen.add(str(q.pk))
+                    unique_qs.append(q)
+            unique_qs.sort(key=lambda q: order_map.get(str(q.pk), 999999))
+
+            qs = []
+            for q in unique_qs:
+                q_id = str(q.pk)
+                correct_options = [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')]
+                a_from = float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None
+                a_to   = float(q.answer_to)   if getattr(q, 'answer_to', None)   is not None else None
+                qs.append({
+                    'id': q_id,
+                    'content': q.content or '',
+                    'solution': q.solution or '',  # Include the solution/explanation
+                    'type': q.question_type or 'SINGLE_CHOICE',
+                    'correct_marks': float(section.correct_marks or 0),
+                    'negative_marks': float(section.negative_marks or 0),
+                    'correct_options': correct_options,
+                    'options': q.question_options or [],   # full option list with content + isCorrect
+                    'answer_from': a_from,
+                    'answer_to': a_to,
+
+                    'correct': 0,
+                    'incorrect': 0,
+                    'partial': 0,
+                    'not_attempted': 0,
+                    'total': 0,
+                })
+            sections_data.append({
+                'name': section.name,
+                'questions': qs,
+            })
+
+        # Aggregate from MongoDB
+        db = get_db()
+        if db is not None:
+            try:
+                try:
+                    t_pk = ObjectId(test.pk)
+                except Exception:
+                    t_pk = test.pk
+
+                sub_docs = list(db['tests_testsubmission'].find(
+                    {'test_id': t_pk, 'is_finalized': True},
+                    {'responses': 1}
+                ))
+            except Exception as e:
+                print(f"[question_analysis] PyMongo error: {e}")
+                sub_docs = []
+
+            q_lookup = {}
+            for sec in sections_data:
+                for q in sec['questions']:
+                    q_lookup[q['id']] = q
+
+            total = len(sub_docs)
+            for q in q_lookup.values():
+                q['total'] = total
+
+            for doc in sub_docs:
+                raw_responses = doc.get('responses') or {}
+                # MongoDB may store responses as a JSON string depending on how it was saved
+                if isinstance(raw_responses, str):
+                    import json
+                    try:
+                        raw_responses = json.loads(raw_responses)
+                    except Exception:
+                        raw_responses = {}
+                responses = raw_responses if isinstance(raw_responses, dict) else {}
+
+                for q_id, q_data in q_lookup.items():
+                    response = responses.get(q_id)
+                    # response may be a dict {'answer': ...}, a raw value, or None
+                    if isinstance(response, dict):
+                        answer = response.get('answer')
+                    elif response is not None:
+                        answer = response  # raw answer stored directly
+                    else:
+                        answer = None
+
+                    if answer is None or answer == '' or answer == [] or (isinstance(answer, list) and len(answer) == 0):
+                        q_data['not_attempted'] += 1
+                        continue
+                    q_type = q_data['type']
+                    if q_type == 'SINGLE_CHOICE':
+                        if str(answer) in q_data['correct_options']:
+                            q_data['correct'] += 1
+                        else:
+                            q_data['incorrect'] += 1
+                    elif q_type == 'MULTI_CHOICE':
+                        selected = set(map(str, answer if isinstance(answer, list) else [answer]))
+                        correct  = set(q_data['correct_options'])
+                        if selected == correct:
+                            q_data['correct'] += 1
+                        elif selected & correct:
+                            q_data['partial'] += 1
+                        else:
+                            q_data['incorrect'] += 1
+                    elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                        try:
+                            val = float(answer)
+                            lo, hi = q_data['answer_from'], q_data['answer_to']
+                            if lo is not None and hi is not None and lo <= val <= hi:
+                                q_data['correct'] += 1
+                            else:
+                                q_data['incorrect'] += 1
+                        except (TypeError, ValueError):
+                            q_data['incorrect'] += 1
+                    else:
+                        q_data['incorrect'] += 1
+
+        return Response({
+            'test_name': test.name,
+            'test_code': test.code,
+            'duration': test.duration,
+            'sections': sections_data,
+        })
+
+    @action(detail=True, methods=['get'], url_path='question_student_analysis')
+    def question_student_analysis(self, request, pk=None):
+        """
+        Returns a matrix: 
+        Rows: Students (Finalized only)
+        Cols: Questions (Flat list from all sections)
+        Values: status (CA, IA, PA, NA)
+        """
+        from api.db_utils import get_db
+        from bson import ObjectId
+        from api.models import CustomUser
+
+        test = self.get_object()
+
+        # 1. Group questions by section
+        flat_questions = []
+        sections_info = []
+        for section in test.allotted_sections.all().order_by('priority'):
+            order_list = section.question_order or []
+            order_map = {str(oid): i for i, oid in enumerate(order_list)}
+            
+            seen = set()
+            section_qs = []
+            for q in section.questions.all():
+                if str(q.pk) not in seen:
+                    seen.add(str(q.pk))
+                    section_qs.append(q)
+            section_qs.sort(key=lambda q: order_map.get(str(q.pk), 999999))
+
+            count = 0
+            for q in section_qs:
+                count += 1
+                flat_questions.append({
+                    'id': str(q.pk),
+                    'type': q.question_type,
+                    'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
+                    'answer_from': float(q.answer_from) if q.answer_from is not None else None,
+                    'answer_to': float(q.answer_to) if q.answer_to is not None else None,
+                })
+            
+            if count > 0:
+                sections_info.append({
+                    'name': section.name,
+                    'count': count
+                })
+
+        # 2. Get finalized submissions from MongoDB
+
+        db = get_db()
+        submissions = []
+        if db is not None:
+            try:
+                try: t_pk = ObjectId(test.pk)
+                except: t_pk = test.pk
+                submissions = list(db['tests_testsubmission'].find(
+                    {'test_id': t_pk, 'is_finalized': True},
+                    {'student_id': 1, 'responses': 1}
+                ))
+            except: pass
+
+        # 3. Enhance with student names/enrollments
+        student_ids = [s['student_id'] for s in submissions]
+        s_objs = CustomUser.objects.filter(_id__in=student_ids).values('_id', 'first_name', 'last_name', 'username', 'admission_number')
+        s_lookup = {}
+        for s in s_objs:
+            full_name = f"{s['first_name']} {s['last_name']}".strip() or s['username']
+            s_lookup[str(s['_id'])] = {
+                'name': full_name,
+                'enrollment_number': s['admission_number'] or s['username']
+            }
+
+        # 4. Build the matrix
+        matrix_data = []
+        for sub in submissions:
+            sid_str = str(sub['student_id'])
+            s_info = s_lookup.get(sid_str) or {'name': 'Unknown', 'enrollment_number': sid_str}
+            
+            # Parse responses
+            raw_res = sub.get('responses') or {}
+            if isinstance(raw_res, str):
+                import json
+                try: raw_res = json.loads(raw_res)
+                except: raw_res = {}
+            responses = raw_res if isinstance(raw_res, dict) else {}
+
+            row = {
+                'student_name': s_info['name'],
+                'enrollment_number': s_info['enrollment_number'],
+                'results': []
+            }
+
+            for q in flat_questions:
+                q_id = q['id']
+                res_obj = responses.get(q_id)
+                ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+                
+                status = 'NA' # Not Attempted
+                if ans not in (None, '', [], {}):
+                    q_type = q['type']
+                    if q_type == 'SINGLE_CHOICE':
+                        status = 'CA' if str(ans) in q['correct_options'] else 'IA'
+                    elif q_type == 'MULTI_CHOICE':
+                        selected = set(map(str, ans if isinstance(ans, list) else [ans]))
+                        correct = set(q['correct_options'])
+                        if selected == correct: status = 'CA'
+                        elif selected & correct: status = 'PA'
+                        else: status = 'IA'
+                    elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                        try:
+                            v = float(ans)
+                            if q['answer_from'] <= v <= q['answer_to']: status = 'CA'
+                            else: status = 'IA'
+                        except: status = 'IA'
+                    else:
+                        status = 'IA'
+                row['results'].append(status)
+            
+            matrix_data.append(row)
+
+        return Response({
+            'test_name': test.name,
+            'questions_count': len(flat_questions),
+            'sections_info': sections_info,
+            'matrix': matrix_data
+        })
+
+
+
     @action(detail=True, methods=['post'], url_path='resume_test')
+
     def resume_test(self, request, pk=None):
         test = self.get_object()
         student_id = request.data.get('student_id')
@@ -1010,7 +1277,110 @@ class TestViewSet(viewsets.ModelViewSet):
             'submission_id': str(submission.id)
         })
 
+    @action(detail=False, methods=['post'], url_path='merge_results')
+    def merge_results(self, request):
+        """
+        Merge submissions from multiple tests (e.g. JEE Adv Paper 1 + Paper 2).
+        POST body: { "test_ids": ["id1", "id2", ...] }
+        Returns: A unified, ranked leaderboard with each student's score per paper and total.
+        """
+        from api.db_utils import get_db
+        from api.models import CustomUser
+        from bson import ObjectId
+
+        test_ids_raw = request.data.get('test_ids', [])
+        if len(test_ids_raw) < 2:
+            return Response({'error': 'Please select at least 2 tests to merge.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve tests
+        tests_qs = Test.objects.filter(pk__in=test_ids_raw).prefetch_related('allotted_sections')
+        tests_list = list(tests_qs)
+        if len(tests_list) < 2:
+            return Response({'error': 'Could not find the selected tests.'}, status=status.HTTP_404_NOT_FOUND)
+
+        test_map = {str(t.pk): t for t in tests_list}
+
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database unavailable.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        # student_data: { student_id_str: { 'name': ..., 'enroll': ..., 'papers': { test_id_str: score }, 'total': float } }
+        student_data = {}
+
+        for test in tests_list:
+            test_id_str = str(test.pk)
+            try:
+                # Convert pk – may be ObjectId or int depending on Djongo version
+                try:
+                    t_pk = ObjectId(test.pk)
+                except Exception:
+                    t_pk = test.pk
+
+                sub_docs = list(db['tests_testsubmission'].find(
+                    {'test_id': t_pk, 'is_finalized': True},
+                    {'student_id': 1, 'score': 1}
+                ))
+            except Exception as e:
+                print(f"[merge_results] PyMongo error for test {test_id_str}: {e}")
+                sub_docs = []
+
+            for doc in sub_docs:
+                sid = str(doc.get('student_id'))
+                score = float(doc.get('score') or 0)
+
+                if sid not in student_data:
+                    student_data[sid] = {'papers': {}, 'total': 0.0, 'name': '', 'username': '', 'enroll': ''}
+
+                student_data[sid]['papers'][test_id_str] = score
+                student_data[sid]['total'] += score
+
+        if not student_data:
+            return Response({'leaderboard': [], 'tests': [{'id': str(t.pk), 'name': t.name, 'code': t.code} for t in tests_list]})
+
+        # Enrich with student profiles
+        try:
+            student_pks = list(student_data.keys())
+            users = CustomUser.objects.filter(pk__in=student_pks)
+            for u in users:
+                sid = str(u.pk)
+                if sid in student_data:
+                    student_data[sid]['name'] = f"{u.first_name} {u.last_name}".strip().upper() or u.username.upper()
+                    student_data[sid]['username'] = u.username or ''
+                    enroll = u.admission_number or u.username or ''
+                    student_data[sid]['enroll'] = str(enroll).upper().strip()
+        except Exception as e:
+            print(f"[merge_results] User enrichment error: {e}")
+
+        # Build ranked leaderboard
+        leaderboard = []
+        for sid, data in student_data.items():
+            leaderboard.append({
+                'student_id': sid,
+                'name': data['name'] or f"Student #{sid[-4:]}",
+                'username': data['username'],
+                'enroll': data['enroll'],
+                'papers': data['papers'],
+                'total': round(data['total'], 2),
+            })
+
+        # Sort by total descending, assign rank
+        leaderboard.sort(key=lambda x: x['total'], reverse=True)
+        prev_score = None
+        prev_rank = 0
+        for i, row in enumerate(leaderboard):
+            if row['total'] != prev_score:
+                prev_rank = i + 1
+                prev_score = row['total']
+            row['rank'] = prev_rank
+
+        return Response({
+            'tests': [{'id': str(t.pk), 'name': t.name, 'code': t.code} for t in tests_list],
+            'leaderboard': leaderboard
+        })
+
+
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
+
     queryset = TestCentreAllotment.objects.all()
     serializer_class = TestCentreAllotmentSerializer
 
