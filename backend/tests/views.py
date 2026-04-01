@@ -161,61 +161,76 @@ class TestViewSet(viewsets.ModelViewSet):
         except Test.DoesNotExist:
             return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
             
-        # SELF-HEAL: Ensure Allotment records exist for all selected centres
-        local_centres = list(test.centres.all())
-        allotments = list(test.centre_allotments.all())
-        allotted_centre_ids = [str(a.centre_id) for a in allotments]
-        
-        for centre in local_centres:
-            if str(centre.pk) not in allotted_centre_ids:
-                TestCentreAllotment.objects.get_or_create(test=test, centre=centre)
-                
-        # Re-fetch fresh list
         from api.models import CustomUser
         from .models import TestSubmission
+        from centres.models import Centre
+        from api.db_utils import get_db, parse_section
+        db = get_db()
         
-        all_allotments = test.centre_allotments.all()
+        # 1. Get explicit allotments
+        all_allotments = list(test.centre_allotments.all().select_related('centre'))
+        allotted_centre_ids = {str(a.centre_id) for a in all_allotments}
         
-        # Pre-fetch all student IDs who have submitted for this test
-        all_submitted_student_ids = set(TestSubmission.objects.filter(test=test).values_list('student_id', flat=True))
-        
+        # 2. Pre-fetch ALL submissions for this test with student centre info via PyMongo
+        # This bypasses the Djongo RecursionError/SQLDecodeError on exists()/filter()
+        all_subs_data = []
+        if db is not None:
+            try:
+                sub_docs = list(db['tests_testsubmission'].find({'test_id': test.pk}, {'student_id': 1}))
+                if sub_docs:
+                    student_pks = [d['student_id'] for d in sub_docs]
+                    user_docs = {str(u['_id']): u for u in db['api_customuser'].find(
+                        {'_id': {'$in': student_pks}},
+                        {'centre_code': 1, 'centre_name': 1}
+                    )}
+                    for s_id in student_pks:
+                        u_info = user_docs.get(str(s_id), {})
+                        all_subs_data.append({
+                            'pk': s_id,
+                            'c_code': str(u_info.get('centre_code', '')).lower().strip(),
+                            'c_name': str(u_info.get('centre_name', '')).lower().strip()
+                        })
+            except Exception as e:
+                print(f"PyMongo bypass error in 'centres': {e}")
+
+        # 3. Identify "Extra" centres (ones with submissions but not allotted)
+        extra_centres = []
+        if all_subs_data:
+            sub_c_codes = {d['c_code'] for d in all_subs_data if d['c_code']}
+            sub_c_names = {d['c_name'] for d in all_subs_data if d['c_name']}
+            
+            if sub_c_codes or sub_c_names:
+                # Primary key lookup is safe
+                extra_centres = list(Centre.objects.filter(
+                    Q(code__in=sub_c_codes) | Q(name__in=sub_c_names)
+                ).exclude(pk__in=allotted_centre_ids))
+
         data = []
-        for allotment in all_allotments:
-            c_code = allotment.centre.code
-            c_name = allotment.centre.name
-            from django.db.models import Q
+        allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
+        
+        # Helper to process a centre
+        def process_centre(centre, allotment=None):
+            c_code = str(centre.code).lower().strip()
+            c_name = str(centre.name).lower().strip()
             
-            # Count unique attempted students for this centre
-            # Djongo workaround: fetch list then use set() to bypass SQL parser crash
-            # This counts students who have submitted AND belong to this centre
-            submitted_students_in_centre_ids = TestSubmission.objects.filter(test=test).filter(
-                Q(student__centre_code__iexact=c_code) | Q(student__centre_name__iexact=c_name)
-            ).values_list('student', flat=True)
-            submission_count = len(set(submitted_students_in_centre_ids))
+            # Filter pre-fetched submissions for this centre
+            submitted_ids_in_centre = {d['pk'] for d in all_subs_data if d['c_code'] == c_code or d['c_name'] == c_name}
+            submission_count = len(submitted_ids_in_centre)
             
-            # Identify allowed section names for this test for precise counting (lower case for robust matching)
-            allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
-            
-            # Filtered Rooster Count (Matches the logic in 'submissions' view)
-            allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
-            
-            # A. Count local students who match centre and (section OR has submission)
-            centre_query = Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
-            centre_pool = CustomUser.objects.filter(user_type='student').filter(centre_query)
-            
+            # Skip unallotted centres with zero attempts
+            if allotment is None and submission_count == 0:
+                return None
+
             from django.core.cache import cache
-            from api.db_utils import parse_section
-            
-            ROSTER_CACHE_TTL = 600  # 10 minutes
+            ROSTER_CACHE_TTL = 600
             roster_cache_key = f'roster_count_{test.pk}_{c_code}'
-            cached_count = cache.get(roster_cache_key)
+            active_roster_count = cache.get(roster_cache_key)
             
-            if cached_count is not None:
-                # Use cached value from the authoritative /submissions/ endpoint
-                active_roster_count = cached_count
-            else:
-                # Compute fresh
+            if active_roster_count is None:
                 active_roster_count = 0
+                centre_pool = CustomUser.objects.filter(user_type='student').filter(
+                    Q(centre_code__iexact=c_code) | Q(centre_name__iexact=c_name)
+                )
                 seen_local_identifiers = set()
 
                 for student in centre_pool:
@@ -223,7 +238,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     if student.admission_number: seen_local_identifiers.add(student.admission_number.upper().strip())
                     if student.email: seen_local_identifiers.add(student.email.lower().strip())
 
-                    if str(student.pk) in all_submitted_student_ids:
+                    if student.pk in submitted_ids_in_centre:
                         active_roster_count += 1
                         continue
                     
@@ -232,7 +247,6 @@ class TestViewSet(viewsets.ModelViewSet):
                         s_studies = [s.lower() for s in parse_section(student.study_section)]
                         if not any(sec in allowed_sections_list for sec in (s_exams + s_studies)):
                             continue
-                    
                     active_roster_count += 1
 
                 erp_pool = cache.get('erp_all_students_v1') or []
@@ -252,16 +266,68 @@ class TestViewSet(viewsets.ModelViewSet):
                     e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
                     if (e_adm and e_adm in seen_local_identifiers) or (e_email and e_email in seen_local_identifiers):
                         continue
-                    
                     active_roster_count += 1
-
-                # Write to shared cache so /submissions/ sees the same value on first load
                 cache.set(roster_cache_key, active_roster_count, ROSTER_CACHE_TTL)
             
-            allot_data = TestCentreAllotmentSerializer(allotment).data
-            allot_data['submission_count'] = submission_count
-            allot_data['total_students_in_centre'] = active_roster_count
-            data.append(allot_data)
+            from .serializers import TestCentreAllotmentSerializer
+            from centres.serializers import CentreSerializer
+            
+            if allotment:
+                serialized = TestCentreAllotmentSerializer(allotment).data
+            else:
+                serialized = {
+                    'id': f"extra-{centre.pk}",
+                    'test': str(test.pk),
+                    'centre': str(centre.pk),
+                    'centre_details': CentreSerializer(centre).data,
+                    'is_active': False,
+                    'test_name': test.name
+                }
+            
+            serialized['submission_count'] = submission_count
+            serialized['total_students_in_centre'] = active_roster_count
+            return serialized
+
+        # Final loop: allotted then extra
+        processed_sub_ids = set()
+        for allotment in all_allotments:
+            res = process_centre(allotment.centre, allotment)
+            if res:
+                data.append(res)
+                # Keep track of which submissions we've accounted for
+                c_code = str(allotment.centre.code).lower().strip()
+                c_name = str(allotment.centre.name).lower().strip()
+                match_ids = {d['pk'] for d in all_subs_data if d['c_code'] == c_code or d['c_name'] == c_name}
+                processed_sub_ids.update(match_ids)
+            
+        for centre in extra_centres:
+            res = process_centre(centre)
+            if res:
+                data.append(res)
+                c_code = str(centre.code).lower().strip()
+                c_name = str(centre.name).lower().strip()
+                match_ids = {d['pk'] for d in all_subs_data if d['c_code'] == c_code or d['c_name'] == c_name}
+                processed_sub_ids.update(match_ids)
+
+        # 4. Handle cases where submissions exist but the student has no valid centre info
+        # or matches a centre that can't be found in the Centre table.
+        unmatched_subs = [d for d in all_subs_data if d['pk'] not in processed_sub_ids]
+        if unmatched_subs:
+            unassigned_count = len(unmatched_subs)
+            data.append({
+                'id': 'unassigned-row',
+                'test': str(test.pk),
+                'centre': None,
+                'centre_details': {
+                    'pk': None,
+                    'code': 'N/A',
+                    'name': 'Unassigned / System Entries'
+                },
+                'is_active': False,
+                'test_name': test.name,
+                'submission_count': unassigned_count,
+                'total_students_in_centre': unassigned_count
+            })
             
         return Response(data)
 
@@ -358,17 +424,33 @@ class TestViewSet(viewsets.ModelViewSet):
         all_submissions_list = TestSubmission.objects.filter(test=test)
         sub_map = {str(s.student_id): s for s in all_submissions_list}
 
+        # 2. Identify all potential students for this category
         from centres.models import Centre
-        cent_obj = Centre.objects.filter(code__iexact=centre_code).first()
-        cent_name = cent_obj.name if cent_obj else None
-
-        from django.db.models import Q
-        # 2. Identify all potential students for this centre
-        centre_query = Q(centre_code__iexact=centre_code)
-        if cent_name:
-            centre_query |= Q(centre_name__iexact=cent_name)
-            
-        rooster_students = list(CustomUser.objects.filter(user_type='student').filter(centre_query))
+        if centre_code == 'N/A':
+            # Handle special 'Unassigned' category
+            from api.db_utils import get_db
+            db = get_db()
+            unmatched_pks = []
+            if db:
+                sub_docs = list(db['tests_testsubmission'].find({'test_id': test.pk}, {'student_id': 1}))
+                sub_pks = [d['student_id'] for d in sub_docs]
+                
+                all_c = list(Centre.objects.values_list('code', 'name'))
+                q_known = Q()
+                for c_code_db, c_name_db in all_c:
+                    q_known |= Q(centre_code__iexact=c_code_db) | Q(centre_name__iexact=c_name_db)
+                
+                matched_pks = set(CustomUser.objects.filter(pk__in=sub_pks).filter(q_known).values_list('pk', flat=True))
+                unmatched_pks = [p for p in sub_pks if p not in matched_pks]
+            rooster_students = list(CustomUser.objects.filter(pk__in=unmatched_pks))
+            cent_name = "Unassigned / System Entries"
+        else:
+            cent_obj = Centre.objects.filter(code__iexact=centre_code).first()
+            cent_name = cent_obj.name if cent_obj else None
+            centre_query = Q(centre_code__iexact=centre_code)
+            if cent_name:
+                centre_query |= Q(centre_name__iexact=cent_name)
+            rooster_students = list(CustomUser.objects.filter(user_type='student').filter(centre_query))
         
         # Identify allowed section names for this test (robust case-insensitive)
         allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]

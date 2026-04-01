@@ -123,27 +123,44 @@ class TestSerializer(serializers.ModelSerializer):
 
         try:
             centres = list(obj.centres.all())
-            if not centres: 
-                return 0
-
-            # Sum of cached authoritative counts is the most accurate/consistent
-            has_all_cached = True
-            total_sum = 0
-            for centre in centres:
-                cached = cache.get(f'roster_count_{obj.pk}_{centre.code}')
-                if cached is not None:
-                    total_sum += int(cached)
-                else:
-                    has_all_cached = False
-                    break
             
-            if has_all_cached:
-                return total_sum
-
-            # Fallback: Compute fresh global roster
-            allowed_sections = [s.name.strip().lower() for s in obj.allotted_sections.all()]
+            # --- authoritative Baseline: All Students with existing submissions ---
+            from .models import TestSubmission
+            from api.db_utils import get_db
+            db = get_db()
+            
             seen_identifiers = set()
             total_count = 0
+            
+            # Use PyMongo for performance and to bypass Djongo parser issues
+            if db is not None:
+                try:
+                    sub_docs = list(db['tests_testsubmission'].find({'test_id': obj.pk}, {'student_id': 1}))
+                    sub_pks = [d['student_id'] for d in sub_docs]
+                    if sub_pks:
+                        # Fetch key identifiers for these students to avoid double counting during centre/erp loops
+                        submitted_students = CustomUser.objects.filter(pk__in=sub_pks)
+                        for s in submitted_students:
+                            uid = (s.username or str(s.pk)).upper().strip()
+                            if uid in seen_identifiers: continue
+                            seen_identifiers.add(uid)
+                            if s.admission_number: seen_identifiers.add(s.admission_number.upper().strip())
+                            if s.email: seen_identifiers.add(s.email.lower().strip())
+                            total_count += 1
+                except Exception as e:
+                    print(f"Error fetching submitted students baseline: {e}")
+
+            # Sum of cached authoritative counts is the most accurate/consistent for centre-allotted students
+            # We add to total_count but MUST check against seen_identifiers to avoid double counting
+            # HOWEVER, the cache is per-centre and includes submitted students too.
+            # Scaling this to global deduplication is tricky with per-centre caches.
+            # We'll use the fallback logic always for the global count to ensure correct deduplication.
+
+            if not centres: 
+                return total_count
+
+            # Fallback Logic (De-duplicated Global Roster)
+            allowed_sections = [s.name.strip().lower() for s in obj.allotted_sections.all()]
             
             # 1. Count Local Students (Global Deduplication)
             for centre in centres:
@@ -155,13 +172,17 @@ class TestSerializer(serializers.ModelSerializer):
                 for student in local_pool:
                     uid = (student.username or str(student.pk)).upper().strip()
                     if uid in seen_identifiers: continue
-                    seen_identifiers.add(uid)
                     
+                    # If they matched centre, we apply section filter (unless already counted via submission)
                     if allowed_sections:
                         s_exams = [s.lower() for s in parse_section(student.exam_section)]
                         s_studies = [s.lower() for s in parse_section(student.study_section)]
                         if not any(sec in allowed_sections for sec in (s_exams + s_studies)):
                             continue
+                    
+                    seen_identifiers.add(uid)
+                    if student.admission_number: seen_identifiers.add(student.admission_number.upper().strip())
+                    if student.email: seen_identifiers.add(student.email.lower().strip())
                     total_count += 1
 
             # 2. ERP Students (Global Deduplication)
@@ -169,6 +190,13 @@ class TestSerializer(serializers.ModelSerializer):
             centre_queries = [(c.name.upper(), c.code.upper()) for c in centres]
             
             for erp_student in erp_pool:
+                # Deduplicate
+                e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
+                e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
+                
+                if e_adm in seen_identifiers or e_email in seen_identifiers:
+                    continue
+
                 # Centre Match
                 e_centre = str(erp_student.get('centre') or '').upper().strip()
                 if not e_centre: continue
@@ -179,13 +207,6 @@ class TestSerializer(serializers.ModelSerializer):
                         matches_any = True
                         break
                 if not matches_any: continue
-                
-                # Deduplicate
-                e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
-                e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
-                
-                if e_adm in seen_identifiers or e_email in seen_identifiers:
-                    continue
                 
                 # Section Match
                 if allowed_sections:
