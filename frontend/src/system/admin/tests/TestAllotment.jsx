@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck } from 'lucide-react';
+import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import CentreAllotmentDetails from './CentreAllotmentDetails';
@@ -12,6 +12,8 @@ const TestAllotment = () => {
     const [tests, setTests] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Filters State
     const [sessions, setSessions] = useState([]);
@@ -273,10 +275,10 @@ const TestAllotment = () => {
         }
     };
 
-    const filteredTests = useMemo(() => {
+    const filteredRecords = useMemo(() => {
         return tests.filter(t => {
-            const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                t.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                t.code?.toLowerCase().includes(searchTerm.toLowerCase());
 
             const matchesSession = filterSession ? (t.session?.toString() === filterSession || t.session_details?.id?.toString() === filterSession) : true;
 
@@ -287,6 +289,14 @@ const TestAllotment = () => {
             return matchesSearch && matchesSession && matchesStatus;
         });
     }, [tests, searchTerm, filterSession, filterStatus]);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterSession, filterStatus]);
+
+    const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
+    const currentTests = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     // Show Centre Details Page if view is 'details'
     if (view === 'details' && selectedTestForDetails) {
@@ -307,13 +317,28 @@ const TestAllotment = () => {
                         </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Search Input */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search by name or code"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
+                            />
+                        </div>
+
                         {/* Session Filter */}
-                        <div className="relative w-full sm:w-40">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                                <Layers size={16} />
+                            </div>
                             <select
                                 value={filterSession}
                                 onChange={(e) => setFilterSession(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-3 rounded-[5px] border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
                             >
                                 <option value="">All Sessions</option>
                                 {filteredSessionsForDropdown
@@ -322,33 +347,22 @@ const TestAllotment = () => {
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
                             </select>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                         </div>
 
                         {/* Status Filter */}
-                        <div className="relative w-full sm:w-40">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                                <Filter size={16} />
+                            </div>
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
-                                className={`w-full pl-4 pr-10 py-3 rounded-[5px] border font-bold text-xs uppercase tracking-wider outline-none cursor-pointer appearance-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:bg-black/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'}`}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
                             >
                                 <option value="">All Status</option>
                                 <option value="allotted">Allotted Only</option>
                                 <option value="not_allotted">Not Allotted Only</option>
                             </select>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-                        </div>
-
-                        {/* Search Input */}
-                        <div className="relative w-full sm:w-auto">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search tests..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full sm:w-64 pl-10 pr-4 py-3 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200'}`}
-                            />
                         </div>
                     </div>
                 </div>
@@ -392,13 +406,13 @@ const TestAllotment = () => {
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-8 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                     </tr>
                                 ))
-                            ) : filteredTests.length === 0 ? (
+                            ) : filteredRecords.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="py-20 text-center opacity-40">No tests found matching your criteria.</td>
                                 </tr>
-                            ) : filteredTests.map((test, index) => (
+                            ) : currentTests.map((test, index) => (
                                 <tr key={test.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors`}>
-                                    <td className="py-5 px-6 text-center font-bold text-xs opacity-50">{index + 1}</td>
+                                    <td className="py-5 px-6 text-center font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-xs mb-1 uppercase">{test.name}</span>
@@ -455,6 +469,79 @@ const TestAllotment = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination Footer */}
+                {filteredRecords.length > 0 && (
+                    <div className={`px-8 py-5 border-t flex flex-col sm:flex-row justify-between items-center gap-6 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
+                        <div className="flex items-center gap-8">
+                            <div className="flex items-center gap-3">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Rows per page:</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className={`bg-transparent text-xs font-black outline-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                                >
+                                    {[5, 10, 20, 50].map(val => <option key={val} value={val} className={isDarkMode ? 'bg-[#0F131A]' : 'bg-white'}>{val}</option>)}
+                                </select>
+                            </div>
+                            <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Showing <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{Math.min(currentPage * itemsPerPage, filteredRecords.length)}</span> of <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{filteredRecords.length}</span> results
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(1)}
+                                disabled={currentPage === 1}
+                                className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                            >
+                                First
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className={`p-2 rounded-[5px] transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            
+                            <div className="flex items-center gap-1 mx-2">
+                                {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => {
+                                    let pageNum;
+                                    if (pageCount <= 5) pageNum = i + 1;
+                                    else if (currentPage <= 3) pageNum = i + 1;
+                                    else if (currentPage >= pageCount - 2) pageNum = pageCount - 4 + i;
+                                    else pageNum = currentPage - 2 + i;
+
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`w-8 h-8 rounded-[5px] text-xs font-black transition-all ${currentPage === pageNum ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' : `hover:bg-orange-500/10 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
+                                disabled={currentPage === pageCount}
+                                className={`p-2 rounded-[5px] transition-all ${currentPage === pageCount ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                            <button
+                                onClick={() => setCurrentPage(pageCount)}
+                                disabled={currentPage === pageCount}
+                                className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase transition-all ${currentPage === pageCount ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                            >
+                                Last
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {isModalOpen && (

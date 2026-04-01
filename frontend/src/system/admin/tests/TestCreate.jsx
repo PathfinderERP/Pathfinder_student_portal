@@ -4,7 +4,7 @@ import {
     FileText, Plus, Search, Edit2, Trash2, Filter, Loader2,
     Database, X, Check, ChevronDown, RefreshCw, Layers, Clock, ToggleLeft, ToggleRight,
     Bold, Italic, Underline, Type, Quote, Code, List, Superscript, Subscript, AlignLeft,
-    AlignCenter, Link, Image, Sigma, Calculator
+    AlignCenter, Link, Image, Sigma, Calculator, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -48,6 +48,8 @@ const TestCreate = () => {
 
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -267,7 +269,7 @@ const TestCreate = () => {
         }
     };
 
-    const filteredData = useMemo(() => {
+    const filteredRecords = useMemo(() => {
         return data.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -279,6 +281,14 @@ const TestCreate = () => {
             return matchesSearch && matchesStatus;
         });
     }, [data, searchTerm, statusFilter]);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
+
+    const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
+    const currentRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     const renderHeader = () => (
         <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
@@ -312,50 +322,33 @@ const TestCreate = () => {
 
     const renderContent = () => (
         <div className={`p-8 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="flex flex-wrap items-center gap-4 mb-8">
+                {/* Search */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
                     <input
                         type="text"
-                        placeholder="Search tests..."
+                        placeholder="Search by name or code"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full pl-12 pr-4 py-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'
-                            }`}
+                        className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
                     />
                 </div>
 
-                <div className="flex gap-3 w-full md:w-auto relative">
-                    <div className="relative flex-1 md:flex-none">
-                        <button
-                            onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-[5px] border font-black text-[10px] uppercase tracking-widest transition-all ${statusFilter !== 'all'
-                                ? 'bg-orange-500/10 border-orange-500/50 text-orange-500'
-                                : isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                }`}
-                        >
-                            <Filter size={16} />
-                            {statusFilter === 'all' ? 'Filter' : statusFilter}
-                            <ChevronDown size={14} className={`transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {isFilterOpen && (
-                            <>
-                                <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)} />
-                                <div className={`absolute right-0 top-full mt-2 w-48 z-20 rounded-[5px] border shadow-2xl p-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                    {['all', 'completed', 'pending'].map(f => (
-                                        <button
-                                            key={f}
-                                            onClick={() => { setStatusFilter(f); setIsFilterOpen(false); }}
-                                            className={`w-full text-left px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === f ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                        >
-                                            {f}
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
+                {/* Status Filter */}
+                <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                        <Filter size={16} />
                     </div>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
+                    >
+                        <option value="all">Every Test</option>
+                        <option value="completed">Completed Only</option>
+                        <option value="pending">Pending Only</option>
+                    </select>
                 </div>
             </div>
 
@@ -395,9 +388,9 @@ const TestCreate = () => {
                                 </tr>
                             ))
                         ) : (
-                            filteredData.map((item, index) => (
+                            currentRecords.map((item, index) => (
                                 <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-200/50'} transition-colors`}>
-                                    <td className="py-5 px-4 font-bold text-xs opacity-50">{index + 1}</td>
+                                    <td className="py-5 px-4 font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-4">
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-sm mb-1">{item.name}</span>
@@ -490,6 +483,79 @@ const TestCreate = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination Footer */}
+            {filteredRecords.length > 0 && (
+                <div className={`px-8 py-5 border-t flex flex-col sm:flex-row justify-between items-center gap-6 mt-6 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
+                    <div className="flex items-center gap-8">
+                        <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Rows per page:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className={`bg-transparent text-xs font-black outline-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                            >
+                                {[5, 10, 20, 50].map(val => <option key={val} value={val} className={isDarkMode ? 'bg-[#0F131A]' : 'bg-white'}>{val}</option>)}
+                            </select>
+                        </div>
+                        <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Showing <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{Math.min(currentPage * itemsPerPage, filteredRecords.length)}</span> of <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{filteredRecords.length}</span> results
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                        >
+                            First
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-[5px] transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        
+                        <div className="flex items-center gap-1 mx-2">
+                            {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => {
+                                let pageNum;
+                                if (pageCount <= 5) pageNum = i + 1;
+                                else if (currentPage <= 3) pageNum = i + 1;
+                                else if (currentPage >= pageCount - 2) pageNum = pageCount - 4 + i;
+                                else pageNum = currentPage - 2 + i;
+
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        onClick={() => setCurrentPage(pageNum)}
+                                        className={`w-8 h-8 rounded-[5px] text-xs font-black transition-all ${currentPage === pageNum ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' : `hover:bg-orange-500/10 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
+                            disabled={currentPage === pageCount}
+                            className={`p-2 rounded-[5px] transition-all ${currentPage === pageCount ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(pageCount)}
+                            disabled={currentPage === pageCount}
+                            className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase transition-all ${currentPage === pageCount ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                        >
+                            Last
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
