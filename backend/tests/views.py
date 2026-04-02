@@ -9,6 +9,11 @@ from sections.serializers import SectionSerializer
 from questions.serializers import QuestionSerializer
 import random
 import string
+import re
+
+def clean_html(text):
+    if not text: return ""
+    return re.sub('<[^<]+?>', '', str(text)).strip().lower()
 
 class TestViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
@@ -910,30 +915,35 @@ class TestViewSet(viewsets.ModelViewSet):
 
         test = self.get_object()
 
-        # 1. Fetch section info to map questions -> sections
-        sections = list(test.allotted_sections.all().order_by('priority'))
+        from sections.models import Section
+        # Use fresh query instead of prefetch to avoid caching/limit issues
+        sections = list(Section.objects.filter(allotted_tests=test).order_by('priority'))
+        # Build flat q_map and accumulation of max marks
         q_map = {} 
         sections_max = {}
         for sec in sections:
-            sections_max[sec.name] = 0
-            seen_q = set()
+            if sec.name not in sections_max:
+                sections_max[sec.name] = 0
+            
+            c_marks = float(sec.correct_marks or 0)
+            seen_q_local = set()
+            
             for q in sec.questions.all():
                 qid = str(q.pk)
-                if qid in seen_q: continue
-                seen_q.add(qid)
+                if qid in seen_q_local: continue
+                seen_q_local.add(qid)
                 
-                c_marks = float(sec.correct_marks or 0)
                 sections_max[sec.name] += c_marks
                 
-                # Only keep the first occurrence in q_map for scoring assignment
                 if qid not in q_map:
                     q_map[qid] = {
+                        'id': qid,
                         'section': sec.name,
                         'correct': c_marks,
                         'negative': float(sec.negative_marks or 0),
                         'type': q.question_type or 'SINGLE_CHOICE',
                         'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
-                        'correct_contents': [str(opt.get('content') or opt.get('text', '')).strip().lower() for opt in (q.question_options or []) if opt.get('isCorrect')],
+                        'correct_contents': [clean_html(opt.get('content') or opt.get('text', '')) for opt in (q.question_options or []) if opt.get('isCorrect')],
                         'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
                         'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
                         'options': q.question_options or [],
@@ -982,67 +992,110 @@ class TestViewSet(viewsets.ModelViewSet):
             section_scores = {sec_name: 0.0 for sec_name in sections_max.keys()}
             total_correct = 0
             total_attempted = 0
-
-            # Iterate over the test questions (q_map) instead of raw responses
-            # to ensure every question in the current test structure is scored correctly.
-            for q_id, q_info in q_map.items():
-                res_obj = responses.get(str(q_id))
-                if res_obj is None:
-                    try: res_obj = responses.get(int(q_id))
-                    except: pass
+            total_positive = 0
+            total_negative = 0
+            
+            keys = ['a', 'b', 'c', 'd', 'e', 'f']
+            
+            # Loop over sections and their specific questions to match detailed report logic
+            for sec in sections:
+                sec_name = sec.name
+                sec_earned = 0
+                sec_neg = 0
                 
-                ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
-                
-                if ans in (None, '', [], {}):
-                    continue
-                
-                total_attempted += 1
-                earned = 0
-                neg = 0
-                
-                q_type = q_info['type']
-                if q_type == 'SINGLE_CHOICE':
-                    ans_str = str(ans).strip().lower()
-                    if ans_str in q_info['correct_options'] or ans_str in q_info['correct_contents']:
-                        earned = q_info['correct']
-                        total_correct += 1
-                    else:
-                        # Also check index fallback
-                        try:
-                            idx = int(ans_str)
-                            if idx < len(q_info['options']) and q_info['options'][idx].get('isCorrect'):
-                                earned = q_info['correct']
-                                total_correct += 1
+                # Fetch questions for this specific section allotment
+                seen_in_sec = set()
+                for q in sec.questions.all():
+                    qid = str(q.pk)
+                    if qid in seen_in_sec: continue
+                    seen_in_sec.add(qid)
+                    
+                    res_obj = responses.get(qid)
+                    if res_obj is None:
+                        try: res_obj = responses.get(int(qid))
                         except: pass
+                    
+                    ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+                    if ans in (None, '', [], {}):
+                        continue
+                    
+                    total_attempted += 1
+                    earned = 0
+                    neg = 0
+                    q_type = q.question_type or 'SINGLE_CHOICE'
+                    c_marks = float(sec.correct_marks or 0)
+                    n_marks = float(sec.negative_marks or 0)
+                    
+                    if q_type == 'SINGLE_CHOICE':
+                        ans_str = str(ans).strip().lower()
+                        clean_ans = clean_html(ans)
+                        is_correct = False
                         
-                        if earned == 0: neg = q_info['negative']
-                elif q_type == 'MULTI_CHOICE':
-                    selected = set(map(str, ans if isinstance(ans, list) else [ans]))
-                    correct = set(q_info['correct_options'])
-                    if selected == correct:
-                        earned = q_info['correct']
-                        total_correct += 1
-                    elif selected & correct:
-                        # Partial marks logic
-                        fraction = len(selected & correct) / len(correct) if correct else 0
-                        earned = round(q_info['correct'] * fraction, 2)
-                    else:
-                        neg = q_info['negative']
-                elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
-                    try:
-                        val = float(ans)
-                        if q_info.get('answer_from') is not None and q_info.get('answer_to') is not None:
-                            if q_info['answer_from'] <= val <= q_info['answer_to']:
-                                earned = q_info['correct']
-                                total_correct += 1
-                            else:
-                                neg = q_info['negative']
-                    except:
-                        neg = q_info['negative']
+                        opts = q.question_options or []
+                        for oi, opt in enumerate(opts):
+                            opt_id = str(opt.get('id', ''))
+                            opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                            opt_label = keys[oi] if oi < len(keys) else None
+                            if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                                if opt.get('isCorrect'): is_correct = True
+                                break
+                        if not is_correct:
+                            try:
+                                idx = int(ans_str)
+                                if idx < len(opts) and opts[idx].get('isCorrect'): is_correct = True
+                            except: pass
+                        
+                        if is_correct:
+                            earned = c_marks
+                            total_correct += 1
+                        else:
+                            neg = n_marks
+                    
+                    elif q_type == 'MULTI_CHOICE':
+                        raw_selected = ans if isinstance(ans, list) else [ans]
+                        normalized_selected = set()
+                        opts = q.question_options or []
+                        for item in raw_selected:
+                            item_str = str(item).strip().lower()
+                            for oi, opt in enumerate(opts):
+                                opt_id = str(opt.get('id', ''))
+                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                opt_label = keys[oi] if oi < len(keys) else None
+                                if item_str == opt_id or item_str == opt_content or (opt_label and item_str == opt_label):
+                                    normalized_selected.add(opt_id)
+                                    break
+                        correct_set = set([str(opt['id']) for opt in opts if opt.get('isCorrect')])
+                        if normalized_selected == correct_set:
+                            earned = c_marks
+                            total_correct += 1
+                        elif normalized_selected & correct_set:
+                            fraction = len(normalized_selected & correct_set) / len(correct_set) if correct_set else 0
+                            earned = round(c_marks * fraction, 2)
+                        else:
+                            neg = n_marks
+                    
+                    elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                        try:
+                            val = float(ans)
+                            ans_from = float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None
+                            ans_to = float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None
+                            if ans_from is not None and ans_to is not None:
+                                if ans_from <= val <= ans_to:
+                                    earned = c_marks
+                                    total_correct += 1
+                                else:
+                                    neg = n_marks
+                        except:
+                            neg = n_marks
+                    
+                    sec_earned += earned
+                    sec_neg += neg
                 
-                section_scores[q_info['section']] += (earned - neg)
+                section_scores[sec_name] += (sec_earned - sec_neg)
+                total_positive += sec_earned
+                total_negative += sec_neg
 
-            total_recalculated = sum(section_scores.values())
+            total_recalculated = round(total_positive - total_negative, 2)
             accuracy = (total_correct / total_attempted * 100) if total_attempted > 0 else 0
             
             ts = int(sub.get('time_spent', 0))
@@ -1050,9 +1103,6 @@ class TestViewSet(viewsets.ModelViewSet):
             m = (ts % 3600) // 60
             s_sec = ts % 60
             time_str = f"{h}:{m:02d}:{s_sec:02d}" if h > 0 else f"0:{m:02d}:{s_sec:02d}"
-
-            # We calculate total marks as the sum of all sections to ensure visual consistency
-            total_recalculated = sum(section_scores.values())
 
             result_data.append({
                 'name': (f"{s_info.get('first_name','')} {s_info.get('last_name','')}".strip() or s_info.get('username','Unknown')).upper(),
@@ -1133,7 +1183,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'negative_marks': float(sec.negative_marks or 0),
                     'type': q.question_type or 'SINGLE_CHOICE',
                     'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
-                    'correct_contents': [str(opt.get('content') or opt.get('text', '')).strip().lower() for opt in (q.question_options or []) if opt.get('isCorrect')],
+                    'correct_contents': [clean_html(opt.get('content') or opt.get('text', '')) for opt in (q.question_options or []) if opt.get('isCorrect')],
                     'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
                     'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
                     'options': q.question_options or [],
@@ -1204,8 +1254,21 @@ class TestViewSet(viewsets.ModelViewSet):
                     qtype = qi['type']
                     if qtype == 'SINGLE_CHOICE':
                         ans_str = str(ans).strip().lower()
-                        is_correct = ans_str in qi['correct_options'] or ans_str in qi['correct_contents']
+                        clean_ans = clean_html(ans)
                         
+                        is_correct = False
+                        # Scan all options for a match (ID, Content, Label, or Index)
+                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                        for oi, opt in enumerate(qi.get('options', [])):
+                            opt_id = str(opt.get('id', ''))
+                            opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                            opt_label = keys[oi] if oi < len(keys) else None
+                            
+                            if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                                if opt.get('isCorrect'):
+                                    is_correct = True
+                                break
+
                         if not is_correct:
                             try:
                                 idx = int(ans_str)
@@ -1224,17 +1287,32 @@ class TestViewSet(viewsets.ModelViewSet):
                             total_incorrect += 1
                             section_stats[sec['name']]['incorrect'] += 1
                     elif qtype == 'MULTI_CHOICE':
-                        selected = set(map(str, ans if isinstance(ans, list) else [ans]))
+                        # Normalize selected to IDs
+                        raw_selected = ans if isinstance(ans, list) else [ans]
+                        normalized_selected = set()
+                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                        
+                        for item in raw_selected:
+                            item_str = str(item).strip().lower()
+                            # Find matching option
+                            for oi, opt in enumerate(qi.get('options', [])):
+                                opt_id = str(opt.get('id', ''))
+                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                opt_label = keys[oi] if oi < len(keys) else None
+                                if item_str == opt_id or item_str == opt_content or (opt_label and item_str == opt_label):
+                                    normalized_selected.add(opt_id)
+                                    break
+                                    
                         correct = set(qi['correct_options'])
-                        if selected == correct:
+                        if normalized_selected == correct:
                             q_result = 'CA'
                             earned = qi['correct_marks']
                             total_correct += 1
                             section_stats[sec['name']]['correct'] += 1
-                        elif selected & correct:
+                        elif normalized_selected & correct:
                             q_result = 'PA'
-                            # Partial: give correct_marks * (intersection / total correct), no negative
-                            fraction = len(selected & correct) / len(correct) if correct else 0
+                            # Partial: give correct_marks * (intersection / total correct)
+                            fraction = len(normalized_selected & correct) / len(correct) if correct else 0
                             earned = round(qi['correct_marks'] * fraction, 2)
                             total_partial += 1
                             section_stats[sec['name']]['partial'] += 1
@@ -1353,14 +1431,41 @@ class TestViewSet(viewsets.ModelViewSet):
                         neg = 0
                         q_type = q_info['type']
                         if q_type == 'SINGLE_CHOICE':
-                            if str(ans) in q_info['correct_options']: earned = q_info['correct_marks']
+                            ans_str = str(ans).strip().lower()
+                            clean_ans = clean_html(ans)
+                            is_correct = False
+                            keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                            for oi, opt in enumerate(q_info.get('options', [])):
+                                opt_id = str(opt.get('id', ''))
+                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                opt_label = keys[oi] if oi < len(keys) else None
+                                if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                                    if opt.get('isCorrect'): is_correct = True
+                                    break
+                            if not is_correct:
+                                try:
+                                    idx = int(ans_str)
+                                    if idx < len(q_info.get('options', [])) and q_info['options'][idx].get('isCorrect'): is_correct = True
+                                except: pass
+                            if is_correct: earned = q_info['correct_marks']
                             else: neg = q_info['negative_marks']
                         elif q_type == 'MULTI_CHOICE':
-                            selected = set(map(str, ans if isinstance(ans, list) else [ans]))
+                            raw_selected = ans if isinstance(ans, list) else [ans]
+                            normalized_selected = set()
+                            keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                            for item in raw_selected:
+                                item_str = str(item).strip().lower()
+                                for oi, opt in enumerate(q_info.get('options', [])):
+                                    opt_id = str(opt.get('id', ''))
+                                    opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                    opt_label = keys[oi] if oi < len(keys) else None
+                                    if item_str == opt_id or item_str == opt_content or (opt_label and item_str == opt_label):
+                                        normalized_selected.add(opt_id)
+                                        break
                             correct = set(q_info['correct_options'])
-                            if selected == correct: earned = q_info['correct_marks']
-                            elif selected & correct:
-                                fraction = len(selected & correct) / len(correct) if correct else 0
+                            if normalized_selected == correct: earned = q_info['correct_marks']
+                            elif normalized_selected & correct:
+                                fraction = len(normalized_selected & correct) / len(correct) if correct else 0
                                 earned = round(q_info['correct_marks'] * fraction, 2)
                             else: neg = q_info['negative_marks']
                         elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):

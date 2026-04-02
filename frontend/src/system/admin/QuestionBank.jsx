@@ -85,7 +85,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         is_wrong: '',
         sortBy: 'newest',
         filterDate: '',
-        testNameId: ''
+        testNameId: '',
+        search: ''
     });
 
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -136,6 +137,28 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
             const qTestName = q.test_name?.id || q.test_name;
             if (filters.testNameId && String(qTestName) !== String(filters.testNameId)) return false;
+
+            if (filters.search) {
+                const searchTerm = filters.search.trim().toLowerCase();
+                if (searchTerm) {
+                    const qText = (q.question || q.content || '').toLowerCase();
+                    const qId = String(q.id || q._id || '').toLowerCase();
+                    
+                    // Resolve names from master data for searching if needed
+                    const qSubjectObj = subjects.find(s => String(s.id) === String(q.subject?.id || q.subject));
+                    const qSubjectName = (qSubjectObj?.name || '').toLowerCase();
+                    
+                    const qTopicObj = topics.find(t => String(t.id) === String(q.topic?.id || q.topic));
+                    const qTopicName = (qTopicObj?.name || '').toLowerCase();
+
+                    if (!qText.includes(searchTerm) && 
+                        !qId.includes(searchTerm) && 
+                        !qSubjectName.includes(searchTerm) && 
+                        !qTopicName.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+            }
 
             return true;
         });
@@ -1093,6 +1116,31 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         </div>
                     </div>
 
+                    {/* Direct Search Bar */}
+                    <div className="relative group w-full">
+                        <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${filters.search ? 'text-emerald-500' : 'opacity-30'}`}>
+                            <Search size={22} strokeWidth={3} />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="SEARCH BY QUESTION TEXT, ID, OR TOPIC..."
+                            value={filters.search}
+                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                            className={`w-full pl-14 pr-12 py-4 rounded-[5px] border-2 text-[11px] font-black uppercase tracking-[0.2em] outline-none transition-all
+                                ${isDarkMode 
+                                    ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500/50 focus:bg-white/10' 
+                                    : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-500/30 focus:bg-white shadow-inner'}`}
+                        />
+                        {filters.search && (
+                            <button 
+                                onClick={() => setFilters({ ...filters, search: '' })}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-all"
+                            >
+                                <X size={18} strokeWidth={3} className="text-slate-400" />
+                            </button>
+                        )}
+                    </div>
+
                     {/* Filters */}
                     {/* Filters - Row 1 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
@@ -1225,7 +1273,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     is_wrong: '',
                                     sortBy: 'newest',
                                     filterDate: '',
-                                    testNameId: ''
+                                    testNameId: '',
+                                    search: ''
                                 })}
                                 className={`h-[42px] px-6 rounded-[5px] font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all active:scale-95 w-full justify-center
                                     ${isDarkMode 
