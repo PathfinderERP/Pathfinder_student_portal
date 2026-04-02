@@ -1,0 +1,23 @@
+﻿[PATCH] Djongo cursor patches applied in api.apps.ready()
+Test ID: 18, Name: 2026-28 PHASE TEST 01, Code: PT01
+Found 8 finalized submissions
+Sample response structure for first question id in sub: ('69babf6b245d423a5b95dad0', {'answer': 'B', 'status': 'ANSWERED'})
+
+Section: Foundation
+Found target question: ID=69babf6c3c8582575fe78185, type=SINGLE_CHOICE
+Options: [{'id': 1, 'content': '<p>oxysome</p>', 'isCorrect': True}, {'id': 2, 'content': '<p>lysosome</p>', 'isCorrect': False}, {'id': 3, 'content': '<p>mesosome</p>', 'isCorrect': False}, {'id': 4, 'content': '<p>ribosome</p>', 'isCorrect': False}]
+Correct Options: ['1']
+Answers received: ['B', 'A']
+Count of answers in correct_opts: 0
+
+Section: BOTANY
+Found target question: ID=69babf6c3c8582575fe78185, type=SINGLE_CHOICE
+Options: [{'id': 1, 'content': '<p>oxysome</p>', 'isCorrect': True}, {'id': 2, 'content': '<p>lysosome</p>', 'isCorrect': False}, {'id': 3, 'content': '<p>mesosome</p>', 'isCorrect': False}, {'id': 4, 'content': '<p>ribosome</p>', 'isCorrect': False}]
+Correct Options: ['1']
+Answers received: ['B', 'A']
+Count of answers in correct_opts: 0
+Found target question: ID=69babf6c3c8582575fe78185, type=SINGLE_CHOICE
+Options: [{'id': 1, 'content': '<p>oxysome</p>', 'isCorrect': True}, {'id': 2, 'content': '<p>lysosome</p>', 'isCorrect': False}, {'id': 3, 'content': '<p>mesosome</p>', 'isCorrect': False}, {'id': 4, 'content': '<p>ribosome</p>', 'isCorrect': False}]
+Correct Options: ['1']
+Answers received: ['B', 'A']
+Count of answers in correct_opts: 0
