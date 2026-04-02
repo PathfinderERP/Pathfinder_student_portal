@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import QuestionAnalysis from './QuestionAnalysis';
 import QuestionStudentAnalysis from './QuestionStudentAnalysis';
+import TestResultStudents from './TestResultStudents';
 
 const TestResult = () => {
     const { isDarkMode } = useTheme();
@@ -20,6 +21,7 @@ const TestResult = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedAnalysisTest, setSelectedAnalysisTest] = useState(null); // { id, name }
     const [selectedStudentVsQuestionTest, setSelectedStudentVsQuestionTest] = useState(null); // { id, name }
+    const [selectedTestForResult, setSelectedTestForResult] = useState(null);
 
     const fetchTests = async () => {
         setIsLoading(true);
@@ -110,9 +112,8 @@ const TestResult = () => {
         setSelectedStudentVsQuestionTest({ id: testId, name: testName });
     };
 
-    const handleShowStudentResponses = (testId) => {
-        // TODO: Navigate to student responses page
-        console.log('Show student responses for test:', testId);
+    const handleShowStudentResponses = (test) => {
+        setSelectedTestForResult(test);
     };
 
     // ── If analysis mode is active, show it instead of the list ──
@@ -137,6 +138,15 @@ const TestResult = () => {
         );
     }
 
+    if (selectedTestForResult) {
+        return (
+            <TestResultStudents
+                test={selectedTestForResult}
+                onBack={() => setSelectedTestForResult(null)}
+            />
+        );
+    }
+
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
@@ -146,7 +156,7 @@ const TestResult = () => {
                         <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
                             Test <span className="text-orange-500">Result List</span>
                         </h2>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                             Manage test results, analysis, and student responses
                         </p>
                     </div>
@@ -165,7 +175,7 @@ const TestResult = () => {
 
                         {/* Session Filter */}
                         <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                 <Layers size={16} />
                             </div>
                             <select
@@ -180,7 +190,7 @@ const TestResult = () => {
 
                         {/* Status Filter */}
                         <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                 <Filter size={16} />
                             </div>
                             <select
@@ -216,7 +226,7 @@ const TestResult = () => {
                 >
                     <table className="w-full text-left">
                         <thead>
-                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                                 <th className="py-5 px-6">#</th>
                                 <th className="py-5 px-6">Test Name</th>
                                 <th className="py-5 px-6">Test Code</th>
@@ -247,11 +257,11 @@ const TestResult = () => {
                                 </tr>
                             ) : currentTests.map((test, index) => (
                                 <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
-                                    <td className="py-5 px-6 text-xs font-black opacity-30">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                    <td className={`py-5 px-6 text-xs font-black ${isDarkMode ? 'opacity-30 text-white' : 'text-slate-500 opacity-90'}`}>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex items-center gap-2 whitespace-nowrap">
-                                            <span className="text-xs font-black uppercase tracking-tight">{test.name}</span>
-                                            <span className="text-[9px] font-bold opacity-40 px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap">{test.session_details?.name}</span>
+                                            <span className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{test.name}</span>
+                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap ${isDarkMode ? 'opacity-40 text-slate-400' : 'text-slate-600 opacity-80'}`}>{test.session_details?.name}</span>
                                         </div>
                                     </td>
                                     <td className="py-5 px-6">
@@ -262,7 +272,7 @@ const TestResult = () => {
                                     <td className="py-5 px-6 text-center">
                                         <div className="flex items-center justify-center gap-2">
                                             <Users size={14} className="text-orange-500" />
-                                            <span className="text-sm font-black">{test.total_students || 0}</span>
+                                            <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{test.total_students || 0}</span>
                                         </div>
                                     </td>
                                     <td className="py-5 px-6 text-center">
@@ -283,7 +293,7 @@ const TestResult = () => {
                                                     : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
                                             }`}
                                         >
-                                            <BarChart3 size={11} /> Question Analysis
+                                            <BarChart3 size={11} /> <span className="hidden sm:inline">Question Analysis</span><span className="sm:hidden">Q. Analysis</span>
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
@@ -296,12 +306,12 @@ const TestResult = () => {
                                                     : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
                                             }`}
                                         >
-                                            <BarChart3 size={11} /> Analysis
+                                            <BarChart3 size={11} /> <span className="hidden sm:inline">Analysis</span><span className="sm:hidden">Analy.</span>
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => handleShowStudentResponses(test.id)}
+                                            onClick={() => handleShowStudentResponses(test)}
                                             disabled={!test.is_completed}
                                             className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
                                                 test.is_completed 
@@ -323,7 +333,7 @@ const TestResult = () => {
                     <div className={`px-8 py-5 border-t flex flex-col sm:flex-row justify-between items-center gap-6 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
                         <div className="flex items-center gap-8">
                             <div className="flex items-center gap-3">
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Rows per page:</span>
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Rows per page:</span>
                                 <select
                                     value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
@@ -332,7 +342,7 @@ const TestResult = () => {
                                     {[5, 10, 20, 50].map(val => <option key={val} value={val} className={isDarkMode ? 'bg-[#0F131A]' : 'bg-white'}>{val}</option>)}
                                 </select>
                             </div>
-                            <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>
                                 Showing <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{Math.min(currentPage * itemsPerPage, filteredTests.length)}</span> of <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>{filteredTests.length}</span> results
                             </div>
                         </div>

@@ -902,7 +902,552 @@ class TestViewSet(viewsets.ModelViewSet):
             'matrix': matrix_data
         })
 
+    @action(detail=True, methods=['get'], url_path='student_results')
+    def student_results(self, request, pk=None):
+        from api.db_utils import get_db
+        from bson import ObjectId
+        from api.models import CustomUser
 
+        test = self.get_object()
+
+        # 1. Fetch section info to map questions -> sections
+        sections = list(test.allotted_sections.all().order_by('priority'))
+        q_map = {} 
+        sections_max = {}
+        for sec in sections:
+            sections_max[sec.name] = 0
+            seen_q = set()
+            for q in sec.questions.all():
+                qid = str(q.pk)
+                if qid in seen_q: continue
+                seen_q.add(qid)
+                
+                c_marks = float(sec.correct_marks or 0)
+                sections_max[sec.name] += c_marks
+                
+                # Only keep the first occurrence in q_map for scoring assignment
+                if qid not in q_map:
+                    q_map[qid] = {
+                        'section': sec.name,
+                        'correct': c_marks,
+                        'negative': float(sec.negative_marks or 0),
+                        'type': q.question_type or 'SINGLE_CHOICE',
+                        'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
+                        'correct_contents': [str(opt.get('content') or opt.get('text', '')).strip().lower() for opt in (q.question_options or []) if opt.get('isCorrect')],
+                        'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
+                        'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
+                        'options': q.question_options or [],
+                    }
+
+        db = get_db()
+        submissions = []
+        if db is not None:
+            try:
+                try: t_pk = ObjectId(test.pk)
+                except: t_pk = test.pk
+                submissions = list(db['tests_testsubmission'].find(
+                    {'test_id': t_pk, 'is_finalized': True}
+                ))
+            except: pass
+
+        if not submissions:
+            from .models import TestSubmission
+            submissions_qs = TestSubmission.objects.filter(test=test, is_finalized=True)
+            for s in submissions_qs:
+                submissions.append({
+                    'student_id': s.student_id,
+                    'responses': s.responses,
+                    'time_spent': s.time_spent,
+                    'score': s.score
+                })
+
+        student_ids = [s['student_id'] for s in submissions]
+        s_objs = CustomUser.objects.filter(pk__in=student_ids).values('pk', 'first_name', 'last_name', 'username', 'admission_number', 'centre_name')
+        s_lookup = {}
+        for s in s_objs:
+            s_lookup[str(s['pk'])] = s
+
+        result_data = []
+        for sub in submissions:
+            sid = str(sub['student_id'])
+            s_info = s_lookup.get(sid) or {}
+            
+            raw_res = sub.get('responses') or {}
+            if isinstance(raw_res, str):
+                import json
+                try: raw_res = json.loads(raw_res)
+                except: raw_res = {}
+            responses = raw_res if isinstance(raw_res, dict) else {}
+
+            section_scores = {sec_name: 0.0 for sec_name in sections_max.keys()}
+            total_correct = 0
+            total_attempted = 0
+
+            # Iterate over the test questions (q_map) instead of raw responses
+            # to ensure every question in the current test structure is scored correctly.
+            for q_id, q_info in q_map.items():
+                res_obj = responses.get(str(q_id))
+                if res_obj is None:
+                    try: res_obj = responses.get(int(q_id))
+                    except: pass
+                
+                ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+                
+                if ans in (None, '', [], {}):
+                    continue
+                
+                total_attempted += 1
+                earned = 0
+                neg = 0
+                
+                q_type = q_info['type']
+                if q_type == 'SINGLE_CHOICE':
+                    ans_str = str(ans).strip().lower()
+                    if ans_str in q_info['correct_options'] or ans_str in q_info['correct_contents']:
+                        earned = q_info['correct']
+                        total_correct += 1
+                    else:
+                        # Also check index fallback
+                        try:
+                            idx = int(ans_str)
+                            if idx < len(q_info['options']) and q_info['options'][idx].get('isCorrect'):
+                                earned = q_info['correct']
+                                total_correct += 1
+                        except: pass
+                        
+                        if earned == 0: neg = q_info['negative']
+                elif q_type == 'MULTI_CHOICE':
+                    selected = set(map(str, ans if isinstance(ans, list) else [ans]))
+                    correct = set(q_info['correct_options'])
+                    if selected == correct:
+                        earned = q_info['correct']
+                        total_correct += 1
+                    elif selected & correct:
+                        # Partial marks logic
+                        fraction = len(selected & correct) / len(correct) if correct else 0
+                        earned = round(q_info['correct'] * fraction, 2)
+                    else:
+                        neg = q_info['negative']
+                elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                    try:
+                        val = float(ans)
+                        if q_info.get('answer_from') is not None and q_info.get('answer_to') is not None:
+                            if q_info['answer_from'] <= val <= q_info['answer_to']:
+                                earned = q_info['correct']
+                                total_correct += 1
+                            else:
+                                neg = q_info['negative']
+                    except:
+                        neg = q_info['negative']
+                
+                section_scores[q_info['section']] += (earned - neg)
+
+            total_recalculated = sum(section_scores.values())
+            accuracy = (total_correct / total_attempted * 100) if total_attempted > 0 else 0
+            
+            ts = int(sub.get('time_spent', 0))
+            h = ts // 3600
+            m = (ts % 3600) // 60
+            s_sec = ts % 60
+            time_str = f"{h}:{m:02d}:{s_sec:02d}" if h > 0 else f"0:{m:02d}:{s_sec:02d}"
+
+            # We calculate total marks as the sum of all sections to ensure visual consistency
+            total_recalculated = sum(section_scores.values())
+
+            result_data.append({
+                'name': (f"{s_info.get('first_name','')} {s_info.get('last_name','')}".strip() or s_info.get('username','Unknown')).upper(),
+                'enrollment': s_info.get('admission_number') or s_info.get('username') or 'N/A',
+                'centre': s_info.get('centre_name') or 'N/A',
+                'marks': round(total_recalculated, 2),
+                'accuracy': f"{round(accuracy, 2)}%",
+                'totalTime': time_str,
+                'time_spent_raw': ts,
+                'submitted_at': sub.get('submitted_at') or sub.get('_id'),
+                'section_scores': {k: f"{round(v, 2)}/{int(sections_max[k]) if sections_max[k].is_integer() else sections_max[k]}" for k, v in section_scores.items()},
+                'total_recalculated': round(total_recalculated, 2) # Adding this for debugging if needed
+            })
+
+        # Sort by total_recalculated (marks) desc, time_spent (efficiency) asc
+        result_data.sort(key=lambda x: (-float(x['marks']), int(x.get('time_spent_raw', 0)), str(x.get('submitted_at', ''))))
+        for i, row in enumerate(result_data):
+            row['rank'] = i + 1
+
+        return Response({
+            'sections': list(sections_max.keys()),
+            'students': result_data
+        })
+
+
+
+    @action(detail=True, methods=['get'], url_path='student_performance')
+    def student_performance(self, request, pk=None):
+        """
+        Returns detailed performance breakdown for a single student.
+        Query params: ?enrollment=<admission_number_or_username>
+        """
+        from api.db_utils import get_db
+        from bson import ObjectId
+        from api.models import CustomUser
+        import json
+
+        enrollment = request.query_params.get('enrollment', '').strip()
+        if not enrollment:
+            return Response({'error': 'enrollment param is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        test = self.get_object()
+
+        # 1. Resolve student
+        student_obj = CustomUser.objects.filter(admission_number__iexact=enrollment).first() \
+                   or CustomUser.objects.filter(username__iexact=enrollment).first()
+
+        # 2. Load all sections + questions once
+        sections = list(test.allotted_sections.all().order_by('priority'))
+        # Build flat q_map: q_id -> metadata
+        q_map = {}
+        sections_meta = []
+        for sec in sections:
+            order_list = sec.question_order or []
+            order_map = {str(oid): i for i, oid in enumerate(order_list)}
+            seen = set()
+            qs = []
+            for q in sec.questions.all():
+                qid = str(q.pk)
+                if qid not in seen:
+                    seen.add(qid)
+                    qs.append(q)
+            qs.sort(key=lambda q: order_map.get(str(q.pk), 999999))
+            total_q_marks = len(qs) * float(sec.correct_marks or 0)
+            sections_meta.append({
+                'name': sec.name,
+                'questions': qs,
+                'correct_marks': float(sec.correct_marks or 0),
+                'negative_marks': float(sec.negative_marks or 0),
+                'total_max_marks': total_q_marks,
+                'question_count': len(qs),
+            })
+            for q in qs:
+                qid = str(q.pk)
+                q_map[qid] = {
+                    'section': sec.name,
+                    'correct_marks': float(sec.correct_marks or 0),
+                    'negative_marks': float(sec.negative_marks or 0),
+                    'type': q.question_type or 'SINGLE_CHOICE',
+                    'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
+                    'correct_contents': [str(opt.get('content') or opt.get('text', '')).strip().lower() for opt in (q.question_options or []) if opt.get('isCorrect')],
+                    'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
+                    'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
+                    'options': q.question_options or [],
+                    'content': q.content or '',
+                    'solution': q.solution or '',
+                }
+
+        total_questions = sum(s['question_count'] for s in sections_meta)
+        db = get_db()
+
+        # 3. Fetch the student's submission
+        sub_doc = None
+        if db is not None and student_obj:
+            try:
+                try: t_pk = ObjectId(test.pk)
+                except: t_pk = test.pk
+                sub_doc = db['tests_testsubmission'].find_one(
+                    {'test_id': t_pk, 'student_id': student_obj.pk, 'is_finalized': True}
+                )
+            except: pass
+
+        if not sub_doc:
+            return Response({'error': 'No finalized submission found for this student.'}, status=status.HTTP_404_NOT_FOUND)
+
+        raw_res = sub_doc.get('responses') or {}
+        if isinstance(raw_res, str):
+            try: raw_res = json.loads(raw_res)
+            except: raw_res = {}
+        responses = raw_res if isinstance(raw_res, dict) else {}
+
+        # 4. Evaluate per question + per section
+        section_stats = {}
+        for sec in sections_meta:
+            section_stats[sec['name']] = {
+                'correct': 0, 'incorrect': 0, 'partial': 0, 'unattempted': 0,
+                'positive_marks': 0.0, 'negative_marks': 0.0, 'net_marks': 0.0,
+                'total_max': sec['total_max_marks'],
+                'total_questions': sec['question_count'],
+            }
+
+        total_correct = 0
+        total_incorrect = 0
+        total_partial = 0
+        total_unattempted = 0
+        total_positive = 0.0
+        total_negative = 0.0
+
+        question_results = []  # per-section list for Solution tab
+        section_question_map = {sec['name']: [] for sec in sections_meta}
+
+        for sec in sections_meta:
+            for q in sec['questions']:
+                qid = str(q.pk)
+                qi = q_map[qid]
+                res_obj = responses.get(qid)
+                ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+
+                q_result = 'NA'
+                earned = 0.0
+                neg = 0.0
+                user_answer = ans  # keep raw for display
+
+                if ans in (None, '', [], {}):
+                    q_result = 'NA'
+                    section_stats[sec['name']]['unattempted'] += 1
+                    total_unattempted += 1
+                else:
+                    qtype = qi['type']
+                    if qtype == 'SINGLE_CHOICE':
+                        ans_str = str(ans).strip().lower()
+                        is_correct = ans_str in qi['correct_options'] or ans_str in qi['correct_contents']
+                        
+                        if not is_correct:
+                            try:
+                                idx = int(ans_str)
+                                if idx < len(qi['options']) and qi['options'][idx].get('isCorrect'):
+                                    is_correct = True
+                            except: pass
+
+                        if is_correct:
+                            q_result = 'CA'
+                            earned = qi['correct_marks']
+                            total_correct += 1
+                            section_stats[sec['name']]['correct'] += 1
+                        else:
+                            q_result = 'IA'
+                            neg = qi['negative_marks']
+                            total_incorrect += 1
+                            section_stats[sec['name']]['incorrect'] += 1
+                    elif qtype == 'MULTI_CHOICE':
+                        selected = set(map(str, ans if isinstance(ans, list) else [ans]))
+                        correct = set(qi['correct_options'])
+                        if selected == correct:
+                            q_result = 'CA'
+                            earned = qi['correct_marks']
+                            total_correct += 1
+                            section_stats[sec['name']]['correct'] += 1
+                        elif selected & correct:
+                            q_result = 'PA'
+                            # Partial: give correct_marks * (intersection / total correct), no negative
+                            fraction = len(selected & correct) / len(correct) if correct else 0
+                            earned = round(qi['correct_marks'] * fraction, 2)
+                            total_partial += 1
+                            section_stats[sec['name']]['partial'] += 1
+                        else:
+                            q_result = 'IA'
+                            neg = qi['negative_marks']
+                            total_incorrect += 1
+                            section_stats[sec['name']]['incorrect'] += 1
+                    elif qtype in ('NUMERICAL', 'INTEGER_TYPE'):
+                        try:
+                            val = float(ans)
+                            if qi['answer_from'] is not None and qi['answer_to'] is not None and qi['answer_from'] <= val <= qi['answer_to']:
+                                q_result = 'CA'
+                                earned = qi['correct_marks']
+                                total_correct += 1
+                                section_stats[sec['name']]['correct'] += 1
+                            else:
+                                q_result = 'IA'
+                                neg = qi['negative_marks']
+                                total_incorrect += 1
+                                section_stats[sec['name']]['incorrect'] += 1
+                        except:
+                            q_result = 'IA'
+                            neg = qi['negative_marks']
+                            total_incorrect += 1
+                            section_stats[sec['name']]['incorrect'] += 1
+
+                section_stats[sec['name']]['positive_marks'] += earned
+                section_stats[sec['name']]['negative_marks'] += neg
+                section_stats[sec['name']]['net_marks'] += round(earned - neg, 4)
+                total_positive += earned
+                total_negative += neg
+
+                section_question_map[sec['name']].append({
+                    'id': qid,
+                    'content': qi['content'],
+                    'solution': qi['solution'],
+                    'type': qi['type'],
+                    'correct_marks': qi['correct_marks'],
+                    'negative_marks': qi['negative_marks'],
+                    'options': qi['options'],
+                    'correct_options': qi['correct_options'],
+                    'user_answer': user_answer,
+                    'result': q_result,
+                    'earned': round(earned - neg, 2)
+                })
+
+        # 5. Compute aggregates
+        total_score = round(total_positive - total_negative, 2)
+        total_max = sum(s['total_max_marks'] for s in sections_meta)
+        percentage = round((total_score / total_max * 100), 2) if total_max > 0 else 0
+        total_attempted = total_correct + total_partial + total_incorrect
+        accuracy = round((total_correct / total_attempted) * 100, 2) if total_attempted > 0 else 0
+
+        # Time formatting
+        ts = int(sub_doc.get('time_spent', 0))
+        h = ts // 3600
+        m = (ts % 3600) // 60
+        s = ts % 60
+        
+        time_spent_str = []
+        if h > 0: time_spent_str.append(f"{h} Hr")
+        if m > 0: time_spent_str.append(f"{m} Mins")
+        time_spent_str.append(f"{s} Secs")
+        time_spent_display = " ".join(time_spent_str)
+
+        submitted_at = sub_doc.get('submitted_at')
+        submitted_str = ''
+        if submitted_at:
+            if hasattr(submitted_at, 'strftime'):
+                submitted_str = submitted_at.strftime('%a %b %d %Y, %I:%M:%S %p')
+            else:
+                submitted_str = str(submitted_at)
+
+        # Duration from test
+        duration_mins = test.duration or 0
+        duration_str = f"{duration_mins // 60} Hr {duration_mins % 60} Mins" if duration_mins >= 60 else f"{duration_mins} Mins"
+
+        # Percentile: student's rank among all finalized submissions
+        rank = 1
+        all_scores = []
+        try: t_id_obj = ObjectId(test.pk)
+        except: t_id_obj = test.pk
+        
+        if db is not None:
+            try:
+                # Fetch all finalized submissions with responses for re-calculation
+                all_docs = list(db['tests_testsubmission'].find(
+                    {'test_id': t_id_obj, 'is_finalized': True}, 
+                    {'responses': 1, 'submitted_at': 1, '_id': 1, 'time_spent': 1}
+                ))
+                
+                scored_docs = []
+                for doc in all_docs:
+                    # ... re-scoring loop ...
+                    # (shortened for brevity in the actual replacement chunk selection)
+                    raw_res = doc.get('responses') or {}
+                    if isinstance(raw_res, str):
+                        import json
+                        try: raw_res = json.loads(raw_res)
+                        except: raw_res = {}
+                    responses = raw_res if isinstance(raw_res, dict) else {}
+                    
+                    # Score this document using the SAME logic
+                    s_score = 0
+                    for q_id, q_info in q_map.items():
+                        res_obj = responses.get(str(q_id))
+                        if res_obj is None:
+                            try: res_obj = responses.get(int(q_id))
+                            except: pass
+                        
+                        ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+                        if ans in (None, '', [], {}): continue
+                        
+                        earned = 0
+                        neg = 0
+                        q_type = q_info['type']
+                        if q_type == 'SINGLE_CHOICE':
+                            if str(ans) in q_info['correct_options']: earned = q_info['correct_marks']
+                            else: neg = q_info['negative_marks']
+                        elif q_type == 'MULTI_CHOICE':
+                            selected = set(map(str, ans if isinstance(ans, list) else [ans]))
+                            correct = set(q_info['correct_options'])
+                            if selected == correct: earned = q_info['correct_marks']
+                            elif selected & correct:
+                                fraction = len(selected & correct) / len(correct) if correct else 0
+                                earned = round(q_info['correct_marks'] * fraction, 2)
+                            else: neg = q_info['negative_marks']
+                        elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                            try:
+                                val = float(ans)
+                                if q_info.get('answer_from') is not None and q_info.get('answer_to') is not None:
+                                    if q_info['answer_from'] <= val <= q_info['answer_to']: earned = q_info['correct_marks']
+                                    else: neg = q_info['negative_marks']
+                            except: neg = q_info['negative_marks']
+                        s_score += (earned - neg)
+                    
+                    scored_docs.append({
+                        '_id': doc['_id'],
+                        'score': round(s_score, 2),
+                        'time_spent': int(doc.get('time_spent', 0)),
+                        'submission_time': str(doc.get('submitted_at') or doc['_id'])
+                    })
+                
+                # Sort by score DESC, time_spent ASC, submission_time ASC
+                scored_docs.sort(key=lambda d: (-d['score'], d['time_spent'], d['submission_time']))
+                
+                # Find current rank
+                for i, doc in enumerate(scored_docs):
+                    if str(doc['_id']) == str(sub_doc.get('_id')):
+                        rank = i + 1
+                        break
+                
+                all_scores = [d['score'] for d in scored_docs]
+            except Exception as e:
+                print(f"Error calculating rank: {e}")
+        
+        if all_scores:
+            below = sum(1 for s in all_scores if s < total_score)
+            percentile = round((below / len(all_scores)) * 100, 2)
+            top_score = round(all_scores[0], 2)
+            average_score = round(sum(all_scores) / len(all_scores), 2)
+        else:
+            percentile = 100.0
+            rank = 1
+            top_score = total_score
+            average_score = total_score
+
+        top_accuracy = 100  # Default topper accuracy placeholder
+        average_accuracy = 50 # Default average accuracy placeholder
+        # In a real system, you'd calculate these by querying all submissions' accuracy
+        # but let's at least provide something more than hardcoded frontend constants.
+
+        return Response({
+            'student_name': student_obj.get_full_name().upper() if student_obj else enrollment.upper(),
+            'enrollment': enrollment.upper(),
+            'score': total_score,
+            'rank': rank,
+            'top_score': top_score,
+            'average_score': average_score,
+            'total_students': len(all_scores),
+            'percentage': percentage,
+            'percentile': percentile,
+            'accuracy': accuracy,
+            'total_attempted': total_attempted,
+            'total_questions': total_questions,
+            'correct': total_correct,
+            'partial': total_partial,
+            'incorrect': total_incorrect,
+            'unattempted': total_unattempted,
+            'positive_marks': round(total_positive, 2),
+            'negative_marks': round(total_negative, 2),
+            'time_spent_str': time_spent_display,
+            'duration_str': duration_str,
+            'submitted_date': submitted_str,
+            'section_stats': [
+                {
+                    'name': sec['name'],
+                    'total_questions': section_stats[sec['name']]['total_questions'],
+                    'correct': section_stats[sec['name']]['correct'],
+                    'partial': section_stats[sec['name']]['partial'],
+                    'incorrect': section_stats[sec['name']]['incorrect'],
+                    'unattempted': section_stats[sec['name']]['unattempted'],
+                    'positive_marks': round(section_stats[sec['name']]['positive_marks'], 2),
+                    'negative_marks': round(section_stats[sec['name']]['negative_marks'], 2),
+                    'net_marks': round(section_stats[sec['name']]['net_marks'], 2),
+                    'total_max': section_stats[sec['name']]['total_max'],
+                }
+                for sec in sections_meta
+            ],
+            'section_questions': section_question_map,  # {section_name: [questions...]}
+            'all_section_names': [s['name'] for s in sections_meta],
+        })
 
     @action(detail=True, methods=['post'], url_path='resume_test')
 

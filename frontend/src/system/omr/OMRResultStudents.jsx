@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import Pagination from '../../components/common/Pagination';
-import OMRStudentPerformance from './OMRStudentPerformance';
+// import OMRStudentPerformance from './OMRStudentPerformance';
 
 
 const OMRResultStudents = ({ test, onBack }) => {
