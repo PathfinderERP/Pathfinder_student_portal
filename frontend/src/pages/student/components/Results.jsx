@@ -1,30 +1,43 @@
 import React, { useState } from 'react';
-import { Award, TrendingUp, Search, RefreshCw, ChevronLeft, ChevronRight, Filter, Download } from 'lucide-react';
+import { Award, TrendingUp, Search, Filter } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import ResultReport from './ResultReport';
 
 const Results = ({ isDarkMode }) => {
     const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState('recent'); // 'recent' or 'all'
+    const [activeTab, setActiveTab] = useState('recent'); // 'recent', 'all'
+    const [selectedReport, setSelectedReport] = useState(null);
 
     // Mock data for results
-    const results = [
-        { id: 1, name: 'PHYSICS UNIT TEST 01', code: 'PHY-UT-01', date: '2026-03-10', marks: 85, total: 100, rank: 5, percentile: 92.5, status: 'Published' },
-        { id: 2, name: 'MATHEMATICS MOCK TEST 02', code: 'MATH-MT-02', date: '2026-03-05', marks: 92, total: 100, rank: 2, percentile: 98.1, status: 'Published' },
-        { id: 3, name: 'CHEMISTRY QUIZ 03', code: 'CHEM-QZ-03', date: '2026-02-28', marks: 78, total: 100, rank: 12, percentile: 85.0, status: 'Published' },
-        { id: 4, name: 'JEE MAIN FULL SYLLABUS 01', code: 'JEE-FS-01', date: '2026-02-15', marks: 245, total: 300, rank: 45, percentile: 99.2, status: 'Published' },
-        { id: 5, name: 'BIOLOGY PHASE TEST 01', code: 'BIO-PT-01', date: '2026-02-10', marks: 180, total: 200, rank: 8, percentile: 96.4, status: 'Published' },
+    const detailedResults = [
+        { id: 1, name: 'PHYSICS UNIT TEST 01', code: 'PHY-UT-01', date: '2026-03-10', marks: 85, total: 100, rank: 5, percentile: 92.5 },
+        { id: 2, name: 'MATHEMATICS MOCK TEST 02', code: 'MATH-MT-02', date: '2026-03-05', marks: 92, total: 100, rank: 2, percentile: 98.1 },
+        { id: 3, name: 'CHEMISTRY QUIZ 03', code: 'CHEM-QZ-03', date: '2026-02-28', marks: 78, total: 100, rank: 12, percentile: 85.0 },
+        { id: 4, name: 'JEE MAIN FULL SYLLABUS 01', code: 'JEE-FS-01', date: '2026-02-15', marks: 245, total: 300, rank: 45, percentile: 99.2 },
+        { id: 5, name: 'BIOLOGY PHASE TEST 01', code: 'BIO-PT-01', date: '2026-02-10', marks: 180, total: 200, rank: 8, percentile: 96.4 },
     ];
 
-    const filteredResults = results.filter(res => 
+    const filteredDetailedResults = detailedResults.filter(res => 
         res.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         res.code.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // If a report is selected, show the report view
+    if (selectedReport) {
+        return (
+            <ResultReport
+                test={selectedReport}
+                isDarkMode={isDarkMode}
+                onBack={() => setSelectedReport(null)}
+            />
+        );
+    }
+
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mt-2">
                 <div className="flex items-center gap-6">
                     <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         {activeTab === 'recent' ? 'Recent Results' : 'Score History'}
@@ -32,7 +45,7 @@ const Results = ({ isDarkMode }) => {
                     <div className={`flex p-1 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200 shadow-inner'}`}>
                         <button
                             onClick={() => setActiveTab('recent')}
-                            className={`px-6 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent' 
+                            className={`px-4 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent' 
                                 ? 'bg-white text-blue-600 shadow-sm' 
                                 : 'text-slate-400 hover:text-slate-600'}`}
                         >
@@ -40,7 +53,7 @@ const Results = ({ isDarkMode }) => {
                         </button>
                         <button
                             onClick={() => setActiveTab('all')}
-                            className={`px-6 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'all' 
+                            className={`px-4 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'all' 
                                 ? 'bg-white text-blue-600 shadow-sm' 
                                 : 'text-slate-400 hover:text-slate-600'}`}
                         >
@@ -54,7 +67,7 @@ const Results = ({ isDarkMode }) => {
                         <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
                         <input
                             type="text"
-                            placeholder="Search by test name..."
+                            placeholder={activeTab === 'participated' ? "Enter the test name" : "Search by test name..."}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className={`w-full md:w-64 pl-11 pr-4 py-2.5 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode 
@@ -63,10 +76,10 @@ const Results = ({ isDarkMode }) => {
                         />
                     </div>
                     <button className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode 
-                        ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' 
-                        : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600 shadow-sm'}`}>
-                        <Filter size={18} />
-                    </button>
+                            ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' 
+                            : 'bg-white border-slate-200 text-slate-400 hover:text-slate-600 shadow-sm'}`}>
+                            <Filter size={18} />
+                        </button>
                 </div>
             </div>
 
@@ -86,7 +99,7 @@ const Results = ({ isDarkMode }) => {
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                            {filteredResults.length === 0 ? (
+                            {filteredDetailedResults.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="py-20 text-center">
                                         <div className="opacity-20 flex flex-col items-center gap-3">
@@ -96,7 +109,7 @@ const Results = ({ isDarkMode }) => {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredResults.map((res, index) => (
+                                filteredDetailedResults.map((res, index) => (
                                     <tr key={res.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
                                         <td className="py-5 px-6 text-center text-xs font-bold opacity-40">{index + 1}</td>
                                         <td className="py-5 px-6">
@@ -136,8 +149,11 @@ const Results = ({ isDarkMode }) => {
                                             </div>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <button className={`p-2 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
-                                                <Download size={14} />
+                                            <button
+                                                onClick={() => setSelectedReport(res)}
+                                                className="bg-[#4871D9] hover:bg-[#3D60B8] text-white text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] transition-all active:scale-95 shadow-[0_1px_3px_rgba(72,113,217,0.4)]"
+                                            >
+                                                Report
                                             </button>
                                         </td>
                                     </tr>

@@ -4,7 +4,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -142,7 +142,7 @@ const StudentDashboard = () => {
         { name: 'Classes', icon: CalendarDays },
         { name: 'Attendance', icon: CheckSquare },
         { name: 'Exams', icon: FileText },
-        { name: 'Results', icon: Award },
+        { name: 'Results', icon: Trophy },
         { name: 'Performance', icon: TrendingUp },
         { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
