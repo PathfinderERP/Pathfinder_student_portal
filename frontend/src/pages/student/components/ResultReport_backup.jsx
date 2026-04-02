@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Trophy, Target, Clock, Zap, CheckCircle, XCircle, MinusCircle, BarChart2, TrendingUp, Award, Loader2 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
-import axios from 'axios';
+import React, { useState } from 'react';
+import { ArrowLeft, Trophy, Target, Clock, Zap, CheckCircle, XCircle, MinusCircle, BarChart2, TrendingUp, Award } from 'lucide-react';
 
 // ─── Doughnut Chart with hover (flicker-free) ────────────────────────────────
 const DoughnutChart = ({ slices, size = 160, thickness = 28 }) => {
@@ -98,93 +96,40 @@ const DoughnutChart = ({ slices, size = 160, thickness = 28 }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const ResultReport = ({ test, isDarkMode, onBack }) => {
-    const { getApiUrl, token } = useAuth();
     const [activeTab, setActiveTab] = useState('score_overview');
     const [hovCard, setHovCard]     = useState(null);
-    const [data, setData]           = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError]         = useState(null);
-    const [activeSec, setActiveSec] = useState('');
-
-    useEffect(() => {
-        const fetchPerformance = async () => {
-            if (!test?.id) return;
-            setIsLoading(true);
-            try {
-                const res = await axios.get(`${getApiUrl()}/api/tests/${test.id}/student_performance/`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setData(res.data);
-                if (res.data.all_section_names?.length > 0) {
-                    setActiveSec(res.data.all_section_names[0]);
-                }
-            } catch (err) {
-                console.error(err);
-                setError(err.response?.data?.error || 'Failed to load report data');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchPerformance();
-    }, [test?.id]);
-
-    if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-40 gap-6 opacity-50">
-                <Loader2 size={50} className="animate-spin text-blue-500" />
-                <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Loading Report...</span>
-            </div>
-        );
-    }
-
-    if (error || !data) {
-        return (
-            <div className="flex flex-col items-center justify-center py-40 gap-4 opacity-70">
-                <XCircle size={40} className="text-red-500" />
-                <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{error || 'Result unavailable'}</span>
-                <button onClick={onBack} className="text-blue-500 text-xs font-bold uppercase mt-4 hover:underline">Go Back</button>
-            </div>
-        );
-    }
-
-    const totalMaxMarks = Math.max(0.1, data.section_stats.reduce((acc, s) => acc + s.total_max, 0));
 
     const report = {
         testName: test?.name || 'Test Report',
-        score: data.score ?? 0,
-        totalMarks: totalMaxMarks,
-        rank: `${data.rank}/${data.total_students || 1}`,
-        attempted: `${data.total_attempted}/${data.total_questions}`,
-        accuracy: `${Math.round(data.accuracy)}%`,
-        percentage: `${data.percentage}%`,
-        percentile: `${data.percentile}%`,
-        positiveMarks: `+${data.positive_marks.toFixed(2)}`,
-        negativeMarks: `${data.negative_marks > 0 ? '-' : ''}${Math.abs(data.negative_marks).toFixed(2)}`,
-        totalTime: data.duration_str,
-        timeSpent: data.time_spent_str,
-        submittedDate: data.submitted_date || 'N/A',
-        totalQuestions: data.total_questions || 1,
-        correct: data.correct,
-        partial: data.partial,
-        incorrect: data.incorrect,
-        unattempted: data.unattempted,
+        score: test?.marks ?? 238,
+        totalMarks: test?.total ?? 300,
+        rank: '1/173',
+        attempted: '72/75',
+        accuracy: '69.33%',
+        percentage: '79.33%',
+        percentile: '100.00%',
+        positiveMarks: '+248.00',
+        negativeMarks: '-10.00',
+        totalTime: '180 min',
+        timeSpent: '145 min 2 sec',
+        submittedDate: 'Thu Mar 26 2026',
+        totalQuestions: 75,
+        correct: 62,
+        partial: 0,
+        incorrect: 10,
+        unattempted: 3,
     };
 
     const markSlices = [
-        { label: 'Correct',     color: '#22c55e', pct: (report.correct || 0) / report.totalQuestions },
-        { label: 'Incorrect',   color: '#ef4444', pct: (report.incorrect || 0) / report.totalQuestions },
-        { label: 'Unattempted', color: '#94a3b8', pct: (report.unattempted || 0) / report.totalQuestions },
-    ].map(s => ({ ...s, pct: isNaN(s.pct) ? 0 : s.pct }));
-
-    const sumSectionsTime = Math.max(1, data.section_stats.reduce((acc, s) => acc + (s.time_spent || 0), 0));
-    const sectionColors = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
-    const timeSlices = sumSectionsTime > 1 && data.section_stats.some(s => s.time_spent > 0)
-        ? data.section_stats.map((s, idx) => ({
-            label: s.name, 
-            color: sectionColors[idx % sectionColors.length], 
-            pct: (s.time_spent || 0) / sumSectionsTime
-          }))
-        : [{ label: 'Overall Time', color: '#22c55e', pct: 1 }];
+        { label: 'Correct',     color: '#22c55e', pct: report.correct     / report.totalQuestions },
+        { label: 'Incorrect',   color: '#ef4444', pct: report.incorrect   / report.totalQuestions },
+        { label: 'Unattempted', color: '#94a3b8', pct: report.unattempted / report.totalQuestions },
+    ];
+    const timeSlices = [
+        { label: 'Correct',   color: '#22c55e', pct: 0.72 },
+        { label: 'Incorrect', color: '#ef4444', pct: 0.12 },
+        { label: 'Others',    color: '#94a3b8', pct: 0.16 },
+    ];
 
     const tabs = [
         { key: 'score_overview', label: 'Score Overview',    icon: Trophy },
@@ -223,41 +168,25 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
         { k: 'Unattempted', v: report.unattempted,  icon: MinusCircle, color: 'text-slate-400'   },
     ];
 
-    const sections = data.section_stats.map((s, i) => ({
-        id: i + 1,
-        section: s.name,
-        total: s.total_questions,
-        correct: s.correct,
-        partial: s.partial,
-        incorrect: s.incorrect,
-        posM: s.positive_marks.toFixed(2),
-        negM: s.negative_marks.toFixed(2),
-        marks: s.net_marks.toFixed(2),
-        totalM: s.total_max.toFixed(2),
-        time: s.time_spent ? `${Math.floor(s.time_spent / 60)}m ${s.time_spent % 60}s` : '0m 0s'
-    }));
-
-    const scoreCompare = [
-        { label: "Topper", value: data.top_score || 0, color: '#22c55e'},
-        { label: "Average", value: data.average_score || 0, color: '#94a3b8'},
-        { label: "Yours", value: data.score || 0, color: '#4871D9'}
-    ];
-    
-    const accuracyCompare = [
-        { label: "Topper", value: data.top_accuracy > 0 ? data.top_accuracy : 100, color: '#22c55e'},
-        { label: "Average", value: data.average_accuracy || 50, color: '#94a3b8'},
-        { label: "Yours", value: Math.round(data.accuracy || 0), color: '#4871D9'}
+    // ── section wise data ─────────────────────────────────────────────────────
+    const sections = [
+        { id:1, section:'PHY_SINGLE_CHOICE', total:20, correct:15, partial:0, incorrect:4,  posM:'60.00', negM:'-4.00',  marks:'56.00', totalM:'80.00', time:'46 min 19 sec' },
+        { id:2, section:'PHY_INTEGER',       total:5,  correct:4,  partial:0, incorrect:0,  posM:'16.00', negM:'-0.00',  marks:'16.00', totalM:'20.00', time:'22 min 18 sec' },
+        { id:3, section:'CHE_SINGLE_CHOICE', total:20, correct:17, partial:0, incorrect:3,  posM:'68.00', negM:'-3.00',  marks:'65.00', totalM:'80.00', time:'36 min 22 sec' },
+        { id:4, section:'CHE_INTEGER',       total:5,  correct:3,  partial:0, incorrect:2,  posM:'12.00', negM:'-2.00',  marks:'10.00', totalM:'20.00', time:'5 min 55 sec'  },
+        { id:5, section:'MATH_SINGLE_CHOICE',total:20, correct:19, partial:0, incorrect:0,  posM:'76.00', negM:'-0.00',  marks:'76.00', totalM:'80.00', time:'29 min 46 sec' },
+        { id:6, section:'MATH_INTEGER',      total:5,  correct:4,  partial:0, incorrect:1,  posM:'16.00', negM:'-1.00',  marks:'15.00', totalM:'20.00', time:'4 min 40 sec'  },
     ];
 
-    const rankData = (data.top_10_scores || Array.from({ length: Math.min(10, data.total_students || 1) }).map((_, i) => i === 0 ? data.top_score : Math.max(0, data.top_score - i*5)))
-        .map((score, i) => ({
-            label: i === 0 ? 'Topper' : `Rank ${i+1}`,
-            score: score,
-            isYou: data.rank === i + 1
-        }));
-    if (!rankData.find(r => r.isYou)) {
-        rankData.push({ label: 'You', score: data.score, isYou: true });
-    }
+    // ── comparison data ───────────────────────────────────────────────────────
+    const scoreCompare    = [{ label:"Topper's", value:238, color:'#22c55e'},{label:'Average',value:64.97,color:'#94a3b8'},{label:"Your's",value:238,color:'#4871D9'}];
+    const accuracyCompare = [{ label:"Topper's", value:69.33, color:'#22c55e'},{label:'Average',value:3.98,color:'#94a3b8'},{label:"Your's",value:69.33,color:'#4871D9'}];
+    const rankData = [
+        {label:'Rank1',score:238,isYou:false},{label:'Rank2',score:230,isYou:false},{label:'Rank3',score:192,isYou:false},
+        {label:'Rank4',score:185,isYou:false},{label:'Rank5',score:182,isYou:false},{label:'Rank6',score:180,isYou:false},
+        {label:'Rank7',score:178,isYou:false},{label:'Rank8',score:168,isYou:false},{label:'Rank9',score:157,isYou:false},
+        {label:'Rank10',score:152,isYou:false},{label:'You',score:238,isYou:true},
+    ];
 
     // Portal color palette for charts
     const PORTAL_BLUE   = '#4871D9';
@@ -266,7 +195,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
     const PORTAL_INDIGO = '#7C3AED';
 
     // ── premium grouped bar chart ─────────────────────────────────────────────
-    const MiniBarChart = ({ title, data, maxVal, valueSuffix = '' }) => {
+    const MiniBarChart = ({ title, data, maxVal }) => {
         const [hovered, setHovered]   = useState(null);
         const [tooltip, setTooltip]   = useState(null);
         const containerRef            = React.useRef(null);
@@ -305,7 +234,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                             whiteSpace: 'nowrap',
                         }}
                     >
-                        <p className="font-black text-[12px]" style={{ color: tooltip.color }}>{tooltip.value}{valueSuffix}</p>
+                        <p className="font-black text-[12px]" style={{ color: tooltip.color }}>{tooltip.value}</p>
                         <p className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{tooltip.label}</p>
                         <span className={`absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-2.5 h-2.5 rotate-45 border-r border-b
                             ${isDarkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-slate-200'}`} />
@@ -358,7 +287,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                 <text x={x + barW / 2} y={y - 10} textAnchor="middle"
                                     fontSize="11" fontWeight="800"
                                     fill={isHov ? d.color : (isDarkMode ? '#e2e8f0' : '#1e293b')}>
-                                    {d.value}{valueSuffix}
+                                    {d.value}
                                 </text>
                                 {/* X Label */}
                                 <text x={x + barW / 2} y={chartH + padT + padB - 14} textAnchor="middle"
@@ -382,14 +311,9 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
     const RankBarChart = () => {
         const [tooltip, setTooltip] = useState(null);
         const containerRef = React.useRef(null);
-        
-        // Dynamically compute max score based on test bounds rather than hardcoding 250
-        const maxScore = Math.max(10, report.totalMarks);
-        const chartH = 220, barW = 42, gap = 16, padL = 44, padB = 44, padT = 24;
+        const maxScore = 250, chartH = 220, barW = 42, gap = 16, padL = 44, padB = 44, padT = 24;
         const totalW = padL + rankData.length * (barW + gap) + 16;
-        
-        // Compute 5 perfectly spaced y-axis graduation lines
-        const yLines = [0, 0.25, 0.5, 0.75, 1].map(pct => parseFloat((maxScore * pct).toFixed(1)));
+        const yLines = [0, 60, 120, 180, 240];
 
         const handleMouseEnter = (e, d, i) => {
             const rect = containerRef.current?.getBoundingClientRect();
@@ -728,8 +652,8 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                 {activeTab === 'comparison' && (
                     <div className="p-6 space-y-5">
                         <div className="flex flex-col md:flex-row gap-5">
-                            <MiniBarChart title="Score Analysis"    data={scoreCompare}    maxVal={Math.max(10, report.totalMarks)} />
-                            <MiniBarChart title="Accuracy Analysis" data={accuracyCompare} maxVal={100} valueSuffix="%" />
+                            <MiniBarChart title="Score Analysis"    data={scoreCompare}    maxVal={250} />
+                            <MiniBarChart title="Accuracy Analysis" data={accuracyCompare} maxVal={80}  />
                         </div>
                         <RankBarChart />
                     </div>
@@ -737,15 +661,61 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
 
                 {/* ── Tab: Solution ─────────────────────────────────────────── */}
                 {activeTab === 'solution' && (() => {
-                    const sectionTabs = (data.all_section_names || []).map(name => ({
-                        key: name,
-                        label: `${name}`
-                    }));
+                    const sectionTabs = [
+                        { key: 'PHY_SCQ',  label: 'PHY_SINGLE_CHOICE(20)' },
+                        { key: 'PHY_INT',  label: 'PHY_INTEGER(5)'         },
+                        { key: 'CHE_SCQ',  label: 'CHE_SINGLE_CHOICE(20)' },
+                        { key: 'CHE_INT',  label: 'CHE_INTEGER(5)'         },
+                        { key: 'MATH_SCQ', label: 'MATH_SINGLE_CHOICE(20)'},
+                        { key: 'MATH_INT', label: 'MATH_INTEGER(5)'        },
+                    ];
 
-                    const mockQuestions = data.section_questions[activeSec] || [];
+                    const mockQuestions = [
+                        {
+                            id: 1, type: 'MCQ', maxMark: 4, negMark: 1,
+                            text: 'A prism of refractive index n and angle A is placed in minimum deviation position. If the angle of minimum deviation is equal to the angle A, then the value of A is',
+                            options: [
+                                { id: 'A', text: 'sin⁻¹(n/2)' },
+                                { id: 'B', text: 'sin⁻¹(√(n/2))' },
+                                { id: 'C', text: '2 sin⁻¹(√((1-n²)/2))' },
+                                { id: 'D', text: '2 sin⁻¹(√((1-n²)/4))' },
+                            ],
+                            correctOption: 'D', yourOption: 'D',
+                            marks: 4, yourTime: '3 min 48 sec', minTime: '0 min 11 sec',
+                            solution: 'Using the prism formula at minimum deviation: sin((A+D)/2) = n·sin(A/2). When D=A, sin(A) = n·sin(A/2) = 2n·sin(A/2)·cos(A/2), giving cos(A/2) = n/2, so A = 2cos⁻¹(n/2).',
+                        },
+                        {
+                            id: 2, type: 'MCQ', maxMark: 4, negMark: 1,
+                            text: 'The magnetic field of an electromagnetic wave is given by B = B₀sin(kx - ωt). The electric field associated is',
+                            options: [
+                                { id: 'A', text: 'E = cB₀sin(kx - ωt)' },
+                                { id: 'B', text: 'E = B₀/c · sin(kx - ωt)' },
+                                { id: 'C', text: 'E = -cB₀sin(kx - ωt)' },
+                                { id: 'D', text: 'E = cB₀cos(kx - ωt)' },
+                            ],
+                            correctOption: 'A', yourOption: 'C',
+                            marks: -1, yourTime: '2 min 12 sec', minTime: '0 min 8 sec',
+                            solution: 'E = cB for electromagnetic waves. The electric and magnetic fields are in phase, so E = cB₀sin(kx - ωt).',
+                        },
+                        {
+                            id: 3, type: 'MCQ', maxMark: 4, negMark: 1,
+                            text: 'A ball is thrown vertically upward with velocity u. The distance covered by it in the last second of its ascent is',
+                            options: [
+                                { id: 'A', text: 'g/2' },
+                                { id: 'B', text: 'u - g' },
+                                { id: 'C', text: 'u·g' },
+                                { id: 'D', text: 'u/2 - g' },
+                            ],
+                            correctOption: 'A', yourOption: null,
+                            marks: 0, yourTime: '0 min 0 sec', minTime: '0 min 14 sec',
+                            solution: 'In the last second of ascent, velocity decreases from g to 0. Distance = g/2 (using s = ut - ½gt² for t=1s from top).',
+                        },
+                    ];
 
                     const SolutionTab = () => {
+                        const [activeSec, setActiveSec]       = useState('PHY_SCQ');
                         const [expandedSol, setExpandedSol]   = useState({});
+
                         const toggleSol = (id) => setExpandedSol(prev => ({ ...prev, [id]: !prev[id] }));
 
                         const qBorder = isDarkMode ? 'border-white/[0.06]' : 'border-slate-200';
@@ -774,48 +744,12 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                     ))}
                                 </div>
 
-                                {/* Section Stats Sub-header */}
-                                {(() => {
-                                    const activeSecData = sections.find(s => s.section === activeSec);
-                                    if(!activeSecData) return null;
-                                    const unattemptedCount = activeSecData.total - activeSecData.correct - activeSecData.partial - activeSecData.incorrect;
-                                    return (
-                                        <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3 border-b text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-white/[0.06] bg-[#151B27]/50' : 'border-slate-200 bg-slate-50/80 shadow-inner shadow-slate-100/50'}`}>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Correct : <span className={isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}>{activeSecData.correct}</span></span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
-                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Incorrect : <span className={isDarkMode ? 'text-red-400' : 'text-red-500'}>{activeSecData.incorrect}</span></span>
-                                            </div>
-                                            {(activeSecData.partial > 0) && (
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
-                                                    <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Partial : <span className={isDarkMode ? 'text-amber-400' : 'text-amber-500'}>{activeSecData.partial}</span></span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.4)]" />
-                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Unattempted : <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>{unattemptedCount}</span></span>
-                                            </div>
-                                            <div className="ml-auto flex items-center gap-2 text-[11px]">
-                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Net Marks : <span className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>{activeSecData.marks}</span> / {activeSecData.totalM}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-
                                 {/* Questions */}
                                 <div className="divide-y divide-transparent space-y-3 p-5">
-                                    {(mockQuestions || []).map((q, qIndex) => {
-                                        const isCorrect   = q.result === 'CA';
-                                        const isPartial   = q.result === 'PA';
-                                        const isIncorrect = q.result === 'IA';
-                                        const isSkipped   = q.result === 'NA';
-
-                                        const correctOptionsStr = (q.correct_options || []).join(',');
-                                        const userOptionsStr = Array.isArray(q.user_answer) ? q.user_answer.join(',') : q.user_answer;
+                                    {mockQuestions.map((q) => {
+                                        const isCorrect   = q.yourOption === q.correctOption;
+                                        const isIncorrect = q.yourOption && q.yourOption !== q.correctOption;
+                                        const isSkipped   = !q.yourOption;
 
                                         return (
                                             <div key={q.id} className={`rounded-[8px] border overflow-hidden ${qBorder} ${qBg}`}>
@@ -823,86 +757,70 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                 <div className={`flex items-center justify-between px-5 py-3 border-b ${isDarkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
                                                     <div className="flex items-center gap-3">
                                                         <span className={`text-[12px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                            Q.{qIndex + 1}
+                                                            Q.{q.id}
                                                         </span>
                                                         <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                            Question Type : <span className={`font-black uppercase ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{q.type}</span>
+                                                            Question Type : <span className={`font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{q.type}</span>
                                                         </span>
                                                         {/* Status badge */}
                                                         {isCorrect   && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">✓ Correct</span>}
-                                                        {isPartial   && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">~ Partial</span>}
                                                         {isIncorrect && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">✗ Incorrect</span>}
                                                         {isSkipped   && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20">— Skipped</span>}
                                                     </div>
                                                     <div className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                        Maximum Mark : <span className="font-black text-emerald-500">{q.correct_marks}</span>
+                                                        Maximum Mark : <span className="font-black text-emerald-500">{q.maxMark}</span>
                                                         <span className="mx-1">|</span>
-                                                        Negative Mark : <span className="font-black text-red-500">{q.negative_marks}</span>
+                                                        Negative Mark : <span className="font-black text-red-500">{q.negMark}</span>
                                                     </div>
                                                 </div>
 
                                                 {/* Question Text */}
                                                 <div className="px-5 py-4">
-                                                    <div className={`text-[13px] leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`} dangerouslySetInnerHTML={{ __html: q.content }} />
+                                                    <p className={`text-[13px] leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                        {q.text}
+                                                    </p>
                                                 </div>
 
                                                 {/* Options */}
                                                 <div className="px-5 pb-4 space-y-2">
-                                                    {(q.options || []).map((opt, oi) => {
-                                                        const optLabel = ['A','B','C','D','E','F'][oi];
-                                                        const uAnsOpts = Array.isArray(q.user_answer) 
-                                                            ? q.user_answer.map(x => String(x).toLowerCase().trim()) 
-                                                            : (q.user_answer ? [String(q.user_answer).toLowerCase().trim()] : []);
-                                                        
-                                                        const isYours = uAnsOpts.some(ans => 
-                                                            ans === String(opt.id).toLowerCase() || 
-                                                            ans === optLabel?.toLowerCase() || 
-                                                            (opt.content && ans === String(opt.content).replace(/(<([^>]+)>)/gi, "").toLowerCase())
-                                                        );
-
-                                                        const correctOptionsArr = Array.isArray(q.correct_options) ? q.correct_options : [];
-                                                        const isCorrectOpt = correctOptionsArr.some(c => String(c).toLowerCase() === String(opt.id).toLowerCase()) || opt.isCorrect;
-                                                        
+                                                    {q.options.map((opt) => {
+                                                        const isYours   = opt.id === q.yourOption;
+                                                        const isCorrectOpt = opt.id === q.correctOption;
                                                         let optStyle = optBg;
                                                         if (isYours && isCorrectOpt) optStyle = isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-300';
                                                         else if (isYours && !isCorrectOpt) optStyle = isDarkMode ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-300';
                                                         else if (isCorrectOpt) optStyle = isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-200';
 
                                                         return (
-                                                            <div key={opt.id || oi} className={`flex items-center justify-between px-4 py-3 rounded-[6px] border text-[12px] transition-all ${optStyle}`}>
-                                                                <span className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'} flex items-start gap-2`}>
-                                                                    <span className="font-black mt-0.5">{optLabel}.</span>
-                                                                    <div dangerouslySetInnerHTML={{ __html: opt.content || opt.text }} />
+                                                            <div key={opt.id} className={`flex items-center justify-between px-4 py-3 rounded-[6px] border text-[12px] ${optStyle}`}>
+                                                                <span className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                                    <span className="font-black mr-2">{opt.id}.</span>
+                                                                    {opt.text}
                                                                 </span>
                                                                 {isYours && isCorrectOpt && (
-                                                                    <CheckCircle size={16} className="text-emerald-500 shrink-0 ml-4" />
+                                                                    <span className="text-[11px] font-black text-emerald-500 ml-4 whitespace-nowrap">Your Option is Correct ✓</span>
                                                                 )}
                                                                 {isYours && !isCorrectOpt && (
-                                                                    <XCircle size={16} className="text-red-500 shrink-0 ml-4" />
+                                                                    <span className="text-[11px] font-black text-red-500 ml-4 whitespace-nowrap">Your Option ✗</span>
                                                                 )}
                                                                 {!isYours && isCorrectOpt && (
-                                                                    <CheckCircle size={16} className="text-emerald-500/50 shrink-0 ml-4" />
+                                                                    <span className="text-[11px] font-black text-emerald-500 ml-4 whitespace-nowrap">Correct Answer ✓</span>
                                                                 )}
                                                             </div>
                                                         );
                                                     })}
-                                                    {q.type === 'NUMERICAL' && (
-                                                        <div className={`p-4 rounded-[6px] border mt-2 ${isDarkMode ? 'bg-white/[0.02] border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                                                            <div className="flex items-center gap-6 text-[12px] font-semibold">
-                                                                <div>Your Answer: <span className="font-black tracking-widest text-blue-500">{q.user_answer || 'N/A'}</span></div>
-                                                                <div>Correct Answer: <span className="font-black tracking-widest text-emerald-500">{q.answer_from === q.answer_to ? q.answer_to : `${q.answer_from} - ${q.answer_to}`}</span></div>
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                 </div>
 
-                                                {/* Meta & Solution */}
+                                                {/* Footer */}
                                                 <div className={`flex flex-wrap items-center gap-4 px-5 py-3 border-t text-[11px] ${isDarkMode ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
                                                     <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
-                                                        Marks : <span className={`font-black ${q.earned > 0 ? 'text-emerald-500' : q.earned < 0 ? 'text-red-500' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>{q.earned}</span>
+                                                        Marks : <span className={`font-black ${q.marks > 0 ? 'text-emerald-500' : q.marks < 0 ? 'text-red-500' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>{q.marks}</span>
                                                     </span>
                                                     <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
-                                                        Your Time : <span className={`font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{q.time_spent ? `${parseInt(q.time_spent/60)}m ${q.time_spent%60}s` : 'N/A'}</span>
+                                                        Your Time : <span className={`font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{q.yourTime}</span>
+                                                    </span>
+                                                    <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
+                                                        Min Time Taken (correct ans) : <span className={`font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{q.minTime}</span>
                                                     </span>
                                                     <button
                                                         onClick={() => toggleSol(q.id)}
@@ -912,10 +830,11 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                     </button>
                                                 </div>
 
+                                                {/* Solution Drawer */}
                                                 {expandedSol[q.id] && (
                                                     <div className={`px-5 py-4 border-t text-[12px] leading-relaxed ${isDarkMode ? 'border-white/[0.06] text-slate-400 bg-blue-500/5' : 'border-slate-100 text-slate-500 bg-blue-50/50'}`}>
                                                         <p className={`text-[10px] font-black uppercase tracking-widest mb-2 text-[#4871D9]`}>Solution</p>
-                                                        <div dangerouslySetInnerHTML={{ __html: q.solution || '<p>No solution provided</p>' }} />
+                                                        {q.solution}
                                                     </div>
                                                 )}
                                             </div>

@@ -1,27 +1,78 @@
-import React, { useState } from 'react';
-import { Award, TrendingUp, Search, Filter } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Award, TrendingUp, Search, Filter, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import axios from 'axios';
 import ResultReport from './ResultReport';
 
 const Results = ({ isDarkMode }) => {
-    const { user } = useAuth();
+    const { user, getApiUrl, token } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('recent'); // 'recent', 'all'
     const [selectedReport, setSelectedReport] = useState(null);
+    const [detailedResults, setDetailedResults] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Mock data for results
-    const detailedResults = [
-        { id: 1, name: 'PHYSICS UNIT TEST 01', code: 'PHY-UT-01', date: '2026-03-10', marks: 85, total: 100, rank: 5, percentile: 92.5 },
-        { id: 2, name: 'MATHEMATICS MOCK TEST 02', code: 'MATH-MT-02', date: '2026-03-05', marks: 92, total: 100, rank: 2, percentile: 98.1 },
-        { id: 3, name: 'CHEMISTRY QUIZ 03', code: 'CHEM-QZ-03', date: '2026-02-28', marks: 78, total: 100, rank: 12, percentile: 85.0 },
-        { id: 4, name: 'JEE MAIN FULL SYLLABUS 01', code: 'JEE-FS-01', date: '2026-02-15', marks: 245, total: 300, rank: 45, percentile: 99.2 },
-        { id: 5, name: 'BIOLOGY PHASE TEST 01', code: 'BIO-PT-01', date: '2026-02-10', marks: 180, total: 200, rank: 8, percentile: 96.4 },
-    ];
+    useEffect(() => {
+        const fetchResults = async () => {
+            if (!token) return;
+            try {
+                setIsLoading(true);
+                const apiUrl = getApiUrl();
+                const res = await axios.get(`${apiUrl}/api/tests/my_results/`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setDetailedResults(res.data);
+            } catch (err) {
+                console.error("Error fetching results", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchResults();
+    }, [token, getApiUrl]);
 
-    const filteredDetailedResults = detailedResults.filter(res => 
-        res.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        res.code.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Derived statistics
+    const highestScore = useMemo(() => {
+        if (!detailedResults.length) return null;
+        let highest = detailedResults[0];
+        let hPct = (highest.marks / highest.total) * 100;
+        for (const res of detailedResults) {
+            const pct = (res.marks / res.total) * 100;
+            if (pct > hPct) {
+                highest = res;
+                hPct = pct;
+            }
+        }
+        return { ...highest, pct: hPct };
+    }, [detailedResults]);
+
+    const averagePercentile = useMemo(() => {
+        if (!detailedResults.length) return 0;
+        const recent5 = detailedResults.slice(0, 5);
+        const sum = recent5.reduce((acc, curr) => acc + curr.percentile, 0);
+        return (sum / recent5.length).toFixed(1);
+    }, [detailedResults]);
+
+    const globalRank = useMemo(() => {
+        if (!detailedResults.length) return "N/A";
+        // As a rough placeholder for global rank dashboard stat, taking best rank
+        const bestRank = Math.min(...detailedResults.map(r => r.rank));
+        return bestRank;
+    }, [detailedResults]);
+
+    const filteredDetailedResults = useMemo(() => {
+        let results = detailedResults;
+        if (searchTerm) {
+            results = results.filter(res => 
+                res.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                res.code?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+        if (activeTab === 'recent') {
+            return results.slice(0, 5); // Show top 5 recent
+        }
+        return results;
+    }, [detailedResults, searchTerm, activeTab]);
 
     // If a report is selected, show the report view
     if (selectedReport) {
@@ -99,7 +150,16 @@ const Results = ({ isDarkMode }) => {
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
-                            {filteredDetailedResults.length === 0 ? (
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan="7" className="py-20 text-center">
+                                        <div className="flex flex-col items-center gap-3 opacity-50">
+                                            <Loader2 size={48} className="animate-spin text-blue-500" />
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em]">Loading Results...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredDetailedResults.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="py-20 text-center">
                                         <div className="opacity-20 flex flex-col items-center gap-3">
@@ -168,15 +228,15 @@ const Results = ({ isDarkMode }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
                 <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Highest Score</h4>
-                    <div className="text-4xl font-black text-center text-blue-600 mb-1">99.2%</div>
-                    <p className="text-[10px] font-bold text-center opacity-40 uppercase tracking-tighter">JEE MAIN FULL SYLLABUS 01</p>
+                    <div className="text-4xl font-black text-center text-blue-600 mb-1">{highestScore ? `${highestScore.pct.toFixed(1)}%` : '—'}</div>
+                    <p className="text-[10px] font-bold text-center opacity-40 uppercase tracking-tighter">{highestScore?.name || 'No data'}</p>
                     <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
                         <Award size={100} />
                     </div>
                 </div>
                 <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Average Percentile</h4>
-                    <div className="text-4xl font-black text-center text-emerald-500 mb-1">94.3%</div>
+                    <div className="text-4xl font-black text-center text-emerald-500 mb-1">{averagePercentile}%</div>
                     <p className="text-[10px] font-bold text-center opacity-40 uppercase tracking-tighter">Based on last 5 tests</p>
                     <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
                         <TrendingUp size={100} />
@@ -184,8 +244,8 @@ const Results = ({ isDarkMode }) => {
                 </div>
                 <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Global Rank</h4>
-                    <div className="text-4xl font-black text-center text-orange-500 mb-1">#52</div>
-                    <p className="text-[10px] font-bold text-center opacity-40 uppercase tracking-tighter">Top 5% of all students</p>
+                    <div className="text-4xl font-black text-center text-orange-500 mb-1">{globalRank === 'N/A' ? 'N/A' : `#${globalRank}`}</div>
+                    <p className="text-[10px] font-bold text-center opacity-40 uppercase tracking-tighter">Current Best Standing</p>
                     <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
                         <Award size={100} />
                     </div>

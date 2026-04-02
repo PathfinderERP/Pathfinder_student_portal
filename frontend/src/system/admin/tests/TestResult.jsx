@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FileSearch, Search, RefreshCw, Users, BarChart3, FileText, Eye, ChevronLeft, ChevronRight, Filter, Layers } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, BarChart3, FileText, Eye, ChevronLeft, ChevronRight, Filter, Layers, Loader2 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,7 @@ const TestResult = () => {
     const [selectedAnalysisTest, setSelectedAnalysisTest] = useState(null); // { id, name }
     const [selectedStudentVsQuestionTest, setSelectedStudentVsQuestionTest] = useState(null); // { id, name }
     const [selectedTestForResult, setSelectedTestForResult] = useState(null);
+    const [togglingStatusId, setTogglingStatusId] = useState(null);
 
     const fetchTests = async () => {
         setIsLoading(true);
@@ -99,9 +100,23 @@ const TestResult = () => {
         tableContainerRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    const handleReleaseResult = (testId) => {
-        // TODO: Implement release result toggle
-        console.log('Toggle release result for test:', testId);
+    const handleReleaseResult = async (test) => {
+        try {
+            setTogglingStatusId(test.id);
+            const apiUrl = getApiUrl();
+            const newStatus = !test.is_result_published;
+            await axios.patch(`${apiUrl}/api/tests/${test.id}/`, {
+                is_result_published: newStatus
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Update local state
+            setTests(tests.map(t => t.id === test.id ? { ...t, is_result_published: newStatus } : t));
+        } catch (err) {
+            console.error('Error toggling release result:', err);
+        } finally {
+            setTogglingStatusId(null);
+        }
     };
 
     const handleQuestionAnalysis = (testId, testName) => {
@@ -277,10 +292,21 @@ const TestResult = () => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
-                                            onClick={() => handleReleaseResult(test.id)}
-                                            className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 ${test.is_result_released ? 'bg-pink-500' : 'bg-slate-300'}`}
+                                            onClick={() => handleReleaseResult(test)}
+                                            disabled={!test.is_completed || togglingStatusId === test.id}
+                                            className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 overflow-hidden ${
+                                                !test.is_completed ? (isDarkMode ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-slate-200 opacity-40 cursor-not-allowed') :
+                                                togglingStatusId === test.id ? 'bg-slate-400 opacity-50' : 
+                                                test.is_result_published ? 'bg-pink-500' : 'bg-slate-300'
+                                            }`}
                                         >
-                                            <div className={`w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-sm ${test.is_result_released ? 'translate-x-7' : 'translate-x-0'}`} />
+                                            {togglingStatusId === test.id ? (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <Loader2 size={14} className="animate-spin text-white" />
+                                                </div>
+                                            ) : (
+                                                <div className={`w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-sm ${test.is_result_published ? 'translate-x-7' : 'translate-x-0'}`} />
+                                            )}
                                         </button>
                                     </td>
                                     <td className="py-5 px-6 text-center">

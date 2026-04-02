@@ -23,6 +23,7 @@ class Test(models.Model):
     instructions = models.TextField(blank=True, null=True)
     is_completed = models.BooleanField(default=False)
     has_calculator = models.BooleanField(default=False)
+    is_result_published = models.BooleanField(default=False)
     option_type_numeric = models.BooleanField(default=False, help_text="If True, options are 1,2,3,4")
     
     created_at = models.DateTimeField(auto_now_add=True)

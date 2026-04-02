@@ -80,7 +80,8 @@ const ExamEngine = () => {
             if (data.selectedOption || data.status) {
                 backendResponses[qId] = { 
                     answer: data.selectedOption,
-                    status: data.status 
+                    status: data.status,
+                    time: questionTimes[qId] || 0
                 };
             }
         });

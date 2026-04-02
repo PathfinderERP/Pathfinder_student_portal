@@ -1179,7 +1179,10 @@ class TestViewSet(viewsets.ModelViewSet):
 
         enrollment = request.query_params.get('enrollment', '').strip()
         if not enrollment:
-            return Response({'error': 'enrollment param is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if request.user and request.user.is_authenticated:
+                enrollment = request.user.admission_number or request.user.username
+            else:
+                return Response({'error': 'enrollment param is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         test = self.get_object()
 
@@ -1259,6 +1262,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 'positive_marks': 0.0, 'negative_marks': 0.0, 'net_marks': 0.0,
                 'total_max': sec['total_max_marks'],
                 'total_questions': sec['question_count'],
+                'time_spent': 0,
             }
 
         total_correct = 0
@@ -1282,6 +1286,8 @@ class TestViewSet(viewsets.ModelViewSet):
                 earned = 0.0
                 neg = 0.0
                 user_answer = ans  # keep raw for display
+                q_time = res_obj.get('time', 0) if isinstance(res_obj, dict) else 0
+                section_stats[sec['name']]['time_spent'] += q_time
 
                 if ans in (None, '', [], {}):
                     q_result = 'NA'
@@ -1394,7 +1400,8 @@ class TestViewSet(viewsets.ModelViewSet):
                     'correct_options': qi['correct_options'],
                     'user_answer': user_answer,
                     'result': q_result,
-                    'earned': round(earned - neg, 2)
+                    'earned': round(earned - neg, 2),
+                    'time_spent': q_time
                 })
 
         # 5. Compute aggregates
@@ -1455,6 +1462,8 @@ class TestViewSet(viewsets.ModelViewSet):
                     
                     # Score this document using the SAME logic
                     s_score = 0
+                    d_attempted = 0
+                    d_correct = 0
                     for sec in sections_meta:
                         for qs in sec['questions']:
                             q_id = str(qs.pk)
@@ -1467,7 +1476,7 @@ class TestViewSet(viewsets.ModelViewSet):
                             
                             ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
                             if ans in (None, '', [], {}): continue
-                        
+                            d_attempted += 1
                             earned = 0
                             neg = 0
                             q_type = q_info['type']
@@ -1517,11 +1526,14 @@ class TestViewSet(viewsets.ModelViewSet):
                                         else: neg = q_info['negative_marks']
                                 except: neg = q_info['negative_marks']
                             s_score += (earned - neg)
+                            if earned > 0 and earned == q_info.get('correct_marks', 0):
+                                d_correct += 1
                     
                     scored_docs.append({
                         '_id': doc['_id'],
                         'score': round(s_score, 2),
                         'time_spent': int(doc.get('time_spent', 0)),
+                        'accuracy': round((d_correct / d_attempted * 100) if d_attempted > 0 else 0, 2),
                         'submission_time': str(doc.get('submitted_at') or doc['_id'])
                     })
                 
@@ -1549,8 +1561,9 @@ class TestViewSet(viewsets.ModelViewSet):
             top_score = total_score
             average_score = total_score
 
-        top_accuracy = 100  # Default topper accuracy placeholder
-        average_accuracy = 50 # Default average accuracy placeholder
+        all_acc = [d['accuracy'] for d in scored_docs] if 'scored_docs' in locals() and scored_docs else [accuracy]
+        top_accuracy = all_acc[0] if all_acc else 100
+        average_accuracy = round(sum(all_acc) / len(all_acc), 2) if all_acc else 50
         # In a real system, you'd calculate these by querying all submissions' accuracy
         # but let's at least provide something more than hardcoded frontend constants.
 
@@ -1561,10 +1574,13 @@ class TestViewSet(viewsets.ModelViewSet):
             'rank': rank,
             'top_score': top_score,
             'average_score': average_score,
-            'total_students': len(all_scores),
+            'top_10_scores': all_scores[:10] if all_scores else [total_score],
+            'total_students': len(all_scores) if all_scores else 1,
             'percentage': percentage,
             'percentile': percentile,
             'accuracy': accuracy,
+            'top_accuracy': top_accuracy,
+            'average_accuracy': average_accuracy,
             'total_attempted': total_attempted,
             'total_questions': total_questions,
             'correct': total_correct,
@@ -1584,6 +1600,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'partial': section_stats[sec['name']]['partial'],
                     'incorrect': section_stats[sec['name']]['incorrect'],
                     'unattempted': section_stats[sec['name']]['unattempted'],
+                    'time_spent': section_stats[sec['name']]['time_spent'],
                     'positive_marks': round(section_stats[sec['name']]['positive_marks'], 2),
                     'negative_marks': round(section_stats[sec['name']]['negative_marks'], 2),
                     'net_marks': round(section_stats[sec['name']]['net_marks'], 2),
@@ -2082,6 +2099,110 @@ class TestViewSet(viewsets.ModelViewSet):
             'tests': [{'id': str(t.pk), 'name': t.name, 'code': t.code} for t in tests_list],
             'leaderboard': leaderboard
         })
+
+
+    @action(detail=False, methods=['get'])
+    def my_results(self, request):
+        user = request.user
+        if not user or user.is_anonymous:
+            return Response({'error': 'Unauthorized'}, status=401)
+            
+        from api.db_utils import get_db
+        db = get_db()
+        if db is None:
+            return Response([])
+            
+        # Get all published tests with sections to compute max marks efficiently if 0
+        published_tests = Test.objects.filter(is_result_published=True).prefetch_related('allotted_sections')
+        tests_map = {}
+        for t in published_tests:
+            if t.total_marks == 0:
+                calc_total = 0
+                for sec in t.allotted_sections.all():
+                    unique_q_count = len(set(q.pk for q in sec.questions.all()))
+                    calc_total += unique_q_count * float(sec.correct_marks or 0)
+                t.total_marks = int(calc_total)
+            tests_map[str(t.pk)] = t
+        
+        # Prepare test_id array for Mongo matching
+        from bson import ObjectId
+        mongo_test_ids = []
+        for t in published_tests:
+            try: mongo_test_ids.append(ObjectId(t.pk))
+            except: mongo_test_ids.append(t.pk)
+            # also append int version just in case
+            try: mongo_test_ids.append(int(t.pk))
+            except: pass
+            
+        if not mongo_test_ids:
+            return Response([])
+            
+        # Optimize aggregation for ranking: fetch all finalized scores to calculate rank on the fly
+        pipeline = [
+            {'$match': {'test_id': {'$in': mongo_test_ids}, 'is_finalized': True}},
+            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1}}
+        ]
+        all_subs = list(db['tests_testsubmission'].aggregate(pipeline))
+        
+        from collections import defaultdict
+        test_scores = defaultdict(list)
+        user_scores = {}
+        
+        for sub in all_subs:
+            tid = str(sub.get('test_id'))
+            sid = str(sub.get('student_id'))
+            score = float(sub.get('score', 0))
+            test_scores[tid].append(score)
+            
+            if sid == str(user.pk):
+                user_scores[tid] = {
+                    'id': tid,
+                    'score': score,
+                    'submitted_at': sub.get('submitted_at')
+                }
+                
+        results = []
+        for tid, u_data in user_scores.items():
+            if tid not in tests_map:
+                continue
+            test = tests_map[tid]
+            
+            scores = sorted(test_scores[tid], reverse=True)
+            total_students = len(scores)
+            
+            try:
+                # Rank: first occurrence of the student's exact score
+                rank = scores.index(u_data['score']) + 1
+            except ValueError:
+                rank = total_students
+                
+            percentile = 0.0
+            if total_students > 1:
+                # Standard percentile calc: (students below score / total) * 100
+                students_below = sum(1 for s in scores if s < u_data['score'])
+                percentile = round((students_below / total_students) * 100, 2)
+            elif total_students == 1:
+                percentile = 100.0
+                
+            date_str = test.created_at.isoformat()
+            if u_data['submitted_at']:
+                try: date_str = u_data['submitted_at'].isoformat()
+                except: pass
+            if date_str and len(date_str) > 10: date_str = date_str[:10]
+            
+            results.append({
+                'id': tid,
+                'name': test.name,
+                'code': test.code,
+                'date': date_str,
+                'marks': round(u_data['score'], 2),
+                'total': test.total_marks,
+                'rank': rank,
+                'percentile': percentile
+            })
+            
+        results.sort(key=lambda x: x['date'], reverse=True)
+        return Response(results)
 
 
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
