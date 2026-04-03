@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Filter, ChevronsLeft, ChevronsRight, ChevronRight, Video, PlayCircle } from 'lucide-react';
+import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Filter, ChevronsLeft, ChevronsRight, ChevronRight, Video, PlayCircle, ArrowUpDown } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
@@ -66,8 +66,10 @@ const LibraryRegistry = () => {
         subject: '',
         exam_type: '',
         target_exam: '',
-        section: ''
+        section: '',
+        contentType: ''
     });
+    const [sortOrder, setSortOrder] = useState('newest'); // newest, oldest, az, za
 
     const [libraryItems, setLibraryItems] = useState([]);
 
@@ -327,9 +329,19 @@ const LibraryRegistry = () => {
             const matchesExamType = !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
             const matchesTargetExam = !activeFilters.target_exam || String(item.target_exam) === String(activeFilters.target_exam);
             const matchesSection = !activeFilters.section || String(item.section) === String(activeFilters.section);
-            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam && matchesSection;
+            const matchesContentType = !activeFilters.contentType || 
+                (activeFilters.contentType === 'pdf' && item.pdf_file) || 
+                (activeFilters.contentType === 'video' && (item.video_link || item.video_file));
+            
+            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam && matchesSection && matchesContentType;
+        }).sort((a, b) => {
+            if (sortOrder === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+            if (sortOrder === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+            if (sortOrder === 'az') return (a.name || "").localeCompare(b.name || "");
+            if (sortOrder === 'za') return (b.name || "").localeCompare(a.name || "");
+            return 0;
         });
-    }, [libraryItems, searchQuery, activeFilters]);
+    }, [libraryItems, searchQuery, activeFilters, sortOrder]);
 
     // Dynamic Filter Options based on available data
     const dynamicFilterOptions = useMemo(() => {
@@ -515,14 +527,40 @@ const LibraryRegistry = () => {
                                 <option value="">All Sections</option>
                                 {dynamicFilterOptions.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
-                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exam || activeFilters.section) && (
+                            <select
+                                value={activeFilters.contentType}
+                                onChange={(e) => setActiveFilters({ ...activeFilters, contentType: e.target.value })}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                            >
+                                <option value="">All Types</option>
+                                <option value="pdf">PDF Documents</option>
+                                <option value="video">Video Content</option>
+                            </select>
+                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exam || activeFilters.section || activeFilters.contentType) && (
                                 <button
-                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' })}
+                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '', contentType: '' })}
                                     className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                                 >
                                     Clear All Filters
                                 </button>
                             )}
+                            <div className="flex items-center gap-2 ml-auto">
+                                <div className={`p-2 rounded-[5px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                                    <ArrowUpDown size={14} /> Sort
+                                </div>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value)}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                    className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-colors ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                                >
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                    <option value="az">Alphabetical (A-Z)</option>
+                                    <option value="za">Alphabetical (Z-A)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -437,7 +437,23 @@ def get_all_centres_erp_data(request):
             if isinstance(data, dict):
                 data = data.get('data') or data.get('centres') or data
             
-            final_data = data if isinstance(data, list) else [data]
+            raw_data = data if isinstance(data, list) else [data]
+            
+            # Deduplicate by enterCode or code to prevent UI duplication
+            seen_codes = set()
+            final_data = []
+            for item in raw_data:
+                if not isinstance(item, dict): continue
+                # Identify by enterCode (priority) or fallback to name/address hash if code missing
+                code = item.get('enterCode') or item.get('code')
+                if not code:
+                    # Create a simple hash-like key from name and city/state if no code
+                    code = f"{item.get('centreName')}_{item.get('state')}"
+                
+                if code and code not in seen_codes:
+                    final_data.append(item)
+                    seen_codes.add(code)
+            
             if final_data:
                 cache.set(CACHE_KEY, final_data, 86400) # 24 Hours
             return Response(final_data, status=200)

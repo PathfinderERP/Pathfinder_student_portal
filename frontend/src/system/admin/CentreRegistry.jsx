@@ -122,7 +122,18 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
 const CentreRegistry = ({ centresData, isERPLoading }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token, loading: authLoading } = useAuth();
-    const [centres, setCentres] = useState(centresData || []);
+    const [centres, setCentres] = useState(() => {
+        const unique = [];
+        const seen = new Set();
+        (centresData || []).forEach(c => {
+            const code = c.enterCode || c.id || c.code;
+            if (code && !seen.has(code)) {
+                unique.push(c);
+                seen.add(code);
+            }
+        });
+        return unique;
+    });
     const [localCentres, setLocalCentres] = useState([]);
     const [tests, setTests] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -150,7 +161,17 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                 });
                 erpData = response.data?.data || (Array.isArray(response.data) ? response.data : []);
             }
-            setCentres(erpData);
+            // Deduplicate to prevent double rendering
+            const uniqueErpData = [];
+            const seenCodes = new Set();
+            (erpData || []).forEach(c => {
+                const code = c.enterCode || c.id || c.code;
+                if (code && !seenCodes.has(code)) {
+                    uniqueErpData.push(c);
+                    seenCodes.add(code);
+                }
+            });
+            setCentres(uniqueErpData);
 
             const [localRes, testsRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/centres/`, { headers: { Authorization: `Bearer ${authToken}` } }),

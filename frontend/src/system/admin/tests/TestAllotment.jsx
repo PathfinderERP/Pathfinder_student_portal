@@ -112,11 +112,25 @@ const TestAllotment = () => {
                 axios.get(`${apiUrl}/api/centres/`, getAuthConfig())
             ]);
 
-            const erpData = erpCentresRes.data || [];
+            const erpDataRaw = erpCentresRes.data || [];
+            const erpData = Array.isArray(erpDataRaw) ? erpDataRaw : (erpDataRaw.data || []);
+            
+            // Highly robust deduplication by normalized code
+            const uniqueErpData = [];
+            const seenCodes = new Set();
+            erpData.forEach(c => {
+                const rawCode = c.enterCode || c.code || c.id || "";
+                const normalizedCode = rawCode.toString().trim().toUpperCase();
+                if (normalizedCode && !seenCodes.has(normalizedCode)) {
+                    uniqueErpData.push(c);
+                    seenCodes.add(normalizedCode);
+                }
+            });
+
             const localData = localCentresRes.data || [];
 
             // Map ERP centres to available list
-            setAvailableCentres(erpData);
+            setAvailableCentres(uniqueErpData);
             setLocalCentres(localData);
 
             // Map the test's existing allotted local IDs back to ERP codes

@@ -287,8 +287,19 @@ const SystemDashboard = () => {
             const centres = Array.isArray(centresResp.data?.data) ? centresResp.data.data : (Array.isArray(centresResp.data) ? centresResp.data : []);
             const teachers = Array.isArray(teachersResp.data?.data) ? teachersResp.data.data : (Array.isArray(teachersResp.data) ? teachersResp.data : []);
 
+            // Deduplicate centres by enterCode to prevent UI and stats errors
+            const uniqueCentres = [];
+            const seenCentreCodes = new Set();
+            centres.forEach(c => {
+                const code = c.enterCode || c.id || c.code;
+                if (code && !seenCentreCodes.has(code)) {
+                    uniqueCentres.push(c);
+                    seenCentreCodes.add(code);
+                }
+            });
+
             setErpStudents(students);
-            setErpCentres(centres);
+            setErpCentres(uniqueCentres);
             setErpTeachers(teachers);
             console.log(`✅ ERP Sync: ${students.length} students, ${centres.length} centres, ${teachers.length} teachers`);
         } catch (err) {
