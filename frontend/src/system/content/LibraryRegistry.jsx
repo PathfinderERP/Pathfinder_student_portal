@@ -32,6 +32,16 @@ const LibraryRegistry = () => {
         return null;
     };
 
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return '';
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        if (match && match[2].length === 11) {
+            return `https://www.youtube.com/embed/${match[2]}`;
+        }
+        return url.replace('watch?v=', 'embed/').split('&')[0].replace('m.youtube.com', 'www.youtube.com').replace('youtu.be/', 'www.youtube.com/embed/');
+    };
+
     // Master Data State
     const [sessions, setSessions] = useState([]);
     const [classes, setClasses] = useState([]);
@@ -1017,7 +1027,7 @@ const LibraryRegistry = () => {
                                         <div className="w-full h-full bg-black flex items-center justify-center">
                                             {selectedItemForView.video_link.includes('youtube.com') || selectedItemForView.video_link.includes('youtu.be') ? (
                                                 <iframe 
-                                                    src={selectedItemForView.video_link.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
+                                                    src={getYouTubeEmbedUrl(selectedItemForView.video_link)} 
                                                     className="w-full h-full" 
                                                     allowFullScreen 
                                                     title="Video Player"

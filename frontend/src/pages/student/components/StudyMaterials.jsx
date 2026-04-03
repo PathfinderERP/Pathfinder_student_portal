@@ -47,6 +47,16 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
         return null;
     };
 
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return '';
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        if (match && match[2].length === 11) {
+            return `https://www.youtube.com/embed/${match[2]}`;
+        }
+        return url.replace('watch?v=', 'embed/').split('&')[0].replace('m.youtube.com', 'www.youtube.com').replace('youtu.be/', 'www.youtube.com/embed/');
+    };
+
     const fetchMaterials = useCallback(async (isBackground = false) => {
         if (!isBackground) setIsLoading(true);
 
@@ -222,7 +232,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                         <div className="w-full h-full">
                                             {(selectedItem.video_link.includes('youtube.com') || selectedItem.video_link.includes('youtu.be')) ? (
                                                 <iframe
-                                                    src={selectedItem.video_link.replace('watch?v=', 'embed/').split('&')[0]}
+                                                    src={getYouTubeEmbedUrl(selectedItem.video_link)}
                                                     className="w-full h-full border-none"
                                                     allowFullScreen
                                                     title="YouTube Player"
