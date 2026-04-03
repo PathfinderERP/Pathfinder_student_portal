@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTheme } from '../../context/ThemeContext';
-import { Video, Plus, Trash2, Edit2, Search, Filter, X, CheckCircle, RefreshCw } from 'lucide-react';
+import { Video, Plus, Trash2, Edit2, Search, Filter, X, CheckCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const VideoRegistry = () => {
     const { isDarkMode } = useTheme();
