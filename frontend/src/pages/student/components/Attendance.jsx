@@ -24,7 +24,7 @@ const calculateTrend = (monthlyData) => {
 // Realistic mock data generator for demonstration
 const getMockAttendance = () => {
     const data = [];
-    const subjects = ['Advanced Mathematics', 'Quantum Physics', 'Organic Chemistry', 'Molecular Biology', 'Phycics'];
+    const subjects = ['Mathematics', 'Physics', 'Inorganic Chemistry', 'Biology', 'Coordinate Geometry'];
     const now = new Date();
 
     // Generate records for the last 120 days to fill the charts

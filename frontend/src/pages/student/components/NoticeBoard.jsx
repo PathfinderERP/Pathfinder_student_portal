@@ -27,9 +27,9 @@ const getMockNotices = () => {
             category: 'Admin',
             is_new: true,
             is_pinned: false,
-            date: '2026-04-02',
-            title: 'Easter Weekend Holiday Notice',
-            content: 'Please note that the physical centers will remain closed for the upcoming Easter weekend from April 10th to April 12th. Online support and digitial classes will continue as per schedule.',
+            date: '2026-04-10',
+            title: 'Holiday Notice - Bengali New Year (Poila Baisakh)',
+            content: 'Please note that the physical centers will remain closed on April 14th and 15th in observance of Poila Baisakh. Online support and digitial classes will continue as per the revised holiday schedule.',
             link: 'https://example.com/holiday-schedule'
         },
         {

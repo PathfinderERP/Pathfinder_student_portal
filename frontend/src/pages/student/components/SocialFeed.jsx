@@ -183,8 +183,62 @@ const SocialFeed = () => {
     const [taggableUsers, setTaggableUsers] = useState([]);
     const [showTagResults, setShowTagResults] = useState(false);
 
+    // --- Dummy Data Generator ---
+    const getMockPosts = () => [
+        {
+            _id: 'mock-1',
+            author: { name: 'Aryan Sharma', role: 'Advanced Research' },
+            content: "Just finalized the Quantum Mechanics module. The visualization of wave-particle duality is simply mind-blowing! 🚀 @NexusTeam check this out.",
+            likes: ['1', '2', '3', '4', '5'],
+            comments: [
+                { user: { name: 'Priya' }, text: 'That is incredible work, Aryan!', createdAt: new Date().toISOString() }
+            ],
+            views: ['1', '2', '3', '4', '5', '6', '7', '8'],
+            createdAt: new Date().toISOString(),
+            images: [],
+            poll: {
+                question: 'Which physics track should we tackle next?',
+                options: [
+                    { _id: 'o1', text: 'Relativity Theory', votes: ['1', '2', '3'] },
+                    { _id: 'o2', text: 'Thermodynamics', votes: ['4', '5'] }
+                ]
+            }
+        },
+        {
+            _id: 'mock-2',
+            author: { name: 'Dr. Ananya Iyer', role: 'Chief Mentor' },
+            content: "Reminder: The Global Scholarship applications close in 48 hours. Ensure your research papers are attached to your digital profile. 📑",
+            likes: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+            comments: [],
+            views: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'],
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+            images: []
+        },
+        {
+            _id: 'mock-3',
+            author: { name: 'Anjali Mehta', role: 'Student Council' },
+            content: "Check out the new study hub layout! It's designed for maximum focus. 🏢✨",
+            likes: ['1', '2', '3'],
+            comments: [],
+            views: ['1', '2', '3', '4', '5'],
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+            images: ['https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000']
+        }
+    ];
+
+    const getMockActivity = () => [
+        { name: 'Aditi Rao', role: 'Biology Elite', lastVisit: new Date().toISOString() },
+        { name: 'Rohan Das', role: 'JEE Aspirant', lastVisit: new Date().toISOString() },
+        { name: 'Sneha Kapur', role: 'Med-Tech', lastVisit: new Date().toISOString() },
+        { name: 'Vikram Singh', role: 'Data Science', lastVisit: new Date().toISOString() }
+    ];
+
     // --- Fetchers ---
     useEffect(() => {
+        // Initialize with mocks for instant "WOW" effect
+        setPosts(getMockPosts());
+        setActiveUsers(getMockActivity());
+        
         fetchPosts();
         fetchTaggableUsers();
         trackPresence();
@@ -197,8 +251,14 @@ const SocialFeed = () => {
             const res = await axios.get(`${chatServerUrl}/api/posts`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setPosts(res.data);
-        } catch (err) { console.error('Fetch Posts Error', err); }
+            if (res.data && res.data.length > 0) {
+                setPosts(res.data);
+            } else {
+                console.log('Nexus Hub: No live posts, keeping mock breakthroughs.');
+            }
+        } catch (err) { 
+            console.error('Fetch Posts Error', err);
+        }
         finally { setLoading(false); }
     };
 
@@ -615,10 +675,17 @@ const SocialFeed = () => {
 
                 {/* Right Sidebar: Trends & Docs */}
                 <div className="hidden lg:block lg:col-span-3 space-y-8 h-fit sticky top-8">
-                    <div className={`p-8 rounded-[1.5rem] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
-                        <div className="flex items-center gap-3 mb-8">
-                            <TrendingUp className="text-indigo-500" />
-                            <h3 className="text-lg font-black uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Nexus Trends</h3>
+                    <div className={`p-8 rounded-[2rem] border shadow-2xl overflow-hidden relative group transition-all duration-500
+                        ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/60 hover:border-indigo-500/30' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700"><TrendingUp size={120} /></div>
+                        <div className="flex items-center gap-4 mb-10 translate-y-0 group-hover:-translate-y-1 transition-transform">
+                            <div className="p-3 rounded-2xl bg-indigo-600 shadow-xl shadow-indigo-600/20">
+                                <TrendingUp className="text-white" size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Nexus Trends</h3>
+                                <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.22em] mt-1 italic">Real-time Pulse</p>
+                            </div>
                         </div>
                         <div className="space-y-4">
                             {['#QuantumPhysis', '#JEE2026', '#AI_Research', '#FutureScholars', '#ScholarLab'].map((tag, i) => (
