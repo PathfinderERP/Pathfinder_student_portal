@@ -360,7 +360,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 # If they don't match, block entry UNLESS they already have an existing submission 
                 # (to avoid locking out students who might have had their section's name changed)
                 if not is_allotted:
-                    if not TestSubmission.objects.filter(test=test, student=user).exists():
+                    if not TestSubmission.objects.filter(test=test, student=user).first():
                         return Response({
                             'error': 'This test is not allotted to your section. Please contact your administrator.'
                         }, status=status.HTTP_403_FORBIDDEN)
