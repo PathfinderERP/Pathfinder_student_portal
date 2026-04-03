@@ -621,27 +621,28 @@ class TestViewSet(viewsets.ModelViewSet):
             'data': data
         })
 
-    @action(detail=True, methods=['post'], url_path='generate_result')
-    def generate_result(self, request, pk=None):
+    @action(detail=True, methods=['post'], url_path='force_publish')
+    def force_publish(self, request, pk=None):
+        """
+        Forcefully marks a test as completed and publishes results,
+        bypassing is_over deadline checks.
+        """
         test = self.get_object()
-        # A test can only have its results generated if it's over for all centres (for global results)
-        # However, for manual trigger, we can allow it if the user is staff.
-        from django.utils import timezone
-        now = timezone.now()
-        is_over = all(a.end_time and a.end_time < now for a in test.centre_allotments.all())
         
-        # User explicitly asked to enforce "only after over"
-        if not is_over:
-            return Response({'error': 'Results can only be generated after the exam is over for all allotted centres.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # TODO: Implement actual scoring/ranking logic here if not already done via submissions
-        # Currently, TestSubmission usually calculates score on save.
-        
-        # Mark the test as completed
+        # Force complete and publish
         test.is_completed = True
+        test.is_result_published = True
         test.save()
         
-        return Response({'message': 'Results generated and test marked as completed successfully.'})
+        # Clear related caches
+        from django.core.cache import cache
+        cache.delete("admin_test_list")
+        
+        return Response({
+            'message': 'Test results forcefully published successfully.',
+            'is_completed': True,
+            'is_result_published': True
+        })
 
     @action(detail=True, methods=['get'], url_path='question_analysis')
     def question_analysis(self, request, pk=None):
