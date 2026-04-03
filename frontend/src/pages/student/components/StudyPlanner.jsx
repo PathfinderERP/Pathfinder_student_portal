@@ -487,7 +487,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                                             <option>Maths</option>
                                             <option>Physics</option>
                                             <option>Chemistry</option>
-                                            <option>English</option>
+                                            {/* <option>English</option> */}
                                             <option>Others</option>
                                         </select>
                                     </div>

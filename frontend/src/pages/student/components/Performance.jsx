@@ -8,7 +8,7 @@ const Performance = ({ isDarkMode }) => {
         { name: 'Chemistry', score: 78, trend: '-2', color: 'purple' },
         { name: 'Mathematics', score: 92, trend: '+8', color: 'green' },
         { name: 'Biology', score: 88, trend: '+3', color: 'orange' },
-        { name: 'English', score: 75, trend: '+1', color: 'pink' },
+        // { name: 'English', score: 75, trend: '+1', color: 'pink' },
     ];
 
     const overallStats = {

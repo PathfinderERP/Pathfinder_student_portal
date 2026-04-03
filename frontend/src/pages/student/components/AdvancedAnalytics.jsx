@@ -235,7 +235,7 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                             { topic: 'Inorganic Chemistry', time: '12.5 hrs', percent: 25, color: 'bg-blue-500' },
                             { topic: 'Integral Calculus', time: '18.2 hrs', percent: 38, color: 'bg-indigo-500' },
                             { topic: 'Electromagnetic Waves', time: '9.4 hrs', percent: 18, color: 'bg-orange-500' },
-                            { topic: 'General English', time: '4.8 hrs', percent: 9, color: 'bg-slate-400' },
+                            // { topic: 'General English', time: '4.8 hrs', percent: 9, color: 'bg-slate-400' },
                             { topic: 'Others', time: '5.2 hrs', percent: 10, color: 'bg-slate-300' },
                         ].map((item, i) => (
                             <div key={i} className="group cursor-default">

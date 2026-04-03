@@ -21,7 +21,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSubject, setActiveSubject] = useState('All');
     const [activeContentType, setActiveContentType] = useState(initialType); // 'VIDEO' | 'STUDY_MATERIAL'
-    
+
     // Sync with sidebar navigation
     useEffect(() => {
         if (initialType) {
@@ -196,7 +196,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                 {selectedItem.name}
                                             </h2>
                                         </div>
-                                        
+
                                         <p className={`text-sm sm:text-base font-medium leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                             {selectedItem.description || 'No detailed description available for this learning resource.'}
                                         </p>
@@ -216,7 +216,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                 </div>
                             ) : (
                                 <div className="w-full h-full bg-black flex items-center justify-center relative">
-                                    <button 
+                                    <button
                                         onClick={() => setViewPage(1)}
                                         className="absolute top-6 left-6 z-50 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[5px] transition-all flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"
                                     >
@@ -264,156 +264,156 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
             )}
 
             <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up">
-            {/* Row 1: Filter and Search Bar */}
-            <div className="flex flex-col xl:flex-row gap-4 mb-4">
-                <div className="relative flex-1 group">
-                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-orange-500' : 'text-slate-400 group-focus-within:text-orange-500'}`} size={16} />
-                    <input
-                        type="text"
-                        placeholder={`Search in ${activeContentType === 'VIDEO' ? 'Videos' : 'PDFs'}...`}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className={`w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-[5px] border-2 outline-none font-bold text-xs sm:text-sm transition-all
+                {/* Row 1: Filter and Search Bar */}
+                <div className="flex flex-col xl:flex-row gap-4 mb-4">
+                    <div className="relative flex-1 group">
+                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-orange-500' : 'text-slate-400 group-focus-within:text-orange-500'}`} size={16} />
+                        <input
+                            type="text"
+                            placeholder={`Search in ${activeContentType === 'VIDEO' ? 'Videos' : 'PDFs'}...`}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className={`w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-[5px] border-2 outline-none font-bold text-xs sm:text-sm transition-all
                             ${isDarkMode ? 'bg-white/[0.02] border-white/5 text-white focus:border-orange-500/50' : 'bg-white border-slate-100 text-slate-800 focus:border-orange-500'}`}
-                    />
-                </div>
+                        />
+                    </div>
 
-                <div className="flex gap-2 items-center overflow-x-auto no-scrollbar">
-                    {subjects.map(subject => (
-                        <button
-                            key={subject}
-                            onClick={() => setActiveSubject(subject)}
-                            className={`px-5 py-2.5 rounded-[5px] font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
+                    <div className="flex gap-2 items-center overflow-x-auto no-scrollbar">
+                        {subjects.map(subject => (
+                            <button
+                                key={subject}
+                                onClick={() => setActiveSubject(subject)}
+                                className={`px-5 py-2.5 rounded-[5px] font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
                                 ${activeSubject === subject
-                                    ? 'bg-white border-white text-orange-500 shadow-xl scale-105 active:scale-95'
-                                    : (isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:border-orange-200 hover:text-orange-600')}`}
-                        >
-                            {subject}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Row 2: Compact Dynamic Stats Card & Sync */}
-            <div className="flex flex-wrap gap-4 items-center">
-                <div className={`px-5 py-3.5 rounded-[5px] border flex items-center gap-4 transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm hover:shadow-md'}`}>
-                    <div className={`w-10 h-10 rounded-[5px] flex items-center justify-center flex-shrink-0 ${activeContentType === 'VIDEO' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'}`}>
-                        {activeContentType === 'VIDEO' ? <PlayCircle size={18} strokeWidth={2.5} /> : <FileText size={18} strokeWidth={2.5} />}
-                    </div>
-                    <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-0.5 leading-none">
-                            {activeContentType === 'VIDEO' ? 'Total Videos' : 'Total Notes'}
-                        </p>
-                        <p className={`text-2xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {activeContentType === 'VIDEO' ? videoCount : pdfCount}
-                        </p>
+                                        ? 'bg-white border-white text-orange-500 shadow-xl scale-105 active:scale-95'
+                                        : (isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:border-orange-200 hover:text-orange-600')}`}
+                            >
+                                {subject}
+                            </button>
+                        ))}
                     </div>
                 </div>
-                <div className="flex-1"></div>
-                <button
-                    onClick={() => fetchMaterials(false)}
-                    disabled={isLoading}
-                    className={`px-6 py-4 rounded-[5px] flex items-center gap-3 transition-all active:scale-95 border font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}`}
-                >
-                    <RefreshCw size={18} className={isLoading ? "animate-spin text-orange-500" : "text-orange-500"} />
-                    Sync content
-                </button>
-            </div>
 
-            {/* Large 4-Column Grid Materials Layout */}
-            {isLoading ? (
-                <div className="py-20 flex flex-col items-center justify-center gap-4">
-                    <Loader2 size={40} className="animate-spin text-orange-500" />
-                    <p className="font-bold opacity-50 uppercase tracking-widest">Loading Resources...</p>
+                {/* Row 2: Compact Dynamic Stats Card & Sync */}
+                <div className="flex flex-wrap gap-4 items-center">
+                    <div className={`px-5 py-3.5 rounded-[5px] border flex items-center gap-4 transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm hover:shadow-md'}`}>
+                        <div className={`w-10 h-10 rounded-[5px] flex items-center justify-center flex-shrink-0 ${activeContentType === 'VIDEO' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'}`}>
+                            {activeContentType === 'VIDEO' ? <PlayCircle size={18} strokeWidth={2.5} /> : <FileText size={18} strokeWidth={2.5} />}
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-0.5 leading-none">
+                                {activeContentType === 'VIDEO' ? 'Total Videos' : 'Total Notes'}
+                            </p>
+                            <p className={`text-2xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                {activeContentType === 'VIDEO' ? videoCount : pdfCount}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex-1"></div>
+                    <button
+                        onClick={() => fetchMaterials(false)}
+                        disabled={isLoading}
+                        className={`px-6 py-4 rounded-[5px] flex items-center gap-3 transition-all active:scale-95 border font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+                    >
+                        <RefreshCw size={18} className={isLoading ? "animate-spin text-orange-500" : "text-orange-500"} />
+                        Sync content
+                    </button>
                 </div>
-            ) : filteredMaterials.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {filteredMaterials.map((item) => (
-                        <div
-                            key={item.id}
-                            className={`group p-5 rounded-[5px] border transition-all duration-300 hover:shadow-2xl hover:-translate-y-3
+
+                {/* Large 4-Column Grid Materials Layout */}
+                {isLoading ? (
+                    <div className="py-20 flex flex-col items-center justify-center gap-4">
+                        <Loader2 size={40} className="animate-spin text-orange-500" />
+                        <p className="font-bold opacity-50 uppercase tracking-widest">Loading Resources...</p>
+                    </div>
+                ) : filteredMaterials.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                        {filteredMaterials.map((item) => (
+                            <div
+                                key={item.id}
+                                className={`group p-5 rounded-[5px] border transition-all duration-300 hover:shadow-2xl hover:-translate-y-3
                                 ${isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200'}`}
-                        >
-                            <div className="relative aspect-video rounded-[5px] overflow-hidden mb-6 bg-slate-50 dark:bg-white/5 border border-white/5 shadow-inner">
-                                {item.thumbnail ? (
-                                    <img src={item.thumbnail} alt={item.name} className={`w-full h-full ${ (item.video_link || item.video_file) ? 'object-cover' : 'object-contain' } transition-transform duration-700 group-hover:scale-110`} />
-                                ) : (item.video_link && getYouTubeThumbnail(item.video_link)) ? (
-                                    <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center opacity-30 group-hover:opacity-50 transition-opacity">
-                                        <div className={`w-16 h-16 rounded-[5px] mb-4 flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)}`}>
-                                            {(item.video_link || item.video_file) ? <PlayCircle size={32} className="text-white" /> : <FileText size={32} className="text-white" />}
+                            >
+                                <div className="relative aspect-video rounded-[5px] overflow-hidden mb-6 bg-slate-50 dark:bg-white/5 border border-white/5 shadow-inner">
+                                    {item.thumbnail ? (
+                                        <img src={item.thumbnail} alt={item.name} className={`w-full h-full ${(item.video_link || item.video_file) ? 'object-cover' : 'object-contain'} transition-transform duration-700 group-hover:scale-110`} />
+                                    ) : (item.video_link && getYouTubeThumbnail(item.video_link)) ? (
+                                        <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                    ) : (
+                                        <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center opacity-30 group-hover:opacity-50 transition-opacity">
+                                            <div className={`w-16 h-16 rounded-[5px] mb-4 flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)}`}>
+                                                {(item.video_link || item.video_file) ? <PlayCircle size={32} className="text-white" /> : <FileText size={32} className="text-white" />}
+                                            </div>
+                                            <p className="text-[12px] font-black uppercase tracking-[0.2em]">{item.subject_name}</p>
                                         </div>
-                                        <p className="text-[12px] font-black uppercase tracking-[0.2em]">{item.subject_name}</p>
-                                    </div>
-                                )}
+                                    )}
 
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-sm">
-                                    <div className="flex flex-col gap-2 px-4 w-full">
-                                        <button
-                                            onClick={() => { setSelectedItem(item); setViewPage(1); }}
-                                            className="w-full py-2 bg-white text-black rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                                        >
-                                            <Eye size={14} strokeWidth={3} /> { (item.video_link || item.video_file) ? 'Watch Video' : 'View PDF' }
-                                        </button>
-                                        {item.pdf_file && (
-                                            <a
-                                                href={item.pdf_file}
-                                                download
-                                                className="w-full py-2 bg-orange-500 text-white rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-sm">
+                                        <div className="flex flex-col gap-2 px-4 w-full">
+                                            <button
+                                                onClick={() => { setSelectedItem(item); setViewPage(1); }}
+                                                className="w-full py-2 bg-white text-black rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
                                             >
-                                                <Download size={14} strokeWidth={3} /> Download
-                                            </a>
+                                                <Eye size={14} strokeWidth={3} /> {(item.video_link || item.video_file) ? 'Watch Video' : 'View PDF'}
+                                            </button>
+                                            {item.pdf_file && (
+                                                <a
+                                                    href={item.pdf_file}
+                                                    download
+                                                    className="w-full py-2 bg-orange-500 text-white rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
+                                                >
+                                                    <Download size={14} strokeWidth={3} /> Download
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest border
+                                        ${isDarkMode ? 'bg-white/5 border-white/5 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-600'}`}>
+                                            {item.subject_name}
+                                        </span>
+                                        {/* Content type badge — PDF (red) vs Video (blue) */}
+                                        {(item.video_link || item.video_file) ? (
+                                            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-blue-500/10 border border-blue-500/20 text-blue-500">
+                                                <PlayCircle size={12} strokeWidth={3} /> Video
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-red-500/10 border border-red-500/20 text-red-500">
+                                                <FileText size={12} strokeWidth={3} /> PDF
+                                            </span>
                                         )}
                                     </div>
+                                    <h3 className={`font-black text-xl sm:text-2xl leading-tight uppercase tracking-tight group-hover:text-orange-500 transition-colors line-clamp-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                        {item.name}
+                                    </h3>
+                                    <p className={`text-xs font-semibold line-clamp-2 opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        {item.description || 'No description available'}
+                                    </p>
+
+                                    <button
+                                        onClick={() => { setSelectedItem(item); setViewPage(1); }}
+                                        className={`flex items-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all group-hover:translate-x-1 ${isDarkMode ? 'text-orange-500' : 'text-orange-600'}`}
+                                    >
+                                        Learn More <ChevronRight size={14} strokeWidth={3} />
+                                    </button>
                                 </div>
                             </div>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <span className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest border
-                                        ${isDarkMode ? 'bg-white/5 border-white/5 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-600'}`}>
-                                        {item.subject_name}
-                                    </span>
-                                    {/* Content type badge — PDF (red) vs Video (blue) */}
-                                    {(item.video_link || item.video_file) ? (
-                                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-blue-500/10 border border-blue-500/20 text-blue-500">
-                                            <PlayCircle size={12} strokeWidth={3} /> Video
-                                        </span>
-                                    ) : (
-                                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-red-500/10 border border-red-500/20 text-red-500">
-                                            <FileText size={12} strokeWidth={3} /> PDF
-                                        </span>
-                                    )}
-                                </div>
-                                <h3 className={`font-black text-xl sm:text-2xl leading-tight uppercase tracking-tight group-hover:text-orange-500 transition-colors line-clamp-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                    {item.name}
-                                </h3>
-                                <p className={`text-xs font-semibold line-clamp-2 opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    {item.description || 'No description available'}
-                                </p>
-
-                                <button 
-                                    onClick={() => { setSelectedItem(item); setViewPage(1); }}
-                                    className={`flex items-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all group-hover:translate-x-1 ${isDarkMode ? 'text-orange-500' : 'text-orange-600'}`}
-                                >
-                                    Learn More <ChevronRight size={14} strokeWidth={3} />
-                                </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className={`py-20 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
+                        <div className="flex flex-col items-center gap-4 opacity-30">
+                            <BookOpen size={60} />
+                            <div className="space-y-1">
+                                <p className="font-black uppercase tracking-[0.2em] text-sm">No materials found</p>
+                                <p className="text-xs font-bold">Try adjusting your filters or search query</p>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className={`py-20 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
-                    <div className="flex flex-col items-center gap-4 opacity-30">
-                        <BookOpen size={60} />
-                        <div className="space-y-1">
-                            <p className="font-black uppercase tracking-[0.2em] text-sm">No materials found</p>
-                            <p className="text-xs font-bold">Try adjusting your filters or search query</p>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
             </div>
         </>
     );
@@ -425,7 +425,7 @@ const getSubjectGradient = (subject) => {
         'Chemistry': 'from-purple-500 to-indigo-600',
         'Mathematics': 'from-emerald-500 to-green-600',
         'Biology': 'from-orange-500 to-red-600',
-        'English': 'from-pink-500 to-rose-600',
+        // 'English': 'from-pink-500 to-rose-600',
     };
     return gradients[subject] || 'from-slate-500 to-slate-600';
 };
