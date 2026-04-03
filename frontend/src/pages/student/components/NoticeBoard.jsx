@@ -9,12 +9,57 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 
+// Mock data generator for notices when ERP returns empty
+const getMockNotices = () => {
+    return [
+        {
+            id: 'mock-1',
+            category: 'Exams',
+            is_new: true,
+            is_pinned: true,
+            date: '2026-04-03',
+            title: 'Mock Test Series - WBJEE Pattern 2026',
+            content: 'The official mock test series for WBJEE 2026 begins this Sunday. All enrolled students of Batch A-12 and B-08 are requested to participate. Access the exam portal from your dashboard.',
+            attachment: 'test_syllabus.pdf'
+        },
+        {
+            id: 'mock-2',
+            category: 'Admin',
+            is_new: true,
+            is_pinned: false,
+            date: '2026-04-02',
+            title: 'Easter Weekend Holiday Notice',
+            content: 'Please note that the physical centers will remain closed for the upcoming Easter weekend from April 10th to April 12th. Online support and digitial classes will continue as per schedule.',
+            link: 'https://example.com/holiday-schedule'
+        },
+        {
+            id: 'mock-3',
+            category: 'Resources',
+            is_new: false,
+            is_pinned: false,
+            date: '2026-04-01',
+            title: 'New Study Materials: Organic Chemistry Flashcards',
+            content: 'We have updated the Study Materials section with new interactive flashcards for Organic Chemistry mechanisms. These are optimized for quick revision before exams.',
+            attachment: 'flashcards_v2.zip'
+        },
+        {
+            id: 'mock-4',
+            category: 'System',
+            is_new: false,
+            is_pinned: false,
+            date: '2026-03-30',
+            title: 'System Maintenance - Student Portal',
+            content: 'The student portal will undergo routine maintenance from 2:00 AM to 4:00 AM on Monday. Users might experience intermittent connectivity during this window.'
+        }
+    ];
+};
+
 const NoticeBoard = ({ isDarkMode }) => {
     const { getApiUrl, token } = useAuth();
     const [filter, setFilter] = useState('All');
     const [search, setSearch] = useState('');
-    const [notices, setNotices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [notices, setNotices] = useState(getMockNotices());
+    const [loading, setLoading] = useState(false);
 
     const fetchNotices = async () => {
         try {
@@ -22,7 +67,15 @@ const NoticeBoard = ({ isDarkMode }) => {
             const response = await axios.get(`${apiUrl}/api/notices/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setNotices(response.data);
+            let data = response.data;
+
+            // Inject mock notices if none found for demonstration
+            if (!data || (Array.isArray(data) && data.length === 0)) {
+                console.log("No notices found, using mock announcements");
+                data = getMockNotices();
+            }
+
+            setNotices(data);
         } catch (error) {
             console.error('Failed to fetch notices:', error);
         } finally {

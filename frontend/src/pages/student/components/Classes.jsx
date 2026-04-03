@@ -4,13 +4,63 @@ import { Calendar, Clock, MapPin, User, Video, AlertCircle, BookOpen, RefreshCw,
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 
+// Mock data generator for classes when ERP returns empty
+const getMockClasses = () => {
+    const subjects = [
+        { name: 'Advanced Mathematics', teacher: 'Dr. Sarah Wilson', mode: 'Online' },
+        { name: 'Quantum Physics', teacher: 'Prof. James Miller', mode: 'Offline' },
+        { name: 'Organic Chemistry', teacher: 'Dr. Elena Rodriguez', mode: 'Online' },
+        { name: 'Molecular Biology', teacher: 'Dr. Michael Chen', mode: 'Offline' }
+    ];
+    
+    const now = new Date();
+    const data = [];
+    
+    // Classes for today
+    subjects.slice(0, 2).forEach((sub, i) => {
+        const date = new Date(now);
+        data.push({
+            _id: `mock-today-${i}`,
+            classMode: sub.mode,
+            subjectId: { subjectName: sub.name },
+            className: 'Batch A-12',
+            date: date.toISOString(),
+            startTime: i === 0 ? '09:00 AM' : '11:45 AM',
+            endTime: i === 0 ? '11:00 AM' : '01:45 PM',
+            teacherId: { name: sub.teacher },
+            status: i === 0 ? 'Completed' : 'Ongoing',
+            session: '2024-25'
+        });
+    });
+    
+    // Classes for tomorrow
+    subjects.slice(2, 4).forEach((sub, i) => {
+        const date = new Date(now);
+        date.setDate(now.getDate() + 1);
+        data.push({
+            _id: `mock-tomorrow-${i}`,
+            classMode: sub.mode,
+            subjectId: { subjectName: sub.name },
+            className: 'Batch B-08',
+            date: date.toISOString(),
+            startTime: i === 0 ? '10:00 AM' : '02:00 PM',
+            endTime: i === 0 ? '12:00 PM' : '04:00 PM',
+            teacherId: { name: sub.teacher },
+            status: 'SCHEDULED',
+            session: '2024-25'
+        });
+    });
+    
+    return data;
+};
+
 const Classes = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
     // Use a ref for comparison to avoid the infinite loop in dependency arrays
-    const classesRef = useRef(cache?.loaded ? cache.data : []);
+    const classesRef = useRef(cache?.loaded ? cache.data : getMockClasses());
     const [classes, setClasses] = useState(classesRef.current);
-    const [loading, setLoading] = useState(!cache?.loaded);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
 
@@ -35,6 +85,12 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                 data = response.data.data;
             } else if (response.data?.schedule && Array.isArray(response.data.schedule)) {
                 data = response.data.schedule;
+            }
+
+            // Inject mock data if ERP returns empty for demonstration
+            if (data.length === 0) {
+                console.log("No classes found in ERP, using mock schedule");
+                data = getMockClasses();
             }
 
             // Compare with current ref value to determine if state update is needed

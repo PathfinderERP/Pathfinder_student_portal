@@ -10,6 +10,55 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 
+// Mock data generator for study planner tasks
+const getMockTasks = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0];
+    
+    return [
+        {
+            id: 'mock-1',
+            topic: 'Integration by Parts - Advanced Practice',
+            subject: 'Maths',
+            date: today,
+            time: '09:00',
+            duration: '1.5h',
+            priority: 'High',
+            completed: true
+        },
+        {
+            id: 'mock-2',
+            topic: 'Electromagnetic Induction Revision',
+            subject: 'Physics',
+            date: today,
+            time: '11:30',
+            duration: '1h',
+            priority: 'Medium',
+            completed: false
+        },
+        {
+            id: 'mock-3',
+            topic: 'Periodic Table Mastery (NCERT)',
+            subject: 'Chemistry',
+            date: today,
+            time: '15:00',
+            duration: '2h',
+            priority: 'High',
+            completed: false
+        },
+        {
+            id: 'mock-4',
+            topic: 'Coordinate Geometry Mock Test',
+            subject: 'Maths',
+            date: tomorrow,
+            time: '09:00',
+            duration: '3h',
+            priority: 'High',
+            completed: false
+        }
+    ];
+};
+
 // ... (SessionTimer remains the same) ...
 
 const StudyPlanner = ({ isDarkMode }) => {
@@ -18,8 +67,8 @@ const StudyPlanner = ({ isDarkMode }) => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [tasks, setTasks] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [tasks, setTasks] = useState(getMockTasks());
+    const [loading, setLoading] = useState(false);
 
     // Modals
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -52,7 +101,15 @@ const StudyPlanner = ({ isDarkMode }) => {
             const response = await axios.get(`${apiUrl}/api/study-tasks/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setTasks(response.data);
+            let data = response.data;
+            
+            // Inject mock tasks if none exist for demonstration
+            if (!data || (Array.isArray(data) && data.length === 0)) {
+                console.log("No study tasks found, using mock agenda");
+                data = getMockTasks();
+            }
+            
+            setTasks(data);
         } catch (error) {
             console.error('Failed to fetch tasks:', error);
         } finally {

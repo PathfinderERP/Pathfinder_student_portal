@@ -21,6 +21,38 @@ const calculateTrend = (monthlyData) => {
     return recent[1].percentage - recent[0].percentage;
 };
 
+// Realistic mock data generator for demonstration
+const getMockAttendance = () => {
+    const data = [];
+    const subjects = ['Advanced Mathematics', 'Quantum Physics', 'Organic Chemistry', 'Molecular Biology', 'Phycics'];
+    const now = new Date();
+
+    // Generate records for the last 120 days to fill the charts
+    for (let i = 120; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(now.getDate() - i);
+
+        // Skip weekends for more realism
+        const day = date.getDay();
+        if (day === 0 || day === 6) continue;
+
+        // High attendance rate (88%) for a "good" student profile
+        const status = Math.random() > 0.12 ? 'Present' : 'Absent';
+        const subject = subjects[i % subjects.length];
+
+        data.push({
+            date: date.toISOString().split('T')[0],
+            status: status,
+            classScheduleId: {
+                subjectId: {
+                    subjectName: subject
+                }
+            }
+        });
+    }
+    return data;
+};
+
 const AttendanceAreaChart = ({ data, isDarkMode }) => {
     if (!data || data.length < 2) return null;
 
@@ -132,9 +164,9 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
     // Use a ref for comparison to avoid the infinite loop in dependency arrays
-    const rawDataRef = useRef(cache?.loaded ? cache.data : null);
+    const rawDataRef = useRef(cache?.loaded ? cache.data : getMockAttendance());
     const [rawData, setRawData] = useState(rawDataRef.current);
-    const [loading, setLoading] = useState(!cache?.loaded);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [timePeriod, setTimePeriod] = useState('all');
     const [viewMode, setViewMode] = useState('overview');
@@ -147,7 +179,13 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = response.data;
+            let data = response.data;
+
+            // If ERP returns empty data, injection of dummy data for demonstration
+            if (!data || (Array.isArray(data) && data.length === 0)) {
+                console.log("No ERP data found, using optimized mock data");
+                data = getMockAttendance();
+            }
 
             // Compare with current ref value to determine if state update is needed
             const isDataSame = JSON.stringify(data) === JSON.stringify(rawDataRef.current);
