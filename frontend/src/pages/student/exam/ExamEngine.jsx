@@ -239,6 +239,17 @@ const ExamEngine = () => {
     const currentSection = useMemo(() => paperData?.sections?.[activeSectionIdx], [paperData, activeSectionIdx]);
     const currentQuestion = useMemo(() => currentSection?.questions_detail?.[activeQuestionIdx], [currentSection, activeQuestionIdx]);
 
+    // Auto-Seek to first section with questions if the current one is empty
+    useEffect(() => {
+        if (paperData?.sections && !currentQuestion) {
+            const firstValid = paperData.sections.findIndex(s => s.questions_detail?.length > 0);
+            if (firstValid > -1 && firstValid !== activeSectionIdx) {
+                setActiveSectionIdx(firstValid);
+                setActiveQuestionIdx(0);
+            }
+        }
+    }, [paperData, activeSectionIdx, currentQuestion]);
+
     const updateStatus = useCallback((status, option = null) => {
         if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
@@ -560,7 +571,7 @@ const ExamEngine = () => {
         </div>
     );
 
-    if (!paperData || !currentQuestion) return (
+    if (!isSubmitted && (!paperData || !currentQuestion)) return (
         <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 gap-4">
             <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
             <p className="text-gray-500 font-bold animate-pulse text-xs tracking-widest uppercase">Initializing Exam Environment...</p>

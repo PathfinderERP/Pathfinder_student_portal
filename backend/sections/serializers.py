@@ -16,6 +16,5 @@ class SectionSerializer(serializers.ModelSerializer):
         ]
 
     def get_questions(self, obj):
-        # Convert ManyToMany ObjectId references to strings for JSON compatibility
-        # and wrap in set() to ensure we never return duplicate IDs in the count.
-        return list(set(str(q_id) for q_id in obj.questions.values_list('_id', flat=True)))
+        # Use .all() to take advantage of prefetch_related and avoid N+1 queries
+        return list(set(str(q.pk) for q in obj.questions.all()))
