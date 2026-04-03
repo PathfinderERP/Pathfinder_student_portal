@@ -26,6 +26,7 @@ import Scholarlab from './components/Scholarlab';
 import SocialFeed from './components/SocialFeed';
 
 import PortalLayout from '../../components/common/PortalLayout';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const StudentDashboard = () => {
     const { user, logout, token, getApiUrl, loading: authLoading, refreshUser } = useAuth();
@@ -524,17 +525,86 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             {/* Row 3: Performance Trend (Simulated Chart) */}
             <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
                 <div className="flex items-center justify-between mb-8">
-                    <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>Performance Trend (Last 30 Days)</h3>
+                    <div>
+                        <h3 className={`text-sm font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>
+                            Performance Trend (Last 30 Days)
+                        </h3>
+                        <p className="text-[10px] font-bold text-emerald-500 mt-1 uppercase tracking-widest">+12% Mastery Growth</p>
+                    </div>
                 </div>
-                <div className="h-32 flex items-end justify-between gap-4">
-                    {[30, 45, 35, 60, 50, 75, 55, 80].map((h, i) => (
-                        <div key={i} className="flex-1 flex flex-col justify-end group">
-                            <div
-                                className={`w-full rounded-t-[5px] transition-all duration-500 hover:opacity-80
-                                ${isDarkMode ? 'bg-indigo-700' : 'bg-indigo-600'}`}
-                                style={{ height: `${h}%` }}
-                            ></div>
-                        </div>
+                
+                {/* Visual Premium Area Chart */}
+                <div className="relative h-48 w-full">
+                    <svg viewBox="0 0 1000 200" className="w-full h-full overflow-visible">
+                        <defs>
+                            <linearGradient id="perfDashboardGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+                                <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+                        
+                        {/* Grid Lines */}
+                        {[0, 50, 100].map(val => (
+                            <line 
+                                key={val}
+                                x1="0" y1={200 - (val * 2)} 
+                                x2="1000" y2={200 - (val * 2)} 
+                                stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 
+                                strokeDasharray="4 4"
+                            />
+                        ))}
+
+                        {/* Dummy Data Area */}
+                        <motion.path 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 1, delay: 0.5 }}
+                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40 L 1000 200 L 0 200 Z" 
+                            fill="url(#perfDashboardGradient)" 
+                        />
+                        
+                        {/* Main Line */}
+                        <motion.path 
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: 1 }}
+                            transition={{ duration: 2, ease: "easeInOut" }}
+                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40" 
+                            fill="none" 
+                            stroke="#6366f1" 
+                            strokeWidth="4" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                        />
+
+                        {/* Data Points */}
+                        {[0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((x, i) => {
+                            const y = [160, 150, 170, 130, 140, 110, 120, 80, 90, 60, 40][i];
+                            const val = [20, 25, 15, 35, 30, 45, 40, 60, 55, 70, 80][i];
+                            return (
+                                <g key={i} className="group cursor-pointer">
+                                    <motion.circle 
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: 2 + (i * 0.1) }}
+                                        whileHover={{ scale: 1.8, strokeWidth: 4 }}
+                                        cx={x} cy={y} r="5" 
+                                        className="fill-white stroke-indigo-500 stroke-[3px]"
+                                    />
+                                    {/* Tooltip on hover */}
+                                    <foreignObject x={x - 20} y={y - 35} width="40" height="25" className="overflow-visible pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="bg-indigo-600 text-white text-[9px] font-black py-1 px-1.5 rounded-[3px] text-center shadow-xl">
+                                            {val}%
+                                        </div>
+                                    </foreignObject>
+                                </g>
+                            );
+                        })}
+                    </svg>
+                </div>
+                
+                <div className="flex justify-between mt-6 px-1">
+                    {['10 Mar', '20 Mar', '30 Mar', 'Today'].map(date => (
+                        <span key={date} className="text-[9px] font-black uppercase opacity-30 tracking-[0.2em]">{date}</span>
                     ))}
                 </div>
             </div>
