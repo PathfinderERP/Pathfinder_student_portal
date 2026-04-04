@@ -269,29 +269,48 @@ class TestViewSet(viewsets.ModelViewSet):
 
         # C. Assign Remaining ERP Students (Fuzzy Match but deduplicated)
         erp_pool = _fetch_all_students_erp(force_refresh=force_refresh)
+        
         for erp in erp_pool:
+            if not isinstance(erp, dict): continue
+            
             e_adm = str(erp.get('admissionNumber') or '').upper().strip()
             e_email = str(erp.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
             if (e_adm and e_adm in global_seen_uids) or (e_email and e_email in global_seen_uids):
                 continue
-                
-            e_centre = str(erp.get('centre') or '').upper().strip()
+            
+            # --- SHOW ALL STUDENTS MATCHING SECTIONS (IRRESPECTIVE OF SESSION) ---
+            # 1. Section Match
+            if allowed_sections_list:
+                sec_allot = erp.get('sectionAllotment', {})
+                if not isinstance(sec_allot, dict): continue
+                e_exams = [sec.lower() for sec in parse_section(sec_allot.get('examSection'))]
+                e_studies = [sec.lower() for sec in parse_section(sec_allot.get('studySection'))]
+                if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
+                    continue
+            
+            # 2. Centre Matching
+            e_centre_raw = erp.get('centre')
+            if not e_centre_raw:
+                v = erp.get('venue')
+                if isinstance(v, dict): e_centre_raw = v.get('centreName') or v.get('name')
+                else: e_centre_raw = v
+            
+            e_centre = str(e_centre_raw or '').upper().strip()
             if not e_centre: continue
             
             for c in all_target_centres:
-                c_name_up = c.name.upper()
-                c_code_up = c.code.upper()
-                if c_name_up in e_centre or e_centre in c_name_up or c_code_up == e_centre:
-                    if allowed_sections_list:
-                        sec_allot = erp.get('sectionAllotment', {})
-                        e_exams = [sec.lower() for sec in parse_section(sec_allot.get('examSection'))]
-                        e_studies = [sec.lower() for sec in parse_section(sec_allot.get('studySection'))]
-                        if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
-                            continue
-                    
+                c_name_up = c.name.upper().strip()
+                c_code_up = c.code.upper().strip()
+                # Fuzzy/Broad match: 
+                # Match if names are identical OR codes are identical 
+                # OR if the ERP centre contains our portal name (e.g., 'HOWRAH' in 'HOWRAH_FRANCHISE')
+                # OR if our portal name contains the ERP centre (e.g., 'HOWRAH_FRANCHISE' contains 'HOWRAH')
+                if c_name_up == e_centre or c_code_up == e_centre or \
+                   c_name_up in e_centre or e_centre in c_name_up:
                     centre_counts[str(c.pk)]['roster'] += 1
                     if e_adm: global_seen_uids.add(e_adm)
                     if e_email: global_seen_uids.add(e_email)
+                    found = True
                     break
 
         # 5. Format Data

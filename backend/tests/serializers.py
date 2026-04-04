@@ -196,35 +196,49 @@ class TestSerializer(serializers.ModelSerializer):
                     total_count += 1
 
             # 2. ERP Students (Global Deduplication)
-            erp_pool = cache.get('erp_all_students_v1') or []
-            centre_queries = [(c.name.upper(), c.code.upper()) for c in centres]
+            from api.erp_views import _fetch_all_students_erp
+            erp_pool = _fetch_all_students_erp() # Uses internal cache or fetches
+            centre_queries = [(c.name.upper().strip(), c.code.upper().strip()) for c in centres]
             
             for erp_student in erp_pool:
+                if not isinstance(erp_student, dict): continue
+                
                 # Deduplicate
                 e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
                 e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
                 
-                if e_adm in seen_identifiers or e_email in seen_identifiers:
+                if (e_adm and e_adm in seen_identifiers) or (e_email and e_email in seen_identifiers):
                     continue
 
-                # Centre Match
-                e_centre = str(erp_student.get('centre') or '').upper().strip()
-                if not e_centre: continue
-                
-                matches_any = False
-                for c_name, c_code in centre_queries:
-                    if c_name in e_centre or e_centre in c_name or c_code == e_centre:
-                        matches_any = True
-                        break
-                if not matches_any: continue
-                
-                # Section Match
+                # --- SHOW ALL STUDENTS MATCHING SECTIONS (IRRESPECTIVE OF SESSION) ---
+                # 1. Section Match
                 if allowed_sections:
                     sec_allot = erp_student.get('sectionAllotment', {})
+                    if not isinstance(sec_allot, dict): continue
                     e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
                     e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
                     if not any(sec in allowed_sections for sec in (e_exams + e_studies)):
                         continue
+                
+                # 2. Centre Match
+                e_centre_raw = erp_student.get('centre')
+                if not e_centre_raw:
+                    v = erp_student.get('venue')
+                    if isinstance(v, dict): e_centre_raw = v.get('centreName') or v.get('name')
+                    else: e_centre_raw = v
+                
+                e_centre = str(e_centre_raw or '').upper().strip()
+                if not e_centre: continue
+                
+                # Fuzzy match for global roster
+                matches_any = False
+                for c_name, c_code in centre_queries:
+                    # Match if names identical OR codes identical OR partial name match (e.g. 'HOWRAH' in 'HOWRAH_FRANCHISE')
+                    if c_name == e_centre or c_code == e_centre or \
+                       c_name in e_centre or e_centre in c_name:
+                        matches_any = True
+                        break
+                if not matches_any: continue
                 
                 if e_adm: seen_identifiers.add(e_adm)
                 if e_email: seen_identifiers.add(e_email)
