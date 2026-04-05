@@ -16,6 +16,7 @@ const ExamInstructions = () => {
     const [isChecked, setIsChecked] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [lockReason, setLockReason] = useState('');
+    const [isStarting, setIsStarting] = useState(false);
     const [statusData, setStatusData] = useState(null);
     const [error, setError] = useState(null);
 
@@ -124,32 +125,44 @@ const ExamInstructions = () => {
     }
 
     const handleReadyToBegin = async () => {
-        if (!isChecked) return;
+        if (!isChecked || isStarting) return;
         
+        // Step 1: Request Fullscreen Mode IMMEDIATELY to preserve user interaction token
+        // Modern browsers block fullscreen requests if they happen after an async (await) delay.
         try {
-            // Consume the resume permission (if any) before entering
+            const element = document.documentElement;
+            if (element.requestFullscreen) {
+                await element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) {
+                await element.webkitRequestFullscreen();
+            } else if (element.msRequestFullscreen) {
+                await element.msRequestFullscreen();
+            }
+        } catch (fsErr) {
+            console.warn("Fullscreen request failed or was blocked by browser:", fsErr);
+            // Some browsers (like Safari) are extremely strict. If this fails, we proceed
+            // but the system will detect it later and potentially nag the user.
+        }
+
+        setIsStarting(true);
+        try {
+            // Step 2: Initialize Exam Session on Backend
             await axios.post(`${getApiUrl()}/api/tests/${testId}/start_exam/`, {}, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // Enter Fullscreen
-            try {
-                const element = document.documentElement;
-                if (element.requestFullscreen) {
-                    await element.requestFullscreen();
-                } else if (element.webkitRequestFullscreen) {
-                    await element.webkitRequestFullscreen();
-                } else if (element.msRequestFullscreen) {
-                    await element.msRequestFullscreen();
-                }
-            } catch (fsErr) {
-                console.warn("Fullscreen rejected:", fsErr);
-            }
-
+            // Step 3: Navigate to Exam Paper
             navigate(`/student/exam/${testId}/paper`);
         } catch (err) {
             console.error("Failed to start session:", err);
             toast.error("Security Handshake Failed. Please refresh and try again.");
+            
+            // If API fails, try to exit fullscreen to let user fix issues
+            try {
+                if (document.fullscreenElement) await document.exitFullscreen();
+            } catch (exitErr) {}
+            
+            setIsStarting(false);
         }
     };
 
@@ -358,14 +371,15 @@ const ExamInstructions = () => {
 
                     <div className="flex justify-end mt-4">
                         <button
-                            disabled={!isChecked}
+                            disabled={!isChecked || isStarting}
                             onClick={handleReadyToBegin}
-                            className={`px-8 py-2.5 font-semibold transition-all border rounded-[4px] text-[15px]
-                            ${isChecked 
+                            className={`px-8 py-2.5 font-semibold transition-all border rounded-[4px] text-[15px] flex items-center gap-2
+                            ${(isChecked && !isStarting)
                                 ? 'bg-[#1976D2] text-white border-[#1976D2] hover:bg-[#1565C0] cursor-pointer shadow-md' 
                                 : 'bg-[#EEEEEE] text-[#777777] border-[#CCCCCC] cursor-not-allowed'}`}
                         >
-                            Ready to Begin
+                            {isStarting && <Loader2 size={16} className="animate-spin" />}
+                            {isStarting ? 'Preparing Exam...' : 'Ready to Begin'}
                         </button>
                     </div>
                 </div>

@@ -44,12 +44,18 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
 
     const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
+        // Show table-level loader while syncing
+        setLoading(true);
+        
         // Step 1: Tell parent to refresh ERP data (if it has the callback)
-        if (onRefresh) await onRefresh(true);
+        // We pass 'true' for forceRefresh and second 'true' for silentBackground
+        if (onRefresh) await onRefresh(true, true);
+        
         // Step 2: Fetch fresh tests from our backend
         await fetchTests();
         setTimeout(() => setIsRefreshing(false), 1000);
     }, [onRefresh, fetchTests]);
+
 
     useEffect(() => {
         if (token && (!cache || !cache.loaded)) {

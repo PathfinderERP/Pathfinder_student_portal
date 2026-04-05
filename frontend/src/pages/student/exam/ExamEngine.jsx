@@ -1021,13 +1021,14 @@ const ExamEngine = () => {
                         </div>
                         <button 
                             onClick={() => handleSubmit('MANUAL')}
-                            disabled={!canSubmit}
-                            className={`w-full py-2 font-black text-[11px] uppercase rounded-[3px] transition-all
-                            ${canSubmit 
+                            disabled={!canSubmit || isSubmitting}
+                            className={`w-full py-2 font-black text-[11px] uppercase rounded-[3px] transition-all flex items-center justify-center gap-2
+                            ${(canSubmit && !isSubmitting)
                                 ? 'bg-blue-600 text-white cursor-pointer hover:bg-blue-700 shadow-lg shadow-blue-600/20' 
                                 : (isDarkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')}`}
                         >
-                            Submit
+                            {isSubmitting && <Loader2 size={12} className="animate-spin" />}
+                            {isSubmitting ? 'Submitting...' : 'Submit'}
                         </button>
                     </div>
                 </div>

@@ -4,7 +4,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 import requests
 import os
+import threading
 from django.core.cache import cache
+from django.db import close_old_connections
 
 def _get_erp_url():
     """Returns the cleaned ERP API URL from env or default."""
@@ -154,6 +156,62 @@ def _fetch_all_students_erp(force_refresh=False):
         print(f"[ERP SYNC ERROR] {e}")
     return []
 
+def _perform_background_erp_sync(user_id, search_email, student_cache_key, force_refresh):
+    """Background task to fetch ERP data and update local DB/Cache."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    # Critical: Close old connections in new thread to avoid "InterfaceError: connection already closed"
+    close_old_connections()
+    
+    try:
+        user = User.objects.get(pk=user_id)
+        erp_url = _get_erp_url()
+        admin_token = _get_erp_admin_token()
+        
+        if not admin_token: return
+
+        print(f"[BG-SYNC] Starting background sync for {search_email}...")
+        
+        # 1. Targeted Email Search
+        resp = requests.get(f"{erp_url}/api/admission?studentEmail={search_email}", 
+                            headers={"Authorization": f"Bearer {admin_token}"}, timeout=60)
+        
+        target_record = None
+        if resp.status_code == 200:
+            data = resp.json()
+            # ... replication of verification logic from view ...
+            if isinstance(data, list) and len(data) > 0: potential_record = data[0]
+            elif isinstance(data, dict): potential_record = data.get('student') or data
+            else: potential_record = None
+            
+            if potential_record:
+                # Basic verification (same as in main view)
+                details = potential_record.get('student', {}).get('studentsDetails', [])
+                if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
+                    target_record = potential_record
+        
+        # 2. Fallback to Global Sync if target not found
+        if not target_record:
+            all_students = _fetch_all_students_erp(force_refresh=force_refresh)
+            for admission in all_students:
+                details = admission.get('student', {}).get('studentsDetails', [])
+                if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
+                    target_record = admission
+                    break
+        
+        if target_record:
+            _sync_user_to_erp(user, target_record)
+            cache.set(student_cache_key, target_record, 600) # 10 min cache
+            print(f"[BG-SYNC] Successfully updated data for {search_email}")
+        else:
+            print(f"[BG-SYNC] Could not find record for {search_email} in ERP")
+            
+    except Exception as e:
+        print(f"[BG-SYNC-ERROR] {e}")
+    finally:
+        close_old_connections()
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_erp_data(request):
@@ -167,61 +225,38 @@ def get_student_erp_data(request):
     erp_url = _get_erp_url()
     force_refresh = request.GET.get('refresh') == 'true'
 
-    # ── Quick Check: Strategy 1 - Individual Cache ─────────────────────────────
     student_cache_key = f"erp_student_data_v6_{user.pk}"
     lock_key = f"erp_sync_lock_{user.pk}"
     cached = cache.get(student_cache_key)
-    
-    # If forcing refresh, we keep 'cached' as a fallback if Strategy 3 fails
-    # Do NOT delete yet to prevent UI Flickering
-    if force_refresh:
-        print(f"[ERP] Force Refresh Triggered for user {user.pk}. Parallel sync starting...")
 
-    # If we have RICH cached data, and NOT forcing refresh, return it immediately
-    if not force_refresh and _is_profile_rich(cached):
-        print(f"[ERP] Strategy 1 HIT: serving {search_email} from cache.")
+    # ── Strategy 1 & 2: Fast Cache & Index Lookup ─────────────────────────────
+    # Even on force_refresh, we TRY to return cached data immediately to keep UI fast.
+    # The refresh will happen in the background.
+    if _is_profile_rich(cached):
+        print(f"[ERP] Serving {search_email} from cache (Async revalidate triggered).")
+        if force_refresh:
+            threading.Thread(target=_perform_background_erp_sync, args=(user.pk, search_email, student_cache_key, True)).start()
         return Response(cached, status=200)
 
-    print(f"[ERP] O(1) Strategy Search Start for {search_email}...")
+    # Strategy 2: High-Speed Index
+    index = get_student_lookup_index()
+    if index:
+        match = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
+        if match:
+            print(f"[ERP] Found via Index. Background refresh started...")
+            _sync_user_to_erp(user, match)
+            cache.set(student_cache_key, match, 300)
+            if force_refresh:
+                threading.Thread(target=_perform_background_erp_sync, args=(user.pk, search_email, student_cache_key, True)).start()
+            return Response(match, status=200)
 
-    # ── Strategy 2: Admin Bulk Cache Search (Global) ──────────────────────────
-    # Removed the massive 17+ second synchronous fetch of all students. 
-    # If the student is not in the individual cache, we skip straight to Strategy 3
-    # which queries the ERP for their specific email address instead of the whole database.
-    # ── Strategy 2: O(1) Hash Map Index Lookup ───────────────────────────────
-    # We use a pre-built dictionary for constant time retrieval
-    if not force_refresh:
-        index = get_student_lookup_index()
-        if index:
-            print(f"[ERP] Strategy 2: Using Hash Map Index for {search_email}/{search_username}...")
-            # Try lookup by Email then by Admission ID
-            match = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
-            
-            if match:
-                print(f"[ERP] Strategy 2 SUCCESS: Found record via high-speed index.")
-                _sync_user_to_erp(user, match)
-                cache.set(student_cache_key, match, 300) # 5 Minute User Cache
-                return Response(match, status=200)
-
-    if not force_refresh:
-        print(f"[ERP] O(1) Fast Return: Returning local profile to unblock UI. Background sync will follow.")
-        if cached:
-            return Response(cached, status=200)
-            
-        local_data = {
-            "admissionNumber": user.username,
-            "sectionAllotment": { "examSection": user.exam_section or "—", "studySection": user.study_section or "—", "omrCode": user.omr_code or "—", "rm": user.rm_code or "—" },
-            "student": { "studentsDetails": [{ "studentEmail": user.email or search_email, "studentName": f"{user.first_name} {user.last_name}".strip() or "Student", "mobileNum": "—", "schoolName": "Syncing...", "board": "—" }], "guardians": [], "examSchema": [] },
-            "course": { "courseName": "—", "courseSession": "—", "mode": "—" },
-            "is_offline": True, "sync_status": "pending"
-        }
-        return Response(local_data, status=200)
-    else:
-        # ── Strategy 3: Targeted API Call (Blocking for Force Refresh) ─────────────
-        # Check if we are already fetching for this student to avoid Broken Pipe/Spam
+    # ── Strategy 3: Targeted Fetch (Only if NO cache/index exists) ─────────────
+    # If we are here, we MUST block because we have zero data to show.
+    if force_refresh:
+        # Check lock to avoid parallel threads
         if cache.get(lock_key):
             if cached: return Response(cached, status=200)
-            return Response({"status": "syncing", "message": "Enrichment in progress"}, status=202)
+            return Response({"status": "syncing", "message": "First-time enrichment in progress"}, status=202)
 
     # Strategy 3: Targeted Fetch
     # We prefer the Admin Token for enrichment (Strategy 3) because /api/admission 
@@ -283,32 +318,20 @@ def get_student_erp_data(request):
             except Exception as e: 
                 print(f"[ERP] Email Filter fetch error: {e}")
 
-            # Sub-Strategy 3b: Full Fetch (Resilient Fallback) - ONLY if email search failed
+            # Sub-Strategy 3b: Global Cache Search / Fallback Full Fetch
             if not target_record:
-                print(f"[ERP] Strategy 3b: Email Targeted fail/mismatch, trying full fetch search...")
-                resp = requests.get(f"{erp_url}/api/admission", 
-                                    headers={"Authorization": f"Bearer {active_token}"}, timeout=120)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if isinstance(data, dict):
-                         # Handle wrapped response here too just in case
-                         if data.get('student') and data.get('message'):
-                            potential_record = data.get('student')
-                            # Check match
-                            details = potential_record.get('student', {}).get('studentsDetails', [])
-                            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
-                                target_record = potential_record
-                         elif data.get('student'):
-                            target_record = data
-                    elif isinstance(data, list):
-                        print(f"[ERP] Searching through {len(data)} records for match...")
-                        for admission in data:
-                            details = admission.get('student', {}).get('studentsDetails', [])
-                            admission_num = str(admission.get('admissionNumber') or '').strip().upper()
-                            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details) or \
-                               (search_username and admission_num == search_username):
-                                target_record = admission
-                                break
+                print(f"[ERP] Strategy 3b: Targeted search failed, searching global pool...")
+                # We use the centralized fetcher which handles caching and 90s timeout
+                all_students = _fetch_all_students_erp(force_refresh=force_refresh)
+                if all_students:
+                    print(f"[ERP] Searching through {len(all_students)} records for match...")
+                    for admission in all_students:
+                        details = admission.get('student', {}).get('studentsDetails', [])
+                        admission_num = str(admission.get('admissionNumber') or '').strip().upper()
+                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details) or \
+                           (search_username and admission_num == search_username):
+                            target_record = admission
+                            break
             
             if target_record:
                 print(f"[ERP] Strategy 3 SUCCESS: Fresh record obtained for {search_email}.")
