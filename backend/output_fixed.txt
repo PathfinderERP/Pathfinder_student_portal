@@ -1,4 +1,0 @@
-﻿[PATCH] Djongo cursor patches applied in api.apps.ready()
-Testing for Student: xyz@gmail.com, Test ID: 4
-1. Status API: 0.1657 seconds (Status: 400)
-2. Question Paper API (First load): 0.0249 seconds (Status: 400)

@@ -350,13 +350,19 @@ def _sync_user_to_erp(user, admission_data):
     
     try:
         has_changed = False
+
+        # 0. Sync ERP Student ID (the authoritative MongoDB _id from the admission record)
+        new_erp_sid = str(admission_data.get('student', {}).get('_id') or admission_data.get('_id') or '').strip()
+        if new_erp_sid and user.erp_student_id != new_erp_sid:
+            user.erp_student_id = new_erp_sid; has_changed = True
+            print(f"[SYNC] ✓ Synced erp_student_id={new_erp_sid} for {user.username}")
         
-        # 0. Sync Admission Number
+        # 1. Sync Admission Number
         new_adm = admission_data.get('admissionNumber')
         if user.admission_number != new_adm:
             user.admission_number = new_adm; has_changed = True
 
-        # 1. Sync Section/Codes
+        # 2. Sync Section/Codes
         sec = admission_data.get('sectionAllotment', {})
         if isinstance(sec, dict):
             new_es = sec.get('examSection')
@@ -369,7 +375,7 @@ def _sync_user_to_erp(user, admission_data):
             if user.omr_code != new_omr: user.omr_code = new_omr; has_changed = True
             if user.rm_code != new_rm: user.rm_code = new_rm; has_changed = True
         
-        # 2. Sync Names
+        # 3. Sync Names
         details_list = admission_data.get('student', {}).get('studentsDetails', [])
         if details_list and isinstance(details_list, list) and len(details_list) > 0:
             details = details_list[0]
@@ -381,7 +387,7 @@ def _sync_user_to_erp(user, admission_data):
                 if user.first_name != f_name: user.first_name = f_name; has_changed = True
                 if user.last_name != l_name: user.last_name = l_name; has_changed = True
         
-        # 3. Sync Centre Info
+        # 4. Sync Centre Info
         venue = admission_data.get('venue') or admission_data.get('centre')
         if venue:
             new_cc = None
@@ -402,6 +408,7 @@ def _sync_user_to_erp(user, admission_data):
             print(f"[SYNC] ℹ User {user.username} already up to date.")
     except Exception as e:
         print(f"[SYNC] ⚠ Failed to sync user {user.username}: {e}")
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -640,22 +647,127 @@ def get_all_teachers_erp_data(request):
         return Response([], status=200)
 
 
+def _fetch_erp_student_id(user):
+    """
+    Returns the ERP's authoritative student _id for the given user.
+    Checks the local DB first, then falls back to the cached ERP profile.
+    """
+    # 1. Best: use the locally stored field (set on login)
+    if user.erp_student_id:
+        return user.erp_student_id
+
+    # 2. Fallback: extract from cached ERP profile data
+    cached_profile = cache.get(f"erp_student_data_v6_{user.pk}")
+    if cached_profile and isinstance(cached_profile, dict):
+        sid = cached_profile.get('_id') or cached_profile.get('student', {}).get('_id')
+        if sid:
+            # Save it so we don't need to look it up next time
+            try:
+                user.erp_student_id = sid
+                user.save(update_fields=['erp_student_id'])
+            except Exception:
+                pass
+            return sid
+
+    return None
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_attendance(request):
+    """
+    Fetches attendance for the student from the ERP.
+    
+    Root Cause Fix: The ERP's student token returns 401 on this endpoint
+    (internally, the ERP auth middleware can't find the user). 
+    Solution: Always use Admin Token + pass studentId explicitly.
+    The studentId is the ERP's own MongoDB _id, stored locally as erp_student_id.
+    """
     try:
         erp_url = _get_erp_url()
-        erp_token = cache.get(f"erp_token_{request.user.pk}")
-        resp = requests.get(f"{erp_url}/api/student-portal/attendance", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
-        return Response(resp.json() if resp.status_code == 200 else [], status=200)
-    except: return Response([], status=200)
+        
+        # Build params — forward anything from query string (e.g. ?studentId=xxx from admin view)
+        params = request.GET.copy()
+        
+        # If no studentId was explicitly passed (student self-view), inject it from local storage
+        if 'studentId' not in params:
+            erp_sid = _fetch_erp_student_id(request.user)
+            if erp_sid:
+                params['studentId'] = erp_sid
+                debug_log(f"[ATTENDANCE] Injecting erp_student_id={erp_sid} for user {request.user.pk}")
+            else:
+                debug_log(f"[ATTENDANCE] No erp_student_id found for user {request.user.pk}. Trying with student token.")
+
+        # Always use admin token — student token gives 401 on this ERP endpoint
+        erp_token = _get_erp_admin_token()
+        if not erp_token:
+            debug_log("[ATTENDANCE] Admin token unavailable.")
+            return Response([], status=200)
+
+        resp = requests.get(
+            f"{erp_url}/api/student-portal/attendance",
+            headers={"Authorization": f"Bearer {erp_token}"},
+            params=params,
+            timeout=20
+        )
+
+        debug_log(f"[ATTENDANCE] ERP Response: {resp.status_code} | Params: {dict(params)}")
+
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and 'data' in data:
+                return Response(data['data'], status=200)
+            return Response(data, status=200)
+
+        debug_log(f"[ATTENDANCE] ERP Error: {resp.status_code} - {resp.text[:200]}")
+        return Response([], status=200)
+    except Exception as e:
+        debug_log(f"[ATTENDANCE] Exception: {e}")
+        return Response([], status=200)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_classes(request):
+    """
+    Fetches class schedule for the student from the ERP.
+    Same admin-token strategy as attendance.
+    """
     try:
         erp_url = _get_erp_url()
-        erp_token = cache.get(f"erp_token_{request.user.pk}")
-        resp = requests.get(f"{erp_url}/api/student-portal/classes", headers={"Authorization": f"Bearer {erp_token}"}, timeout=20)
-        return Response(resp.json() if resp.status_code == 200 else [], status=200)
-    except: return Response([], status=200)
+
+        params = request.GET.copy()
+
+        if 'studentId' not in params:
+            erp_sid = _fetch_erp_student_id(request.user)
+            if erp_sid:
+                params['studentId'] = erp_sid
+                debug_log(f"[CLASSES] Injecting erp_student_id={erp_sid} for user {request.user.pk}")
+
+        erp_token = _get_erp_admin_token()
+        if not erp_token:
+            debug_log("[CLASSES] Admin token unavailable.")
+            return Response([], status=200)
+
+        resp = requests.get(
+            f"{erp_url}/api/student-portal/classes",
+            headers={"Authorization": f"Bearer {erp_token}"},
+            params=params,
+            timeout=20
+        )
+
+        debug_log(f"[CLASSES] ERP Response: {resp.status_code} | Params: {dict(params)}")
+
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and 'data' in data:
+                return Response(data['data'], status=200)
+            return Response(data, status=200)
+
+        debug_log(f"[CLASSES] ERP Error: {resp.status_code} - {resp.text[:200]}")
+        return Response([], status=200)
+    except Exception as e:
+        debug_log(f"[CLASSES] Exception: {e}")
+        return Response([], status=200)
+
+

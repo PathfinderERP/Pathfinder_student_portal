@@ -108,6 +108,12 @@ class ERPStudentBackend(BaseBackend):
                             user_type='student'
                         )
                     
+                    # Store ERP Student ID (The unique MongoDB _id from ERP)
+                    erp_sid = student_data.get('_id')
+                    if erp_sid and user.erp_student_id != erp_sid:
+                        user.erp_student_id = erp_sid
+                        print(f"✓ Saved ERP Student ID: {erp_sid}")
+
                     # Perform full sync from student_data
                     try:
                         # 1. Sync Section/Codes
