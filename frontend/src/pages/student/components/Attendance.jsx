@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Calendar, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, TrendingUp, Award, Target, BarChart3, PieChart } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, TrendingUp, Award, Target, BarChart3, PieChart, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -274,9 +274,9 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-20">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
-                <RefreshCw size={48} className="text-indigo-500 mb-4" />
-            </motion.div>
+            <div className="w-16 h-16 flex items-center justify-center mb-4">
+                <RefreshCw size={48} className="text-indigo-500 animate-spin" />
+            </div>
             <p className="font-black uppercase tracking-widest text-[10px] opacity-50">Syncing Attendance Records...</p>
         </div>
     );
