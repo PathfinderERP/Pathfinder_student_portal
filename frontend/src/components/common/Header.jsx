@@ -108,10 +108,10 @@ const Header = ({ title, subtitle, isSidebarOpen, setSidebarOpen, isDarkMode, to
                                             {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : user?.username}
                                         </p>
                                         <p className={`text-xs mb-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            {user?.user_type || 'Faculty'} {user?.username ? `• ${user.username}` : ''}
+                                            {user?.role_label || 'User'} {user?.username ? `• ${user.username}` : ''}
                                         </p>
                                         <div className={`text-xs font-medium ${isDarkMode ? colors.text : colors.textLight}`}>
-                                            {(user?.user_type || 'Faculty').charAt(0).toUpperCase() + (user?.user_type || 'Faculty').slice(1)}
+                                            {user?.role_label || 'User'}
                                         </div>
                                     </div>
                                 </div>

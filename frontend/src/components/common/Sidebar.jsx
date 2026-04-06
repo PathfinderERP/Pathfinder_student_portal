@@ -235,7 +235,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                 {user?.first_name || user?.username || "User"}
                             </p>
                             <p className={`text-xs font-medium truncate ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>
-                                {user?.role || "Faculty"}
+                                {user?.role_label || "User"}
                             </p>
                         </div>
                     </div>

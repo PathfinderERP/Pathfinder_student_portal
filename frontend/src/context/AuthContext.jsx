@@ -24,26 +24,47 @@ export const AuthProvider = ({ children }) => {
         return url;
     }, []);
 
+    const getRoleLabel = useCallback((type) => {
+        const roles = {
+            'superadmin': 'Super Admin',
+            'admin': 'Administrator',
+            'faculty': 'Faculty',
+            'teacher': 'Teacher',
+            'staff': 'Staff',
+            'student': 'Student',
+            'parent': 'Parent'
+        };
+        return roles[type?.toLowerCase()] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'User');
+    }, []);
+
     const normalizeUser = useCallback((userData) => {
-        if (userData && userData.profile_image) {
+        if (!userData) return null;
+        
+        // Ensure user_type is handled correctly
+        const type = userData.user_type || userData.role || 'student';
+        const normalized = {
+            ...userData,
+            user_type: type,
+            role_label: getRoleLabel(type)
+        };
+
+        if (normalized.profile_image) {
             // Debug the raw image path coming from backend
             // If it's already an absolute URL (http, https, or protocol-relative //), use it as is
-            if (userData.profile_image.startsWith('http') || userData.profile_image.startsWith('//')) {
-                return userData;
+            if (normalized.profile_image.startsWith('http') || normalized.profile_image.startsWith('//')) {
+                return normalized;
             }
 
             // Otherwise, assumes it is a relative path that needs the API base URL
             const apiUrl = getApiUrl();
             const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-            const imgPath = userData.profile_image.startsWith('/') ? userData.profile_image : `/${userData.profile_image}`;
+            const imgPath = normalized.profile_image.startsWith('/') ? normalized.profile_image : `/${normalized.profile_image}`;
 
-            return {
-                ...userData,
-                profile_image: `${baseUrl}${imgPath}`
-            };
+            normalized.profile_image = `${baseUrl}${imgPath}`;
         }
-        return userData;
-    }, [getApiUrl]);
+        
+        return normalized;
+    }, [getApiUrl, getRoleLabel]);
 
     useEffect(() => {
         const initAuth = async () => {
@@ -81,14 +102,19 @@ export const AuthProvider = ({ children }) => {
         try {
             const apiUrl = getApiUrl();
             const response = await axios.post(`${apiUrl}/api/token/`, { username, password });
-            const newToken = response.data.access;
-            setToken(newToken);
+            
+            const { access, refresh } = response.data;
+            
+            setToken(access);
             setLastUsername(username);
             setLastPassword(password);
-            localStorage.setItem('auth_token', newToken);
-            const decoded = jwtDecode(newToken);
+            
+            localStorage.setItem('auth_token', access);
+            localStorage.setItem('refresh_token', refresh);
+            
+            const decoded = jwtDecode(access);
             setUser(normalizeUser(decoded));
-            axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+            axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
             return decoded;
         } catch (error) {
             console.error("Login failed", error);
@@ -162,9 +188,8 @@ export const AuthProvider = ({ children }) => {
     const logout = useCallback(() => {
         setToken(null);
         setUser(null);
-        setLastUsername(null);
-        setLastPassword(null);
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
         delete axios.defaults.headers.common['Authorization'];
     }, []);
 
@@ -172,16 +197,44 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const interceptor = axios.interceptors.response.use(
             (response) => response,
-            (error) => {
-                if (error.response?.status === 401) {
-                    console.warn("Unauthorized request detected, logging out...");
-                    logout();
+            async (error) => {
+                const originalRequest = error.config;
+                
+                // If the error is 401 and we haven't already tried to refresh
+                if (error.response?.status === 401 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+                    
+                    const refreshToken = localStorage.getItem('refresh_token');
+                    if (refreshToken) {
+                        try {
+                            const apiUrl = getApiUrl();
+                            const response = await axios.post(`${apiUrl}/api/token/refresh/`, {
+                                refresh: refreshToken
+                            });
+                            
+                            const newAccessToken = response.data.access;
+                            localStorage.setItem('auth_token', newAccessToken);
+                            setToken(newAccessToken);
+                            
+                            // Re-run original request with new token
+                            originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+                            axios.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+                            
+                            return axios(originalRequest);
+                        } catch (refreshError) {
+                            console.error("Session expired. Please log in again.", refreshError);
+                            logout();
+                            return Promise.reject(refreshError);
+                        }
+                    } else {
+                        logout();
+                    }
                 }
                 return Promise.reject(error);
             }
         );
         return () => axios.interceptors.response.eject(interceptor);
-    }, [logout]);
+    }, [logout, getApiUrl]);
 
 
     const refreshUser = useCallback(async () => {

@@ -162,7 +162,7 @@ const TeacherDashboard = () => {
         <PortalLayout
             sidebarItems={sidebarItems}
             title={activeTab}
-            subtitle={`Academic Portal • Faculty Console`}
+            subtitle={`Academic Portal • ${user?.role_label || 'User'} Console`}
             accentColor="cyan"
         >
             <div className="animate-in fade-in duration-500">

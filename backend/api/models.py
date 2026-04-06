@@ -13,8 +13,10 @@ class SafeJSONField(djongo_models.JSONField):
 class CustomUser(AbstractUser):
     _id = djongo_models.ObjectIdField(primary_key=True)
     USER_TYPE_CHOICES = (
-        ('superadmin', 'Superadmin'),
+        ('superadmin', 'Super Admin'),
         ('admin', 'Admin'),
+        ('faculty', 'Faculty'),
+        ('teacher', 'Teacher'),
         ('staff', 'Staff'),
         ('student', 'Student'),
         ('parent', 'Parent'),

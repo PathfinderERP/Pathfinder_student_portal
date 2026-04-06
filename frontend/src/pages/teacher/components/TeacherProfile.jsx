@@ -34,8 +34,8 @@ const TeacherProfile = ({ user }) => {
                     <div className="text-center md:text-left space-y-2">
                         <h2 className={`text-3xl font-black uppercase tracking-tight ${theme.text}`}>{user?.first_name} {user?.last_name}</h2>
                         <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                            <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-black text-cyan-500 uppercase rounded-[2px]"> Senior Faculty </div>
-                            <div className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-[10px] font-black text-rose-500 uppercase rounded-[2px]"> Dept: Botany </div>
+                            <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-black text-cyan-500 uppercase rounded-[2px]"> {user?.role_label || 'User'} </div>
+                            <div className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-[10px] font-black text-rose-500 uppercase rounded-[2px]"> Dept: {user?.teacherDepartment || 'Academic'} </div>
                         </div>
                         <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-4">
                             <MapPin size={12} className="text-cyan-500" /> Headquarters • Main Campus

@@ -959,6 +959,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
     };
 
+    // Auto-save progress while editing
+    useEffect(() => {
+        if (view === 'manual') {
+            const timer = setTimeout(() => {
+                localStorage.setItem('question_draft', JSON.stringify(form));
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [form, view]);
+
     const handleSaveProgress = () => {
         localStorage.setItem('question_draft', JSON.stringify(form));
         alert("Progress saved locally!");
@@ -967,8 +977,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const handleLoadDraft = () => {
         const saved = localStorage.getItem('question_draft');
         if (saved) {
-            if (confirm("Found a saved draft. Load it?")) {
-                setForm(JSON.parse(saved));
+            try {
+                const parsed = JSON.parse(saved);
+                setForm(parsed);
+                setFormKey(prev => prev + 1);
+                alert("Restored from draft!");
+            } catch (err) {
+                console.error("Draft load failed", err);
             }
         } else {
             alert("No saved drafts found.");

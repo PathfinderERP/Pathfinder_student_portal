@@ -40,7 +40,7 @@ const TeacherOverview = ({ user }) => {
                             <span className="text-cyan-500 underline decoration-2 underline-offset-8">Terminal: {user?.first_name}</span>
                         </h2>
                         <p className="text-slate-400 max-w-lg text-xs font-medium leading-relaxed uppercase tracking-wider">
-                            Faculty access granted. Initializing session protocols. All ERP subsystems are responding.
+                            {user?.role_label || 'User'} access granted. Initializing session protocols. All ERP subsystems are responding.
                         </p>
                         <div className="flex flex-wrap gap-8 pt-4">
                             <QuickStat value="124" label="Nodes" unit="Users" color="text-cyan-400" />
@@ -134,7 +134,7 @@ const TeacherOverview = ({ user }) => {
                             </div>
                             <div>
                                 <h3 className={`text-lg font-bold ${theme.text} uppercase tracking-tighter`}>{user?.first_name} {user?.last_name}</h3>
-                                <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-cyan-500 mt-1">Class: Faculty</p>
+                                <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-cyan-500 mt-1">Tier: {user?.role_label || 'User'}</p>
                             </div>
                             <div className={`w-full space-y-2 pt-4 border-t ${theme.border}`}>
                                 <ProfileItem icon={<Mail size={12} />} label="ID" value={user?.employee_id || user?.username || 'N/A'} theme={theme} />

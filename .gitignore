@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Node
+node_modules/
+dist/
+dist-ssr
+*.local
+
+# Environment
+.env
+.env.production
+.env.staging
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large Data Files
+*.json
+!package.json
+!composer.json
+!package-lock.json
+!manifest.json
+!vercel.json
+!tsconfig.json
+!jsconfig.json
+!.eslintrc.json
+!*.schema.json
+test.*.json
+*.cache
+*.log
