@@ -305,6 +305,7 @@ const StudentDashboard = () => {
             subtitle="Student Learning Portal"
             sidebarItems={sidebarItems}
             headerActions={syncIndicator}
+            variant="premium"
         >
             {renderContent()}
         </PortalLayout>
