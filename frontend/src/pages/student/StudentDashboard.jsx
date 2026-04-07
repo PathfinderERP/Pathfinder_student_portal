@@ -126,7 +126,6 @@ const StudentDashboard = () => {
             
             // If data is offline/mock and we haven't tried syncing yet this mount, do it now
             if (data?.is_offline && !hasAutoSynced.current) {
-                console.log("[Auto-Sync] Offline data detected, triggering background refresh...");
                 hasAutoSynced.current = true;
                 // Add a small delay so UI doesn't flicker too much
                 setTimeout(() => fetchStudentData(true, true), 1200);

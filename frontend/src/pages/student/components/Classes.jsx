@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Clock, MapPin, User, Video, AlertCircle, BookOpen, RefreshCw, X, FileText, Info, Hash } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Video, AlertCircle, BookOpen, RefreshCw, X, FileText, Info, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PieChart, Pie, Cell, AreaChart as RechartsAreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Mock data generator for classes when ERP returns empty
 const getMockClasses = () => {
@@ -54,15 +56,563 @@ const getMockClasses = () => {
     return data;
 };
 
+// Helper functions for history
+const formatLocalDate = (date) => {
+    if (!date || isNaN(new Date(date).getTime())) return '';
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const DoughnutChart = ({ slices, size = 160, thickness = 28, isDarkMode }) => {
+    const [hovered, setHovered] = useState(null);
+    const cx = size / 2;
+    const r = (size - thickness) / 2;
+    const circumference = 2 * Math.PI * r;
+
+    const total = useMemo(() => slices.reduce((acc, s) => acc + (s.value || 0), 0), [slices]);
+
+    const arcs = useMemo(() => {
+        let offset = 0;
+        return slices.map((s) => {
+            const pct = (s.value || 0) / (total || 1);
+            const arc = { ...s, pct, offset: offset * circumference, dash: pct * circumference };
+            offset += pct;
+            return arc;
+        });
+    }, [slices, total, circumference]);
+
+    const dominant = useMemo(() => {
+        if (!arcs.length) return null;
+        return arcs.reduce((a, b) => (b.value || 0) > (a.value || 0) ? b : a);
+    }, [arcs]);
+
+    const hov = hovered !== null ? arcs[hovered] : null;
+    const display = hov || dominant;
+
+    return (
+        <div style={{ position: 'relative', width: size, height: size }}>
+            <svg
+                width={size} height={size}
+                viewBox={`0 0 ${size} ${size}`}
+                style={{ transform: 'rotate(-90deg)', display: 'block', overflow: 'visible' }}
+            >
+                <circle cx={cx} cy={cx} r={r} fill="none"
+                    stroke={isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(148,163,184,0.12)"} strokeWidth={thickness} />
+
+                {arcs.map((arc, i) => {
+                    const isHov = hovered === i;
+                    return (
+                        <g key={i}
+                            onMouseEnter={() => setHovered(i)}
+                            onMouseLeave={() => setHovered(null)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <circle
+                                cx={cx} cy={cx} r={r}
+                                fill="none"
+                                stroke={arc.color || arc.fill}
+                                strokeWidth={isHov ? thickness + 8 : thickness}
+                                strokeDasharray={`${arc.dash} ${circumference - arc.dash}`}
+                                strokeDashoffset={-arc.offset}
+                                strokeLinecap="butt"
+                                style={{
+                                    transition: 'stroke-width 0.18s ease, opacity 0.18s ease',
+                                    opacity: hovered !== null && !isHov ? 0.35 : 1,
+                                    filter: isHov ? `drop-shadow(0 0 10px ${arc.color || arc.fill}cc)` : 'none',
+                                }}
+                            />
+                            <circle
+                                cx={cx} cy={cx} r={r}
+                                fill="none"
+                                stroke="transparent"
+                                strokeWidth={thickness + 16}
+                                strokeDasharray={`${arc.dash} ${circumference - arc.dash}`}
+                                strokeDashoffset={-arc.offset}
+                            />
+                        </g>
+                    );
+                })}
+            </svg>
+
+            <div style={{
+                position: 'absolute',
+                top: '50%', left: '50%',
+                transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
+                pointerEvents: 'none',
+                transition: 'all 0.18s ease',
+            }}>
+                <p style={{
+                    fontSize: size * 0.18,
+                    fontWeight: 900,
+                    color: display ? (display.color || display.fill) : (isDarkMode ? '#fff' : '#1e293b'),
+                    lineHeight: 1,
+                    margin: 0,
+                }}>
+                    {display ? `${Math.round(display.pct * 100)}%` : '—'}
+                </p>
+                <p style={{
+                    fontSize: size * 0.07,
+                    fontWeight: 800,
+                    color: '#94a3b8',
+                    marginTop: 4,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                }}>
+                    {display ? (display.name || display.label || 'Overall') : ''}
+                </p>
+            </div>
+        </div>
+    );
+};
+
+const DetailedHistory = ({ records, isDarkMode }) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(5);
+    const [jumpToPage, setJumpToPage] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
+    const [dateFilter, setDateFilter] = useState('');
+    const [subjectFilter, setSubjectFilter] = useState('All');
+    const [teacherFilter, setTeacherFilter] = useState('All');
+
+    const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All';
+
+    const clearFilters = () => {
+        setStatusFilter('All');
+        setDateFilter('');
+        setSubjectFilter('All');
+        setTeacherFilter('All');
+        setCurrentPage(1);
+    };
+
+    const uniqueSubjects = useMemo(() => {
+        const subjects = new Set();
+        records.forEach(r => {
+            const subject = r.subjectId?.subjectName || r.subjectName || r.subject || 'General';
+            subjects.add(subject);
+        });
+        return ['All', ...Array.from(subjects)].sort();
+    }, [records]);
+
+    const uniqueTeachers = useMemo(() => {
+        const teachers = new Set();
+        records.forEach(r => {
+            const teacher = r.teacherId?.name || r.teacherName || 'Assigned Staff';
+            teachers.add(teacher);
+        });
+        return ['All', ...Array.from(teachers)].sort();
+    }, [records]);
+
+    const filteredRecords = useMemo(() => {
+        return records.filter(r => {
+            const status = r.attendanceStatus || r.status;
+            const subject = r.subjectId?.subjectName || r.subjectName || r.subject || 'General';
+            const teacher = r.teacherId?.name || r.teacherName || 'Assigned Staff';
+
+            const d = new Date(r.date || r.classScheduleId?.date);
+            const dateStr = formatLocalDate(d);
+
+            const matchStatus = statusFilter === 'All' || status === statusFilter;
+            const matchSubject = subjectFilter === 'All' || subject === subjectFilter;
+            const matchTeacher = teacherFilter === 'All' || teacher === teacherFilter;
+            const matchDate = !dateFilter || dateStr === dateFilter;
+
+            return matchStatus && matchSubject && matchTeacher && matchDate;
+        });
+    }, [records, statusFilter, subjectFilter, teacherFilter, dateFilter]);
+
+    const summaryStats = useMemo(() => {
+        if (!filteredRecords.length) return null;
+
+        let present = 0;
+        let absent = 0;
+        let notMarked = 0;
+
+        const subjectCounts = {};
+        const teacherCounts = {};
+        const timelineDataRaw = {};
+
+        filteredRecords.forEach(r => {
+            const status = r.attendanceStatus || r.status;
+            if (status === 'Present') present++;
+            else if (status === 'Absent') absent++;
+            else notMarked++;
+
+            const subject = r.subjectId?.subjectName || r.subjectName || r.subject || 'General';
+            if (!subjectCounts[subject]) subjectCounts[subject] = { name: subject, Present: 0, Absent: 0, NotMarked: 0, value: 0 };
+            if (status === 'Present') subjectCounts[subject].Present++;
+            else if (status === 'Absent') subjectCounts[subject].Absent++;
+            else subjectCounts[subject].NotMarked++;
+            subjectCounts[subject].value++;
+
+            const teacher = r.teacherId?.name || r.teacherName || 'Assigned Staff';
+            if (!teacherCounts[teacher]) teacherCounts[teacher] = { name: teacher, Present: 0, Absent: 0, NotMarked: 0, value: 0 };
+            if (status === 'Present') teacherCounts[teacher].Present++;
+            else if (status === 'Absent') teacherCounts[teacher].Absent++;
+            else teacherCounts[teacher].NotMarked++;
+            teacherCounts[teacher].value++;
+
+            const d = new Date(r.date || r.classScheduleId?.date);
+            const dateStr = formatLocalDate(d);
+            if (!timelineDataRaw[dateStr]) timelineDataRaw[dateStr] = { date: dateStr, displayDate: `${String(d.getDate()).padStart(2, '0')} ${d.toLocaleDateString('en-US', { month: 'short' })}`, classes: 0, Present: 0, Absent: 0, NotMarked: 0 };
+
+            timelineDataRaw[dateStr].classes++;
+            if (status === 'Present') timelineDataRaw[dateStr].Present++;
+            else if (status === 'Absent') timelineDataRaw[dateStr].Absent++;
+            else timelineDataRaw[dateStr].NotMarked++;
+        });
+
+        const pieData = [
+            { name: 'Present', value: present, color: '#10b981' },
+            { name: 'Absent', value: absent, color: '#f43f5e' },
+            { name: 'Not Marked', value: notMarked, color: '#f59e0b' }
+        ].filter(d => d.value > 0);
+
+        const barData = Object.values(subjectCounts).sort((a, b) => b.value - a.value).slice(0, 5);
+        const teacherData = Object.values(teacherCounts).sort((a, b) => b.value - a.value).slice(0, 5);
+        const areaData = Object.values(timelineDataRaw).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        return { pieData, barData, areaData, teacherData };
+    }, [filteredRecords]);
+
+    const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(filteredRecords.length / itemsPerPage);
+
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages);
+        } else if (totalPages === 0) {
+            setCurrentPage(1);
+        }
+    }, [itemsPerPage, totalPages, currentPage, statusFilter, subjectFilter, teacherFilter, dateFilter]);
+
+    const handleJump = (e) => {
+        e.preventDefault();
+        const page = parseInt(jumpToPage);
+        if (!isNaN(page) && page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            setJumpToPage('');
+        }
+    };
+
+    const displayRecords = itemsPerPage === 'all'
+        ? filteredRecords
+        : filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const CustomTooltip = ({ active, payload }) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className={`px-2.5 py-2 rounded-lg border shadow-xl backdrop-blur-md z-50 min-w-[90px] ${isDarkMode ? 'bg-[#1e293b]/95 border-white/10' : 'bg-white/95 border-slate-200'}`}>
+                    <div className="space-y-0.5">
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-[9px] font-bold text-emerald-500">Present</span>
+                            <span className={`text-[9px] font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{data.Present || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-[9px] font-bold text-rose-500">Absent</span>
+                            <span className={`text-[9px] font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{data.Absent || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-[9px] font-bold text-amber-500">Pending</span>
+                            <span className={`text-[9px] font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{data.NotMarked || 0}</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <div className="space-y-6 overflow-hidden">
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            Academic History
+                        </h3>
+                        <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">Session Archives</p>
+                    </div>
+
+                    {isFiltered && (
+                        <button
+                            onClick={clearFilters}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                        >
+                            <X size={14} /> Clear All
+                        </button>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Date</span>
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={e => { setDateFilter(e.target.value); setCurrentPage(1); }}
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} cursor-pointer uppercase`}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Subject</span>
+                        <select
+                            value={subjectFilter}
+                            onChange={e => { setSubjectFilter(e.target.value); setCurrentPage(1); }}
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
+                        >
+                            {uniqueSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Teacher</span>
+                        <select
+                            value={teacherFilter}
+                            onChange={e => { setTeacherFilter(e.target.value); setCurrentPage(1); }}
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
+                        >
+                            {uniqueTeachers.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Status</span>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'}`}
+                        >
+                            <option value="All">All Statuses</option>
+                            <option value="Present">Present</option>
+                            <option value="Absent">Absent</option>
+                            <option value="Not Marked">Not Marked</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {summaryStats && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pb-2">
+                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col items-center justify-center`}>
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 w-full text-left opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Status Breakdown</h4>
+                        <div className="py-2">
+                            <DoughnutChart slices={summaryStats.pieData} size={130} thickness={20} isDarkMode={isDarkMode} />
+                        </div>
+                    </div>
+
+                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Top Subjects</h4>
+                        <div className="relative w-full h-[140px] min-h-[140px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                                <BarChart data={summaryStats.barData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                                    <XAxis dataKey="name" tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(val) => val.substring(0, 6)} />
+                                    <YAxis tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                                    <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }} position={{ y: 0 }} />
+                                    <Bar dataKey="value" name="Classes" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Top Faculties</h4>
+                        <div className="relative w-full h-[140px] min-h-[140px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                                <BarChart data={summaryStats.teacherData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                                    <XAxis dataKey="name" tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(val) => val.substring(0, 6)} />
+                                    <YAxis tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                                    <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }} position={{ y: 0 }} />
+                                    <Bar dataKey="value" name="Sessions" fill="#ec4899" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Activity Timeline</h4>
+                        <div className="relative w-full h-[140px] min-h-[140px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                                <RechartsAreaChart data={summaryStats.areaData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorClasses" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                                    <XAxis dataKey="displayDate" tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} minTickGap={20} />
+                                    <YAxis tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                                    <RechartsTooltip content={<CustomTooltip />} position={{ y: 0 }} />
+                                    <Area type="monotone" dataKey="classes" name="Classes" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorClasses)" />
+                                </RechartsAreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className={`overflow-x-auto custom-scrollbar rounded-xl border ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-white'}`}>
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Class Name & Subject</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Date & Time</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Teacher</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Chapter</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 text-center whitespace-nowrap">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {displayRecords.map((record, i) => {
+                            const status = record.attendanceStatus || record.status;
+                            const subject = record.subjectId?.subjectName || record.subjectName || record.subject || 'General';
+                            const date = new Date(record.date || record.classScheduleId?.date);
+
+                            return (
+                                <motion.tr
+                                    key={`${record._id || i}-${currentPage}`}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: (i % 15) * 0.03 }}
+                                    className={`${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors cursor-default`}>
+                                    <td className="p-4">
+                                        <p className={`text-xs font-black uppercase tracking-tight whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                            {record.className || 'Academic Session'}
+                                        </p>
+                                        <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">{subject}</p>
+                                    </td>
+                                    <td className="p-4">
+                                        <p className={`text-xs font-bold whitespace-nowrap ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </p>
+                                        <p className="text-[10px] opacity-40 font-bold whitespace-nowrap">{record.startTime} - {record.endTime}</p>
+                                    </td>
+                                    <td className="p-4">
+                                        <p className={`text-xs font-bold whitespace-nowrap max-w-[150px] truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                            {record.teacherId?.name || record.teacherName || 'Assigned Staff'}
+                                        </p>
+                                    </td>
+                                    <td className="p-4 text-xs font-medium opacity-60 italic max-w-[150px] truncate">
+                                        {record.chapterName || 'General Topic'}
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex justify-center">
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap
+                                                ${status === 'Present' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                                    status === 'Absent' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                                                        'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                                                {status}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </motion.tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            {filteredRecords.length > 0 && (
+                <div className={`flex flex-col md:flex-row flex-wrap items-center justify-between gap-4 py-2 border-t pt-4 ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                    <div className="flex items-center gap-3">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Rows per page:</span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setItemsPerPage(val === 'all' ? 'all' : Number(val));
+                                setCurrentPage(1);
+                            }}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'} border focus:border-indigo-500`}>
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={15}>15</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value="all">All</option>
+                        </select>
+                    </div>
+
+                    <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Showing {itemsPerPage === 'all' ? `1-${filteredRecords.length}` : `${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, filteredRecords.length)}`} of {filteredRecords.length}
+                    </div>
+
+                    {itemsPerPage !== 'all' && totalPages > 1 && (
+                        <div className="flex items-center gap-3">
+                            <form onSubmit={handleJump} className="flex items-center gap-2 mr-2">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Jump to</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={totalPages}
+                                    value={jumpToPage}
+                                    onChange={(e) => setJumpToPage(e.target.value)}
+                                    className={`w-14 px-2 py-1.5 text-xs font-bold text-center rounded-lg outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder-white/20 focus:bg-white/10' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:bg-white'} focus:border-indigo-500`}
+                                    placeholder={`Pg`}
+                                />
+                            </form>
+
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className={`p-2 rounded-lg border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-white/5' : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 disabled:opacity-30 disabled:border-transparent'} shadow-sm`}>
+                                    <ChevronLeft size={14} strokeWidth={3} />
+                                </button>
+                                <span className={`text-xs font-black px-3 tabular-nums ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                    {currentPage} <span className="opacity-40 font-medium">/</span> {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className={`p-2 rounded-lg border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-white/5' : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 disabled:opacity-30 disabled:border-transparent'} shadow-sm`}>
+                                    <ChevronRight size={14} strokeWidth={3} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const Classes = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
     // Use a ref for comparison to avoid the infinite loop in dependency arrays
     const classesRef = useRef(cache?.loaded ? cache.data : getMockClasses());
     const [classes, setClasses] = useState(classesRef.current);
+    const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
+
+    const fetchAttendanceHistory = useCallback(async () => {
+        if (!token) return;
+        try {
+            setHistoryLoading(true);
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            let data = response.data;
+            let records = [];
+            if (data && typeof data === 'object' && !Array.isArray(data)) {
+                records = data.data || [];
+            } else {
+                records = data || [];
+            }
+            setHistory(records);
+            setHistoryLoading(false);
+        } catch (err) {
+            console.error("Error fetching attendance history:", err);
+            setHistoryLoading(false);
+        }
+    }, [getApiUrl, token]);
 
     const fetchClasses = useCallback(async (isBackground = false) => {
         if (!token) return;
@@ -89,7 +639,6 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
 
             // Inject mock data if ERP returns empty for demonstration
             if (data.length === 0) {
-                console.log("No classes found in ERP, using mock schedule");
                 data = getMockClasses();
             }
 
@@ -97,7 +646,6 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             const isDataSame = JSON.stringify(data) === JSON.stringify(classesRef.current);
 
             if (!isDataSame) {
-                console.log("Classes updated from ERP");
                 classesRef.current = data;
                 setClasses(data);
 
@@ -128,10 +676,12 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
     useEffect(() => {
         if (!cache?.loaded) {
             fetchClasses(false); // Initial load
+            fetchAttendanceHistory();
         } else {
             fetchClasses(true); // Background sync on mount/tab switch
+            fetchAttendanceHistory();
         }
-    }, [fetchClasses, cache?.loaded]);
+    }, [fetchClasses, fetchAttendanceHistory, cache?.loaded]);
 
     // Format Date Helper
     const formatDate = (dateString) => {
@@ -211,9 +761,15 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             </div>
 
             {/* Classes List */}
-            {classes.length > 0 ? (
+            {classes.filter(cls => {
+                const s = cls.status?.toLowerCase() || '';
+                return s === 'ongoing' || s === 'scheduled';
+            }).length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
-                    {classes.map((cls, idx) => (
+                    {classes.filter(cls => {
+                        const s = cls.status?.toLowerCase() || '';
+                        return s === 'ongoing' || s === 'scheduled';
+                    }).map((cls, idx) => (
                         <div
                             key={cls._id || idx}
                             onClick={() => setSelectedClass(cls)}
@@ -274,6 +830,11 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                     </div>
                 </div>
             )}
+
+            {/* Class History (Attendance Dossier) Section */}
+            <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <DetailedHistory records={history} isDarkMode={isDarkMode} />
+            </div>
 
             {/* Selected Class Detail Modal - Using Portal to escape parent transforms */}
             {selectedClass && createPortal(

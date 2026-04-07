@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Calendar, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, TrendingUp, Award, Target, BarChart3, PieChart as PieChartIcon, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, AlertCircle, RefreshCw, TrendingUp, Award, Target, BarChart3, PieChart as PieChartIcon, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { PieChart, Pie, Cell, AreaChart as RechartsAreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -402,12 +402,22 @@ const AttendanceCalendar = ({ dailyData, isDarkMode }) => {
 
 const DetailedHistory = ({ records, isDarkMode }) => {
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(15);
+    const [itemsPerPage, setItemsPerPage] = useState(5);
     const [jumpToPage, setJumpToPage] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('All');
     const [teacherFilter, setTeacherFilter] = useState('All');
+
+    const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All';
+
+    const clearFilters = () => {
+        setStatusFilter('All');
+        setDateFilter('');
+        setSubjectFilter('All');
+        setTeacherFilter('All');
+        setCurrentPage(1);
+    };
 
     const uniqueSubjects = useMemo(() => {
         const subjects = new Set();
@@ -550,6 +560,15 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                         </h3>
                         <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">Academic Session Archives</p>
                     </div>
+
+                    {isFiltered && (
+                        <button
+                            onClick={clearFilters}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                        >
+                            <X size={14} /> Clear All
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -608,10 +627,10 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                         </div>
                     </div>
 
-                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col justify-center`}>
-                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-2 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Top Subjects</h4>
-                        <div className="h-[140px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Top Subjects</h4>
+                        <div className="relative w-full h-[140px] min-h-[140px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                                 <BarChart data={summaryStats.barData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                                     <XAxis dataKey="name" tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(val) => val.substring(0, 6)} />
@@ -623,10 +642,10 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                         </div>
                     </div>
 
-                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col justify-center`}>
-                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-2 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Activity Timeline</h4>
-                        <div className="h-[140px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                    <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
+                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Activity Timeline</h4>
+                        <div className="relative w-full h-[140px] min-h-[140px]">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                                 <RechartsAreaChart data={summaryStats.areaData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorClasses" x1="0" y1="0" x2="0" y2="1">
@@ -1001,16 +1020,13 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
 
             // If ERP returns empty data, injection of dummy data for demonstration
             if (records.length === 0) {
-                console.log("No ERP data found, using optimized mock data");
                 records = getMockAttendance();
                 summary = null;
             }
 
-            // Compare with current ref value to determine if state update is needed
             const isDataSame = JSON.stringify(records) === JSON.stringify(rawDataRef.current);
 
             if (!isDataSame) {
-                console.log("Attendance updated from ERP");
                 rawDataRef.current = records;
                 setRawData(records);
 
