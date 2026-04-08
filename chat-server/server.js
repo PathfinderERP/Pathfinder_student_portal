@@ -36,10 +36,33 @@ if (!fs.existsSync(uploadDir)) {
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']); // Fix for SRV lookup ECONNREFUSED
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('Connected to MongoDB for Chat & Social Persistence'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
+// MongoDB Connection Logic with Retry for Production (Render)
+const connectWithRetry = () => {
+    console.log('Attempting MongoDB connection...');
+    mongoose.connect(process.env.MONGO_URI, {
+        serverSelectionTimeoutMS: 5000, // Fail fast if no server found
+        socketTimeoutMS: 45000,        // Close sockets after 45 seconds of inactivity
+    })
+    .then(() => {
+        console.log('✅ Connected to MongoDB for Chat & Social Persistence');
+    })
+    .catch(err => {
+        console.error('❌ MongoDB Connection Error:', err.message);
+        console.log('Retrying in 5 seconds...');
+        setTimeout(connectWithRetry, 5000);
+    });
+};
+
+connectWithRetry();
+
+// Connection Event Handlers
+mongoose.connection.on('disconnected', () => {
+    console.warn('⚠️ MongoDB Disconnected. Checking connection...');
+});
+
+mongoose.connection.on('error', (err) => {
+    console.error('🔥 Mongoose Connection Error:', err);
+});
 
 // --- Schemas ---
 
