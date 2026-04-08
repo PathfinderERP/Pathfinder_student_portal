@@ -14,6 +14,9 @@ import { useTheme } from '../../../context/ThemeContext';
 import axios from 'axios';
 import PdfDocumentHub from './PdfDocumentHub';
 
+// Environment-aware Chat Server URL (Shared across components in this file)
+const CHAT_SERVER_URL = import.meta.env.VITE_CHAT_SERVER_URL || "https://chat.studypathportal.in";
+
 // --- Global Styles for Animations & Custom Scrollbar ---
 const styles = `
   @keyframes shimmer {
@@ -43,7 +46,7 @@ const ImageCarousel = ({ images }) => {
                 key={currentIndex}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
-                src={images[currentIndex].startsWith('/') ? `http://localhost:4000${images[currentIndex]}` : images[currentIndex]}
+                src={images[currentIndex].startsWith('/') ? `${CHAT_SERVER_URL}${images[currentIndex]}` : images[currentIndex]}
                 className="w-full h-auto max-h-[600px] object-contain"
                 alt="Post content"
             />
@@ -125,7 +128,7 @@ const VideoPlayer = ({ src }) => {
     const videoRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(true);
-    const fullUrl = src.startsWith('/') ? `http://localhost:4000${src}` : src;
+    const fullUrl = src.startsWith('/') ? `${CHAT_SERVER_URL}${src}` : src;
 
     const togglePlay = () => {
         if (isPlaying) videoRef.current.pause();
@@ -166,7 +169,7 @@ const VideoPlayer = ({ src }) => {
 const SocialFeed = () => {
     const { isDarkMode } = useTheme();
     const { user, token } = useAuth();
-    const chatServerUrl = import.meta.env.VITE_CHAT_SERVER_URL || "http://localhost:4000";
+    const chatServerUrl = CHAT_SERVER_URL;
 
     // --- State ---
     const [posts, setPosts] = useState([]);
@@ -535,7 +538,7 @@ const SocialFeed = () => {
                 <div className="relative mb-6">
                     <div className="w-20 h-20 rounded-[1.8rem] bg-indigo-600 flex items-center justify-center text-3xl font-black text-white shadow-xl relative z-10">{user.username.charAt(0)}</div>
                     <div className="absolute inset-0 bg-indigo-500 rounded-[1.8rem] blur-xl opacity-20 animation-pulse" />
-                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl bg-emerald-500 border-4 border-white dark:border-[#10141D] flex items-center justify-center text-white"><CheckCircle size={12} fill="currentColor" /></div>
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl bg-emerald-500 border-4 border-white dark:border-[#10141D] flex items-center justify-center text-white z-20 shadow-lg"><CheckCircle size={12} fill="currentColor" /></div>
                 </div>
                 <h3 className="text-lg font-black uppercase tracking-tight mb-1 w-full truncate px-4">{user.username}</h3>
                 <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.2em] mb-8">{user.user_type}</p>

@@ -108,8 +108,8 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
         <aside
             className={`fixed inset-y-0 left-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r
             ${isPremium
-                    ? `${isDarkMode ? 'bg-[#030712]/80 border-white/[0.05]' : 'bg-[#FAFBFC]/80 border-slate-200/50 shadow-[4px_0_40px_rgba(0,0,0,0.02)]'} backdrop-blur-2xl ${isOpen ? "w-72" : "w-72 -translate-x-full lg:w-[88px] lg:translate-x-0"} overflow-hidden`
-                    : `${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]'} w-64 translate-x-0 ${isOpen ? "w-64" : "-translate-x-full lg:w-22 lg:translate-x-0"}`}`}
+                    ? `${isDarkMode ? 'bg-[#030712]/80 border-white/[0.05]' : 'bg-[#FAFBFC]/80 border-slate-200/50 shadow-[4px_0_40px_rgba(0,0,0,0.02)]'} backdrop-blur-2xl ${isOpen ? "w-64" : "w-64 -translate-x-full lg:w-20 lg:translate-x-0"} overflow-hidden`
+                    : `${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]'} w-64 translate-x-0 ${isOpen ? "w-64" : "-translate-x-full lg:w-20 lg:translate-x-0"}`}`}
         >
             {/* Premium Decorative elements */}
             {isPremium && isOpen && (
@@ -148,39 +148,32 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                         exit={{ opacity: 0, x: -10, filter: 'blur(10px)' }}
                                         className="flex flex-col flex-1 truncate"
                                     >
-                                        <span className={`text-xl font-bold tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'} ${isPremium ? 'font-black' : ''}`}>Pathfinder</span>
-                                        {isPremium && <span className={`text-[10px] font-black tracking-[0.3em] mt-1 ${isDarkMode ? 'text-orange-500/90' : 'text-orange-600/90'}`}>STUDENT HUB</span>}
+                                        <span className={`text-xl font-black tracking-tighter leading-none font-brand ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pathfinder</span>
+                                        {isPremium && (
+                                            <span className={`text-[9px] font-black tracking-[0.2em] mt-1 bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent uppercase antialiased font-brand whitespace-nowrap`}>
+                                                STUDENT HUB
+                                            </span>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </div>
 
-                        {isPremium && (
-                            <motion.button
-                                whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => setOpen(!isOpen)}
-                                className={`p-2 rounded-xl text-slate-400 hover:text-slate-600 transition-colors hidden lg:block`}
-                            >
-                                <ChevronsLeft size={20} className={`transition-transform duration-500 ${!isOpen ? 'rotate-180' : ''}`} />
-                            </motion.button>
-                        )}
+                                <motion.button
+                                    whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => setOpen(!isOpen)}
+                                    className={`p-2.5 rounded-xl text-slate-400 hover:text-slate-600 transition-colors flex lg:flex`}
+                                >
+                                    <ChevronsLeft size={20} className={`transition-transform duration-500 ${!isOpen ? 'rotate-180' : ''}`} />
+                                </motion.button>
                     </div>
                 </div>
 
                 {/* Navigation Section */}
-                <nav className={`flex-1 overflow-y-auto custom-scrollbar ${isPremium ? 'pt-2 pb-6 px-4 space-y-9' : 'pt-6 pb-4 px-4 space-y-2'}`}>
+                <nav className={`flex-1 overflow-y-auto custom-scrollbar ${isPremium ? 'pt-2 pb-6 px-4 space-y-1.5' : 'pt-6 pb-4 px-4 space-y-1'}`}>
                     {Object.entries(groupedItems).map(([category, items], catIndex) => (
-                        <div key={category} className={isPremium ? "space-y-4" : "space-y-1"}>
-                            {isPremium && isOpen && (
-                                <motion.h3
-                                    initial={{ opacity: 0, y: 5 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className={`px-4 text-[10px] font-black tracking-[0.3em] ${isDarkMode ? 'text-white/25' : 'text-slate-400/70'}`}
-                                >
-                                    {category}
-                                </motion.h3>
-                            )}
+                        <div key={category} className={isPremium ? "space-y-0" : "space-y-0"}>
                             <div className={isPremium ? "space-y-1.5" : "space-y-1"}>
                                 {items.map((item, index) => {
                                     const hasSubItems = item.subItems && item.subItems.length > 0;

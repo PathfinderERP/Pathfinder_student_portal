@@ -78,8 +78,8 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
 
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] 
                 ${isSidebarOpen 
-                    ? (isPremium ? "lg:ml-72" : "lg:ml-64") 
-                    : (isPremium ? "lg:ml-[88px]" : "lg:ml-20")}`}>
+                    ? "lg:ml-64" 
+                    : "lg:ml-20"}`}>
                 <Header
                     title={title}
                     subtitle={subtitle}
@@ -93,8 +93,8 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
                     accentColor={accentColor}
                 />
 
-                <main className={`flex-1 overflow-auto px-2 pb-4 sm:px-4 sm:pb-6 lg:px-8 lg:pb-8 scrollbar-thin relative z-10`}>
-                    <div className="max-w-[1500px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 mt-6 lg:mt-8">
+                <main className={`flex-1 overflow-auto px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8 2xl:px-12 scrollbar-thin relative z-10`}>
+                    <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 mt-6 lg:mt-10 2xl:mt-12">
                         {children}
                     </div>
                 </main>

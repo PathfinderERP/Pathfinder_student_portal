@@ -629,8 +629,8 @@ const DetailedHistory = ({ records, isDarkMode }) => {
 
                     <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
                         <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Top Subjects</h4>
-                        <div className="relative w-full h-[140px] min-h-[140px]">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                        <div className="relative w-full h-[140px]">
+                            <ResponsiveContainer width="100%" height={140}>
                                 <BarChart data={summaryStats.barData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                                     <XAxis dataKey="name" tick={{ fontSize: 8, fill: isDarkMode ? '#94a3b8' : '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(val) => val.substring(0, 6)} />
@@ -644,8 +644,8 @@ const DetailedHistory = ({ records, isDarkMode }) => {
 
                     <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} flex flex-col`}>
                         <h4 className={`text-[10px] font-black uppercase tracking-widest mb-4 opacity-70 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Activity Timeline</h4>
-                        <div className="relative w-full h-[140px] min-h-[140px]">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                        <div className="relative w-full h-[140px]">
+                            <ResponsiveContainer width="100%" height={140}>
                                 <RechartsAreaChart data={summaryStats.areaData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorClasses" x1="0" y1="0" x2="0" y2="1">

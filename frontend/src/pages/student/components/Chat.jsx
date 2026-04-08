@@ -31,7 +31,7 @@ const Chat = () => {
     const scrollRef = useRef(null);
 
     // Environment-aware Chat Server URL
-    const chatServerUrl = import.meta.env.VITE_CHAT_SERVER_URL || "http://localhost:4000";
+    const chatServerUrl = import.meta.env.VITE_CHAT_SERVER_URL || "https://chat.studypathportal.in";
 
     // 1. Establish Socket Connection & Fetch Inbox
     useEffect(() => {

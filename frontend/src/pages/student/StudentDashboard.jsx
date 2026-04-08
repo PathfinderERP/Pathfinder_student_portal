@@ -46,6 +46,10 @@ const StudentDashboard = () => {
 
     // Flag to prevent multiple auto-sync attempts in one session
     const hasAutoSynced = useRef(false);
+    const [statsData, setStatsData] = useState({
+        attendance: { value: '92%', subtext: '37 of 40 classes | 3 absences', loaded: false },
+        gpa: { value: '8.5/10', subtext: 'Rank: 5th of 60 students', loaded: false }
+    });
 
     // Fetch Student Data from backend API (which proxies to ERP)
     const fetchStudentData = useCallback(async (forceRefresh = false, silentBackground = false) => {
@@ -116,6 +120,42 @@ const StudentDashboard = () => {
             setSilentLoading(false);
         }
     }, [authLoading, user, getApiUrl, token, refreshUser]);
+    
+    // Fetch Attendance Stats for Dashboard Cards
+    const fetchAttendanceStats = useCallback(async () => {
+        if (!token || !getApiUrl) return;
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            const data = response.data;
+            const records = Array.isArray(data) ? data : (data.data || []);
+            
+            if (records.length > 0) {
+                const present = records.filter(r => (r.attendanceStatus || r.status) === 'Present').length;
+                const absent = records.filter(r => (r.attendanceStatus || r.status) === 'Absent').length;
+                const total = records.length;
+                const marked = present + absent;
+                const percentage = marked > 0 ? Math.round((present / marked) * 100) : 0;
+                
+                setStatsData(prev => ({
+                    ...prev,
+                    attendance: {
+                        value: `${percentage}%`,
+                        subtext: `${present} of ${total} classes | ${absent} absences`,
+                        loaded: true
+                    }
+                }));
+
+                // Also update the Global Attendance Cache to avoid double fetch in Attendance tab
+                setAttendanceCache({ data: records, loaded: true });
+            }
+        } catch (err) {
+            console.error("Dashboard Attendance Fetch Error:", err);
+        }
+    }, [token, getApiUrl]);
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -123,6 +163,7 @@ const StudentDashboard = () => {
             if (!user) return;
 
             const data = await fetchStudentData(false);
+            fetchAttendanceStats(); // Fetch attendance stats immediately
             
             // If data is offline/mock and we haven't tried syncing yet this mount, do it now
             if (data?.is_offline && !hasAutoSynced.current) {
@@ -133,7 +174,7 @@ const StudentDashboard = () => {
         };
 
         loadInitialData();
-    }, [user, fetchStudentData, authLoading]);
+    }, [user, fetchStudentData, authLoading, fetchAttendanceStats]);
 
     const navItems = useMemo(() => [
         { name: 'Dashboard', icon: LayoutDashboard },
@@ -241,7 +282,7 @@ const StudentDashboard = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
-                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} silentLoading={silentLoading} />;
+                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} silentLoading={silentLoading} onTabChange={setActiveTab} dashboardStats={statsData} />;
             case 'My Profile':
                 return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} silentLoading={silentLoading || loading} />;
             case 'Classes':
@@ -313,16 +354,22 @@ const StudentDashboard = () => {
 };
 
 // -- DASHBOARD HOME COMPONENT --
-const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData, silentLoading }) => {
+// -- DASHBOARD HOME COMPONENT --
+const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData, silentLoading, onTabChange, dashboardStats }) => {
     const isPending = studentData?.sync_status === 'pending';
     const isActuallySyncing = isPending || silentLoading;
 
     const stats = useMemo(() => [
-        { label: 'ATTENDANCE RATE', value: '92%', subtext: '37 of 40 classes | 3 absences', trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity },
+        { 
+            label: 'ATTENDANCE RATE', 
+            value: dashboardStats?.attendance?.value || '92%', 
+            subtext: dashboardStats?.attendance?.subtext || '37 of 40 classes | 3 absences', 
+            trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance' 
+        },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
         { label: 'NEXT EXAM', value: 'PHYSICS', subtext: '5 days | 10:00 AM - 1:00 PM', pill: 'Preparation: 75%', color: 'orange', icon: CalendarDays },
         { label: 'STUDY STREAK', value: '12 days', subtext: 'Keep it up!', pill: 'Avg: 2.5 hrs/day', color: 'purple', icon: Flame },
-    ], []);
+    ], [dashboardStats]);
 
     return (
         <div className="space-y-8 animate-fade-in-up">
@@ -373,9 +420,9 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                     <div className="max-w-2xl">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="h-0.5 w-12 bg-orange-500 rounded-full"></div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-400">Student Intelligence Hub</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-400 font-brand">Student Intelligence Hub</span>
                         </div>
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-[1.1] mb-4 antialiased">
+                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-[1.05] mb-4 antialiased font-brand">
                             Welcome Back, <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{(student?.studentName || "Student").split(' ')[0]}!</span>
                         </h1>
                         <p className="text-sm sm:text-base md:text-lg font-medium text-white/70 max-w-xl leading-relaxed">
@@ -433,7 +480,11 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             {/* Stats Row 1 */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
                 {stats.map((stat, i) => (
-                    <div key={i} className={`p-4 sm:p-6 rounded-[5px] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
+                    <div 
+                        key={i} 
+                        onClick={() => stat.tab && onTabChange(stat.tab)}
+                        className={`p-4 sm:p-6 rounded-[5px] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
+                        ${stat.tab ? 'cursor-pointer' : ''}
                         ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/20' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
 
                         <div className={`mb-4 flex items-center justify-between`}>
