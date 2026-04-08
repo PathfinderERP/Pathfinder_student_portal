@@ -753,7 +753,7 @@ const TestResponses = () => {
                                 <div className={`ml-auto flex items-center gap-3 text-[10px] font-black uppercase tracking-widest`}>
                                     <span className="text-orange-500">{attemptedCountSummary} Started</span>
                                     <span className="opacity-30">·</span>
-                                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{notStartedCount} Not Started</span>
+                                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{notStartedCount} {(selectedTest?.is_over || selectedTest?.is_completed) ? 'Missed' : 'Not Started'}</span>
                                     <span className="opacity-30">·</span>
                                     <span className="text-blue-500">{showingCountSummary} Showing</span>
                                 </div>
@@ -843,8 +843,12 @@ const TestResponses = () => {
                                                     </td>
                                                     {/* Status Badge */}
                                                     <td className="py-5 px-6 text-center">
-                                                        {currentStatus === 'available' && (
-                                                            <span className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Not Started</span>
+                                                        {(currentStatus === 'available' || currentStatus === 'not started') && (
+                                                            (selectedTest?.is_over || selectedTest?.is_completed) ? (
+                                                                <span className="px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-red-500/15 text-red-500 border border-red-500/20">Missed</span>
+                                                            ) : (
+                                                                <span className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Not Started</span>
+                                                            )
                                                         )}
                                                         {currentStatus === 'in progress' && (
                                                             <span className="px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-amber-500/15 text-amber-500 border border-amber-500/20 animate-pulse">In Progress</span>

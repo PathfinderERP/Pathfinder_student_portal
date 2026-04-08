@@ -78,7 +78,7 @@ const DoughnutChart = ({ slices, size = 160, thickness = 24, isDarkMode }) => {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-3xl font-black font-brand leading-none tracking-tighter" style={{ color: display?.color || (isDarkMode ? '#fff' : '#1e293b') }}>
+                <p className="text-2xl font-black font-brand leading-none tracking-tighter" style={{ color: display?.color || (isDarkMode ? '#fff' : '#1e293b') }}>
                     {display ? `${(display.pct * 100).toFixed(2)}%` : '--'}
                 </p>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2">
@@ -210,7 +210,7 @@ const ResultAnalytics = ({ results, isDarkMode }) => {
                     <BarChart3 className="text-emerald-500 transition-transform hover:scale-125" size={20} />
                 </div>
                 <div className="h-48 w-full flex items-center justify-center mt-2">
-                    <DoughnutChart slices={distribution} isDarkMode={isDarkMode} size={150} />
+                    <DoughnutChart slices={distribution} isDarkMode={isDarkMode} thickness={24} />
                 </div>
                 {/* Custom Legend */}
                 <div className="flex justify-center flex-wrap gap-4 mt-2">

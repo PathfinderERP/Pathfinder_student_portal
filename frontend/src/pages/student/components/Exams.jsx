@@ -81,7 +81,7 @@ const DoughnutChart = ({ slices, size = 160, thickness = 24, isDarkMode }) => {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-3xl font-black font-brand leading-none tracking-tighter" style={{ color: display?.color || (isDarkMode ? '#fff' : '#1e293b') }}>
+                <p className="text-2xl font-black font-brand leading-none tracking-tighter" style={{ color: display?.color || (isDarkMode ? '#fff' : '#1e293b') }}>
                     {display ? `${Math.round(display.pct * 100)}%` : '--'}
                 </p>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2">
