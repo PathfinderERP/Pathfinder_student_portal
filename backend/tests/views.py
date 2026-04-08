@@ -1266,7 +1266,14 @@ class TestViewSet(viewsets.ModelViewSet):
             except: pass
 
         if not sub_doc:
-            return Response({'error': 'No finalized submission found for this student.'}, status=status.HTTP_404_NOT_FOUND)
+            # For missed exams, provide a mock finalized document so students can see solutions/topper data
+            sub_doc = {
+                'responses': {},
+                'time_spent': 0,
+                'submitted_at': None,
+                'is_finalized': True,
+                'is_missed': True
+            }
 
         raw_res = sub_doc.get('responses') or {}
         if isinstance(raw_res, str):
@@ -1628,8 +1635,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 }
                 for sec in sections_meta
             ],
-            'section_questions': section_question_map,  # {section_name: [questions...]}
+            'section_questions': section_question_map,
             'all_section_names': [s['name'] for s in sections_meta],
+            'is_missed': sub_doc.get('is_missed', False)
         })
 
     @action(detail=True, methods=['post'], url_path='resume_test')

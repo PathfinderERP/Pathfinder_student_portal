@@ -46,8 +46,8 @@ const SectionRegistry = () => {
     const [view, setView] = useState('list'); // 'list' or 'details'
     const [selectedSectionForTests, setSelectedSectionForTests] = useState(null);
 
-    const fetchSections = useCallback(async () => {
-        setIsLoading(true);
+    const fetchSections = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
             const authToken = token || localStorage.getItem('auth_token');
@@ -121,26 +121,30 @@ const SectionRegistry = () => {
                 : `${apiUrl}/api/sections/`;
             const method = modalMode === 'edit' ? 'patch' : 'post';
 
-            const payload = {
-                ...formData,
-                total_questions: 20,
-                allowed_questions: 20,
-                correct_marks: 4,
-                negative_marks: 1,
-                priority: 1
-            };
+            const payload = modalMode === 'edit' 
+                ? { ...formData }
+                : {
+                    ...formData,
+                    total_questions: 20,
+                    allowed_questions: 20,
+                    correct_marks: 4,
+                    negative_marks: 1,
+                    priority: 1
+                };
 
             const response = await axios[method](url, payload, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
             if (modalMode === 'edit') {
-                setSections(sections.map(s => s.id === editingSection.id ? response.data : s));
+                // Merge with existing section to preserve counts (which aren't in standard serializer)
+                setSections(sections.map(s => s.id === editingSection.id ? { ...s, ...response.data } : s));
             } else {
                 setSections([response.data, ...sections]);
             }
             setShowModal(false);
-            await fetchSections();
+            // Silent refresh to get fresh counts and data from backend without showing skeletons
+            await fetchSections(true); 
             triggerAlert(`Section ${modalMode === 'edit' ? 'updated' : 'added'} successfully!`, 'success');
         } catch (err) {
             console.error('Error saving section:', err);

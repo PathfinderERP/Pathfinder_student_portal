@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.core.cache import cache
 from .models import Section
 from .serializers import SectionSerializer
 
@@ -148,5 +149,14 @@ class SectionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         section = serializer.save()
+        cache.clear()
         if section.test:
             section.test.allotted_sections.add(section)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        cache.clear()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        cache.clear()

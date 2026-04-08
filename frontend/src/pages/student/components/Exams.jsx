@@ -5,6 +5,299 @@ import { useAuth } from '../../../context/AuthContext';
 import StartExamModal from './StartExamModal';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend
+} from 'recharts';
+
+
+
+const DoughnutChart = ({ slices, size = 160, thickness = 24, isDarkMode }) => {
+    const [hovered, setHovered] = useState(null);
+    const cx = size / 2;
+    const r = (size - thickness) / 2;
+    const circumference = 2 * Math.PI * r;
+
+    const total = useMemo(() => slices.reduce((acc, s) => acc + (s.value || 0), 0), [slices]);
+
+    const arcs = useMemo(() => {
+        let offset = 0;
+        return slices.map((s) => {
+            const pct = (s.value || 0) / (total || 1);
+            const arc = { ...s, pct, offset: offset * circumference, dash: pct * circumference };
+            offset += pct;
+            return arc;
+        });
+    }, [slices, total, circumference]);
+
+    const dominant = useMemo(() => {
+        if (!arcs.length) return null;
+        return arcs.reduce((a, b) => (b.value || 0) > (a.value || 0) ? b : a);
+    }, [arcs]);
+
+    const hov = hovered !== null ? arcs[hovered] : null;
+    const display = hov || dominant;
+
+    return (
+        <div style={{ position: 'relative', width: size, height: size }}>
+            <svg
+                width={size} height={size}
+                viewBox={`0 0 ${size} ${size}`}
+                style={{ transform: 'rotate(-90deg)', display: 'block', overflow: 'visible' }}
+            >
+                {/* Background Ring */}
+                <circle 
+                    cx={cx} cy={cx} r={r} 
+                    fill="none"
+                    stroke={isDarkMode ? "rgba(255,255,255,0.08)" : "#E2E8F0"} 
+                    strokeWidth={thickness} 
+                />
+
+                {arcs.map((arc, i) => {
+                    const isHov = hovered === i;
+                    return (
+                        <g key={i}
+                            onMouseEnter={() => setHovered(i)}
+                            onMouseLeave={() => setHovered(null)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <circle
+                                cx={cx} cy={cx} r={r}
+                                fill="none"
+                                stroke={arc.color}
+                                strokeWidth={isHov ? thickness + 12 : thickness}
+                                strokeDasharray={`${arc.dash} ${circumference - arc.dash}`}
+                                strokeDashoffset={-arc.offset}
+                                style={{
+                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    opacity: hovered !== null && !isHov ? 0.3 : 1,
+                                    filter: isHov ? `drop-shadow(0 0 12px ${arc.color}cc)` : 'none',
+                                }}
+                            />
+                        </g>
+                    );
+                })}
+            </svg>
+
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <p className="text-3xl font-black font-brand leading-none tracking-tighter" style={{ color: display?.color || (isDarkMode ? '#fff' : '#1e293b') }}>
+                    {display ? `${Math.round(display.pct * 100)}%` : '--'}
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2">
+                    {display?.name || 'Status'}
+                </p>
+            </div>
+        </div>
+    );
+};
+
+const ExamAnalytics = ({ tests, isDarkMode, onTabChange }) => {
+    const now = new Date();
+    
+    const { upcoming, ongoing, previous, totals } = useMemo(() => {
+        const up = [];
+        const on = [];
+        const pre = [];
+        
+        tests.forEach(t => {
+            const start = t.start_time ? new Date(t.start_time) : null;
+            const end = t.end_time ? new Date(t.end_time) : null;
+            const isExpired = end && now > end;
+            const isStudentCompleted = (t.submission?.is_finalized || isExpired) && !t.submission?.allow_resume;
+            const hasStarted = t.submission?.time_spent > 0;
+            
+            if (isStudentCompleted) {
+                pre.push(t);
+            } else if (start && now < start) {
+                up.push(t);
+            } else {
+                on.push(t);
+            }
+        });
+        
+        const sortedPre = pre.sort((a, b) => new Date(b.end_time) - new Date(a.end_time));
+        const lastAttempted = sortedPre.find(t => t.submission?.is_finalized && !t.isMissed) || sortedPre[0];
+
+        return {
+            upcoming: up.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)).slice(0, 1),
+            ongoing: on.sort((a, b) => new Date(b.start_time) - new Date(a.start_time)).slice(0, 1),
+            previous: lastAttempted ? [lastAttempted] : [],
+            totals: {
+                upcoming: up.length,
+                ongoing: on.length,
+                previous: pre.length
+            }
+        };
+    }, [tests, now]);
+
+    const formatTime = (dateStr) => {
+        if (!dateStr) return '—';
+        return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    };
+
+    const StatusCard = ({ title, test, icon: Icon, color, type, count, onClick }) => {
+        const hasStarted = test?.submission?.time_spent > 0;
+        const isExpired = test?.end_time && new Date() > new Date(test.end_time);
+        const isFinalized = test?.submission?.is_finalized;
+        const isMissed = isExpired && !hasStarted && !isFinalized;
+
+        return (
+            <div 
+                onClick={onClick}
+                className={`flex flex-col gap-3 p-4 rounded-[5px] border transition-all ${
+                    onClick ? 'cursor-pointer hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/5' : ''
+                } ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex-1`}
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-full ${color.bg} ${color.text}`}>
+                            <Icon size={12} strokeWidth={3} />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{title}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black ${color.text}`}>
+                            {count || 0}
+                        </span>
+                        {test && (
+                            <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${isMissed ? 'bg-red-500/10 text-red-500' : color.bg + ' ' + color.text} opacity-80`}>
+                                {type === 'upcoming' ? 'Soon' : type === 'ongoing' ? 'Live' : isMissed ? 'Expired' : 'Done'}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {test ? (
+                    <div className="flex flex-col">
+                        <p className={`text-[11px] font-black uppercase truncate mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`} title={test.name}>
+                            {test.name}
+                        </p>
+                        <div className="flex items-center gap-4">
+                            {type === 'previous' ? (
+                                <>
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Marks</span>
+                                        <span className={`text-[11px] font-black ${isMissed ? 'text-slate-400 opacity-40' : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')}`}>
+                                            {isMissed ? '--' : `${(test.submission?.score || 0).toFixed(2)}%`}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Rank</span>
+                                        <span className={`text-[11px] font-black ${isMissed ? 'text-slate-400 opacity-40' : 'text-blue-500'}`}>
+                                            #{isMissed ? '--' : (test.submission?.rank || '--')}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex items-center gap-1.5 opacity-60">
+                                    <Calendar size={10} className="text-slate-400" />
+                                    <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                        {formatTime(type === 'upcoming' ? test.start_time : test.end_time)}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-[11px] font-bold text-slate-400 italic py-2">No exams scheduled</p>
+                )}
+            </div>
+        );
+    };
+
+    const { completedCount, missedCount, ongoingCountpie } = useMemo(() => {
+        let comp = 0;
+        let miss = 0;
+        let on = 0;
+        const now = new Date();
+        tests.forEach(t => {
+            const end = t.end_time ? new Date(t.end_time) : null;
+            const isExpired = end && now > end;
+            const isFinalized = t.submission?.is_finalized;
+            if (isFinalized) comp++;
+            else if (isExpired) miss++;
+            else on++;
+        });
+        return { completedCount: comp, missedCount: miss, ongoingCountpie: on };
+    }, [tests]);
+
+    const dataPie = [
+        { name: 'Ongoing', value: ongoingCountpie, color: '#6366f1' },
+        { name: 'Completed', value: completedCount, color: '#10b981' },
+        { name: 'Missed', value: missedCount, color: '#ef4444' }
+    ].filter(d => d.value > 0);
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            {/* Quick Status Roadmap */}
+            <div className={`col-span-1 lg:col-span-2 p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1 text-sky-500">Test Timeline</h3>
+                        <p className={`text-lg font-black font-brand ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Roadmap Overview</p>
+                    </div>
+                    <Award className="text-blue-500 transition-transform hover:scale-125" size={20} />
+                </div>
+                
+                <div className="flex flex-col md:flex-row gap-4">
+                    <StatusCard 
+                        title="Upcoming" 
+                        test={upcoming[0]} 
+                        icon={Calendar} 
+                        type="upcoming"
+                        count={totals.upcoming}
+                        color={{ bg: 'bg-amber-500/10', text: 'text-amber-500' }} 
+                        onClick={() => onTabChange?.('ongoing')}
+                    />
+                    <StatusCard 
+                        title="Ongoing" 
+                        test={ongoing[0]} 
+                        icon={Clock} 
+                        type="ongoing"
+                        count={totals.ongoing}
+                        color={{ bg: 'bg-blue-500/10', text: 'text-blue-500' }} 
+                        onClick={() => onTabChange?.('ongoing')}
+                    />
+                    <StatusCard 
+                        title="Previous" 
+                        test={previous[0]} 
+                        icon={Award} 
+                        type="previous"
+                        count={totals.previous}
+                        color={{ bg: 'bg-emerald-500/10', text: 'text-emerald-500' }} 
+                        onClick={() => onTabChange?.('previous')}
+                    />
+                </div>
+            </div>
+
+            {/* Test Distribution Pie Chart */}
+            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">Status Mix</h3>
+                        <p className={`text-lg font-black font-brand ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Test Volume</p>
+                    </div>
+                    <FileText className="text-emerald-500 transition-transform hover:scale-125" size={20} />
+                </div>
+                <div className="h-48 w-full flex items-center justify-center">
+                    <DoughnutChart slices={dataPie} isDarkMode={isDarkMode} size={150} />
+                </div>
+                {/* Custom Legend */}
+                <div className="flex justify-center gap-6 mt-2">
+                    {dataPie.map(item => (
+                        <div key={item.name} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{item.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 
 const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
     const { user, getApiUrl, token } = useAuth();
@@ -25,15 +318,34 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
         setError(null);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/tests/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const [testsRes, resultsRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
+            ]);
             
-            // Map the backend structure to our local state if necessary
-            // In a real app, we might also filter by 'package' or other params
-            const data = response.data || [];
-            setTests(data);
-            if (setCache) setCache({ data, loaded: true });
+            const testsData = testsRes.data || [];
+            const resultsData = resultsRes.data || [];
+
+            // Merge results data (rank, marks) into tests data
+            const mergedData = testsData.map(test => {
+                const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                if (result) {
+                    return {
+                        ...test,
+                        submission: {
+                            ...(test.submission || {}),
+                            score: result.marks != null && result.total > 0 
+                                ? (result.marks / result.total) * 100 
+                                : (test.submission?.score ?? 0),
+                            rank: result.rank || test.submission?.rank || null
+                        }
+                    };
+                }
+                return test;
+            });
+
+            setTests(mergedData);
+            if (setCache) setCache({ data: mergedData, loaded: true });
         } catch (err) {
             console.error("Error fetching tests:", err);
             setError("Failed to load exams. Please try again later.");
@@ -106,29 +418,28 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
     }, []);
 
     const filteredTests = useMemo(() => {
-        return tests.filter(test => 
-            (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        return (tests || []).filter(test =>
+            (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (test.code || '').toLowerCase().includes(searchTerm.toLowerCase())
         ).filter(test => {
             const now = new Date();
             const end = test.end_time ? new Date(test.end_time) : null;
             const isExpired = end && now > end;
-            
-            // A test is "completed/archived" if it's finalized OR expired, 
-            // AND the admin hasn't explicitly unlocked it for a resume.
             const isStudentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
-            
-            if (activeTab === 'ongoing') {
-                return !isStudentCompleted; 
-            } else {
-                return isStudentCompleted;
-            }
+            return activeTab === 'ongoing' ? !isStudentCompleted : isStudentCompleted;
         });
     }, [tests, searchTerm, activeTab]);
 
     return (
-        <>
-            <div className="space-y-8 animate-fade-in-up pb-10 pt-4">
+        <AnimatePresence mode="wait">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8 pb-10 pt-4"
+            >
+                {/* Analytics Section */}
+                <ExamAnalytics tests={tests} isDarkMode={isDarkMode} onTabChange={setActiveTab} />
             {/* Header Section with Search and Tabs */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
@@ -228,7 +539,8 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                     const isExpired = end && now > end;
                                     const isUnlocked = test.submission?.allow_resume;
                                     const studentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
-                                    const hasStarted = test.submission?.time_spent > 0;
+                                    const hasStarted = (test.submission?.time_spent > 0) || test.submission?.is_finalized;
+                                    const isMissed = isExpired && !hasStarted;
                                     
                                     return (
                                         <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
@@ -242,6 +554,11 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                                         {isUnlocked && (
                                                             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] bg-orange-500/10 text-orange-500 text-[8px] font-black uppercase tracking-widest animate-pulse border border-orange-500/20">
                                                                 <RefreshCw size={8} /> Unlocked
+                                                            </span>
+                                                        )}
+                                                        {isMissed && (
+                                                            <span className="px-1.5 py-0.5 rounded-[3px] bg-red-500/10 text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20">
+                                                                Missed
                                                             </span>
                                                         )}
                                                     </div>
@@ -274,12 +591,12 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                                     onClick={() => handleStartClick(test)}
                                                     className={`px-4 py-2 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg
                                                     ${studentCompleted
-                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                                                        ? isMissed ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none border border-slate-200' : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
                                                         : isUnlocked || hasStarted
                                                             ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/30'
                                                             : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/30'}`}
                                                 >
-                                                    {studentCompleted ? 'Completed' : (isUnlocked || hasStarted ? 'Resume Profile' : 'Start Test')}
+                                                    {studentCompleted ? (isMissed ? 'Expired' : 'Completed') : (isUnlocked || hasStarted ? 'Resume Profile' : 'Start Test')}
                                                 </button>
                                             </td>
                                         </tr>
@@ -306,9 +623,8 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                 </div>
             </div>
 
-            </div>
+            </motion.div>
             
-            {/* Start Exam Modal - Moved outside animated container to avoid transform issues */}
             <StartExamModal 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -316,7 +632,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                 test={selectedTest}
                 isDarkMode={isDarkMode}
             />
-        </>
+        </AnimatePresence>
     );
 };
 

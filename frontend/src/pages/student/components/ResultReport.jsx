@@ -155,9 +155,9 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
         totalMarks: totalMaxMarks,
         rank: `${data.rank}/${data.total_students || 1}`,
         attempted: `${data.total_attempted}/${data.total_questions}`,
-        accuracy: `${Math.round(data.accuracy)}%`,
-        percentage: `${data.percentage}%`,
-        percentile: `${data.percentile}%`,
+        accuracy: `${data.accuracy?.toFixed(2)}%`,
+        percentage: `${data.percentage?.toFixed(2)}%`,
+        percentile: `${data.percentile?.toFixed(2)}%`,
         positiveMarks: `+${data.positive_marks.toFixed(2)}`,
         negativeMarks: `${data.negative_marks > 0 ? '-' : ''}${Math.abs(data.negative_marks).toFixed(2)}`,
         totalTime: data.duration_str,
@@ -168,6 +168,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
         partial: data.partial,
         incorrect: data.incorrect,
         unattempted: data.unattempted,
+        isMissed: data.is_missed || false,
     };
 
     const markSlices = [
@@ -240,22 +241,22 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
     const scoreCompare = [
         { label: "Topper", value: data.top_score || 0, color: '#22c55e'},
         { label: "Average", value: data.average_score || 0, color: '#94a3b8'},
-        { label: "Yours", value: data.score || 0, color: '#4871D9'}
+        ...(!report.isMissed ? [{ label: "Yours", value: data.score || 0, color: '#4871D9'}] : [])
     ];
     
     const accuracyCompare = [
         { label: "Topper", value: data.top_accuracy > 0 ? data.top_accuracy : 100, color: '#22c55e'},
         { label: "Average", value: data.average_accuracy || 50, color: '#94a3b8'},
-        { label: "Yours", value: Math.round(data.accuracy || 0), color: '#4871D9'}
+        ...(!report.isMissed ? [{ label: "Yours", value: Math.round(data.accuracy || 0), color: '#4871D9'}] : [])
     ];
 
     const rankData = (data.top_10_scores || Array.from({ length: Math.min(10, data.total_students || 1) }).map((_, i) => i === 0 ? data.top_score : Math.max(0, data.top_score - i*5)))
         .map((score, i) => ({
             label: i === 0 ? 'Topper' : `Rank ${i+1}`,
             score: score,
-            isYou: data.rank === i + 1
+            isYou: !report.isMissed && data.rank === i + 1
         }));
-    if (!rankData.find(r => r.isYou)) {
+    if (!report.isMissed && !rankData.find(r => r.isYou)) {
         rankData.push({ label: 'You', score: data.score, isYou: true });
     }
 
@@ -445,10 +446,12 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                             <span className="w-3 h-3 rounded-sm" style={{ background: PORTAL_BLUE }} />
                             <span className={`text-[10px] font-semibold ${muted}`}>Others</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-3 h-3 rounded-sm" style={{ background: PORTAL_GREEN }} />
-                            <span className={`text-[10px] font-semibold ${muted}`}>You</span>
-                        </div>
+                        {!report.isMissed && (
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-3 h-3 rounded-sm" style={{ background: PORTAL_GREEN }} />
+                                <span className={`text-[10px] font-semibold ${muted}`}>You</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -544,10 +547,12 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                             <p className={`text-[10px] font-black uppercase tracking-[0.25em] mb-1 ${muted}`}>Student's Report</p>
                             <h2 className={`text-[15px] font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{report.testName}</h2>
                         </div>
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
-                            <Award size={14} />
-                            Rank {report.rank}
-                        </div>
+                        {!report.isMissed && (
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                                <Award size={14} />
+                                Rank {report.rank}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -588,6 +593,14 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                                     {heroCards.map((c, i) => {
                                         const isHov = hovCard === i;
+                                        // For missed exams, replace personal data with '—'
+                                        let finalValue = c.value;
+                                        if (report.isMissed) {
+                                            if (c.label.toLowerCase().includes('your') || c.label.toLowerCase().includes('accuracy')) {
+                                                finalValue = '—';
+                                            }
+                                        }
+
                                         return (
                                             <div
                                                 key={i}
@@ -621,7 +634,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                         transformOrigin: 'left center',
                                                         transition: 'transform 0.2s ease',
                                                     }}>
-                                                    {c.value}
+                                                    {finalValue}
                                                 </p>
                                             </div>
                                         );
@@ -673,10 +686,10 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                         {/* Charts */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {[{ title: 'Marks Analysis', slices: markSlices }, { title: 'Time Taken', slices: timeSlices }].map(({ title, slices }) => (
-                                <div key={title} className={`rounded-[10px] p-5 ${subCard}`}>
-                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-5 ${muted}`}>{title}</p>
+                                <div key={title} className={`rounded-[10px] p-5 ${subCard} ${report.isMissed ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-5 ${muted}`}>{title} {report.isMissed ? '(No Data)' : ''}</p>
                                     <div className="flex flex-col items-center gap-4">
-                                        <DoughnutChart slices={slices} size={160} thickness={28} />
+                                        <DoughnutChart slices={report.isMissed ? [{label: 'Empty', color: isDarkMode ? '#1e293b' : '#f1f5f9', pct: 1}] : slices} size={160} thickness={28} />
                                         <div className="flex gap-5 flex-wrap justify-center">
                                             {slices.map((s, i) => (
                                                 <div key={i} className="flex items-center gap-2">
@@ -783,16 +796,16 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                         <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3 border-b text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-white/[0.06] bg-[#151B27]/50' : 'border-slate-200 bg-slate-50/80 shadow-inner shadow-slate-100/50'}`}>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Correct : <span className={isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}>{activeSecData.correct}</span></span>
+                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Correct : <span className={isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}>{!report.isMissed ? activeSecData.correct : '—'}</span></span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
-                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Incorrect : <span className={isDarkMode ? 'text-red-400' : 'text-red-500'}>{activeSecData.incorrect}</span></span>
+                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Incorrect : <span className={isDarkMode ? 'text-red-400' : 'text-red-500'}>{!report.isMissed ? activeSecData.incorrect : '—'}</span></span>
                                             </div>
-                                            {(activeSecData.partial > 0) && (
+                                            {(activeSecData.partial > 0 || report.isMissed) && (
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
-                                                    <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Partial : <span className={isDarkMode ? 'text-amber-400' : 'text-amber-500'}>{activeSecData.partial}</span></span>
+                                                    <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Partial : <span className={isDarkMode ? 'text-amber-400' : 'text-amber-500'}>{!report.isMissed ? activeSecData.partial : '—'}</span></span>
                                                 </div>
                                             )}
                                             <div className="flex items-center gap-2">
