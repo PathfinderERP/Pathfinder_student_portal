@@ -7,6 +7,8 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
     const details = studentData?.student?.studentsDetails?.[0] || {};
     const guardians = studentData?.student?.guardians || [];
     const examSchema = studentData?.student?.examSchema || [];
+    const batches = studentData?.student?.batches || [];
+    const sections = studentData?.sectionAllotment || {};
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -249,6 +251,8 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                     <InfoField label="Academic Session" value={studentData?.course?.courseSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Level / Class" value={studentData?.class?.name} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Delivery Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                    <InfoField label="Assigned Batch" value={batches.map(b => b.batchName).join(', ')} icon={Users} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                    <InfoField label="Study Section" value={Array.isArray(sections?.studySection) ? sections.studySection.join(', ') : sections?.studySection} icon={Target} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="ERP Unique ID" value={studentData?.admissionNumber} icon={ShieldCheck} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Enrollment Date" value={studentData?.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A'} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="System Status" value={studentData?.admissionStatus} icon={CheckCircle} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="emerald" />

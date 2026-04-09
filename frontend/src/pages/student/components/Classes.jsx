@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Clock, MapPin, User, Video, AlertCircle, BookOpen, RefreshCw, X, FileText, Info, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Video, AlertCircle, BookOpen, RefreshCw, X, FileText, Info, Hash, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 import { PieChart, Pie, Cell, AreaChart as RechartsAreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -165,7 +165,19 @@ const DoughnutChart = ({ slices, size = 160, thickness = 28, isDarkMode }) => {
     );
 };
 
-const DetailedHistory = ({ records, isDarkMode }) => {
+const EmptyState = ({ icon: Icon, message, submessage, isDarkMode }) => (
+    <div className={`py-20 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
+        <div className="flex flex-col items-center gap-4 opacity-30">
+            <Icon size={60} />
+            <div className="space-y-1">
+                <p className="font-black uppercase tracking-[0.2em] text-sm">{message}</p>
+                <p className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{submessage}</p>
+            </div>
+        </div>
+    </div>
+);
+
+const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [jumpToPage, setJumpToPage] = useState('');
@@ -173,14 +185,16 @@ const DetailedHistory = ({ records, isDarkMode }) => {
     const [dateFilter, setDateFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('All');
     const [teacherFilter, setTeacherFilter] = useState('All');
+    const [batchFilter, setBatchFilter] = useState('All');
 
-    const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All';
+    const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All' || batchFilter !== 'All';
 
     const clearFilters = useCallback(() => {
         setStatusFilter('All');
         setDateFilter('');
         setSubjectFilter('All');
         setTeacherFilter('All');
+        setBatchFilter('All');
         setCurrentPage(1);
     }, []);
 
@@ -202,6 +216,15 @@ const DetailedHistory = ({ records, isDarkMode }) => {
         return ['All', ...Array.from(teachers)].sort();
     }, [records]);
 
+    const uniqueBatches = useMemo(() => {
+        const batches = new Set();
+        records.forEach(r => {
+            const batch = r.className || 'General';
+            batches.add(batch);
+        });
+        return ['All', ...Array.from(batches)].sort();
+    }, [records]);
+
     const filteredRecords = useMemo(() => {
         return records.filter(r => {
             const status = r.attendanceStatus || r.status;
@@ -214,11 +237,12 @@ const DetailedHistory = ({ records, isDarkMode }) => {
             const matchStatus = statusFilter === 'All' || status === statusFilter;
             const matchSubject = subjectFilter === 'All' || subject === subjectFilter;
             const matchTeacher = teacherFilter === 'All' || teacher === teacherFilter;
+            const matchBatch = batchFilter === 'All' || (r.className || 'General') === batchFilter;
             const matchDate = !dateFilter || dateStr === dateFilter;
 
-            return matchStatus && matchSubject && matchTeacher && matchDate;
+            return matchStatus && matchSubject && matchTeacher && matchBatch && matchDate;
         });
-    }, [records, statusFilter, subjectFilter, teacherFilter, dateFilter]);
+    }, [records, statusFilter, subjectFilter, teacherFilter, batchFilter, dateFilter]);
 
     const summaryStats = useMemo(() => {
         if (!filteredRecords.length) return null;
@@ -282,7 +306,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
         } else if (totalPages === 0) {
             setCurrentPage(1);
         }
-    }, [itemsPerPage, totalPages, currentPage, statusFilter, subjectFilter, teacherFilter, dateFilter]);
+    }, [itemsPerPage, totalPages, currentPage, statusFilter, subjectFilter, teacherFilter, batchFilter, dateFilter]);
 
     const handleJump = useCallback((e) => {
         e.preventDefault();
@@ -387,6 +411,19 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                         </select>
                     </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Academic Batch (Filter by Section)</span>
+                        <select
+                            value={batchFilter}
+                            onChange={e => { setBatchFilter(e.target.value); setCurrentPage(1); }}
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
+                        >
+                            {uniqueBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                </div>
             </div>
 
             {summaryStats && (
@@ -455,7 +492,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
-                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Class Name & Subject</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Academic Batch & Subject</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Date & Time</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Teacher</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Chapter</th>
@@ -477,7 +514,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                                     className={`${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors cursor-default`}>
                                     <td className="p-4">
                                         <p className={`text-xs font-black uppercase tracking-tight whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                            {record.className || 'Academic Session'}
+                                            {record.className || 'General Batch'}
                                         </p>
                                         <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">{subject}</p>
                                     </td>
@@ -577,7 +614,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
     );
 };
 
-const Classes = ({ isDarkMode, cache, setCache }) => {
+const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     const { getApiUrl, token } = useAuth();
 
     // Initialize from cache to prevent flickering on tab switch
@@ -591,6 +628,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
+    const [currentTab, setCurrentTab] = useState('upcoming');
 
     const fetchAttendanceHistory = useCallback(async (isBackground = false) => {
         if (!token) return;
@@ -622,7 +660,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             console.error("Error fetching attendance history:", err);
             setHistoryLoading(false);
         }
-    }, [getApiUrl, token]);
+    }, [getApiUrl, token, history, setCache]);
 
     const fetchClasses = useCallback(async (isBackground = false) => {
         if (!token) return;
@@ -695,7 +733,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             }
             if (!isBackground) setLoading(false);
         }
-    }, [getApiUrl, token, setCache]);
+    }, [getApiUrl, token, ongoingClasses, upcomingClasses, setCache]);
 
     useEffect(() => {
         if (!cache?.loaded) {
@@ -718,7 +756,13 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
         });
     }, []);
 
-    if (loading) {
+    const tabs = [
+        { id: 'ongoing', label: 'Live Sessions', icon: Activity, count: ongoingClasses.length },
+        { id: 'upcoming', label: 'Coming Up Next', icon: Clock, count: upcomingClasses.length },
+        { id: 'history', label: 'Previous Classes', icon: FileText }
+    ];
+
+    if (loading && !cache?.loaded) {
         return (
             <div className="flex flex-col items-center justify-center p-20 animate-pulse">
                 <Calendar size={48} className="text-indigo-500 mb-4" />
@@ -727,132 +771,96 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
         );
     }
 
-    if (error) {
-        const isPermissionError = error.includes("403") || error.includes("Forbidden");
-        return (
-            <div className={`p-8 rounded-[5px] border ${isPermissionError ? 'bg-orange-500/5 border-orange-500/20' : (isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100')} flex items-center gap-4`}>
-                <AlertCircle className={isPermissionError ? "text-orange-500" : "text-red-500"} size={24} />
-                <div>
-                    <h3 className={`text-sm font-black uppercase ${isPermissionError ? "text-orange-500" : "text-red-500"}`}>
-                        {isPermissionError ? "Access Restricted" : "Attention"}
-                    </h3>
-                    <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                        {isPermissionError
-                            ? "Unable to sync class schedule directly from ERP due to permission restrictions. Please check the Study Planner for tasks."
-                            : error}
-                    </p>
+    return (
+        <div className="space-y-8 animate-fade-in-up pb-10">
+            {/* Unified Header */}
+            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                                Level {studentBatch?.split(' ')[0] || 'Academic'} Hub
+                            </div>
+                        </div>
+                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            My <span className="text-indigo-500">Classes</span>
+                        </h2>
+                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Manage your live learning sessions and access historical archives.
+                        </p>
+                    </div>
                     <button
-                        onClick={() => fetchClasses(false)}
-                        className={`mt-2 text-xs font-bold underline ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
+                        onClick={() => { fetchClasses(false); fetchAttendanceHistory(false); }}
+                        className={`p-4 rounded-[5px] transition-all active:scale-95 flex items-center gap-3 ${isDarkMode ? 'bg-white/5 border border-white/10 text-white hover:bg-white/10' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200'}`}
                     >
-                        Try Refreshing
+                        <RefreshCw size={18} className={loading || historyLoading ? "animate-spin" : ""} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Update Schedule</span>
                     </button>
                 </div>
             </div>
-        );
-    }
 
-    return (
-        <div className="space-y-8 animate-fade-in-up pb-10">
-            {/* Header */}
-            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                <div className="relative z-10">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                                    Academic Schedule
-                                </div>
-                            </div>
-                            <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                My Classes
-                            </h2>
-                            <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Upcoming live sessions, offline batches, and timetable.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => fetchClasses(false)}
-                            disabled={loading}
-                            className={`p-2 rounded-full transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                            title="Sync now"
-                        >
-                            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-                        </button>
-                    </div>
-                </div>
-                <Clock size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
+            {/* Tab Navigation */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-0.5">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setCurrentTab(tab.id)}
+                        className={`px-6 py-4 flex items-center gap-3 transition-all relative ${currentTab === tab.id ? 'text-indigo-500' : 'text-slate-500 hover:text-indigo-400'}`}
+                    >
+                        <tab.icon size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{tab.label}</span>
+                        {tab.count > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-[4px] bg-indigo-500/10 text-indigo-500 text-[9px] font-black">
+                                {tab.count}
+                            </span>
+                        )}
+                        {currentTab === tab.id && (
+                            <motion.div layoutId="classesTab" className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 rounded-t-full shadow-[0_-4px_10px_rgba(99,102,241,0.5)]" />
+                        )}
+                    </button>
+                ))}
             </div>
 
-            {/* Enhanced Active Classes View */}
-            {(ongoingClasses.length > 0 || upcomingClasses.length > 0) ? (
-                <div className="space-y-6">
-                    {/* Ongoing Classes Section */}
-                    {ongoingClasses.length > 0 && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 px-2">
-                                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                                <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-                                    Currently Ongoing
-                                </h3>
-                            </div>
+            {/* Tab Content */}
+            <div className="mt-4">
+                {currentTab === 'ongoing' && (
+                    <div className="space-y-6">
+                        {ongoingClasses.length > 0 ? (
                             <div className="grid grid-cols-1 gap-4">
                                 {ongoingClasses.map((cls, idx) => (
                                     <ClassCard key={cls._id || `ongoing-${idx}`} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} isOngoing={true} formatDate={formatDate} />
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <EmptyState icon={Activity} message="No Live sessions currently active" submessage="Check your upcoming tab for the next scheduled class." isDarkMode={isDarkMode} />
+                        )}
+                    </div>
+                )}
 
-                    {/* Upcoming Classes Section */}
-                    {upcomingClasses.length > 0 && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 px-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                                    Coming Up Next
-                                </h3>
-                            </div>
+                {currentTab === 'upcoming' && (
+                    <div className="space-y-6">
+                        {upcomingClasses.length > 0 ? (
                             <div className="grid grid-cols-1 gap-4">
                                 {upcomingClasses.map((cls, idx) => (
                                     <ClassCard key={cls._id || `upcoming-${idx}`} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} formatDate={formatDate} />
                                 ))}
                             </div>
-                        </div>
-                    )}
-                </div>
-            ) : classes.filter(cls => {
-                const s = cls.status?.toLowerCase() || '';
-                return s === 'ongoing' || s === 'scheduled';
-            }).length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                    {classes.filter(cls => {
-                        const s = cls.status?.toLowerCase() || '';
-                        return s === 'ongoing' || s === 'scheduled';
-                    }).map((cls, idx) => (
-                        <ClassCard key={cls._id || idx} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} formatDate={formatDate} />
-                    ))}
-                </div>
-            ) : (
-                <div className={`py-20 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
-                    <div className="flex flex-col items-center gap-4 opacity-30">
-                        <Calendar size={60} />
-                        <div className="space-y-1">
-                            <p className="font-black uppercase tracking-[0.2em] text-sm">No classes scheduled</p>
-                            <p className="text-xs font-bold">Check back later for updates</p>
-                        </div>
+                        ) : (
+                            <EmptyState icon={Calendar} message="No upcoming classes scheduled" submessage="Your schedule is clear for now. Enjoy your study time!" isDarkMode={isDarkMode} />
+                        )}
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Class History (Attendance Dossier) Section */}
-            <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                <DetailedHistory records={history} isDarkMode={isDarkMode} />
+                {currentTab === 'history' && (
+                    <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                         <DetailedHistory records={history} isDarkMode={isDarkMode} defaultBatch={studentBatch} />
+                    </div>
+                )}
             </div>
 
-            {/* Selected Class Detail Modal - Using Portal to escape parent transforms */}
+            {/* Selected Class Detail Modal */}
             {selectedClass && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedClass(null)}>
                     <div
                         className={`w-full max-w-lg rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden ${isDarkMode ? 'bg-[#1e293b] text-white border border-white/10' : 'bg-white text-slate-900'}`}
                         onClick={(e) => e.stopPropagation()}
@@ -875,10 +883,9 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                             </button>
                         </div>
 
-                        {/* Modal Content - Scrollable if needed */}
+                        {/* Modal Content */}
                         <div className="p-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
                             <div className="space-y-6">
-                                {/* Primary Info Grid */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                         <div className="flex items-center gap-2 mb-2 opacity-60">
@@ -886,7 +893,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                             <span className="text-[10px] font-black uppercase tracking-widest">Subject</span>
                                         </div>
                                         <p className="font-bold text-sm leading-tight">
-                                            {selectedClass.subjectId?.subjectName || 'N/A'}
+                                            {selectedClass.subjectId?.subjectName || selectedClass.subject || 'N/A'}
                                         </p>
                                     </div>
                                     <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
@@ -904,9 +911,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                     </div>
                                 </div>
 
-                                {/* Detailed Lists */}
                                 <div className="space-y-4">
-                                    {/* Timing */}
                                     <div className="flex items-start gap-4">
                                         <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
                                             <Clock size={16} />
@@ -916,16 +921,10 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                             <div className="text-sm font-medium space-y-1">
                                                 <p>{formatDate(selectedClass.date)}</p>
                                                 <p>{selectedClass.startTime} - {selectedClass.endTime}</p>
-                                                {selectedClass.actualStartTime && (
-                                                    <p className="text-xs opacity-60 mt-1">
-                                                        Started at: {new Date(selectedClass.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </p>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Faculty */}
                                     <div className="flex items-start gap-4">
                                         <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-600'}`}>
                                             <User size={16} />
@@ -933,15 +932,11 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                         <div className="flex-1">
                                             <h4 className="text-xs font-black uppercase tracking-wide mb-1 opacity-80">Faculty</h4>
                                             <div className="text-sm font-medium">
-                                                <p>{selectedClass.teacherId?.name || 'Assigned Staff'}</p>
-                                                {selectedClass.teacherId?.email && (
-                                                    <p className="text-xs opacity-60">{selectedClass.teacherId.email}</p>
-                                                )}
+                                                <p>{selectedClass.teacherId?.name || selectedClass.teacherName || 'Assigned Staff'}</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Location/Mode */}
                                     <div className="flex items-start gap-4">
                                         <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
                                             <MapPin size={16} />
@@ -950,9 +945,6 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                             <h4 className="text-xs font-black uppercase tracking-wide mb-1 opacity-80">Class Information</h4>
                                             <div className="text-sm font-medium space-y-1">
                                                 <p>{selectedClass.classMode || 'Offline'}</p>
-                                                {selectedClass.classMode === 'Offline' && (
-                                                    <p className="text-xs opacity-60">Centre ID: {selectedClass.centreId}</p>
-                                                )}
                                                 <p className="text-xs opacity-60">Session: {selectedClass.session}</p>
                                             </div>
                                         </div>
@@ -961,7 +953,6 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                             </div>
                         </div>
 
-                        {/* Footer Action */}
                         <div className={`p-4 border-t flex justify-end ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-100 bg-slate-50'}`}>
                             <button
                                 onClick={() => setSelectedClass(null)}

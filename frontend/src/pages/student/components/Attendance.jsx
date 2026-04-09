@@ -408,6 +408,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
     const [dateFilter, setDateFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('All');
     const [teacherFilter, setTeacherFilter] = useState('All');
+    const [batchFilter, setBatchFilter] = useState('All');
 
     const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All';
 
@@ -416,6 +417,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
         setDateFilter('');
         setSubjectFilter('All');
         setTeacherFilter('All');
+        setBatchFilter('All');
         setCurrentPage(1);
     };
 
@@ -437,6 +439,15 @@ const DetailedHistory = ({ records, isDarkMode }) => {
         return ['All', ...Array.from(teachers)].sort();
     }, [records]);
 
+    const uniqueBatches = useMemo(() => {
+        const batches = new Set();
+        records.forEach(r => {
+            const batch = r.className || 'General';
+            batches.add(batch);
+        });
+        return ['All', ...Array.from(batches)].sort();
+    }, [records]);
+
     const filteredRecords = useMemo(() => {
         return records.filter(r => {
             const status = r.attendanceStatus || r.status;
@@ -449,11 +460,12 @@ const DetailedHistory = ({ records, isDarkMode }) => {
             const matchStatus = statusFilter === 'All' || status === statusFilter;
             const matchSubject = subjectFilter === 'All' || subject === subjectFilter;
             const matchTeacher = teacherFilter === 'All' || teacher === teacherFilter;
+            const matchBatch = batchFilter === 'All' || (r.className || 'General') === batchFilter;
             const matchDate = !dateFilter || dateStr === dateFilter;
 
-            return matchStatus && matchSubject && matchTeacher && matchDate;
+            return matchStatus && matchSubject && matchTeacher && matchBatch && matchDate;
         });
-    }, [records, statusFilter, subjectFilter, teacherFilter, dateFilter]);
+    }, [records, statusFilter, subjectFilter, teacherFilter, batchFilter, dateFilter]);
 
     const summaryStats = useMemo(() => {
         if (!filteredRecords.length) return null;
@@ -615,6 +627,19 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                         </select>
                     </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Filter by Academic Batch</span>
+                        <select
+                            value={batchFilter}
+                            onChange={e => { setBatchFilter(e.target.value); setCurrentPage(1); }}
+                            className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
+                        >
+                            {uniqueBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                    </div>
+                </div>
             </div>
 
             {/* Dynamic Summarization Widgets */}
@@ -669,7 +694,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
-                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Class Name & Subject</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Academic Batch & Subject</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Date & Time</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Teacher</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Chapter</th>

@@ -285,6 +285,8 @@ const StudentDashboard = () => {
     }
 
 
+    const studentBatch = studentData?.student?.batches?.[0]?.batchName || null;
+
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
@@ -292,7 +294,7 @@ const StudentDashboard = () => {
             case 'My Profile':
                 return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} silentLoading={silentLoading || loading} />;
             case 'Classes':
-                return <Classes isDarkMode={isDarkMode} cache={classesCache} setCache={setClassesCache} />;
+                return <Classes isDarkMode={isDarkMode} cache={classesCache} setCache={setClassesCache} studentBatch={studentBatch} />;
             case 'Attendance':
                 return <Attendance isDarkMode={isDarkMode} cache={attendanceCache} setCache={setAttendanceCache} />;
             case 'Exams':
