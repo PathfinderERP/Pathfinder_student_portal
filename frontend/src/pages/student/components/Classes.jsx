@@ -813,7 +813,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                                     Coming Up Next
                                 </h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 {upcomingClasses.map((cls, idx) => (
                                     <ClassCard key={cls._id || `upcoming-${idx}`} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} formatDate={formatDate} />
                                 ))}
