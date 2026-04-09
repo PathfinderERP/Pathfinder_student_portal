@@ -38,7 +38,13 @@ const StudentDashboard = () => {
     const [error, setError] = useState(null);
 
     // Data Caching for Tabs
-    const [classesCache, setClassesCache] = useState({ data: [], loaded: false });
+    const [classesCache, setClassesCache] = useState({ 
+        data: [], 
+        ongoing: [], 
+        upcoming: [], 
+        history: [],
+        loaded: false 
+    });
     const [attendanceCache, setAttendanceCache] = useState({ data: null, loaded: false });
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
     const [examsCache, setExamsCache] = useState({ data: [], loaded: false });

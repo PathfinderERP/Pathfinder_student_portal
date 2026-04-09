@@ -794,3 +794,57 @@ def get_student_classes(request):
         return Response([], status=200)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_ongoing_classes(request, studentId=None):
+    """Proxy for ERP ongoing classes with security filtering."""
+    return _proxy_class_endpoint(request, 'ongoing', studentId)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_upcoming_classes(request, studentId=None):
+    """Proxy for ERP upcoming classes with security filtering."""
+    return _proxy_class_endpoint(request, 'upcoming', studentId)
+
+
+def _proxy_class_endpoint(request, tail, studentId=None):
+    """Internal helper to proxy filtered class requests to ERP with security checks."""
+    user = request.user
+    # Security Check: Only privileged users can look up other students' IDs
+    is_privileged = user.user_type in ['superadmin', 'admin', 'teacher', 'faculty', 'staff']
+    
+    # Use the explicitly passed studentId if privileged, otherwise use the logged-in student's ERP ID
+    target_id = studentId if (studentId and is_privileged) else _fetch_erp_student_id(user)
+    
+    if not target_id:
+        debug_log(f"[CLASSES-{tail.upper()}] No student ID found for {user.username}")
+        return Response({"error": "Student ERP identity not found"}, status=404)
+
+    try:
+        erp_url = _get_erp_url()
+        erp_token = _get_erp_admin_token()
+        if not erp_token:
+            return Response({"error": "ERP Authentication Failed"}, status=503)
+
+        # Always use the path-based studentId variation because we are proxying 
+        # using an Admin Token which doesn't contain a student context.
+        erp_endpoint = f"{erp_url}/api/student-portal/classes/{tail}/{target_id}"
+        
+        resp = requests.get(
+            erp_endpoint,
+            headers={"Authorization": f"Bearer {erp_token}"},
+            params=request.GET,
+            timeout=25
+        )
+
+        debug_log(f"[CLASSES-{tail.upper()}] ERP Proxy Response: {resp.status_code}")
+
+        if resp.status_code == 200:
+            return Response(resp.json(), status=200)
+            
+        # Return empty list for 404s/Errors to keep frontend stable
+        return Response([] if resp.status_code >= 400 else resp.json(), status=resp.status_code)
+    except Exception as e:
+        debug_log(f"[CLASSES-{tail.upper()}] Proxy Exception: {str(e)}")
+        return Response([], status=500)

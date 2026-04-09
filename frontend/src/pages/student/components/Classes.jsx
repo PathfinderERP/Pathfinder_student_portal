@@ -6,62 +6,61 @@ import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Mock data generator for classes when ERP returns empty
-const getMockClasses = () => {
-    const subjects = [
-        { name: 'Advanced Mathematics', teacher: 'Dr. Sarah Wilson', mode: 'Online' },
-        { name: 'Quantum Physics', teacher: 'Prof. James Miller', mode: 'Offline' },
-        { name: 'Organic Chemistry', teacher: 'Dr. Elena Rodriguez', mode: 'Online' },
-        { name: 'Molecular Biology', teacher: 'Dr. Michael Chen', mode: 'Offline' }
-    ];
-    
-    const now = new Date();
-    const data = [];
-    
-    // Classes for today
-    subjects.slice(0, 2).forEach((sub, i) => {
-        const date = new Date(now);
-        data.push({
-            _id: `mock-today-${i}`,
-            classMode: sub.mode,
-            subjectId: { subjectName: sub.name },
-            className: 'Batch A-12',
-            date: date.toISOString(),
-            startTime: i === 0 ? '09:00 AM' : '11:45 AM',
-            endTime: i === 0 ? '11:00 AM' : '01:45 PM',
-            teacherId: { name: sub.teacher },
-            status: i === 0 ? 'Completed' : 'Ongoing',
-            session: '2024-25'
-        });
-    });
-    
-    // Classes for tomorrow
-    subjects.slice(2, 4).forEach((sub, i) => {
-        const date = new Date(now);
-        date.setDate(now.getDate() + 1);
-        data.push({
-            _id: `mock-tomorrow-${i}`,
-            classMode: sub.mode,
-            subjectId: { subjectName: sub.name },
-            className: 'Batch B-08',
-            date: date.toISOString(),
-            startTime: i === 0 ? '10:00 AM' : '02:00 PM',
-            endTime: i === 0 ? '12:00 PM' : '04:00 PM',
-            teacherId: { name: sub.teacher },
-            status: 'SCHEDULED',
-            session: '2024-25'
-        });
-    });
-    
-    return data;
-};
-
 // Helper functions for history
 const formatLocalDate = (date) => {
     if (!date || isNaN(new Date(date).getTime())) return '';
     const d = new Date(date);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+const ClassCard = ({ cls, isDarkMode, setSelectedClass, isOngoing = false, formatDate }) => (
+    <div
+        onClick={() => setSelectedClass(cls)}
+        className={`p-6 rounded-[5px] border group hover:border-blue-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:shadow-md'}`}
+    >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+                <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-lg shrink-0
+                    ${cls.classMode === 'Online' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-cyan-600'}`}>
+                    {cls.classMode === 'Online' ? <Video size={20} /> : <BookOpen size={20} />}
+                </div>
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <h3 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {cls.subjectId?.subjectName || cls.subject || 'Class Session'}
+                        </h3>
+                        <span className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/10 text-white/70 border-white/10' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            {cls.className}
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium opacity-60">
+                        <span className="flex items-center gap-1.5">
+                            <Calendar size={12} /> {formatDate(cls.date)}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <Clock size={12} /> {cls.startTime} - {cls.endTime}
+                        </span>
+                        {(cls.teacherId?.name || cls.teacherName) && (
+                            <span className="flex items-center gap-1.5">
+                                <User size={12} /> {cls.teacherId?.name || cls.teacherName}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-4 md:self-center self-end">
+                <div className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${cls.status === 'Completed' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600') :
+                    cls.status === 'Cancelled' ? (isDarkMode ? 'bg-red-500/10 text-red-500' : 'bg-red-50 text-red-600') :
+                        (isOngoing || cls.status === 'Ongoing') ? (isDarkMode ? 'bg-orange-500/10 text-orange-500 animate-pulse' : 'bg-orange-50 text-orange-600 animate-pulse') :
+                            (isDarkMode ? 'bg-blue-500/10 text-blue-500' : 'bg-blue-50 text-blue-600')
+                    }`}>
+                    {cls.status || (isOngoing ? 'Ongoing' : 'SCHEDULED')}
+                </div>
+            </div>
+        </div>
+    </div>
+);
 
 const DoughnutChart = ({ slices, size = 160, thickness = 28, isDarkMode }) => {
     const [hovered, setHovered] = useState(null);
@@ -177,13 +176,13 @@ const DetailedHistory = ({ records, isDarkMode }) => {
 
     const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All';
 
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setStatusFilter('All');
         setDateFilter('');
         setSubjectFilter('All');
         setTeacherFilter('All');
         setCurrentPage(1);
-    };
+    }, []);
 
     const uniqueSubjects = useMemo(() => {
         const subjects = new Set();
@@ -285,20 +284,20 @@ const DetailedHistory = ({ records, isDarkMode }) => {
         }
     }, [itemsPerPage, totalPages, currentPage, statusFilter, subjectFilter, teacherFilter, dateFilter]);
 
-    const handleJump = (e) => {
+    const handleJump = useCallback((e) => {
         e.preventDefault();
         const page = parseInt(jumpToPage);
         if (!isNaN(page) && page >= 1 && page <= totalPages) {
             setCurrentPage(page);
             setJumpToPage('');
         }
-    };
+    }, [jumpToPage, totalPages]);
 
     const displayRecords = itemsPerPage === 'all'
         ? filteredRecords
         : filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const CustomTooltip = ({ active, payload }) => {
+    const CustomTooltip = useCallback(({ active, payload }) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
             return (
@@ -321,7 +320,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
             );
         }
         return null;
-    };
+    }, [isDarkMode]);
 
     return (
         <div className="space-y-6 overflow-hidden">
@@ -581,19 +580,22 @@ const DetailedHistory = ({ records, isDarkMode }) => {
 const Classes = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
-    // Use a ref for comparison to avoid the infinite loop in dependency arrays
-    const classesRef = useRef(cache?.loaded ? cache.data : getMockClasses());
+    // Initialize from cache to prevent flickering on tab switch
+    const classesRef = useRef(cache?.loaded ? cache.data : []);
     const [classes, setClasses] = useState(classesRef.current);
-    const [history, setHistory] = useState([]);
+    const [ongoingClasses, setOngoingClasses] = useState(cache?.ongoing || []);
+    const [upcomingClasses, setUpcomingClasses] = useState(cache?.upcoming || []);
+    const [history, setHistory] = useState(cache?.history || []);
+    
     const [loading, setLoading] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
 
-    const fetchAttendanceHistory = useCallback(async () => {
+    const fetchAttendanceHistory = useCallback(async (isBackground = false) => {
         if (!token) return;
         try {
-            setHistoryLoading(true);
+            if (!isBackground) setHistoryLoading(true);
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -606,7 +608,15 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             } else {
                 records = data || [];
             }
-            setHistory(records);
+
+            // Sameness check for history
+            const isHistorySame = JSON.stringify(history) === JSON.stringify(records);
+            if (!isHistorySame) {
+                setHistory(records);
+                if (setCache) {
+                    setCache(c => ({ ...c, history: records, loaded: true }));
+                }
+            }
             setHistoryLoading(false);
         } catch (err) {
             console.error("Error fetching attendance history:", err);
@@ -621,9 +631,22 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             if (!isBackground) setLoading(true);
 
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/student/classes/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            // Fetch Ongoing Classes
+            const ongoingResponse = await axios.get(`${apiUrl}/api/student-portal/classes/ongoing/`, { headers });
+            const fetchedOngoing = ongoingResponse.data?.data || ongoingResponse.data || [];
+            const isOngoingSame = JSON.stringify(ongoingClasses) === JSON.stringify(fetchedOngoing);
+            if (!isOngoingSame) setOngoingClasses(fetchedOngoing);
+
+            // Fetch Upcoming Classes
+            const upcomingResponse = await axios.get(`${apiUrl}/api/student-portal/classes/upcoming/`, { headers });
+            const fetchedUpcoming = upcomingResponse.data?.data || upcomingResponse.data || [];
+            const isUpcomingSame = JSON.stringify(upcomingClasses) === JSON.stringify(fetchedUpcoming);
+            if (!isUpcomingSame) setUpcomingClasses(fetchedUpcoming);
+
+            // Original classes fetch for general list/fallback
+            const response = await axios.get(`${apiUrl}/api/student/classes/`, { headers });
 
             // Handle various response structures
             let data = [];
@@ -637,21 +660,22 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                 data = response.data.schedule;
             }
 
-            // Inject mock data if ERP returns empty for demonstration
-            if (data.length === 0) {
-                data = getMockClasses();
-            }
-
-            // Compare with current ref value to determine if state update is needed
+            // General Classes comparison
             const isDataSame = JSON.stringify(data) === JSON.stringify(classesRef.current);
 
-            if (!isDataSame) {
+            if (!isDataSame || !isOngoingSame || !isUpcomingSame) {
                 classesRef.current = data;
                 setClasses(data);
 
-                // Update parent cache only if changed
+                // Update parent cache with all new data
                 if (setCache) {
-                    setCache({ data: data, loaded: true });
+                    setCache(c => ({ 
+                        ...c, 
+                        data: data, 
+                        ongoing: fetchedOngoing, 
+                        upcoming: fetchedUpcoming, 
+                        loaded: true 
+                    }));
                 }
             }
 
@@ -676,15 +700,15 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
     useEffect(() => {
         if (!cache?.loaded) {
             fetchClasses(false); // Initial load
-            fetchAttendanceHistory();
+            fetchAttendanceHistory(false);
         } else {
             fetchClasses(true); // Background sync on mount/tab switch
-            fetchAttendanceHistory();
+            fetchAttendanceHistory(true);
         }
     }, [fetchClasses, fetchAttendanceHistory, cache?.loaded]);
 
     // Format Date Helper
-    const formatDate = (dateString) => {
+    const formatDate = useCallback((dateString) => {
         if (!dateString) return 'TBA';
         return new Date(dateString).toLocaleDateString('en-US', {
             weekday: 'long',
@@ -692,7 +716,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
             month: 'long',
             day: 'numeric'
         });
-    };
+    }, []);
 
     if (loading) {
         return (
@@ -760,8 +784,44 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                 <Clock size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
             </div>
 
-            {/* Classes List */}
-            {classes.filter(cls => {
+            {/* Enhanced Active Classes View */}
+            {(ongoingClasses.length > 0 || upcomingClasses.length > 0) ? (
+                <div className="space-y-6">
+                    {/* Ongoing Classes Section */}
+                    {ongoingClasses.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 px-2">
+                                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+                                    Currently Ongoing
+                                </h3>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {ongoingClasses.map((cls, idx) => (
+                                    <ClassCard key={cls._id || `ongoing-${idx}`} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} isOngoing={true} formatDate={formatDate} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Upcoming Classes Section */}
+                    {upcomingClasses.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 px-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                    Coming Up Next
+                                </h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {upcomingClasses.map((cls, idx) => (
+                                    <ClassCard key={cls._id || `upcoming-${idx}`} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} formatDate={formatDate} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : classes.filter(cls => {
                 const s = cls.status?.toLowerCase() || '';
                 return s === 'ongoing' || s === 'scheduled';
             }).length > 0 ? (
@@ -770,53 +830,7 @@ const Classes = ({ isDarkMode, cache, setCache }) => {
                         const s = cls.status?.toLowerCase() || '';
                         return s === 'ongoing' || s === 'scheduled';
                     }).map((cls, idx) => (
-                        <div
-                            key={cls._id || idx}
-                            onClick={() => setSelectedClass(cls)}
-                            className={`p-6 rounded-[5px] border group hover:border-blue-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:shadow-md'}`}
-                        >
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div className="flex items-start gap-4">
-                                    <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-lg shrink-0
-                                        ${cls.classMode === 'Online' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-cyan-600'}`}>
-                                        {cls.classMode === 'Online' ? <Video size={20} /> : <BookOpen size={20} />}
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                                {cls.subjectId?.subjectName || cls.subject || 'Class Session'}
-                                            </h3>
-                                            <span className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/10 text-white/70 border-white/10' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                {cls.className}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-4 text-xs font-medium opacity-60">
-                                            <span className="flex items-center gap-1.5">
-                                                <Calendar size={12} /> {formatDate(cls.date)}
-                                            </span>
-                                            <span className="flex items-center gap-1.5">
-                                                <Clock size={12} /> {cls.startTime} - {cls.endTime}
-                                            </span>
-                                            {cls.teacherId?.name && (
-                                                <span className="flex items-center gap-1.5">
-                                                    <User size={12} /> {cls.teacherId.name}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-4 md:self-center self-end">
-                                    <div className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${cls.status === 'Completed' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600') :
-                                        cls.status === 'Cancelled' ? (isDarkMode ? 'bg-red-500/10 text-red-500' : 'bg-red-50 text-red-600') :
-                                            cls.status === 'Ongoing' ? (isDarkMode ? 'bg-orange-500/10 text-orange-500 animate-pulse' : 'bg-orange-50 text-orange-600 animate-pulse') :
-                                                (isDarkMode ? 'bg-blue-500/10 text-blue-500' : 'bg-blue-50 text-blue-600')
-                                        }`}>
-                                        {cls.status || 'SCHEDULED'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <ClassCard key={cls._id || idx} cls={cls} isDarkMode={isDarkMode} setSelectedClass={setSelectedClass} formatDate={formatDate} />
                     ))}
                 </div>
             ) : (
