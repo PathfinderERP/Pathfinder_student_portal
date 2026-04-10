@@ -9,7 +9,7 @@ import {
     Type, Hash, Zap, Trash2, Save, ChevronLeft, ChevronDown, Check,
     Strikethrough, Quote, Code, Subscript, Superscript,
     AlignLeft, AlignCenter, AlignRight, Link, Sigma,
-    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw
+    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw, Settings2
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -88,6 +88,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         testNameId: '',
         search: ''
     });
+
+    const [isInternalSelectionMode, setIsInternalSelectionMode] = useState(false);
+    const [selectedInternalIds, setSelectedInternalIds] = useState([]);
+    const [isBulkUpdateLoading, setIsBulkUpdateLoading] = useState(false);
+    const [bulkUpdateFields, setBulkUpdateFields] = useState({
+        difficulty_level: '',
+        subject: '',
+        topic: '',
+        class_level: '',
+        exam_type: '',
+        target_exam: '',
+        is_wrong: ''
+    });
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
 
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
@@ -1083,6 +1097,54 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (!selectedInternalIds.length) return;
+        if (!confirm(`Are you sure you want to DELETE ${selectedInternalIds.length} questions? This cannot be undone.`)) return;
+        try {
+            const config = getAuthConfig();
+            const apiUrl = getApiUrl();
+            await axios.post(`${apiUrl}/api/questions/bulk-delete/`, { ids: selectedInternalIds }, config);
+            alert(`Successfully deleted ${selectedInternalIds.length} questions`);
+            setSelectedInternalIds([]);
+            setIsInternalSelectionMode(false);
+            fetchQuestions(true);
+        } catch (error) {
+            console.error("Bulk delete error", error);
+            alert("Failed to perform bulk deletion");
+        }
+    };
+
+    const handleBulkUpdate = async () => {
+        if (!selectedInternalIds.length) return;
+        
+        // Check if any field is filled
+        const hasUpdates = Object.values(bulkUpdateFields).some(val => val !== '');
+        if (!hasUpdates) {
+            alert("Please select at least one field to update.");
+            return;
+        }
+
+        setIsBulkUpdateLoading(true);
+        try {
+            const config = getAuthConfig();
+            const apiUrl = getApiUrl();
+            await axios.post(`${apiUrl}/api/questions/bulk-update/`, {
+                ids: selectedInternalIds,
+                updates: bulkUpdateFields
+            }, config);
+            alert(`Successfully updated ${selectedInternalIds.length} questions`);
+            setShowBulkUpdateModal(false);
+            setSelectedInternalIds([]);
+            setIsInternalSelectionMode(false);
+            fetchQuestions(true);
+        } catch (error) {
+            console.error("Bulk update error", error);
+            alert("Failed to perform bulk update");
+        } finally {
+            setIsBulkUpdateLoading(false);
+        }
+    };
+
     const renderRepository = () => (
         <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
             {/* Nav Header */}
@@ -1098,6 +1160,19 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             Back to Overview
                         </button>
                         <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => {
+                                    setIsInternalSelectionMode(!isInternalSelectionMode);
+                                    setSelectedInternalIds([]);
+                                }}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
+                                    ${isInternalSelectionMode 
+                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30 active:scale-95' 
+                                        : isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                            >
+                                <Layers size={16} />
+                                {isInternalSelectionMode ? 'Cancel Bulk' : 'Bulk Select'}
+                            </button>
                             <button
                                 onClick={() => { resetForm(); setView('manual'); }}
                                 className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
@@ -1339,7 +1414,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         ) : (
                             <>
                                 {/* Bulk selection actions */}
-                                {isSelectionMode && (
+                                {(isSelectionMode || isInternalSelectionMode) && (
                                     <div className={`mt-6 p-4 rounded-[5px] border-2 border-dashed flex flex-wrap items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-200 shadow-sm'}`}>
                                         <div className="flex items-center gap-4">
                                             <div className={`p-2.5 rounded-[5px] ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'}`}>
@@ -1348,11 +1423,31 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             <div>
                                                 <h4 className="text-[11px] font-black uppercase tracking-widest leading-none mb-1">Bulk Operations</h4>
                                                 <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.2em]">
-                                                    {selectedIds.length} questions selected out of {filteredQuestions.length} matching
+                                                    {(isSelectionMode ? selectedIds.length : selectedInternalIds.length)} questions selected out of {filteredQuestions.length} matching
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-3">
+                                            {isInternalSelectionMode && (isSelectionMode ? false : true) && (
+                                                <>
+                                                    <button
+                                                        disabled={selectedInternalIds.length === 0}
+                                                        onClick={() => setShowBulkUpdateModal(true)}
+                                                        className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2"
+                                                    >
+                                                        <RefreshCcw size={14} strokeWidth={3} />
+                                                        Bulk Update
+                                                    </button>
+                                                    <button
+                                                        disabled={selectedInternalIds.length === 0}
+                                                        onClick={handleBulkDelete}
+                                                        className="px-5 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-red-500/20 active:scale-95 transition-all flex items-center gap-2"
+                                                    >
+                                                        <Trash2 size={14} strokeWidth={3} />
+                                                        Bulk Delete
+                                                    </button>
+                                                </>
+                                            )}
                                             <button
                                                 onClick={() => {
                                                     const availableSlots = totalAllowed > 0 
@@ -1360,18 +1455,22 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                         : Infinity;
                                                     
                                                     const allIdsToSelect = filteredQuestions
-                                                        .filter(q => !alreadySelectedIds.includes(q.id || q._id) && !selectedIds.includes(q.id || q._id))
+                                                        .filter(q => !alreadySelectedIds.includes(q.id || q._id))
                                                         .map(q => q.id || q._id);
 
-                                                    if (totalAllowed > 0 && allIdsToSelect.length > availableSlots) {
-                                                        if (availableSlots === 0) {
-                                                            alert(`Cannot select more questions. Maximum limit of ${totalAllowed} reached for this section.`);
-                                                            return;
+                                                    if (isSelectionMode) {
+                                                        const targetIds = allIdsToSelect.filter(id => !selectedIds.includes(id));
+                                                        if (totalAllowed > 0 && targetIds.length > availableSlots) {
+                                                            if (availableSlots === 0) {
+                                                                alert(`Maximum limit of ${totalAllowed} reached.`); return;
+                                                            }
+                                                            setSelectedIds([...selectedIds, ...targetIds.slice(0, availableSlots)]);
+                                                        } else {
+                                                            setSelectedIds([...selectedIds, ...targetIds]);
                                                         }
-                                                        alert(`Warning: This section only has ${availableSlots} slots remaining. Only the first ${availableSlots} matching questions will be selected.`);
-                                                        setSelectedIds([...selectedIds, ...allIdsToSelect.slice(0, availableSlots)]);
                                                     } else {
-                                                        setSelectedIds([...selectedIds, ...allIdsToSelect]);
+                                                        const targetIds = allIdsToSelect.filter(id => !selectedInternalIds.includes(id));
+                                                        setSelectedInternalIds([...selectedInternalIds, ...targetIds]);
                                                     }
                                                 }}
                                                 className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
@@ -1379,23 +1478,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 <Plus size={14} strokeWidth={3} />
                                                 Select All Matching
                                             </button>
-                                            {selectedIds.length > 0 && (
-                                                <button
-                                                    onClick={() => setSelectedIds([])}
-                                                    className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
-                                                        ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                                                >
-                                                    Clear Selection
-                                                </button>
-                                            )}
+                                            <button
+                                                onClick={() => isSelectionMode ? setSelectedIds([]) : setSelectedInternalIds([])}
+                                                className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
+                                                    ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                            >
+                                                Clear Selection
+                                            </button>
                                         </div>
                                     </div>
                                 )}
-
+ 
                                 <div className="mt-8">
                                     {renderPagination()}
                                 </div>
-
+ 
                                 <div className="flex flex-col gap-4 mt-8">
                                     {paginatedQuestions.map((q) => {
                                         const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
@@ -1416,12 +1513,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 <div className="flex flex-col lg:flex-row lg:items-center gap-8">
                                                     {/* Selection & Level */}
                                                     <div className="flex items-center gap-5 shrink-0">
-                                                        {isSelectionMode && (() => {
+                                                        {(isSelectionMode || isInternalSelectionMode) && (() => {
                                                             const qid = q.id || q._id;
-                                                            const isChecked = selectedIds.includes(qid);
-                                                            const isAlreadyInTest = alreadySelectedIds.includes(qid);
-                                                            const limitReached = totalAllowed > 0 && (currentCount + selectedIds.length) >= totalAllowed;
-                                                            const isDisabled = !isChecked && !isAlreadyInTest && limitReached;
+                                                            const isChecked = isSelectionMode ? selectedIds.includes(qid) : selectedInternalIds.includes(qid);
+                                                            const isAlreadyInTest = isSelectionMode && alreadySelectedIds.includes(qid);
+                                                            const limitReached = isSelectionMode && totalAllowed > 0 && (currentCount + selectedIds.length) >= totalAllowed;
+                                                            const isDisabled = isSelectionMode && !isChecked && !isAlreadyInTest && limitReached;
 
                                                             if (isAlreadyInTest) {
                                                                 return (
@@ -1433,7 +1530,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                                                             return (
                                                                 <div
-                                                                    onClick={(e) => !isDisabled && toggleQuestionSelection(qid, e)}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (isSelectionMode) {
+                                                                            if (!isDisabled) toggleQuestionSelection(qid, e);
+                                                                        } else {
+                                                                            setSelectedInternalIds(prev => prev.includes(qid) ? prev.filter(i => i !== qid) : [...prev, qid]);
+                                                                        }
+                                                                    }}
                                                                     title={isDisabled ? `Limit of ${totalAllowed} questions reached` : ''}
                                                                     className={`w-12 h-12 rounded-[5px] border-2 flex items-center justify-center transition-all shrink-0
                                                                         ${isChecked
@@ -2413,6 +2517,118 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
         </div>
     );
+ 
+    const renderBulkUpdateModal = () => {
+        if (!showBulkUpdateModal) return null;
+        return (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm bg-black/60 overflow-y-auto">
+                <div className={`relative w-full max-w-2xl rounded-[10px] shadow-2xl animate-in zoom-in-95 fade-in duration-300 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white'}`}>
+                    {/* Header */}
+                    <div className={`p-8 border-b flex items-center justify-between ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-500 rounded-[5px] text-white">
+                                <Settings2 size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Bulk Update Metadata</h3>
+                                <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Updating {selectedInternalIds.length} selected questions</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowBulkUpdateModal(false)} className={`p-2 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}>
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <CustomSelect
+                                label="Update Class"
+                                value={bulkUpdateFields.class_level}
+                                options={classes}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, class_level: val })}
+                            />
+                            <CustomSelect
+                                label="Update Subject"
+                                value={bulkUpdateFields.subject}
+                                options={subjects}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, subject: val })}
+                            />
+                            <CustomSelect
+                                label="Update Topic"
+                                value={bulkUpdateFields.topic}
+                                options={topics}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, topic: val })}
+                            />
+                            <CustomSelect
+                                label="Update Difficulty"
+                                value={bulkUpdateFields.difficulty_level}
+                                options={[
+                                    { value: '1', label: 'Level 1' },
+                                    { value: '2', label: 'Level 2' },
+                                    { value: '3', label: 'Level 3' },
+                                    { value: '4', label: 'Level 4' },
+                                    { value: '5', label: 'Level 5' }
+                                ]}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, difficulty_level: val })}
+                            />
+                            <CustomSelect
+                                label="Update Exam Type"
+                                value={bulkUpdateFields.exam_type}
+                                options={examTypes}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, exam_type: val })}
+                            />
+                            <CustomSelect
+                                label="Update Target Exam"
+                                value={bulkUpdateFields.target_exam}
+                                options={targetExams}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, target_exam: val })}
+                            />
+                            <CustomSelect
+                                label="Update Status"
+                                value={bulkUpdateFields.is_wrong}
+                                options={[
+                                    { value: 'true', label: 'Mark as Wrong' },
+                                    { value: 'false', label: 'Mark as Correct' }
+                                ]}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, is_wrong: val })}
+                            />
+                        </div>
+                        <div className={`p-4 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
+                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest leading-relaxed">
+                                Note: Fields left empty will remain unchanged. This action will overwrite metadata for all {selectedInternalIds.length} selected questions permanently.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className={`p-8 border-t flex items-center justify-end gap-3 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                        <button
+                            onClick={() => setShowBulkUpdateModal(false)}
+                            className={`px-8 py-3 rounded-[5px] font-black uppercase text-[10px] tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleBulkUpdate}
+                            disabled={isBulkUpdateLoading}
+                            className={`px-10 py-3 bg-blue-500 text-white rounded-[5px] font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all flex items-center gap-2 ${isBulkUpdateLoading ? 'opacity-50 cursor-wait' : ''}`}
+                        >
+                            {isBulkUpdateLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                            {isBulkUpdateLoading ? 'Updating...' : 'Confirm Update'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
 
     return (
@@ -2423,6 +2639,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             {view === 'bulk' && renderBulkUpload()}
             {view === 'media' && renderMediaLibrary()}
             {renderMathModal()}
+            {renderBulkUpdateModal()}
 
             <style>{`
                 @keyframes shimmer {

@@ -83,6 +83,67 @@ class QuestionViewSet(viewsets.ModelViewSet):
         question.save(update_fields=['is_wrong'])
         return Response({'status': 'marked as wrong', 'is_wrong': question.is_wrong})
 
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "No IDs provided"}, status=400)
+        
+        # Convert IDs to ObjectIs
+        object_ids = []
+        for id_str in ids:
+            if ObjectId.is_valid(id_str):
+                object_ids.append(ObjectId(id_str))
+            else:
+                try:
+                    # Handle integer IDs if any
+                    object_ids.append(int(id_str))
+                except: pass
+        
+        deleted_count, _ = Question.objects.filter(pk__in=object_ids).delete()
+        return Response({"message": f"Successfully deleted {deleted_count} questions"})
+
+    @action(detail=False, methods=['post'], url_path='bulk-update')
+    def bulk_update(self, request):
+        ids = request.data.get('ids', [])
+        updates = request.data.get('updates', {})
+        
+        if not ids or not updates:
+            return Response({"error": "No IDs or updates provided"}, status=400)
+            
+        object_ids = []
+        for id_str in ids:
+            if ObjectId.is_valid(id_str):
+                object_ids.append(ObjectId(id_str))
+            else:
+                try:
+                    object_ids.append(int(id_str))
+                except: pass
+        
+        allowed_fields = ['difficulty_level', 'subject', 'topic', 'class_level', 'exam_type', 'target_exam', 'is_wrong']
+        clean_updates = {k: v for k, v in updates.items() if k in allowed_fields and v != ''}
+        
+        if not clean_updates:
+            return Response({"error": "No valid fields to update"}, status=400)
+
+        # For foreign keys, passing ID directly works in Djongo usually if using field_id
+        # or we can resolve objects. To be safe with bulk update, we use individual saves if update() fails or is risky
+        # However, update() is much faster.
+        
+        try:
+            # Prepare update dict with _id for ForeignKeys
+            final_updates = {}
+            for k, v in clean_updates.items():
+                if k in ['subject', 'topic', 'class_level', 'exam_type', 'target_exam']:
+                    final_updates[f"{k}_id"] = ObjectId(v) if ObjectId.is_valid(v) else v
+                else:
+                    final_updates[k] = v
+                    
+            updated_count = Question.objects.filter(pk__in=object_ids).update(**final_updates)
+            return Response({"message": f"Successfully updated {updated_count} questions"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
     @action(detail=False, methods=['post'], url_path='bulk-upload')
     def bulk_upload(self, request):
         file_obj = request.FILES.get('file')
