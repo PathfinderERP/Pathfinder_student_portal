@@ -208,6 +208,10 @@ class TestViewSet(viewsets.ModelViewSet):
                         })
             except Exception as e:
                 print(f"PyMongo bypass error in 'centres': {e}")
+        
+        # Build ERP index EARLY so we can use live section data for counts
+        from api.erp_views import get_student_lookup_index
+        erp_index_early = get_student_lookup_index(force_refresh=force_refresh)
 
         # 3. Identify Extra Centres (not allotted but have submissions)
         extra_centres = []
@@ -232,8 +236,34 @@ class TestViewSet(viewsets.ModelViewSet):
             assigned = False
             for c in all_target_centres:
                 if sub['c_code'] == str(c.code).lower().strip() or sub['c_name'] == str(c.name).lower().strip():
-                    centre_counts[str(c.pk)]['sub'] += 1
-                    centre_counts[str(c.pk)]['roster'] += 1
+                    # Re-verify section allotment with ERP source of truth
+                    is_mismatched = False
+                    if allowed_sections_list:
+                        from api.db_utils import parse_section
+                        
+                        # PRIORITY: Live ERP, Fallback: Local DB
+                        erp_record = None
+                        if erp_index_early:
+                            _e = str(sub.get('email') or '').strip().lower()
+                            _a = str(sub.get('adm') or sub.get('uid') or '').strip().upper()
+                            erp_record = erp_index_early.get(f"email_{_e}") or erp_index_early.get(f"adm_{_a}")
+                        
+                        if erp_record:
+                            sa = erp_record.get('sectionAllotment', {}) or {}
+                            se = [sec.lower() for sec in parse_section(sa.get('examSection'))]
+                            ss = [sec.lower() for sec in parse_section(sa.get('studySection'))]
+                        else:
+                            # Use CustomUser record directly if possible (need to re-fetch or pass in)
+                            u_tmp = CustomUser.objects.filter(pk=sub['pk']).first()
+                            se = [sec.lower() for sec in parse_section(u_tmp.exam_section if u_tmp else '')]
+                            ss = [sec.lower() for sec in parse_section(u_tmp.study_section if u_tmp else '')]
+                        
+                        is_mismatched = not any(sec in allowed_sections_list for sec in (se + ss))
+
+                    if not is_mismatched:
+                        centre_counts[str(c.pk)]['sub'] += 1
+                        centre_counts[str(c.pk)]['roster'] += 1
+                    
                     assigned = True
                     break
             
@@ -257,9 +287,23 @@ class TestViewSet(viewsets.ModelViewSet):
                 if uid in global_seen_uids: continue
                 
                 if allowed_sections_list:
-                    s_exams = [sec.lower() for sec in parse_section(s.exam_section)]
-                    s_studies = [sec.lower() for sec in parse_section(s.study_section)]
-                    if not any(sec in allowed_sections_list for sec in (s_exams + s_studies)):
+                    from api.db_utils import parse_section
+                    # PRIORITY: Live ERP, Fallback: Local DB (same as Step A)
+                    erp_record = None
+                    if erp_index_early:
+                        _e = str(s.email or '').strip().lower()
+                        _a = str(s.admission_number or s.username or '').strip().upper()
+                        erp_record = erp_index_early.get(f"email_{_e}") or erp_index_early.get(f"adm_{_a}")
+                    
+                    if erp_record:
+                        sa = erp_record.get('sectionAllotment', {}) or {}
+                        se = [sec.lower() for sec in parse_section(sa.get('examSection'))]
+                        ss = [sec.lower() for sec in parse_section(sa.get('studySection'))]
+                    else:
+                        se = [sec.lower() for sec in parse_section(s.exam_section)]
+                        ss = [sec.lower() for sec in parse_section(s.study_section)]
+                    
+                    if not any(sec in allowed_sections_list for sec in (se + ss)):
                         continue
                 
                 centre_counts[str(c.pk)]['roster'] += 1
@@ -490,6 +534,10 @@ class TestViewSet(viewsets.ModelViewSet):
         # We also need a fast map for finalized status etc.
         sub_map = {str(s['pk']): s['doc'] for s in all_subs_list}
 
+        # Build ERP index EARLY so Step A can use live section data for mismatch checks
+        from api.erp_views import get_student_lookup_index
+        erp_index_early = get_student_lookup_index(force_refresh=force_refresh)
+
         # Step A: Assigned Submitted Students
         for sub in all_subs_list:
             assigned_c_pk = None
@@ -502,15 +550,46 @@ class TestViewSet(viewsets.ModelViewSet):
             if assigned_c_pk:
                 if target_c_obj and assigned_c_pk == str(target_c_obj.pk):
                     captured_for_this_request = True
-                global_seen_uids.add(sub['uid'])
-                if sub['adm']: global_seen_uids.add(sub['adm'].upper().strip())
-                if sub['email']: global_seen_uids.add(sub['email'].lower().strip())
             else:
                 if centre_code == 'N/A':
                     captured_for_this_request = True
             
             if captured_for_this_request:
-                final_list.append(users_map.get(str(sub['pk'])))
+                # Check if the student still has a valid section allotment
+                u_obj = users_map.get(str(sub['pk']))
+                is_mismatched = False
+                if u_obj and allowed_sections_list:
+                    from api.db_utils import parse_section
+                    
+                    # PRIORITY: Use LIVE ERP data (source of truth), fallback to local DB
+                    erp_record = None
+                    if erp_index_early:
+                        _email = str(u_obj.email or '').strip().lower()
+                        _adm   = str(u_obj.admission_number or u_obj.username or '').strip().upper()
+                        erp_record = erp_index_early.get(f"email_{_email}") or \
+                                     erp_index_early.get(f"adm_{_adm}")
+                    
+                    if erp_record:
+                        sa = erp_record.get('sectionAllotment', {}) or {}
+                        se = [sec.lower() for sec in parse_section(sa.get('examSection'))]
+                        ss = [sec.lower() for sec in parse_section(sa.get('studySection'))]
+                    else:
+                        # Fallback: local DB (may be stale if ERP sync hasn't run)
+                        se = [sec.lower() for sec in parse_section(u_obj.exam_section)]
+                        ss = [sec.lower() for sec in parse_section(u_obj.study_section)]
+                    
+                    is_mismatched = not any(sec in allowed_sections_list for sec in (se + ss))
+                
+                # Always mark as seen if they have a submission to prevent duplicates in Step B/C
+                global_seen_uids.add(sub['uid'])
+                if sub['adm']: global_seen_uids.add(sub['adm'].upper().strip())
+                if sub['email']: global_seen_uids.add(sub['email'].lower().strip())
+                
+                # Exclude from list if mismatched
+                if is_mismatched:
+                    continue
+                
+                final_list.append((u_obj, False))
 
         # Step B: Assign Local Students
         for c in all_target_centres:
@@ -526,13 +605,29 @@ class TestViewSet(viewsets.ModelViewSet):
                 if (adm and adm in global_seen_uids) or (email and email in global_seen_uids): continue
                 
                 if allowed_sections_list:
-                    se = [sec.lower() for sec in parse_section(s.exam_section)]
-                    ss = [sec.lower() for sec in parse_section(s.study_section)]
+                    from api.db_utils import parse_section
+                    
+                    # PRIORITY: Check Live ERP data if possible
+                    erp_record = None
+                    if erp_index_early:
+                        _e = str(s.email or '').strip().lower()
+                        _a = str(s.admission_number or s.username or '').strip().upper()
+                        erp_record = erp_index_early.get(f"email_{_e}") or \
+                                     erp_index_early.get(f"adm_{_a}")
+                    
+                    if erp_record:
+                        sa = erp_record.get('sectionAllotment', {}) or {}
+                        se = [sec.lower() for sec in parse_section(sa.get('examSection'))]
+                        ss = [sec.lower() for sec in parse_section(sa.get('studySection'))]
+                    else:
+                        se = [sec.lower() for sec in parse_section(s.exam_section)]
+                        ss = [sec.lower() for sec in parse_section(s.study_section)]
+                        
                     if not any(sec in allowed_sections_list for sec in (se + ss)):
                         continue
                 
                 if target_c_obj and str(c.pk) == str(target_c_obj.pk):
-                    final_list.append(s)
+                    final_list.append((s, False))
                 
                 global_seen_uids.add(uid)
                 if adm: global_seen_uids.add(adm)
@@ -569,20 +664,26 @@ class TestViewSet(viewsets.ModelViewSet):
                     details = erp.get('student', {}).get('studentsDetails', [{}])[0]
                     sn = str(details.get('studentName') or 'Student').strip()
                     sp = sn.split(' ')
-                    final_list.append(SimpleNamespace(
+                    final_list.append((SimpleNamespace(
                         pk=None, username=e_adm, email=e_email or f"{e_adm.lower()}@unknown.com",
                         first_name=sp[0], last_name=' '.join(sp[1:]) if len(sp) > 1 else '',
                         admission_number=e_adm, exam_section=erp.get('sectionAllotment', {}).get('examSection'),
                         study_section=erp.get('sectionAllotment', {}).get('studySection'),
                         rm_code=None, omr_code=None, employee_id=None, user_type='student'
-                    ))
+                    ), False))
                 global_seen_uids.add(e_adm)
                 if e_email: global_seen_uids.add(e_email)
 
         # 5. Format and Enrich Final Response
         erp_index = get_student_lookup_index(force_refresh=force_refresh)
         data = []
-        for s in final_list:
+        for item in final_list:
+            if isinstance(item, tuple):
+                s, is_section_mismatched = item
+            else:
+                s, is_section_mismatched = item, False
+            if s is None:
+                continue
             uid_str = str(s.pk) if s.pk else None
             # Need to get actual submission doc (from Mongo or Django)
             # sub_map uses pk as string
@@ -622,6 +723,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 'email': s.email,
                 'enroll_number': enroll,
                 'section': section,
+                'is_section_mismatched': is_section_mismatched,
                 'score': sub_doc.get('score') if sub_doc else None,
                 'submission_type': sub_doc.get('submission_type') if sub_doc else None,
                 'time_spent': sub_doc.get('time_spent', 0) if sub_doc else 0,
