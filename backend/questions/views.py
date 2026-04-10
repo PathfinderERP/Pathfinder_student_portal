@@ -120,7 +120,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
                     object_ids.append(int(id_str))
                 except: pass
         
-        allowed_fields = ['difficulty_level', 'subject', 'topic', 'class_level', 'exam_type', 'target_exam', 'is_wrong']
+        allowed_fields = ['difficulty_level', 'subject', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name', 'is_wrong']
         clean_updates = {k: v for k, v in updates.items() if k in allowed_fields and v != ''}
         
         if not clean_updates:
@@ -134,7 +134,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
             # Prepare update dict with _id for ForeignKeys
             final_updates = {}
             for k, v in clean_updates.items():
-                if k in ['subject', 'topic', 'class_level', 'exam_type', 'target_exam']:
+                if k in ['subject', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name']:
                     final_updates[f"{k}_id"] = ObjectId(v) if ObjectId.is_valid(v) else v
                 else:
                     final_updates[k] = v

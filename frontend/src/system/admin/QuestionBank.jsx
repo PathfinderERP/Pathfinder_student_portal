@@ -99,6 +99,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         class_level: '',
         exam_type: '',
         target_exam: '',
+        test_name: '',
         is_wrong: ''
     });
     const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
@@ -1432,7 +1433,19 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 <>
                                                     <button
                                                         disabled={selectedInternalIds.length === 0}
-                                                        onClick={() => setShowBulkUpdateModal(true)}
+                                                        onClick={() => {
+                                                            setBulkUpdateFields({
+                                                                difficulty_level: '',
+                                                                subject: '',
+                                                                topic: '',
+                                                                class_level: '',
+                                                                exam_type: '',
+                                                                target_exam: '',
+                                                                test_name: '',
+                                                                is_wrong: ''
+                                                            });
+                                                            setShowBulkUpdateModal(true);
+                                                        }}
                                                         className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center gap-2"
                                                     >
                                                         <RefreshCcw size={14} strokeWidth={3} />
@@ -2589,6 +2602,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 options={targetExams}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, target_exam: val })}
+                            />
+                            <CustomSelect
+                                label="Update Test Name"
+                                value={bulkUpdateFields.test_name}
+                                options={examDetails}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, test_name: val })}
                             />
                             <CustomSelect
                                 label="Update Status"
