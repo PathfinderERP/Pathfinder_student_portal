@@ -229,26 +229,23 @@ def get_student_erp_data(request):
     lock_key = f"erp_sync_lock_{user.pk}"
     cached = cache.get(student_cache_key)
 
-    # ── Strategy 1 & 2: Fast Cache & Index Lookup ─────────────────────────────
-    # Even on force_refresh, we TRY to return cached data immediately to keep UI fast.
-    # The refresh will happen in the background.
-    if _is_profile_rich(cached):
-        print(f"[ERP] Serving {search_email} from cache (Async revalidate triggered).")
-        if force_refresh:
-            threading.Thread(target=_perform_background_erp_sync, args=(user.pk, search_email, student_cache_key, True)).start()
+    # ── Strategy 1: Fast Cache Lookup ─────────────────────────────
+    # Standard behavior: Return cache immediately for speed.
+    # Force-Refresh behavior: Bypassing cache to perform blocking real-time sync.
+    if _is_profile_rich(cached) and not force_refresh:
+        print(f"[ERP] Serving {search_email} from cache.")
         return Response(cached, status=200)
 
-    # Strategy 2: High-Speed Index
-    index = get_student_lookup_index()
-    if index:
-        match = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
-        if match:
-            print(f"[ERP] Found via Index. Background refresh started...")
-            _sync_user_to_erp(user, match)
-            cache.set(student_cache_key, match, 300)
-            if force_refresh:
-                threading.Thread(target=_perform_background_erp_sync, args=(user.pk, search_email, student_cache_key, True)).start()
-            return Response(match, status=200)
+    # Strategy 2: High-Speed Index (Bypass if force_refresh)
+    if not force_refresh:
+        index = get_student_lookup_index()
+        if index:
+            match = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
+            if match:
+                print(f"[ERP] Found {search_email} via Index.")
+                _sync_user_to_erp(user, match)
+                cache.set(student_cache_key, match, 300)
+                return Response(match, status=200)
 
     # ── Strategy 3: Targeted Fetch (Only if NO cache/index exists) ─────────────
     # If we are here, we MUST block because we have zero data to show.
@@ -426,6 +423,10 @@ def _sync_user_to_erp(user, admission_data):
 
         if has_changed:
             user.save()
+            # Invalidate middleware validation cache to ensure subsequent requests 
+            # (like loading tests) use the fresh section data immediately.
+            from django.core.cache import cache
+            cache.delete(f"erp_validation_{user.pk}")
             print(f"[SYNC] ✓ User {user.username} updated and saved.")
         else:
             print(f"[SYNC] ℹ User {user.username} already up to date.")
