@@ -246,22 +246,63 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                         exit={{ opacity: 0, height: 0 }}
                                                         className={`ml-9 space-y-1.5 border-l-2 ${isDarkMode ? 'border-white/5' : 'border-slate-100/50'} pl-5 py-2`}
                                                     >
-                                                        {item.subItems.map((subItem, subIndex) => (
-                                                            <button
-                                                                key={subIndex}
-                                                                onClick={() => {
-                                                                    if (subItem.onClick) subItem.onClick();
-                                                                    if (window.innerWidth < 1024) setOpen(false);
-                                                                }}
-                                                                className={`w-full flex items-center gap-3 py-2 text-[13px] font-bold rounded-xl transition-all duration-300
-                                                                ${subItem.active
-                                                                        ? (isDarkMode ? "text-orange-400" : colors.textLight)
-                                                                        : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900")
-                                                                    } ${!isPremium ? 'font-medium text-[13px]' : ''}`}
-                                                            >
-                                                                <span className="flex-1 text-left truncate">{subItem.label}</span>
-                                                            </button>
-                                                        ))}
+                                                        {item.subItems.map((subItem, subIndex) => {
+                                                            const hasDeepSubItems = subItem.subItems && subItem.subItems.length > 0;
+                                                            const isDeepExpanded = expandedItems[subItem.label];
+
+                                                            return (
+                                                                <div key={subIndex} className="w-full">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (hasDeepSubItems) toggleExpand(subItem.label);
+                                                                            if (subItem.onClick) subItem.onClick();
+                                                                            if (!hasDeepSubItems && window.innerWidth < 1024) setOpen(false);
+                                                                        }}
+                                                                        className={`w-full flex items-center gap-3 py-2 text-[13px] font-bold rounded-xl transition-all duration-300
+                                                                        ${subItem.active
+                                                                                ? (isDarkMode ? "text-orange-400" : colors.textLight)
+                                                                                : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900")
+                                                                            } ${!isPremium ? 'font-medium text-[13px]' : ''}`}
+                                                                    >
+                                                                        <span className="flex-1 text-left truncate">{subItem.label}</span>
+                                                                        {(isOpen && hasDeepSubItems) && (
+                                                                            <ChevronDown
+                                                                                size={14}
+                                                                                className={`flex-shrink-0 transition-transform duration-500 ${isDeepExpanded ? 'rotate-180' : ''} ${isDarkMode ? 'text-white/20' : 'text-slate-300'}`}
+                                                                            />
+                                                                        )}
+                                                                    </button>
+
+                                                                    <AnimatePresence>
+                                                                        {isOpen && hasDeepSubItems && isDeepExpanded && (
+                                                                            <motion.div
+                                                                                initial={{ opacity: 0, height: 0 }}
+                                                                                animate={{ opacity: 1, height: 'auto' }}
+                                                                                exit={{ opacity: 0, height: 0 }}
+                                                                                className={`ml-4 mt-1 space-y-1 border-l text-left ${isDarkMode ? 'border-white/5' : 'border-slate-100'} pl-3`}
+                                                                            >
+                                                                                {subItem.subItems.map((deepItem, deepIndex) => (
+                                                                                    <button
+                                                                                        key={deepIndex}
+                                                                                        onClick={() => {
+                                                                                            if (deepItem.onClick) deepItem.onClick();
+                                                                                            if (window.innerWidth < 1024) setOpen(false);
+                                                                                        }}
+                                                                                        className={`w-full flex items-center gap-2 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-300
+                                                                                        ${deepItem.active
+                                                                                                ? (isDarkMode ? "text-orange-400" : colors.textLight)
+                                                                                                : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900")
+                                                                                            } ${!isPremium ? 'font-medium text-[12px]' : ''}`}
+                                                                                    >
+                                                                                        <span className="flex-1 text-left truncate">{deepItem.label}</span>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
