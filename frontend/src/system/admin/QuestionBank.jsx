@@ -826,7 +826,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     // Custom Floating Label Select Component
     const CustomSelect = ({ label, value, onChange, options, placeholder, icon: Icon }) => {
         const [isOpen, setIsOpen] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
         const containerRef = useRef(null);
+
+        useEffect(() => {
+            if (!isOpen) setSearchTerm('');
+        }, [isOpen]);
 
         useEffect(() => {
             const handleClickOutside = (event) => {
@@ -839,6 +844,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }, []);
 
         const selectedOption = options.find(opt => String(opt.id) === String(value) || opt.value === value);
+
+        const filteredOptions = useMemo(() => {
+            if (!searchTerm) return options;
+            return options.filter(opt => {
+                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+                return text.includes(searchTerm.toLowerCase());
+            });
+        }, [options, searchTerm]);
 
         return (
             <div className="relative group" ref={containerRef}>
@@ -860,15 +873,61 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         {selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
                     </span>
 
-                    <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-500' : 'opacity-40'}`} />
+                    <div className="flex items-center gap-2">
+                        {value && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange('');
+                                }}
+                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                                title="Clear Selection"
+                            >
+                                <X size={12} strokeWidth={3} className="text-red-500" />
+                            </button>
+                        )}
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-500' : 'opacity-40'}`} />
+                    </div>
                 </div>
 
                 {/* Dropdown Menu */}
                 {isOpen && (
                     <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
                         ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+                        
+                        {/* Search Option */}
+                        {options.length > 5 && (
+                            <div className={`p-2 border-b sticky top-0 z-[101] ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                                <div className="relative">
+                                    <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        placeholder={`Search ${label}...`}
+                                        className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                            ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-blue-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-blue-500 shadow-sm'}`}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                            {options.length > 0 ? options.map((opt, i) => (
+                            {value && (
+                                <div
+                                    onClick={() => {
+                                        onChange('');
+                                        setIsOpen(false);
+                                    }}
+                                    className={`px-4 py-2 bg-red-500/5 border-b transition-all flex items-center justify-between cursor-pointer group
+                                        ${isDarkMode ? 'border-white/5 hover:bg-red-500/20' : 'border-slate-100 hover:bg-red-100'}`}
+                                >
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Clear Selection</span>
+                                    <X size={12} className="text-red-500 group-hover:scale-125 transition-transform" />
+                                </div>
+                            )}
+                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => (
                                 <div
                                     key={i}
                                     onClick={() => {
