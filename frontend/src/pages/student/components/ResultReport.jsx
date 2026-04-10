@@ -282,12 +282,10 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
             const svgEl   = e.currentTarget.closest('svg');
             const svgRect = svgEl?.getBoundingClientRect();
             if (!rect || !svgRect) return;
-            const scaleX  = svgRect.width  / totalW;
-            const scaleY  = svgRect.height / svgViewH;
             const barH    = Math.max((d.value / maxVal) * chartH, 4);
             const barTopSvg = padT + (chartH - barH);
-            const px = svgRect.left - rect.left + (padL + i * (barW + gap) + barW / 2) * scaleX;
-            const py = svgRect.top  - rect.top  + barTopSvg * scaleY - 18;
+            const px = svgRect.left - rect.left + (padL + i * (barW + gap) + barW / 2);
+            const py = svgRect.top  - rect.top  + barTopSvg - 18;
             setTooltip({ label: d.label, value: d.value, color: d.color, px, py });
         };
 
@@ -314,7 +312,8 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                 )}
 
                 <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-6 ${muted}`}>{title}</p>
-                <svg width="100%" viewBox={`0 0 ${totalW} ${svgViewH}`} preserveAspectRatio="xMidYMid meet">
+                <div style={{ overflowX: 'auto', width: '100%' }}>
+                    <svg width={Math.max(totalW, 300)} height={svgViewH} style={{ minWidth: '100%' }}>
                     <defs>
                         {data.map((d, i) => (
                             <linearGradient key={i} id={gradIds[i]} x1="0" y1="0" x2="0" y2="1">
@@ -325,7 +324,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                     </defs>
 
                     {/* Baseline */}
-                    <line x1={padL} y1={padT + chartH} x2={totalW - 8} y2={padT + chartH}
+                    <line x1={padL} y1={padT + chartH} x2="100%" y2={padT + chartH}
                         stroke={isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0'} strokeWidth="1" />
 
                     {data.map((d, i) => {
@@ -374,6 +373,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                         );
                     })}
                 </svg>
+                </div>
             </div>
         );
     };
@@ -398,18 +398,13 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
             const svgRect = svgEl?.getBoundingClientRect();
             if (!rect || !svgRect) return;
 
-            const svgViewH = chartH + padB + padT;
-            const scaleX = svgRect.width  / totalW;
-            const scaleY = svgRect.height / svgViewH;
-
-            // Bar center X in container-relative pixels
             const barCenterX = padL + i * (barW + gap) + barW / 2;
-            const px = svgRect.left - rect.left + barCenterX * scaleX;
+            const px = svgRect.left - rect.left + barCenterX;
 
             // Bar top Y in container-relative pixels
             const barH = Math.max((d.score / maxScore) * chartH, 4);
             const barTopSvg = padT + (chartH - barH);
-            const py = svgRect.top - rect.top + barTopSvg * scaleY - 8;
+            const py = svgRect.top - rect.top + barTopSvg - 8;
 
             setTooltip({ label: d.label, score: d.score, px, py });
         };
@@ -455,7 +450,8 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                     </div>
                 </div>
 
-                <svg width="100%" viewBox={`0 0 ${totalW} ${chartH + padB + padT}`} preserveAspectRatio="none" style={{ minWidth: 520 }}>
+                <div style={{ overflowX: 'auto', width: '100%', minHeight: chartH + padB + padT }}>
+                    <svg width={Math.max(totalW, 520)} height={chartH + padB + padT} style={{ minWidth: '100%' }}>
                     <defs>
                         <linearGradient id="rankGradBlue" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%"   stopColor={PORTAL_BLUE}  stopOpacity="1" />
@@ -476,7 +472,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                         const y = padT + chartH - (v / maxScore) * chartH;
                         return (
                             <g key={v}>
-                                <line x1={padL} y1={y} x2={totalW - 10} y2={y}
+                                <line x1={padL} y1={y} x2="100%" y2={y}
                                     stroke={isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9'}
                                     strokeWidth="1" strokeDasharray={v === 0 ? '' : '4 4'} />
                                 <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="9"
@@ -522,6 +518,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                         );
                     })}
                 </svg>
+                </div>
             </div>
         );
     };
