@@ -675,7 +675,7 @@ class TestViewSet(viewsets.ModelViewSet):
         test = self.get_object()
         sections_data = []
 
-        for section in test.allotted_sections.all().order_by('priority'):
+        for section in test.sections.all().order_by('priority'):
             seen = set()
             order_list = section.question_order or []
             order_map = {str(oid): i for i, oid in enumerate(order_list)}
@@ -1785,7 +1785,7 @@ class TestViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
             
         # Order by priority
-        sections = test.allotted_sections.all().order_by('priority')
+        sections = test.sections.all().order_by('priority')
         
         sections_data = []
         from sections.serializers import SectionSerializer

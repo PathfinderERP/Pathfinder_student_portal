@@ -391,7 +391,7 @@ const TestAllotment = () => {
                                 <th className="py-6 px-6 text-center">#</th>
                                 <th className="py-6 px-6">Name</th>
                                 <th className="py-6 px-6">Test Code</th>
-                                <th className="py-6 px-6 text-center">Question Sections</th>
+                                <th className="py-6 px-6 text-center">Sections</th>
                                 <th className="py-6 px-6 text-center">Centres Allotted</th>
                                 <th className="py-6 px-6 text-center">Codes Sent</th>
                                 <th className="py-6 px-6 text-center">Manage Centres</th>
@@ -838,7 +838,7 @@ const TestAllotment = () => {
                     <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-orange-600 p-6 flex justify-between items-center text-white font-black">
                             <div>
-                                <h3 className="text-lg uppercase tracking-tight">Add to Sections</h3>
+                                <h3 className="text-lg uppercase tracking-tight">Select Sections</h3>
                                 <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest">{selectedTest?.name}</p>
                             </div>
                             <button onClick={() => setIsSectionModalOpen(false)} className="hover:rotate-90 transition-all text-white/90 hover:text-white">
@@ -884,7 +884,7 @@ const TestAllotment = () => {
 
                             {/* Modal Search/Filter Option */}
                             <div className="relative group pb-2 flex items-center justify-between gap-4">
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 ml-1">Available Master Sections</h4>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 ml-1">Available Sections</h4>
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => {
