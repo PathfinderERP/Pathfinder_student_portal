@@ -185,7 +185,7 @@ const ExamInstructions = () => {
                         Test Name :{test_name}
                     </h1>
                     <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                        Duration:180 min
+                        Duration: {duration || 'N/A'} min
                     </p>
                 </div>
 

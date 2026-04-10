@@ -838,7 +838,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # 1. Group questions by section
         flat_questions = []
         sections_info = []
-        for section in test.allotted_sections.all().order_by('priority'):
+        for section in test.sections.all().order_by('priority'):
             order_list = section.question_order or []
             order_map = {str(oid): i for i, oid in enumerate(order_list)}
             
@@ -1211,7 +1211,7 @@ class TestViewSet(viewsets.ModelViewSet):
                    or CustomUser.objects.filter(username__iexact=enrollment).first()
 
         # 2. Load all sections + questions once
-        sections = list(test.allotted_sections.all().order_by('priority'))
+        sections = list(test.sections.all().order_by('priority'))
         # Build flat q_map: q_id -> metadata
         q_map = {}
         sections_meta = []
@@ -1938,9 +1938,9 @@ class TestViewSet(viewsets.ModelViewSet):
         from questions.models import Question
         from sections.models import Section
         
-        # Resolve all questions in this test's allotted sections to correctly map marks
+        # Resolve all questions in this test's structural sections to correctly map marks
         questions_map = {}
-        for section in test.allotted_sections.all():
+        for section in test.sections.all():
             for q in section.questions.all():
                 questions_map[str(q.pk)] = {
                     'question': q,
@@ -2044,7 +2044,7 @@ class TestViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Please select at least 2 tests to merge.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Resolve tests
-        tests_qs = Test.objects.filter(pk__in=test_ids_raw).prefetch_related('allotted_sections')
+        tests_qs = Test.objects.filter(pk__in=test_ids_raw).prefetch_related('sections')
         tests_list = list(tests_qs)
         if len(tests_list) < 2:
             return Response({'error': 'Could not find the selected tests.'}, status=status.HTTP_404_NOT_FOUND)
@@ -2142,12 +2142,12 @@ class TestViewSet(viewsets.ModelViewSet):
             return Response([])
             
         # Get all published tests with sections to compute max marks efficiently if 0
-        published_tests = Test.objects.filter(is_result_published=True).prefetch_related('allotted_sections')
+        published_tests = Test.objects.filter(is_result_published=True).prefetch_related('sections')
         tests_map = {}
         for t in published_tests:
             if t.total_marks == 0:
                 calc_total = 0
-                for sec in t.allotted_sections.all():
+                for sec in t.sections.all():
                     unique_q_count = len(set(q.pk for q in sec.questions.all()))
                     calc_total += unique_q_count * float(sec.correct_marks or 0)
                 t.total_marks = int(calc_total)
