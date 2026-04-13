@@ -118,6 +118,28 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     });
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const mediaInputRef = useRef(null);
+    
+    // Debounced search state
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const debouncedSearchRef = useRef(null);
+
+    // Handle debounced search
+    useEffect(() => {
+        if (debouncedSearchRef.current) {
+            clearTimeout(debouncedSearchRef.current);
+        }
+        
+        debouncedSearchRef.current = setTimeout(() => {
+            setDebouncedSearch(filters.search);
+            setCurrentPage(1);
+        }, 500);
+        
+        return () => {
+            if (debouncedSearchRef.current) {
+                clearTimeout(debouncedSearchRef.current);
+            }
+        };
+    }, [filters.search]);
 
     // Filtered Questions Logic
     const filteredQuestions = useMemo(() => {
@@ -153,8 +175,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const qTestName = q.test_name?.id || q.test_name;
             if (filters.testNameId && String(qTestName) !== String(filters.testNameId)) return false;
 
-            if (filters.search) {
-                const searchTerm = filters.search.trim().toLowerCase();
+            // Use debounced search instead of immediate filter search
+            if (debouncedSearch) {
+                const searchTerm = debouncedSearch.trim().toLowerCase();
                 if (searchTerm) {
                     const qText = (q.question || q.content || '').toLowerCase();
                     const qId = String(q.id || q._id || '').toLowerCase();
@@ -185,9 +208,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             result.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
         }
 
-        setCurrentPage(1); // Reset to page 1 on filter change
         return result;
-    }, [questions, filters]);
+    }, [questions, filters, debouncedSearch, subjects, topics]);
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage);
@@ -268,9 +290,29 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         return { headers: { 'Authorization': `Bearer ${activeToken}` } };
     }, [token]);
 
-    // Fetch Master Data
+    // Fetch Master Data (with localStorage cache)
     const fetchMasterData = useCallback(async (force = false) => {
-        if (!force && classes.length > 0) return;
+        // Check cache first
+        const cached = localStorage.getItem('masterDataCache');
+        const cacheTime = localStorage.getItem('masterDataCacheTime');
+        const now = Date.now();
+        
+        // Use cache if less than 2 hours old and not forced
+        if (!force && cached && cacheTime && (now - JSON.parse(cacheTime) < 7200000)) {
+            try {
+                const data = JSON.parse(cached);
+                setClasses(data.classes);
+                setSubjects(data.subjects);
+                setTopics(data.topics);
+                setExamTypes(data.examTypes);
+                setTargetExams(data.targetExams);
+                setExamDetails(data.examDetails);
+                return;
+            } catch (e) {
+                localStorage.removeItem('masterDataCache');
+            }
+        }
+
         const config = getAuthConfig();
         if (!config) return;
 
@@ -285,22 +327,35 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
             ]);
-            setClasses(classRes.data);
-            setSubjects(subRes.data);
-            setTopics(topicRes.data);
-            setExamTypes(typeRes.data);
-            setTargetExams(targetRes.data);
-            setExamDetails(detailRes.data);
+            
+            const masterData = {
+                classes: classRes.data,
+                subjects: subRes.data,
+                topics: topicRes.data,
+                examTypes: typeRes.data,
+                targetExams: targetRes.data,
+                examDetails: detailRes.data
+            };
+            
+            // Cache for 2 hours
+            localStorage.setItem('masterDataCache', JSON.stringify(masterData));
+            localStorage.setItem('masterDataCacheTime', JSON.stringify(now));
+            
+            setClasses(masterData.classes);
+            setSubjects(masterData.subjects);
+            setTopics(masterData.topics);
+            setExamTypes(masterData.examTypes);
+            setTargetExams(masterData.targetExams);
+            setExamDetails(masterData.examDetails);
         } catch (err) {
             console.error("Failed to fetch master data", err);
         } finally {
             setIsLoadingMaster(false);
         }
-    }, [getApiUrl, getAuthConfig, classes.length]);
+    }, [getApiUrl, getAuthConfig]);
 
     // Fetch Questions
     const fetchQuestions = useCallback(async (force = false) => {
-        if (!force && questions.length > 0) return;
         const config = getAuthConfig();
         if (!config) return;
 
@@ -314,11 +369,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         } finally {
             setIsLoadingQuestions(false);
         }
-    }, [getApiUrl, getAuthConfig, questions.length]);
+    }, [getApiUrl, getAuthConfig]);
 
     // Fetch Images
     const fetchImages = useCallback(async (force = false) => {
-        if (!force && images.length > 0) return;
         const config = getAuthConfig();
         if (!config) return;
 
@@ -337,7 +391,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         } finally {
             setIsLoadingImages(false);
         }
-    }, [getApiUrl, getAuthConfig, imageFilters, images.length]);
+    }, [getApiUrl, getAuthConfig, imageFilters]);
 
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
@@ -348,6 +402,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
         setIsUploadingImage(true);
         const apiUrl = getApiUrl();
+        const uploadedImages = [];
 
         try {
             for (const file of files) {
@@ -357,14 +412,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 if (imageFilters.subjectId) formData.append('subject', imageFilters.subjectId);
                 if (imageFilters.topicId) formData.append('topic', imageFilters.topicId);
 
-                await axios.post(`${apiUrl}/api/questions/images/`, formData, {
+                const res = await axios.post(`${apiUrl}/api/questions/images/`, formData, {
                     headers: {
                         ...config.headers,
                         'Content-Type': 'multipart/form-data'
                     }
                 });
+                uploadedImages.push(res.data);
             }
-            fetchImages(true);
+            setImages(prev => [...prev, ...uploadedImages]);
             alert(`Successfully uploaded ${files.length} images`);
         } catch (err) {
             console.error("Image upload failed", err);
@@ -389,7 +445,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     });
 
     const fetchStats = useCallback(async (force = false) => {
-        if (!force && stats.total > 0) return;
         const config = getAuthConfig();
         if (!config) return;
         try {
@@ -399,21 +454,25 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         } catch (err) {
             console.error("Failed to fetch stats", err);
         }
-    }, [getApiUrl, getAuthConfig, stats.total]);
+    }, [getApiUrl, getAuthConfig]);
 
+    // Initialize master data and stats only once on mount
     useEffect(() => {
-        fetchMasterData();
-        fetchStats();
-    }, [fetchMasterData, fetchStats]);
+        const initializeData = async () => {
+            await fetchMasterData();
+            await fetchStats();
+        };
+        initializeData();
+    }, []);
 
     useEffect(() => {
         if (view === 'media') {
             fetchImages();
         }
-        if (view === 'repository') {
+        if (view === 'repository' && questions.length === 0) {
             fetchQuestions();
         }
-    }, [view, fetchImages, fetchQuestions]);
+    }, [view, questions.length]);
 
     // Media Cascading Filters
     const filteredSubjectsForMedia = useMemo(() => {
@@ -633,14 +692,19 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 setUploadProgress(0);
                 setSelectedFile(null);
 
-                const { message, errors } = response.data;
+                const { message, errors, data } = response.data;
                 if (errors && errors.length > 0) {
                     alert(`${message}\n\nErrors encountered:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...and more' : ''}`);
                 } else {
                     alert(message || "Bulk Question Import Successful!");
                 }
 
-                fetchQuestions(true); // Refresh the list
+                // Optimistic update: add new questions to state without full refetch
+                if (data && Array.isArray(data)) {
+                    setQuestions(prev => [...data, ...prev]);
+                } else {
+                    fetchQuestions(); // Fallback if no data returned
+                }
                 setView('repository'); // Take user to repository to see results
             }, 800);
 
@@ -1009,21 +1073,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     image_2: q.image_2,
                 };
 
+                let result;
                 if (form.id && q.tempId === form.id) {
-                    await axios.patch(`${apiUrl}/api/questions/${form.id}/`, payload, config);
+                    result = await axios.patch(`${apiUrl}/api/questions/${form.id}/`, payload, config);
+                    setQuestions(prev => prev.map(qu => (qu.id === form.id || qu._id === form.id) ? result.data : qu));
                 } else {
-                    await axios.post(`${apiUrl}/api/questions/`, payload, config);
+                    result = await axios.post(`${apiUrl}/api/questions/`, payload, config);
+                    setQuestions(prev => [result.data, ...prev]);
                 }
                 successCount++;
             }
 
             alert(`${successCount} Question(s) ${form.id ? 'updated' : 'added'} successfully!`);
-            
-            if (form.id || form.questions.length > 0) {
-                resetForm();
-                fetchQuestions(true);
-                if (form.id) setView('repository');
-            }
+            resetForm();
+            if (form.id) setView('repository');
 
         } catch (error) {
             console.error("Submission Error", error);
@@ -1133,11 +1196,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         try {
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
+            setQuestions(prev => prev.map(q => 
+                (q.id === questionId || q._id === questionId) ? { ...q, is_wrong: !q.is_wrong } : q
+            ));
             await axios.post(`${apiUrl}/api/questions/${questionId}/mark_wrong/`, {}, config);
-            fetchQuestions(true); // Refresh list
         } catch (error) {
             console.error("Failed to update status", error);
             alert("Failed to update status");
+            fetchQuestions();
         }
     };
 
@@ -1146,14 +1212,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         try {
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
-            await axios.delete(`${apiUrl}/api/questions/${questionId}/`, config);
-            fetchQuestions(true); // Refresh list
+            setQuestions(prev => prev.filter(q => q.id !== questionId && q._id !== questionId));
             if (selectedQuestion && (selectedQuestion.id === questionId || selectedQuestion._id === questionId)) {
                 setSelectedQuestion(null);
             }
+            await axios.delete(`${apiUrl}/api/questions/${questionId}/`, config);
         } catch (error) {
             console.error("Failed to delete", error);
             alert("Failed to delete question");
+            fetchQuestions();
         }
     };
 
@@ -1163,31 +1230,39 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         try {
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
-            await axios.post(`${apiUrl}/api/questions/bulk-delete/`, { ids: selectedInternalIds }, config);
-            alert(`Successfully deleted ${selectedInternalIds.length} questions`);
+            setQuestions(prev => prev.filter(q => !selectedInternalIds.includes(q.id) && !selectedInternalIds.includes(q._id)));
             setSelectedInternalIds([]);
             setIsInternalSelectionMode(false);
-            fetchQuestions(true);
+            await axios.post(`${apiUrl}/api/questions/bulk-delete/`, { ids: selectedInternalIds }, config);
+            alert(`Successfully deleted ${selectedInternalIds.length} questions`);
         } catch (error) {
             console.error("Bulk delete error", error);
             alert("Failed to perform bulk deletion");
+            fetchQuestions();
         }
     };
 
     const handleBulkUpdate = async () => {
         if (!selectedInternalIds.length) return;
-        
-        // Check if any field is filled
         const hasUpdates = Object.values(bulkUpdateFields).some(val => val !== '');
         if (!hasUpdates) {
             alert("Please select at least one field to update.");
             return;
         }
-
         setIsBulkUpdateLoading(true);
         try {
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
+            setQuestions(prev => prev.map(q => {
+                if (selectedInternalIds.includes(q.id) || selectedInternalIds.includes(q._id)) {
+                    const updates = {};
+                    Object.keys(bulkUpdateFields).forEach(key => {
+                        if (bulkUpdateFields[key] !== '') updates[key] = bulkUpdateFields[key];
+                    });
+                    return { ...q, ...updates };
+                }
+                return q;
+            }));
             await axios.post(`${apiUrl}/api/questions/bulk-update/`, {
                 ids: selectedInternalIds,
                 updates: bulkUpdateFields
@@ -1196,10 +1271,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             setShowBulkUpdateModal(false);
             setSelectedInternalIds([]);
             setIsInternalSelectionMode(false);
-            fetchQuestions(true);
         } catch (error) {
             console.error("Bulk update error", error);
             alert("Failed to perform bulk update");
+            fetchQuestions();
         } finally {
             setIsBulkUpdateLoading(false);
         }
