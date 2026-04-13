@@ -33,6 +33,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [error, setError] = useState(null);
+    
+    // Pagination state (100 items per page for good UX)
+    const [pageNumber, setPageNumber] = useState(1);
+    const ITEMS_PER_PAGE = 100;
 
     // Tab Scrolling Ref and Drag State
     const scrollRef = useRef(null);
@@ -126,6 +130,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     });
 
     const lastFetchedTab = useRef(null);
+    const masterDataCacheRef = useRef({}); // Cache master data in memory
+    const masterDataTimestampRef = useRef(null); // Track cache time
+    const MASTER_DATA_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
     const sessionLabel = useMemo(() => {
         if (sessionFilter === 'all') return 'Sessions';
@@ -178,6 +185,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previews, setPreviews] = useState([]);
     const mediaInputRef = useRef(null);
+    
+    // Debounced search state
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const debouncedSearchRef = useRef(null);
 
     // Cascading Filter Options for "Exam Details" subtab
     const availableSessionsForFilter = useMemo(() => {
@@ -223,32 +234,76 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         return { headers: { 'Authorization': `Bearer ${activeToken}` } };
     }, [token]);
 
+    // Function to fetch master data with caching (defined after getAuthConfig)
+    const fetchMasterData = useCallback(async () => {
+        const now = Date.now();
+        
+        // Return cached data if available and not stale
+        if (masterDataCacheRef.current && 
+            masterDataTimestampRef.current && 
+            (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
+            Object.keys(masterDataCacheRef.current).length > 0) {
+            const cached = masterDataCacheRef.current;
+            setSessions(cached.sessions || []);
+            setExamTypes(cached.examTypes || []);
+            setClasses(cached.classes || []);
+            setTargetExams(cached.targetExams || []);
+            setSubjects(cached.subjects || []);
+            setTopics(cached.topics || []);
+            setChapters(cached.chapters || []);
+            return;
+        }
+
+        // Fetch all master data in parallel
+        const config = getAuthConfig();
+        if (!config) return;
+
+        try {
+            const apiUrl = getApiUrl();
+            const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
+                axios.get(`${apiUrl}/api/master-data/classes/`, config),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
+                axios.get(`${apiUrl}/api/master-data/subjects/`, config),
+                axios.get(`${apiUrl}/api/master-data/topics/`, config),
+                axios.get(`${apiUrl}/api/master-data/chapters/`, config),
+            ]);
+
+            // Cache the data
+            masterDataCacheRef.current = {
+                sessions: sessRes.data,
+                examTypes: typeRes.data,
+                classes: classRes.data,
+                targetExams: targetRes.data,
+                subjects: subRes.data,
+                topics: topicRes.data,
+                chapters: chapRes.data,
+            };
+            masterDataTimestampRef.current = now;
+
+            // Update states
+            setSessions(sessRes.data);
+            setExamTypes(typeRes.data);
+            setClasses(classRes.data);
+            setTargetExams(targetRes.data);
+            setSubjects(subRes.data);
+            setTopics(topicRes.data);
+            setChapters(chapRes.data);
+        } catch (err) {
+            console.error('Failed to fetch master data:', err);
+        }
+    }, [getAuthConfig, getApiUrl]);
+
     const fetchData = useCallback(async (force = false, topicFilterId = null) => {
         if (!currentTabConfig || activeSubTab === 'Section Management') return;
 
         // For SubTopic, skip the bulk data fetch - use topic filter instead
         if (activeSubTab === 'SubTopic' && !topicFilterId && !force) {
-            // Just load the topics/chapters dropdowns for the filter
-            const config = getAuthConfig();
-            if (!config) return;
-            setIsLoading(true);
-            try {
-                const apiUrl = getApiUrl();
-                const [topicRes, chapRes, subRes] = await Promise.all([
-                    axios.get(`${apiUrl}/api/master-data/topics/`, config),
-                    axios.get(`${apiUrl}/api/master-data/chapters/`, config),
-                    axios.get(`${apiUrl}/api/master-data/subjects/`, config),
-                ]);
-                setTopics(topicRes.data);
-                setChapters(chapRes.data);
-                setSubjects(subRes.data);
-                setData([]);
-                lastFetchedTab.current = activeSubTab;
-            } catch (err) {
-                console.error('Failed to load SubTopic lookups', err);
-            } finally {
-                setIsLoading(false);
-            }
+            // Load master data from cache
+            await fetchMasterData();
+            setData([]);
+            lastFetchedTab.current = activeSubTab;
             return;
         }
 
@@ -263,31 +318,21 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             const endpoint = activeSubTab === 'Image' ? 'questions/images' : `master-data/${currentTabConfig.endpoint}`;
-            const params = topicFilterId ? `?topic=${topicFilterId}` : '';
-            const response = await axios.get(`${apiUrl}/api/${endpoint}/${params}`, config);
+            
+            // Build parameters for pagination and filtering
+            const queryParams = new URLSearchParams();
+            queryParams.append('page', pageNumber);
+            queryParams.append('limit', ITEMS_PER_PAGE);
+            if (topicFilterId) queryParams.append('topic', topicFilterId);
+            
+            const paramsString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+            const response = await axios.get(`${apiUrl}/api/${endpoint}/${paramsString}`, config);
             setData(response.data);
             if (!topicFilterId) lastFetchedTab.current = activeSubTab;
 
+            // Load master data from cache instead of making repeated API calls
             if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
-                const requests = [
-                    axios.get(`${apiUrl}/api/master-data/sessions/`, config),
-                    axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
-                    axios.get(`${apiUrl}/api/master-data/classes/`, config),
-                    axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
-                    axios.get(`${apiUrl}/api/master-data/subjects/`, config),
-                    axios.get(`${apiUrl}/api/master-data/topics/`, config),
-                    axios.get(`${apiUrl}/api/master-data/chapters/`, config),
-                ];
-                const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes] = await Promise.all(requests);
-                setSessions(sessRes.data);
-                setExamTypes(typeRes.data);
-                setClasses(classRes.data);
-                setTargetExams(targetRes.data);
-                setSubjects(subRes.data);
-                setTopics(topicRes.data);
-                setChapters(chapRes.data);
-                // SubTopics are NOT bulk-fetched here - they are too large.
-                // They are fetched lazily when a topic is selected in the form.
+                await fetchMasterData();
             }
         } catch (err) {
             console.error(`Failed to fetch ${activeSubTab} data:`, err);
@@ -299,7 +344,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [currentTabConfig, getApiUrl, getAuthConfig, activeSubTab, data.length]);
+    }, [currentTabConfig, getApiUrl, getAuthConfig, activeSubTab, fetchMasterData]);
 
     // Fetch CSRF token on mount
     useEffect(() => {
@@ -329,8 +374,33 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         fetchCSRFToken();
     }, [getApiUrl, getAuthConfig]);
 
+    // Handle debounced search
+    useEffect(() => {
+        if (debouncedSearchRef.current) {
+            clearTimeout(debouncedSearchRef.current);
+        }
+        
+        debouncedSearchRef.current = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        
+        return () => {
+            if (debouncedSearchRef.current) {
+                clearTimeout(debouncedSearchRef.current);
+            }
+        };
+    }, [searchTerm]);
+
+    // Pre-load master data on mount for faster tab switching
+    useEffect(() => {
+        fetchMasterData();
+    }, [fetchMasterData]);
+
+    // Reset filters on tab change
     useEffect(() => {
         setSearchTerm('');
+        setDebouncedSearch('');
+        setPageNumber(1); // Reset to first page
         setStatusFilter('all');
         setSessionFilter('all');
         setExamTypeFilter('all');
@@ -339,7 +409,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         setSubjectFilter('all');
         setTopicFilter('all');
         fetchData();
-    }, [fetchData]);
+    }, [activeSubTab, fetchData]);
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => {
@@ -373,6 +443,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         const apiUrl = getApiUrl();
 
         try {
+            const uploadedImages = [];
             for (const file of selectedFiles) {
                 const formData = new FormData();
                 formData.append('image', file);
@@ -383,14 +454,18 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 if (formValues.exam_type) formData.append('exam_type', formValues.exam_type);
                 if (formValues.target_exam) formData.append('target_exam', formValues.target_exam);
 
-                await axios.post(`${apiUrl}/api/questions/images/`, formData, {
+                const result = await axios.post(`${apiUrl}/api/questions/images/`, formData, {
                     headers: {
                         ...config.headers,
                         'Content-Type': 'multipart/form-data'
                     }
                 });
+                uploadedImages.push(result.data);
             }
-            fetchData(true);
+            
+            // Optimistic: add new images to local state
+            setData(prev => [...uploadedImages, ...prev]);
+            
             setIsModalOpen(false);
             setSelectedFiles([]);
             setPreviews([]);
@@ -398,6 +473,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         } catch (err) {
             console.error("Image upload failed", err);
             toast.error("Failed to upload image(s)");
+            fetchData(true); // Revert on error
         } finally {
             setIsActionLoading(false);
             setIsUploadingImage(false);
@@ -531,17 +607,20 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 config.headers['X-CSRFToken'] = csrfToken;
             }
 
+            // Optimistic delete: remove from local state immediately
+            setData(prev => prev.filter(item => (item.id !== id && item._id !== id)));
+            
             // Use correct endpoint based on active tab
             const endpoint = activeSubTab === 'Image'
                 ? `questions/images/${id}`
                 : `master-data/${currentTabConfig.endpoint}/${id}`;
 
             await axios.delete(`${apiUrl}/api/${endpoint}/`, config);
-            await fetchData(true);
             toast.success('Item deleted successfully!');
         } catch (err) {
             console.error('Delete failed:', err);
             toast.error('Failed to delete item');
+            fetchData(true); // Revert on error
         } finally {
             setIsActionLoading(false);
         }
@@ -551,14 +630,18 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            
+            // Optimistic update: toggle in local state
+            setData(prev => prev.map(d => d.id === item.id ? { ...d, is_active: !d.is_active } : d));
+            
             await axios.patch(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/${item.id}/`,
                 { is_active: !item.is_active },
                 getAuthConfig()
             );
-            fetchData(true);
             toast.success('Status updated successfully');
         } catch (err) {
             toast.error('Failed to toggle status');
+            fetchData(true); // Revert on error
         } finally {
             setIsActionLoading(false);
         }
@@ -576,13 +659,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             if (modalMode === 'create') {
-                await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/`, formValues, getAuthConfig());
+                const result = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/`, formValues, getAuthConfig());
+                // Optimistic: add to local state
+                setData(prev => [result.data, ...prev]);
             } else {
                 const endpoint = activeSubTab === 'Image' ? `questions/images/${selectedItem.id}` : `master-data/${currentTabConfig.endpoint}/${selectedItem.id}`;
-                await axios.patch(`${apiUrl}/api/${endpoint}/`, formValues, getAuthConfig());
+                const result = await axios.patch(`${apiUrl}/api/${endpoint}/`, formValues, getAuthConfig());
+                // Optimistic: update in local state
+                setData(prev => prev.map(d => d.id === selectedItem.id ? result.data : d));
             }
             setIsModalOpen(false);
-            fetchData(true);
             toast.success(`${modalMode === 'create' ? 'Created' : 'Updated'} successfully!`);
         } catch (err) {
             toast.error(`Failed to ${modalMode} item: ` + (err.response?.data?.code || err.message));
@@ -591,11 +677,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
     };
 
-    const filteredData = data.filter(item => {
+    const filteredData = useMemo(() => { return data.filter(item => {
         if (activeSubTab === 'Exam Details') {
-            const matchesSearch = item.session_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.exam_type_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.class_level_name?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = item.session_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.exam_type_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
             let matchesStatus = true;
             if (statusFilter === 'active') matchesStatus = item.is_active === true;
@@ -610,10 +696,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
 
         if (activeSubTab === 'Chapter') {
-            const matchesSearch = (item.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.subject_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.class_level_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+            const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.subject_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.class_level_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
 
             let matchesStatus = true;
             if (statusFilter === 'active') matchesStatus = item.is_active === true;
@@ -623,9 +709,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
 
         if (activeSubTab === 'SubTopic') {
-            const matchesSearch = (item.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.topic_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+            const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.topic_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
 
             let matchesStatus = true;
             if (statusFilter === 'active') matchesStatus = item.is_active === true;
@@ -635,11 +721,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
 
         if (activeSubTab === 'Topic') {
-            const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.subject_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.chapter_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.class_level_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.code?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = item.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.subject_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.chapter_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.code?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
             let matchesStatus = true;
             if (statusFilter === 'active') matchesStatus = item.is_active === true;
@@ -649,9 +735,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
 
         if (activeSubTab === 'Image') {
-            const matchesSearch = (item.topic_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.subject_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (item.image?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+            const matchesSearch = (item.topic_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.subject_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                (item.image?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
 
             const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
             const matchesSubject = subjectFilter === 'all' || String(item.subject) === String(subjectFilter);
@@ -662,15 +748,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             return matchesSearch && matchesClass && matchesSubject && matchesTopic && matchesExamType && matchesTarget;
         }
 
-        const matchesSearch = (item.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (item.code?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+        const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+            (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
 
         let matchesStatus = true;
         if (statusFilter === 'active') matchesStatus = item.is_active === true;
         if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
 
         return matchesSearch && matchesStatus;
-    });
+    }); }, [data, debouncedSearch, statusFilter, activeSubTab, sessionFilter, classFilter, targetFilter, topicFilter, subjectFilter, examTypeFilter]);
 
     const renderHeader = () => (
         <div className={`p-6 rounded-[5px] border shadow-xl mb-6 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>

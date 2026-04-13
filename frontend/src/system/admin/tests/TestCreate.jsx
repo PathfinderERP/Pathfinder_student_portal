@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
     FileText, Plus, Search, Edit2, Trash2, Filter, Loader2,
@@ -46,14 +46,20 @@ const TestCreate = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
-
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const debouncedSearchRef = useRef(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [error, setError] = useState(null);
+    
+    // Master data caching
+    const masterDataCacheRef = useRef({});
+    const masterDataTimestampRef = useRef(null);
+    const MASTER_DATA_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
     // Master Data for Dropdowns
     const [sessions, setSessions] = useState([]);
@@ -94,6 +100,55 @@ const TestCreate = () => {
         const activeToken = token || localStorage.getItem('auth_token');
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
+
+    // Fetch master data with caching
+    const fetchMasterData = useCallback(async () => {
+        const now = Date.now();
+        
+        if (masterDataCacheRef.current && 
+            masterDataTimestampRef.current && 
+            (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
+            Object.keys(masterDataCacheRef.current).length > 0) {
+            const cached = masterDataCacheRef.current;
+            setSessions(cached.sessions || []);
+            setExamTypes(cached.examTypes || []);
+            setClasses(cached.classes || []);
+            setTargetExams(cached.targetExams || []);
+            setExamDetails(cached.examDetails || []);
+            return;
+        }
+
+        const config = getAuthConfig();
+        if (!config.headers) return;
+
+        try {
+            const apiUrl = getApiUrl();
+            const [sessRes, typeRes, classRes, targetRes, detailRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
+                axios.get(`${apiUrl}/api/master-data/classes/`, config),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
+            ]);
+
+            masterDataCacheRef.current = {
+                sessions: sessRes.data,
+                examTypes: typeRes.data,
+                classes: classRes.data,
+                targetExams: targetRes.data,
+                examDetails: detailRes.data
+            };
+            masterDataTimestampRef.current = now;
+
+            setSessions(sessRes.data);
+            setExamTypes(typeRes.data);
+            setClasses(classRes.data);
+            setTargetExams(targetRes.data);
+            setExamDetails(detailRes.data);
+        } catch (err) {
+            console.error('Failed to fetch master data:', err);
+        }
+    }, [getAuthConfig, getApiUrl]);
 
     // Helper to process and upload Base64 images from HTML content before saving to DB
     const processEditorImages = async (html) => {
@@ -145,29 +200,40 @@ const TestCreate = () => {
             const apiUrl = getApiUrl();
             const config = getAuthConfig();
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
-            setData(response.data);
-
-            // Fetch Master Data for dropdowns
-            const [sessRes, typeRes, classRes, targetRes, detailRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
-                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
-                axios.get(`${apiUrl}/api/master-data/classes/`, config),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
-                axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
-            ]);
-            setSessions(sessRes.data);
-            setExamTypes(typeRes.data);
-            setClasses(classRes.data);
-            setTargetExams(targetRes.data);
-            setExamDetails(detailRes.data);
-
+            setData(Array.isArray(response.data) ? response.data : response.data.results || response.data);
+            
+            // Use cached master data instead of repeated API calls
+            await fetchMasterData();
         } catch (err) {
             console.error('Failed to fetch test data:', err);
             setError('Failed to load test management data.');
         } finally {
             setIsLoading(false);
         }
-    }, [getApiUrl, getAuthConfig, data.length]);
+    }, [getApiUrl, getAuthConfig, fetchMasterData]);
+
+    // Handle debounced search
+    useEffect(() => {
+        if (debouncedSearchRef.current) {
+            clearTimeout(debouncedSearchRef.current);
+        }
+        
+        debouncedSearchRef.current = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1);
+        }, 500);
+        
+        return () => {
+            if (debouncedSearchRef.current) {
+                clearTimeout(debouncedSearchRef.current);
+            }
+        };
+    }, [searchTerm]);
+
+    // Pre-load master data on mount
+    useEffect(() => {
+        fetchMasterData();
+    }, [fetchMasterData]);
 
     useEffect(() => {
         fetchData();
@@ -216,12 +282,16 @@ const TestCreate = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to delete this test?')) return;
         setIsActionLoading(true);
+        
+        // Optimistic delete
+        setData(prev => prev.filter(item => item.id !== id));
+        
         try {
             const apiUrl = getApiUrl();
             await axios.delete(`${apiUrl}/api/tests/${id}/`, getAuthConfig());
-            fetchData(true);
         } catch (err) {
             alert('Failed to delete test');
+            fetchData(true); // Revert on error
         } finally {
             setIsActionLoading(false);
         }
@@ -229,15 +299,19 @@ const TestCreate = () => {
 
     const handleToggleStatus = async (item) => {
         setIsActionLoading(true);
+        
+        // Optimistic toggle
+        setData(prev => prev.map(d => d.id === item.id ? { ...d, is_completed: !d.is_completed } : d));
+        
         try {
             const apiUrl = getApiUrl();
             await axios.patch(`${apiUrl}/api/tests/${item.id}/`,
                 { is_completed: !item.is_completed },
                 getAuthConfig()
             );
-            fetchData(true);
         } catch (err) {
             alert('Failed to update status');
+            fetchData(true); // Revert on error
         } finally {
             setIsActionLoading(false);
         }
@@ -256,12 +330,15 @@ const TestCreate = () => {
             const finalPayload = { ...formValues, instructions: cleanInstructions, description: cleanDescription };
 
             if (modalMode === 'create') {
-                await axios.post(`${apiUrl}/api/tests/`, finalPayload, config);
+                const result = await axios.post(`${apiUrl}/api/tests/`, finalPayload, config);
+                // Optimistic add
+                setData(prev => [result.data, ...prev]);
             } else {
-                await axios.patch(`${apiUrl}/api/tests/${selectedItem.id}/`, finalPayload, config);
+                const result = await axios.patch(`${apiUrl}/api/tests/${selectedItem.id}/`, finalPayload, config);
+                // Optimistic update
+                setData(prev => prev.map(d => d.id === selectedItem.id ? result.data : d));
             }
             setIsModalOpen(false);
-            fetchData(true);
         } catch (err) {
             alert(`Failed to ${modalMode} test: ` + (err.response?.data?.code || err.message));
         } finally {
@@ -271,8 +348,8 @@ const TestCreate = () => {
 
     const filteredRecords = useMemo(() => {
         return data.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = item.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                item.code.toLowerCase().includes(debouncedSearch.toLowerCase());
 
             let matchesStatus = true;
             if (statusFilter === 'completed') matchesStatus = item.is_completed === true;
@@ -280,12 +357,12 @@ const TestCreate = () => {
 
             return matchesSearch && matchesStatus;
         });
-    }, [data, searchTerm, statusFilter]);
+    }, [data, debouncedSearch, statusFilter]);
 
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter]);
+    }, [debouncedSearch, statusFilter]);
 
     const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
     const currentRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -328,7 +405,7 @@ const TestCreate = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
                     <input
                         type="text"
-                        placeholder="Search by name or code"
+                        placeholder="Search by name or code (500ms debounce)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
@@ -633,71 +710,72 @@ const TestCreate = () => {
     const renderModal = () => {
         if (!isModalOpen) return null;
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-8">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                <div className={`relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
+                <div className={`relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
                     {/* Header */}
                     <div className="shrink-0 bg-orange-500 p-6 flex justify-between items-center z-10">
                         <h2 className="text-xl font-bold text-white tracking-tight">
                             {modalMode === 'create' ? 'Add' : 'Edit'} Exam Details
                         </h2>
-                        <button onClick={() => setIsModalOpen(false)} className="text-white hover:scale-110 transition-transform">
+                        <button onClick={() => setIsModalOpen(false)} className="text-white hover:scale-110 transition-transform p-1">
                             <X size={24} strokeWidth={3} />
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                        <div className="space-y-6">
-                            {/* Relational Selects */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
-                                    <select
-                                        value={formValues.session}
-                                        onChange={e => setFormValues({ ...formValues, session: e.target.value, class_level: '', target_exam: '', exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                    >
-                                        <option value="">Select Session</option>
-                                        {availableSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
+                    <form id="test-form" onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                            <div className="space-y-6">
+                                {/* Relational Selects */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
+                                        <select
+                                            value={formValues.session}
+                                            onChange={e => setFormValues({ ...formValues, session: e.target.value, class_level: '', target_exam: '', exam_type: '', name: '', code: '' })}
+                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        >
+                                            <option value="">Select Session</option>
+                                            {availableSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                        <select
+                                            disabled={!formValues.session}
+                                            value={formValues.class_level}
+                                            onChange={e => setFormValues({ ...formValues, class_level: e.target.value, target_exam: '', exam_type: '', name: '', code: '' })}
+                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        >
+                                            <option value="">Select Class</option>
+                                            {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                        <select
+                                            disabled={!formValues.class_level}
+                                            value={formValues.target_exam}
+                                            onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
+                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        >
+                                            <option value="">Select Target</option>
+                                            {availableTargetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                        <select
+                                            disabled={!formValues.target_exam}
+                                            value={formValues.exam_type}
+                                            onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
+                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
+                                        >
+                                            <option value="">Select Type</option>
+                                            {availableExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                    <select
-                                        disabled={!formValues.session}
-                                        value={formValues.class_level}
-                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, target_exam: '', exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                    >
-                                        <option value="">Select Class</option>
-                                        {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
-                                    <select
-                                        disabled={!formValues.class_level}
-                                        value={formValues.target_exam}
-                                        onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                    >
-                                        <option value="">Select Target</option>
-                                        {availableTargetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                                    <select
-                                        disabled={!formValues.target_exam}
-                                        value={formValues.exam_type}
-                                        onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
-                                        className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                    >
-                                        <option value="">Select Type</option>
-                                        {availableExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
 
                             {/* Title & Code */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -795,13 +873,16 @@ const TestCreate = () => {
                             />
                         </div>
 
-                        <div className="flex justify-center pt-8">
+                        </div>
+
+                        {/* Sticky Footer */}
+                        <div className={`shrink-0 p-6 border-t flex justify-center ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
                             <button
                                 type="submit"
                                 disabled={isActionLoading}
-                                className="px-10 py-4 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-bold text-sm shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                                className="px-10 py-3.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                             >
-                                {isActionLoading ? <Loader2 className="animate-spin" /> : <>{modalMode === 'create' ? 'Add Test' : 'Update Test'}</>}
+                                {isActionLoading ? <Loader2 className="animate-spin" size={16} /> : <>{modalMode === 'create' ? 'Add Test' : 'Update Test'}</>}
                             </button>
                         </div>
                     </form>
