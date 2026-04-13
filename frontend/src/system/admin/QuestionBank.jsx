@@ -1361,11 +1361,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             value={filters.level}
                             options={[
                                 { value: '', label: 'All Levels' },
-                                { value: '1', label: 'Level 1' },
-                                { value: '2', label: 'Level 2' },
-                                { value: '3', label: 'Level 3' },
-                                { value: '4', label: 'Level 4' },
-                                { value: '5', label: 'Level 5' }
+                                { value: 'very_easy', label: 'Very Easy' },
+                                { value: 'easy', label: 'Easy' },
+                                { value: 'moderate', label: 'Moderate' },
+                                { value: 'hard', label: 'Hard' },
+                                { value: 'very_hard', label: 'Very Hard' }
                             ]}
                             placeholder="All Levels"
                             onChange={(val) => setFilters({ ...filters, level: val })}
@@ -1986,14 +1986,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, testNameId: val })}
                         />
                         <CustomSelect
-                            label="Default Level"
+                            label="Difficulty Level"
                             value={form.level}
                             options={[
-                                { value: '1', label: '1' },
-                                { value: '2', label: '2' },
-                                { value: '3', label: '3' },
-                                { value: '4', label: '4' },
-                                { value: '5', label: '5' }
+                                { value: '', label: 'All Levels' },
+                                { value: 'very_easy', label: 'Very Easy' },
+                                { value: 'easy', label: 'Easy' },
+                                { value: 'moderate', label: 'Moderate' },
+                                { value: 'hard', label: 'Hard' },
+                                { value: 'very_hard', label: 'Very Hard' }
                             ]}
                             placeholder="Select Level"
                             onChange={(val) => setForm({ ...form, level: val })}
@@ -2639,12 +2640,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 label="Update Difficulty"
                                 value={bulkUpdateFields.difficulty_level}
                                 options={[
-                                    { value: '1', label: 'Level 1' },
-                                    { value: '2', label: 'Level 2' },
-                                    { value: '3', label: 'Level 3' },
-                                    { value: '4', label: 'Level 4' },
-                                    { value: '5', label: 'Level 5' }
-                                ]}
+                                { value: '', label: 'All Levels' },
+                                { value: 'very_easy', label: 'Very Easy' },
+                                { value: 'easy', label: 'Easy' },
+                                { value: 'moderate', label: 'Moderate' },
+                                { value: 'hard', label: 'Hard' },
+                                { value: 'very_hard', label: 'Very Hard' }
+                            ]}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, difficulty_level: val })}
                             />
