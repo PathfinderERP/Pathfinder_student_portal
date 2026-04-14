@@ -155,6 +155,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
                     final_updates[k] = v
                     
             updated_count = Question.objects.filter(pk__in=object_ids).update(**final_updates)
+            from django.core.cache import cache
             cache.delete("dashboard_question_stats_v1")
             return Response({"message": f"Successfully updated {updated_count} questions"})
         except Exception as e:

@@ -18,7 +18,8 @@ const TestManagement = ({ packageData, onBack }) => {
             const apiUrl = getApiUrl();
             const config = { headers: { 'Authorization': `Bearer ${token || localStorage.getItem('auth_token')}` } };
             const response = await axios.get(`${apiUrl}/api/tests/?package=${packageData._id}`, config);
-            setTests(response.data);
+            const data = Array.isArray(response.data) ? response.data : (response.data.results || []);
+            setTests(data);
         } catch (err) {
             console.error("Failed to fetch tests", err);
         } finally {

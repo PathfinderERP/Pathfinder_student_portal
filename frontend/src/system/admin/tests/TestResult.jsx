@@ -33,7 +33,9 @@ const TestResult = () => {
             const res = await axios.get(`${apiUrl}/api/tests/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setTests(res.data);
+            const data = res.data;
+            const testList = Array.isArray(data) ? data : (data.results || []);
+            setTests(testList);
         } catch (err) {
             console.error('Error fetching tests:', err);
         } finally {

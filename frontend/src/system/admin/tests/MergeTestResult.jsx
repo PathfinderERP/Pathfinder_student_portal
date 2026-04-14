@@ -35,7 +35,9 @@ const MergeTestResult = () => {
         try {
             const apiUrl = getApiUrl();
             const res = await axios.get(`${apiUrl}/api/tests/`, axiosConfig());
-            setTests(res.data);
+            const data = res.data;
+            const testList = Array.isArray(data) ? data : (data.results || []);
+            setTests(testList);
         } catch (err) {
             console.error('Error fetching tests:', err);
         } finally {

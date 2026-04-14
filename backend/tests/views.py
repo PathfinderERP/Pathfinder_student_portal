@@ -30,7 +30,7 @@ class TestViewSet(viewsets.ModelViewSet):
             queryset = Test.objects.all().select_related(
                 'session', 'target_exam', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'allotted_sections', 'centre_allotments'
+                'allotted_sections', 'centre_allotments', 'centres', 'sections', 'exam_type__target_exams'
             ).order_by('-created_at')
         else:
             # Full prefetch only for detail view or management tabs
@@ -132,13 +132,22 @@ class TestViewSet(viewsets.ModelViewSet):
         existing_allotments = TestCentreAllotment.objects.filter(test=instance)
         
         # Delete stale allotments (those no longer in the centres list)
+        existing_centre_ids = set()
         for allotment in existing_allotments:
-            if str(allotment.centre_id) not in current_centre_ids:
+            c_id = str(allotment.centre_id)
+            if c_id not in current_centre_ids:
                 allotment.delete()
+            else:
+                existing_centre_ids.add(c_id)
 
-        # Create missing allotments for newly added centres
+        # Create missing allotments for newly added centres via bulk
+        new_allotments = []
         for centre in centres:
-            TestCentreAllotment.objects.get_or_create(test=instance, centre=centre)
+            if str(centre.pk) not in existing_centre_ids:
+                new_allotments.append(TestCentreAllotment(test=instance, centre=centre))
+                
+        if new_allotments:
+            TestCentreAllotment.objects.bulk_create(new_allotments)
 
     # Local burst protection for TestViewSet
     _local_cache = {}
@@ -186,6 +195,22 @@ class TestViewSet(viewsets.ModelViewSet):
         response = super().list(request, *args, **kwargs)
         
         if is_staff:
+            # OPTIMIZATION INJECTION: calculate total_students in bulk!
+            from api.db_utils import get_db
+            db = get_db()
+            if db is not None:
+                try:
+                    pipeline = [{"$group": {"_id": "$test_id", "count": {"$sum": 1}}}]
+                    counts = list(db['tests_testsubmission'].aggregate(pipeline))
+                    count_map = {str(item["_id"]): item["count"] for item in counts}
+                    
+                    data_items = response.data.get('results', []) if isinstance(response.data, dict) else response.data
+                    if isinstance(data_items, list):
+                        for item in data_items:
+                            item['total_students'] = count_map.get(str(item.get('id')), 0)
+                except Exception as e:
+                    pass
+
             # Cache for a longer time (10 mins) to ensure speed, while allowing force-refresh
             cache.set("admin_test_list", response.data, 600)
             self.__class__._local_cache["admin_test_list"] = {'data': response.data, 'time': now}

@@ -328,13 +328,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
             ]);
 
+            const extractData = (res) => Array.isArray(res.data) ? res.data : (res.data.results || []);
+
             const masterData = {
-                classes: classRes.data,
-                subjects: subRes.data,
-                topics: topicRes.data,
-                examTypes: typeRes.data,
-                targetExams: targetRes.data,
-                examDetails: detailRes.data
+                classes: extractData(classRes),
+                subjects: extractData(subRes),
+                topics: extractData(topicRes),
+                examTypes: extractData(typeRes),
+                targetExams: extractData(targetRes),
+                examDetails: extractData(detailRes)
             };
 
             // Cache for 2 hours
@@ -363,7 +365,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/questions/`, config);
-            setQuestions(response.data);
+            const data = response.data;
+            const questionList = Array.isArray(data) ? data : (data.results || data.questions || []);
+            setQuestions(questionList);
         } catch (err) {
             console.error("Failed to fetch questions", err);
         } finally {
@@ -385,7 +389,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             if (imageFilters.topicId) params.append('topic', imageFilters.topicId);
 
             const res = await axios.get(`${apiUrl}/api/questions/images/?${params.toString()}`, config);
-            setImages(res.data);
+            const data = res.data;
+            const imageList = Array.isArray(data) ? data : (data.results || data.images || []);
+            setImages(imageList);
         } catch (err) {
             console.error("Failed to fetch images", err);
         } finally {

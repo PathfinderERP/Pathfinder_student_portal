@@ -36,7 +36,8 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
             console.log("DEBUG: Fetching tests for package:", pkgId);
             const response = await axios.get(`${apiUrl}/api/tests/?package=${pkgId}`, config);
             console.log("DEBUG: Tests for package response:", response.data);
-            setTests(response.data);
+            const data = Array.isArray(response.data) ? response.data : (response.data.results || []);
+            setTests(data);
         } catch (err) {
             console.error("Failed to fetch tests", err);
         } finally {
@@ -104,7 +105,8 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
 
             // Filter out tests already in this package
             const existingIds = tests.map(t => t.id || t._id);
-            const unassigned = response.data.filter(t => !existingIds.includes(t.id || t._id));
+            const testList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+            const unassigned = testList.filter(t => !existingIds.includes(t.id || t._id));
 
             setAvailableTests(unassigned);
         } catch (err) {

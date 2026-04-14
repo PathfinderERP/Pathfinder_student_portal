@@ -30,7 +30,8 @@ const TestResponses = () => {
             const res = await axios.get(`${apiUrl}/api/tests/${forceRefresh ? '?refresh=true' : ''}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setTests(res.data);
+            const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+            setTests(data);
             if (forceRefresh) toast.success('ERP Data Synchronized Successfully!');
         } catch (err) {
             console.error('Error fetching tests:', err);

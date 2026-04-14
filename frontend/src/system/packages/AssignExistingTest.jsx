@@ -71,7 +71,8 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
 
             // Filter tests that are not already in this package
             const currentPkgId = packageData?._id || packageData?.id;
-            const unassigned = response.data.filter(t => {
+            const testList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+            const unassigned = testList.filter(t => {
                 const testPkgId = t.package?.id || t.package?._id || t.package;
                 return String(testPkgId) !== String(currentPkgId);
             });

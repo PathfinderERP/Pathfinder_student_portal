@@ -68,14 +68,15 @@ const NoticeBoard = ({ isDarkMode }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             let data = response.data;
+            let finalData = Array.isArray(data) ? data : (data.results || data.data || []);
 
             // Inject mock notices if none found for demonstration
-            if (!data || (Array.isArray(data) && data.length === 0)) {
+            if (!finalData || finalData.length === 0) {
                 console.log("No notices found, using mock announcements");
-                data = getMockNotices();
+                finalData = getMockNotices();
             }
 
-            setNotices(data);
+            setNotices(finalData);
         } catch (error) {
             console.error('Failed to fetch notices:', error);
         } finally {

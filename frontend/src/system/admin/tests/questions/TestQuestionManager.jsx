@@ -278,7 +278,11 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
             const promises = targetIds.map(id => 
                 axios.get(`${apiUrl}/api/sections/${id}/questions/`, {
                     headers: { 'Authorization': `Bearer ${activeToken}` }
-                }).then(res => res.data.map(q => ({...q, section_id: id})))
+                }).then(res => {
+                    const data = res.data;
+                    const qList = Array.isArray(data) ? data : (data.results || []);
+                    return qList.map(q => ({...q, section_id: id}));
+                })
             );
             
             const results = await Promise.all(promises);

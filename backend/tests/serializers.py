@@ -111,6 +111,11 @@ class TestSerializer(serializers.ModelSerializer):
         if not is_staff:
             return 0
 
+        view = self.context.get('view')
+        action = getattr(view, 'action', None) if view else None
+        if action in ['list', 'create', 'update', 'partial_update']:
+            return 0  # Handled in bulk by the view for 'list'
+
         # High-performance submission count bypassing Djongo parser
         from api.db_utils import get_db
         db = get_db()
@@ -135,11 +140,12 @@ class TestSerializer(serializers.ModelSerializer):
         if cached_count is not None:
             return cached_count
             
-        # 2. Performance Safeguard: If this is a 'list' view request, 
+        # 2. Performance Safeguard: If this is a non-detail view request ('list', 'update', etc), 
         # do NOT calculate from scratch. Return 0 and let the detail view calculate it.
-        # This fixes the 6+ second hang in the Admin Panel.
-        is_list_view = self.context.get('view') and getattr(self.context.get('view'), 'action', None) == 'list'
-        if is_list_view:
+        # This fixes the 16+ second hang in the Admin Panel during saves.
+        view = self.context.get('view')
+        action = getattr(view, 'action', None) if view else None
+        if action in ['list', 'create', 'update', 'partial_update']:
             return 0
 
         from api.models import CustomUser
@@ -252,6 +258,11 @@ class TestSerializer(serializers.ModelSerializer):
     def get_submission(self, obj):
         request = self.context.get('request')
         if not request or not request.user or request.user.is_anonymous:
+            return None
+        
+        view = self.context.get('view')
+        action = getattr(view, 'action', None) if view else None
+        if action in ['list', 'create', 'update', 'partial_update']:
             return None
             
         # Optimization: Use PyMongo directly to bypass Djongo's SQL parser RecursionError (500)

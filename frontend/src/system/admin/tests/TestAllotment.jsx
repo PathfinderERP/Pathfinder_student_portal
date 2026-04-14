@@ -74,12 +74,15 @@ const TestAllotment = () => {
                 axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig())
             ]);
 
-            setTests(testsRes.data);
-            setSessions(sessionsRes.data);
+            const testsData = Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []);
+            const sessionsData = Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data.results || []);
+
+            setTests(testsData);
+            setSessions(sessionsData);
 
             // Compute available sessions from the freshly fetched tests
-            const uniqueSessionIds = new Set(testsRes.data.map(t => t.session || t.session_details?.id));
-            const availableSessions = sessionsRes.data.filter(s => uniqueSessionIds.has(s.id));
+            const uniqueSessionIds = new Set(testsData.map(t => t.session || t.session_details?.id));
+            const availableSessions = sessionsData.filter(s => uniqueSessionIds.has(s.id));
 
             // Default to 'All Sessions' (empty string)
             if (!filterSession) {
