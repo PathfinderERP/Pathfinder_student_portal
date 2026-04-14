@@ -71,7 +71,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 if not match_centre: continue
                 
                 t_sections = [s.name.lower().strip() for s in t.allotted_sections.all()]
-                if not t_sections or any(sec in student_sections for sec in t_sections):
+                # Only show if the student's section matches one of the allotted sections
+                # This prevents tests with NO allotted sections from showing up to students.
+                if t_sections and any(sec in student_sections for sec in t_sections):
                     visible_ids.append(t.pk)
 
             # Final re-filter
