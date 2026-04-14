@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, pagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
@@ -12,10 +12,14 @@ import csv
 import io
 from datetime import timedelta
 
+class QuestionPagination(pagination.PageNumberPagination):
+    page_size = 20
+
 class QuestionViewSet(viewsets.ModelViewSet):
     queryset = Question.objects.all()
     serializer_class = QuestionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = QuestionPagination
     
     def get_queryset(self):
         queryset = Question.objects.all()
@@ -48,6 +52,15 @@ class QuestionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
+        from django.core.cache import cache
+        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
+        cache_key = "dashboard_question_stats_v1"
+        
+        if not force_refresh:
+            cached = cache.get(cache_key)
+            if cached:
+                return Response(cached)
+
         total = Question.objects.count()
         
         # This Month
@@ -56,7 +69,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         this_month_count = Question.objects.filter(created_at__gte=first_day_of_month).count()
         
         # Last Batch (Last created question time)
-        last_question = Question.objects.order_by('-created_at').first()
+        last_question = Question.objects.order_by('-created_at').only('created_at').first()
         if last_question:
             diff = now - last_question.created_at
             if diff.days > 0:
@@ -70,11 +83,13 @@ class QuestionViewSet(viewsets.ModelViewSet):
         else:
             last_batch = "No data"
             
-        return Response({
+        data = {
             "total": total,
             "thisMonth": this_month_count,
             "lastBatch": last_batch
-        })
+        }
+        cache.set(cache_key, data, 3600) # 1 hour cache
+        return Response(data)
 
     @action(detail=True, methods=['post'])
     def mark_wrong(self, request, pk=None):
@@ -140,12 +155,14 @@ class QuestionViewSet(viewsets.ModelViewSet):
                     final_updates[k] = v
                     
             updated_count = Question.objects.filter(pk__in=object_ids).update(**final_updates)
+            cache.delete("dashboard_question_stats_v1")
             return Response({"message": f"Successfully updated {updated_count} questions"})
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
     @action(detail=False, methods=['post'], url_path='bulk-upload')
     def bulk_upload(self, request):
+        from django.core.cache import cache
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -262,9 +279,28 @@ class QuestionViewSet(viewsets.ModelViewSet):
                 "message": f"Successfully imported {created_count} questions",
                 "errors": errors
             }, status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_200_OK)
-            
         except Exception as e:
             return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _clear_global_caches(self):
+        from django.core.cache import cache
+        from django.utils import timezone
+        cache.delete("dashboard_question_stats_v1")
+        cache.delete("dashboard_section_stats_v1")
+        # Bump version to refresh list_master_sections and others
+        cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
+
+    def perform_create(self, serializer):
+        serializer.save()
+        self._clear_global_caches()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._clear_global_caches()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        self._clear_global_caches()
 
 @method_decorator(csrf_exempt, name='dispatch')
 class QuestionImageViewSet(viewsets.ModelViewSet):

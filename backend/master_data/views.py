@@ -1,7 +1,10 @@
-from rest_framework import viewsets, permissions, response
+from rest_framework import viewsets, permissions, response, pagination
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
+
+class StandardPagination(pagination.PageNumberPagination):
+    page_size = 20
 from django.db.models import Q
 from django.core.cache import cache
 
@@ -36,9 +39,11 @@ class StudentSectionFilterMixin:
 
 class CachedListViewSetMixin(object):
     """Mixin to cache the list response for master data and invalidate on change."""
+    _local_cache = {} # Server-level fast memory to handle parallel request bursts
+
     def get_cache_version(self):
         """Gets the current version for this viewset class. IncrementING this clears all lists."""
-        v_key = f"version_{self.__class__.__name__}"
+        v_key = f"v_v2_{self.__class__.__name__}"
         v = cache.get(v_key)
         if v is None:
             v = 1
@@ -47,7 +52,7 @@ class CachedListViewSetMixin(object):
 
     def clear_cache(self):
         """Increment version to effectively invalidate all cached list responses instantly."""
-        v_key = f"version_{self.__class__.__name__}"
+        v_key = f"v_v2_{self.__class__.__name__}"
         try:
             cache.incr(v_key)
         except:
@@ -55,6 +60,13 @@ class CachedListViewSetMixin(object):
             v = cache.get(v_key, 1)
             cache.set(v_key, v + 1, 86400 * 30)
             
+        # Clear local cache memory too
+        self.__class__._local_cache = {}
+        
+        # Clear stats caches
+        cache.delete("dashboard_section_stats_v1")
+        cache.delete("dashboard_question_stats_v1")
+        
         # Also bump the categorizer's global version so Foundation/Library tabs refresh
         from django.utils import timezone
         cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
@@ -62,7 +74,7 @@ class CachedListViewSetMixin(object):
 
     def get_cache_key(self):
         user = self.request.user
-        base_key = f"md_{self.__class__.__name__}_v{self.get_cache_version()}"
+        base_key = f"md_v2_{self.__class__.__name__}_v{self.get_cache_version()}"
         
         # If this viewset uses StudentSectionFilterMixin, we must include the section in the cache key
         if isinstance(self, StudentSectionFilterMixin) and user.is_authenticated:
@@ -74,17 +86,28 @@ class CachedListViewSetMixin(object):
         return base_key
 
     def list(self, request, *args, **kwargs):
+        # 1. Try Local Server Memory (Fastest - 0ms)
+        from time import time
         cache_key = self.get_cache_key()
-        cached_data = cache.get(cache_key)
+        now = time()
         
+        local_entry = self.__class__._local_cache.get(cache_key)
+        if local_entry and (now - local_entry['time'] < 5): # 5 second burst protection
+            return response.Response(local_entry['data'])
+
+        # 2. Try Redis/Cache (Fast - 50ms)
+        cached_data = cache.get(cache_key)
         if cached_data is not None and isinstance(cached_data, (list, dict)):
+            self.__class__._local_cache[cache_key] = {'data': cached_data, 'time': now}
             return response.Response(cached_data)
         
+        # 3. DB Fallback (Slow - 500ms+)
         res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
-        # Master data (e.g. Teachers, Subjects) cache for 24h
-        # Student items (e.g. Library, Notices) cache for 1h (versioning handles updates)
         timeout = 86400 if not isinstance(self, StudentSectionFilterMixin) else 3600
         cache.set(cache_key, res.data, timeout=timeout)
+        
+        # Populate local cache
+        self.__class__._local_cache[cache_key] = {'data': res.data, 'time': now}
         return res
 
     def perform_create(self, serializer):
@@ -103,6 +126,18 @@ class MasterSectionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = MasterSection.objects.all().order_by('priority', 'created_at')
     serializer_class = MasterSectionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+        self.clear_cache()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self.clear_cache()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        self.clear_cache()
 
 class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
@@ -190,6 +225,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
     serializer_class = LibraryItemSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         queryset = LibraryItem.objects.select_related(
@@ -214,6 +250,7 @@ class NoticeViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.
     serializer_class = NoticeSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         queryset = Notice.objects.select_related(
@@ -236,6 +273,7 @@ class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.M
     queryset = Video.objects.all()
     serializer_class = VideoSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         queryset = Video.objects.select_related(
@@ -247,6 +285,7 @@ class PenPaperTestViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, vie
     queryset = PenPaperTest.objects.all()
     serializer_class = PenPaperTestSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         queryset = PenPaperTest.objects.select_related(
@@ -259,6 +298,7 @@ class HomeworkViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewset
     serializer_class = HomeworkSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         queryset = Homework.objects.select_related(

@@ -245,11 +245,14 @@ const SystemDashboard = () => {
     }, [activeTab, getApiUrl, authLoading, token]);
 
     const syncAttempted = useRef(false);
-    const fetchDashboardStats = useCallback(async () => {
+    const fetchDashboardStats = useCallback(async (forceRefresh = false) => {
         if (authLoading || !token) return;
         try {
             const apiUrl = getApiUrl();
-            const config = { headers: { 'Authorization': `Bearer ${token}` } };
+            const config = { 
+                headers: { 'Authorization': `Bearer ${token}` },
+                params: { refresh: forceRefresh } 
+            };
             const [secResp, qResp] = await Promise.all([
                 axios.get(`${apiUrl}/api/sections/stats/`, config),
                 axios.get(`${apiUrl}/api/questions/stats/`, config)
@@ -271,7 +274,7 @@ const SystemDashboard = () => {
         syncAttempted.current = true;
 
         if (isManual) {
-            fetchDashboardStats();
+            fetchDashboardStats(true); // Force real-time recount
         }
 
         try {

@@ -96,6 +96,15 @@ def _serialize_test_full(test):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def section_stats(request):
+    from django.core.cache import cache
+    force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
+    cache_key = "dashboard_section_stats_v1"
+    
+    if not force_refresh:
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+
     # Total Master Sections (from dedicated MasterSection model)
     total = MasterSection.objects.count()
     
@@ -105,10 +114,12 @@ def section_stats(request):
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     this_month_count = MasterSection.objects.filter(created_at__gte=first_day_of_month).count()
     
-    return Response({
+    data = {
         "total": total,
         "thisMonth": this_month_count
-    })
+    }
+    cache.set(cache_key, data, 3600) # 1 hour cache
+    return Response(data)
 
 
 @api_view(['GET'])
@@ -124,33 +135,12 @@ def list_master_sections(request):
         user = request.user
         from django.core.cache import cache
         
-        # 0. Check Cache First
-        # Use the latest update timestamp from ANY content-related model as the cache version.
-        # This ensures 100% consistency across all server workers without needing Redis.
-        from tests.models import Test
-        from master_data.models import LibraryItem, PenPaperTest, Video, Homework
-        
-        timestamps = []
-        # We use a try-except block in case some collections are empty/missing
-        try:
-            mt = Test.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
-            if mt: timestamps.append(mt.timestamp())
-            
-            ml = LibraryItem.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
-            if ml: timestamps.append(ml.timestamp())
-            
-            mv = Video.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
-            if mv: timestamps.append(mv.timestamp())
-            
-            mph = Homework.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
-            if mph: timestamps.append(mph.timestamp())
-        except Exception:
-            pass
-            
-        last_update = int(max(timestamps)) if timestamps else 0
+        # 0. Check Cache First (High Performance)
+        # Instead of querying 5 collections for 'updated_at', use a single cached 'Global Test Version'
+        last_update = cache.get("global_test_update_v1", 0)
         
         user_id = user.pk if user.is_authenticated else "public"
-        cache_key = f"master_sections_v4_{user_id}_{last_update}"
+        cache_key = f"master_sections_v5_{user_id}_{last_update}"
         
         cached_data = cache.get(cache_key)
         if cached_data:

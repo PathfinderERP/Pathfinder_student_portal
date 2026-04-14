@@ -127,32 +127,38 @@ class TestSerializer(serializers.ModelSerializer):
         if not is_staff:
             return 0
 
+        from django.core.cache import cache
+
+        # 1. Aggressive Caching
+        cache_key = f"test_roster_v2_{obj.pk}_{obj.updated_at.timestamp()}"
+        cached_count = cache.get(cache_key)
+        if cached_count is not None:
+            return cached_count
+            
+        # 2. Performance Safeguard: If this is a 'list' view request, 
+        # do NOT calculate from scratch. Return 0 and let the detail view calculate it.
+        # This fixes the 6+ second hang in the Admin Panel.
+        is_list_view = self.context.get('view') and getattr(self.context.get('view'), 'action', None) == 'list'
+        if is_list_view:
+            return 0
+
         from api.models import CustomUser
         from django.db.models import Q
         from api.db_utils import parse_section
-        from django.core.cache import cache
 
         try:
             centres = list(obj.centres.all())
-            
-            # --- authoritative Baseline: All Students with existing submissions ---
-            from .models import TestSubmission
-            from api.db_utils import get_db
-            db = get_db()
-            
+            if not centres: 
+                cache.set(cache_key, 0, 3600)
+                return 0
+
+            # authoritative Baseline: All Students with existing submissions
+            # Note: We NO LONGER count submitted students as a baseline for the roster.
+            # This ensures that if a test is un-allotted, the roster correctly drops to 0.
+
+
             seen_identifiers = set()
             total_count = 0
-            
-            # Note: We NO LONGER count submitted students as a baseline for the roster.
-            # This ensures that if a test is un-allotted, the roster correctly drops to 0
-            # even if students have taken it in the past.
-
-
-            # Sum of cached authoritative counts is the most accurate/consistent for centre-allotted students
-            # We add to total_count but MUST check against seen_identifiers to avoid double counting
-            # HOWEVER, the cache is per-centre and includes submitted students too.
-            # Scaling this to global deduplication is tricky with per-centre caches.
-            # We'll use the fallback logic always for the global count to ensure correct deduplication.
 
             if not centres: 
                 return total_count
@@ -236,6 +242,8 @@ class TestSerializer(serializers.ModelSerializer):
                 if e_email: seen_identifiers.add(e_email)
                 total_count += 1
 
+            # 3. Cache and Return
+            cache.set(cache_key, total_count, 3600) # 1 Hour
             return total_count
         except Exception as e:
             print(f"Error in get_total_roster_count: {e}")
