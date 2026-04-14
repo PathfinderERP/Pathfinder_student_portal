@@ -63,7 +63,10 @@ const NoticeRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/master-data/notices/`);
-            setNotices(response.data);
+            // Academic notices can be paginated {results: []} or a simple array
+            const data = response.data;
+            const noticeList = Array.isArray(data) ? data : (data.results || data.notices || []);
+            setNotices(noticeList);
         } catch (error) {
             console.error("Failed to fetch notices", error);
             toast.error("Failed to load academic notices");

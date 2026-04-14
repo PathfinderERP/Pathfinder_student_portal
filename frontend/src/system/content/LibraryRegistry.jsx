@@ -97,7 +97,10 @@ const LibraryRegistry = () => {
             const response = await axios.get(`${apiUrl}/api/master-data/library/`, {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
             });
-            setLibraryItems(response.data);
+            // Library items can be paginated {results: []} or a simple array
+            const data = response.data;
+            const itemsList = Array.isArray(data) ? data : (data.results || data.library || []);
+            setLibraryItems(itemsList);
         } catch (error) {
             console.error("Failed to fetch library items", error);
             toast.error("Failed to load library content");

@@ -60,7 +60,10 @@ const VideoRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/master-data/videos/`);
-            setVideos(response.data);
+            // videos can be paginated {results: []} or a simple array
+            const data = response.data;
+            const videoList = Array.isArray(data) ? data : (data.results || data.videos || []);
+            setVideos(videoList);
         } catch (error) {
             console.error("Failed to fetch videos", error);
             toast.error("Failed to load videos");

@@ -27,7 +27,10 @@ const SeminarRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/master-data/seminars/`);
-            setSeminars(response.data);
+            // seminars can be paginated {results: []} or a simple array
+            const data = response.data;
+            const seminarList = Array.isArray(data) ? data : (data.results || data.seminars || []);
+            setSeminars(seminarList);
         } catch (error) {
             console.error("Failed to fetch seminars", error);
             toast.error("Failed to load seminars");

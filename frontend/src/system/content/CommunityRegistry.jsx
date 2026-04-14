@@ -28,7 +28,10 @@ const CommunityRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/master-data/communities/`);
-            setCommunities(response.data);
+            // communities can be paginated {results: []} or a simple array
+            const data = response.data;
+            const communityList = Array.isArray(data) ? data : (data.results || data.communities || []);
+            setCommunities(communityList);
         } catch (error) {
             console.error("Failed to fetch communities", error);
             toast.error("Failed to load communities");
