@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Test, TestCentreAllotment
+from master_data.models import Session, ExamType, ClassLevel, TargetExam, MasterSection
 from master_data.serializers import SessionSerializer, ExamTypeSerializer, ClassLevelSerializer, TargetExamSerializer
 from sections.models import Section
 from centres.models import Centre
@@ -10,11 +11,11 @@ from bson import ObjectId
 class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
     def to_internal_value(self, data):
         try:
-            return self.queryset.get(pk=ObjectId(data))
-        except (TypeError, ValueError):
-            self.fail('incorrect_type', data_type=type(data).__name__)
-        except self.queryset.model.DoesNotExist:
-            self.fail('does_not_exist', pk_value=data)
+            if isinstance(data, str) and ObjectId.is_valid(data):
+                data = ObjectId(data)
+        except Exception:
+            pass
+        return super().to_internal_value(data)
 
     def to_representation(self, value):
         return str(value.pk)
@@ -49,9 +50,9 @@ class TestSerializer(serializers.ModelSerializer):
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
     package_name = serializers.ReadOnlyField(source='package.name')
     
-    # Explicitly define allotted_sections to handle M2M with ObjectId pk
-    allotted_sections = ObjectIdRelatedField(
-        queryset=Section.objects.all(),
+    # Explicitly define allotted_sections to handle M2M with MasterSection (Integer pk)
+    allotted_sections = serializers.PrimaryKeyRelatedField(
+        queryset=MasterSection.objects.all(),
         many=True,
         required=False
     )
@@ -326,5 +327,6 @@ class TestSerializer(serializers.ModelSerializer):
         return owned + allotted
 
     def get_allotted_master_count(self, obj):
-        # Only count sections from Master Registry (where test is null)
-        return sum(1 for s in obj.allotted_sections.all() if s.test_id is None)
+        # Only count sections from Master Registry. Since allotted_sections points to MasterSection,
+        # all of them are considered master sections.
+        return len(obj.allotted_sections.all())

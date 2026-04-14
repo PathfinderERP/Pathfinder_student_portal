@@ -117,17 +117,20 @@ const LibraryRegistry = () => {
                 axios.get(`${apiUrl}/api/master-data/subjects/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
-                axios.get(`${apiUrl}/api/sections/`, config)
+                axios.get(`${apiUrl}/api/master-data/master-sections/`, config)
             ]);
             setSessions(safeArray(sessRes.data));
             setClasses(safeArray(classRes.data));
             setSubjects(safeArray(subRes.data));
             setExamTypes(safeArray(etRes.data));
             setTargetExams(safeArray(teRes.data));
-            // Handle Section API which often returns { sections: [...] }
-            setSections(Array.isArray(secRes.data?.sections)
-                ? secRes.data.sections
-                : (Array.isArray(secRes.data) ? secRes.data : [])
+            
+            // Handle MasterSection API (Array, {results: []}, or {sections: []})
+            const secData = secRes.data;
+            setSections(
+                Array.isArray(secData) ? secData : 
+                (Array.isArray(secData?.results) ? secData.results : 
+                (Array.isArray(secData?.sections) ? secData.sections : []))
             );
         } catch (error) {
             console.error("Failed to fetch master data", error);
@@ -769,9 +772,9 @@ const LibraryRegistry = () => {
 
             {/* Modals */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
-                        <div className={`p-6 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                <div className="fixed inset-0 z-[9999] flex justify-center items-start overflow-y-auto bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4 py-2 custom-scrollbar">
+                    <div className={`w-full max-w-4xl my-auto flex flex-col rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
+                        <div className={`p-4 border-b border-white/10 flex justify-between items-center text-white sticky top-0 z-10 ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-[5px]"><FileText size={20} /></div>
                                 <h2 className="text-xl font-black uppercase tracking-tight">{isAddModalOpen ? 'Add To' : 'Edit'} <span className="opacity-70">Library</span></h2>
@@ -779,12 +782,12 @@ const LibraryRegistry = () => {
                             <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-[5px] transition-colors"><X size={20} /></button>
                         </div>
 
-                        <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                        <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-5 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
                             {/* Top Section: Academic Categorization */}
-                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                                <div className="flex items-center gap-2 mb-6">
-                                    <div className="w-1.5 h-5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                                    <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-emerald-500">Resource Categorization</span>
+                            <div className={`p-4 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="w-1 h-4 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 text-emerald-500">Resource Categorization</span>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -814,8 +817,8 @@ const LibraryRegistry = () => {
                             </div>
 
                             {/* Content Type Toggle */}
-                            <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
-                                <span className={`text-xs font-black uppercase tracking-widest ml-2 ${isDarkMode ? 'opacity-60 text-white' : 'text-slate-500'}`}>Content Type:</span>
+                            <div className="flex items-center gap-4 p-3 rounded-[5px] bg-slate-100 dark:bg-white/5">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ml-2 ${isDarkMode ? 'opacity-60 text-white' : 'text-slate-500'}`}>Content Type:</span>
                                 <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
                                     <button
                                         type="button"
@@ -840,32 +843,32 @@ const LibraryRegistry = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-6">
                                     <div>
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Resource Name *</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Resource Name *</label>
                                         <input
                                             required
                                             type="text"
                                             value={newItem.name}
                                             onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-5 py-3 rounded-[5px] outline-none border-2 font-black transition-all text-sm ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
                                             placeholder="e.g. Physics Module Vol 1"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Short Description</label>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Short Description</label>
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[120px] resize-none ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-5 py-3 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[80px] text-xs resize-none ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Provide a brief summary of this resource..."
                                         />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="space-y-2">
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Thumbnail</label>
-                                        <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-emerald-500/50 bg-white/1' : 'border-slate-200 hover:border-emerald-500 bg-slate-50'}`}>
+                                    <div className="space-y-1.5">
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Thumbnail</label>
+                                        <div className={`relative h-[160px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-3 ${isDarkMode ? 'border-white/10 hover:border-emerald-500/50 bg-white/1' : 'border-slate-200 hover:border-emerald-500 bg-slate-50'}`}>
                                             {(newItem.thumbnail || newItem.existing_thumbnail) && (
                                                 <button
                                                     type="button"
@@ -897,9 +900,9 @@ const LibraryRegistry = () => {
                                     </div>
 
                                     {newItem.content_type === 'pdf' ? (
-                                        <div className="space-y-2 animate-in fade-in duration-300">
-                                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>PDF File</label>
-                                            <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/1' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
+                                        <div className="space-y-1.5 animate-in fade-in duration-300">
+                                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>PDF File</label>
+                                            <div className={`relative h-[160px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-3 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/1' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
                                                 {newItem.pdf && (
                                                     <button
                                                         type="button"
@@ -979,9 +982,9 @@ const LibraryRegistry = () => {
                             <button
                                 type="submit"
                                 disabled={isActionLoading}
-                                className={`w-full py-4 rounded-[5px] font-black uppercase tracking-widest transition-all shadow-xl active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : (isAddModalOpen ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 text-white' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white')}`}
+                                className={`w-full py-3 rounded-[5px] font-black font-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : (isAddModalOpen ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 text-white' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white')}`}
                             >
-                                {isActionLoading ? <Loader2 className="animate-spin" size={24} /> : (isAddModalOpen ? 'Save to Library' : 'Update Library Record')}
+                                {isActionLoading ? <Loader2 className="animate-spin" size={20} /> : (isAddModalOpen ? 'Save to Library' : 'Update Library Record')}
                             </button>
                         </form>
                     </div>
@@ -990,11 +993,11 @@ const LibraryRegistry = () => {
 
             {/* View Modal */}
             {isViewModalOpen && selectedItemForView && (
-                <div className={`fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
+                <div className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
                     <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-4xl rounded-[5px] h-[85vh]'}`}>
                         <div className={`grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
                             {/* Minimalism Controls */}
-                            <div className="absolute top-6 right-6 z-110 flex items-center gap-3">
+                            <div className="absolute top-6 right-6 z-[10000] flex items-center gap-3">
                                 {viewPage === 2 && (
                                     <button
                                         onClick={() => setIsFullScreen(!isFullScreen)}

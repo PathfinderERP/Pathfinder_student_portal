@@ -90,7 +90,7 @@ const HomeworkRegistry = () => {
             const apiUrl = getApiUrl();
             const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
             const [secRes, sessRes, classRes, subRes, etRes, teRes, pkgRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/sections/`, config),
+                axios.get(`${apiUrl}/api/master-data/master-sections/`, config),
                 axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                 axios.get(`${apiUrl}/api/master-data/classes/`, config),
                 axios.get(`${apiUrl}/api/master-data/subjects/`, config),
@@ -98,7 +98,15 @@ const HomeworkRegistry = () => {
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
                 axios.get(`${apiUrl}/api/packages/`, config)
             ]);
-            setSections(secRes.data);
+            
+            // Handle MasterSection API (Array, {results: []}, or {sections: []})
+            const secData = secRes.data;
+            setSections(
+                Array.isArray(secData) ? secData : 
+                (Array.isArray(secData?.results) ? secData.results : 
+                (Array.isArray(secData?.sections) ? secData.sections : []))
+            );
+            
             setSessions(sessRes.data);
             setClasses(classRes.data);
             setSubjects(subRes.data);
@@ -212,7 +220,7 @@ const HomeworkRegistry = () => {
             subject: item.subject || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
-            selectedSections: (item.sections || []).filter(id => typeof id === 'string'),
+            selectedSections: item.sections || [],
             pdf_file: null,
             is_general: item.is_general !== undefined ? item.is_general : true,
             packages: item.packages || []
@@ -624,7 +632,7 @@ const HomeworkRegistry = () => {
 
             {/* Combined Add/Edit Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className={`p-6 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <div className="flex items-center gap-3">
@@ -707,7 +715,7 @@ const HomeworkRegistry = () => {
                                                 </button>
 
                                                 {isSectionDropdownOpen && (
-                                                    <div className={`absolute top-full left-0 right-0 z-110 mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                                    <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                                         ? 'bg-[#1e293b] border-white/10 shadow-black/40'
                                                         : 'bg-white border-slate-100 shadow-slate-200'
                                                         }`}>

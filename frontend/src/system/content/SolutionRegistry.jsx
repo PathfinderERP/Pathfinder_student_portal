@@ -103,14 +103,22 @@ const SolutionRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const [secRes, sessRes, classRes, subRes, etRes, teRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/sections/`),
+                axios.get(`${apiUrl}/api/master-data/master-sections/`),
                 axios.get(`${apiUrl}/api/master-data/sessions/`),
                 axios.get(`${apiUrl}/api/master-data/classes/`),
                 axios.get(`${apiUrl}/api/master-data/subjects/`),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`)
             ]);
-            setSections(secRes.data);
+            
+            // Handle MasterSection API (Array, {results: []}, or {sections: []})
+            const secData = secRes.data;
+            setSections(
+                Array.isArray(secData) ? secData : 
+                (Array.isArray(secData?.results) ? secData.results : 
+                (Array.isArray(secData?.sections) ? secData.sections : []))
+            );
+            
             setSessions(sessRes.data);
             setClasses(classRes.data);
             setSubjects(subRes.data);
@@ -227,7 +235,7 @@ const SolutionRegistry = () => {
             subject: item.subject || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
-            selectedSections: (item.sections || []).filter(id => typeof id === 'string' && id.length === 24),
+            selectedSections: (item.sections || []).filter(id => id !== null && id !== undefined),
             resource_type_dpp: item.resource_type_dpp || false,
             resource_type_rpp: item.resource_type_rpp || false,
             resource_type_others: item.resource_type_others || false,

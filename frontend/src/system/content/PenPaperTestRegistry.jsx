@@ -92,15 +92,23 @@ const PenPaperTestRegistry = () => {
                 axios.get(`${apiUrl}/api/master-data/subjects/`),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`),
-                axios.get(`${apiUrl}/api/sections/`),
+                axios.get(`${apiUrl}/api/master-data/master-sections/`),
                 axios.get(`${apiUrl}/api/packages/`)
             ]);
+            
+            // Handle MasterSection API (Array, {results: []}, or {sections: []})
+            const secData = secRes.data;
+            setSections(
+                Array.isArray(secData) ? secData : 
+                (Array.isArray(secData?.results) ? secData.results : 
+                (Array.isArray(secData?.sections) ? secData.sections : []))
+            );
+            
             setSessions(sessRes.data);
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
             setTargetExams(teRes.data);
-            setSections(secRes.data);
             setPackages(pkgRes.data);
         } catch (error) {
             console.error("Failed to fetch master data", error);
@@ -296,7 +304,7 @@ const PenPaperTestRegistry = () => {
             subject: item.subject || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
-            selectedSections: (item.sections || []).filter(id => typeof id === 'string'),
+            selectedSections: item.sections || [],
             is_general: item.is_general || false,
             packages: item.packages || []
         });
@@ -626,7 +634,7 @@ const PenPaperTestRegistry = () => {
 
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
                     <div className={`w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[5px] border ${isDarkMode ? 'bg-[#1a1f2e] border-white/10' : 'bg-white border-slate-200'} shadow-2xl`}>
                         <div className={`sticky top-0 z-10 flex items-center justify-between p-6 border-b ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                             <h2 className="text-2xl font-black uppercase tracking-tight">{isEditModalOpen ? 'Edit' : 'Add'} <span className="text-amber-500">Test</span></h2>
@@ -716,7 +724,7 @@ const PenPaperTestRegistry = () => {
                                         </button>
 
                                         {isSectionDropdownOpen && (
-                                            <div className={`absolute top-full left-0 right-0 z-110 mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                            <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                                 ? 'bg-[#1e293b] border-white/10 shadow-black/40'
                                                 : 'bg-white border-slate-100 shadow-slate-200'
                                                 }`}>
@@ -784,7 +792,7 @@ const PenPaperTestRegistry = () => {
                                     </button>
 
                                     {isTypeDropdownOpen && (
-                                        <div className={`absolute top-full left-0 right-0 z-120 mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                        <div className={`absolute top-full left-0 right-0 z-[120] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                             ? 'bg-[#1e293b] border-white/10 shadow-black'
                                             : 'bg-white border-slate-100 shadow-slate-200'
                                             }`}>

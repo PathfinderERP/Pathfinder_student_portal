@@ -13,10 +13,6 @@ class SectionViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         from .section_detail_views import list_master_sections
-        # The frontend expects GET /api/sections/ to return master sections.
-        # Calling the inner __wrapped__ function avoids re-wrapping the DRF Request
-        # DRF ViewSets wrap the Django HttpRequest. We need to pass the original Django HttpRequest 
-        # to the function-based view, which gets re-wrapped by the @api_view decorator.
         return list_master_sections.__wrapped__(request._request)
 
     def get_object(self):
@@ -150,8 +146,6 @@ class SectionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         section = serializer.save()
         cache.clear()
-        if section.test:
-            section.test.allotted_sections.add(section)
 
     def perform_update(self, serializer):
         serializer.save()

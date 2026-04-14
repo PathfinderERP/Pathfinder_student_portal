@@ -1,8 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet
+from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet, MasterSectionViewSet
 
 router = DefaultRouter()
+router.register(r'master-sections', MasterSectionViewSet)
 router.register(r'sessions', SessionViewSet)
 router.register(r'target-exams', TargetExamViewSet)
 router.register(r'exam-types', ExamTypeViewSet)

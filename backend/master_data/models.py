@@ -1,6 +1,35 @@
 from django.db import models
 import re
 
+class MasterSection(models.Model):
+    name = models.CharField(max_length=255)
+    subject_code = models.CharField(max_length=50, default='GEN')
+    
+    total_questions = models.IntegerField(default=20)
+    allowed_questions = models.IntegerField(default=20)
+    shuffle = models.BooleanField(default=False)
+    
+    correct_marks = models.FloatField(default=4.0)
+    negative_marks = models.FloatField(default=1.0)
+    
+    partial_type = models.CharField(max_length=50, default='regular')
+    partial_marks = models.FloatField(default=0.0)
+    
+    priority = models.IntegerField(default=1)
+    
+    # Optional: we can add more fields specific to master sections if needed
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "Master Section"
+        verbose_name_plural = "Master Sections"
+        ordering = ['priority', 'created_at']
+
 def generate_unique_code(model_class, name):
     # Create a base code: remove special chars, replace spaces with underscores, uppercase
     base_code = re.sub(r'[^a-zA-Z0-9\s]', '', name).strip().upper()
@@ -214,7 +243,7 @@ class LibraryItem(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
-    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -234,7 +263,7 @@ class SolutionItem(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
-    sections = models.ManyToManyField('sections.Section', related_name='solutions', blank=True)
+    sections = models.ManyToManyField(MasterSection, related_name='solutions', blank=True)
 
     # Resource Categories (Stored as comma-separated or similar, handled in frontend)
     resource_type_dpp = models.BooleanField(default=False)
@@ -274,7 +303,7 @@ class Notice(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
-    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -297,7 +326,7 @@ class LiveClass(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
-    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -321,7 +350,7 @@ class Video(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
-    section = models.ForeignKey('sections.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -358,7 +387,7 @@ class PenPaperTest(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
-    sections = models.ManyToManyField('sections.Section', blank=True, related_name='pen_paper_tests')
+    sections = models.ManyToManyField(MasterSection, blank=True, related_name='pen_paper_tests')
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -389,7 +418,7 @@ class Homework(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
-    sections = models.ManyToManyField('sections.Section', related_name='homeworks', blank=True)
+    sections = models.ManyToManyField(MasterSection, related_name='homeworks', blank=True)
     is_general = models.BooleanField(default=True)
     packages = models.ManyToManyField('packages.Package', related_name='homeworks', blank=True)
 

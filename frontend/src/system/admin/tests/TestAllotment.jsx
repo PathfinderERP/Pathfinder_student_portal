@@ -251,16 +251,15 @@ const TestAllotment = () => {
 
     const handleManageSections = async (test) => {
         setSelectedTest(test);
-        setSelectedSectionIds(test.allotted_sections || []);
+        const sections = (test.allotted_sections || []).map(id => typeof id === 'object' ? (id.id || id._id || id) : id);
+        setSelectedSectionIds(sections.map(Number));
         setIsActionLoading(true);
 
         try {
             const apiUrl = getApiUrl();
-            const sectionsRes = await axios.get(`${apiUrl}/api/sections/`, getAuthConfig());
+            const sectionsRes = await axios.get(`${apiUrl}/api/master-data/master-sections/`, getAuthConfig());
             // Support both direct array and {count, sections} object format
-            const sectionsData = Array.isArray(sectionsRes.data) ? sectionsRes.data : (sectionsRes.data.sections || []);
-            // Only show Master Sections (template sections not tied to a specific test) for allotment
-            const masterSections = sectionsData.filter(s => !s.test);
+            const masterSections = Array.isArray(sectionsRes.data) ? sectionsRes.data : (sectionsRes.data.results || []);
             setAvailableSections(masterSections || []);
             setIsSectionModalOpen(true);
         } catch (err) {
@@ -855,7 +854,7 @@ const TestAllotment = () => {
                                 <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
                                     {selectedSectionIds.length > 0 ? (
                                         availableSections
-                                            .filter(s => selectedSectionIds.includes(s.id))
+                                            .filter(s => selectedSectionIds.includes(Number(s.id)))
                                             .map(s => (
                                                 <div
                                                     key={`sel-sec-${s.id}`}
@@ -866,7 +865,7 @@ const TestAllotment = () => {
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setSelectedSectionIds(prev => prev.filter(id => id !== s.id));
+                                                            setSelectedSectionIds(prev => prev.filter(id => Number(id) !== Number(s.id)));
                                                         }}
                                                         className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
                                                     >
@@ -943,13 +942,13 @@ const TestAllotment = () => {
                                         )
                                         .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
                                         .map(section => {
-                                            const isSelected = selectedSectionIds.includes(section.id);
+                                            const isSelected = selectedSectionIds.includes(Number(section.id));
                                             return (
                                                 <div
                                                     key={section.id}
                                                     onClick={() => {
-                                                        if (isSelected) setSelectedSectionIds(prev => prev.filter(id => id !== section.id));
-                                                        else setSelectedSectionIds(prev => [...prev, section.id]);
+                                                        if (isSelected) setSelectedSectionIds(prev => prev.filter(id => Number(id) !== Number(section.id)));
+                                                        else setSelectedSectionIds(prev => [...prev, Number(section.id)]);
                                                     }}
                                                     className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
                                                         ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')

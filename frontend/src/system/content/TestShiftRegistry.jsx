@@ -31,11 +31,18 @@ const TestShiftRegistry = () => {
             // Parallel fetch
             const [testsRes, sectionsRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/`, config),
-                axios.get(`${apiUrl}/api/sections/`, config)
+                axios.get(`${apiUrl}/api/master-data/master-sections/`, config)
             ]);
 
-            setTests(testsRes.data);
-            setSections(sectionsRes.data);
+            setTests(Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []));
+            
+            // Handle MasterSection API (Array, {results: []}, or {sections: []})
+            const secData = sectionsRes.data;
+            setSections(
+                Array.isArray(secData) ? secData : 
+                (Array.isArray(secData?.results) ? secData.results : 
+                (Array.isArray(secData?.sections) ? secData.sections : []))
+            );
         } catch (error) {
             console.error("Failed to load data", error);
             toast.error("Failed to load tests/sections");

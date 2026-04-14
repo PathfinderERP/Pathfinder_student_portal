@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Section
 from tests.models import Test, TestCentreAllotment
+from master_data.models import MasterSection
 
 
 def _serialize_section_summary(section):
@@ -95,14 +96,14 @@ def _serialize_test_full(test):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def section_stats(request):
-    # Total Sections (Master Sections only)
-    total = Section.objects.filter(test__isnull=True).count()
+    # Total Master Sections (from dedicated MasterSection model)
+    total = MasterSection.objects.count()
     
-    # This Month (Master Sections only)
+    # This Month
     from django.utils import timezone
     now = timezone.now()
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    this_month_count = Section.objects.filter(test__isnull=True, created_at__gte=first_day_of_month).count()
+    this_month_count = MasterSection.objects.filter(created_at__gte=first_day_of_month).count()
     
     return Response({
         "total": total,
@@ -124,9 +125,33 @@ def list_master_sections(request):
         from django.core.cache import cache
         
         # 0. Check Cache First
-        # Key depends on user ID since students see different filtered sections
+        # Use the latest update timestamp from ANY content-related model as the cache version.
+        # This ensures 100% consistency across all server workers without needing Redis.
+        from tests.models import Test
+        from master_data.models import LibraryItem, PenPaperTest, Video, Homework
+        
+        timestamps = []
+        # We use a try-except block in case some collections are empty/missing
+        try:
+            mt = Test.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
+            if mt: timestamps.append(mt.timestamp())
+            
+            ml = LibraryItem.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
+            if ml: timestamps.append(ml.timestamp())
+            
+            mv = Video.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
+            if mv: timestamps.append(mv.timestamp())
+            
+            mph = Homework.objects.order_by('-updated_at').values_list('updated_at', flat=True).first()
+            if mph: timestamps.append(mph.timestamp())
+        except Exception:
+            pass
+            
+        last_update = int(max(timestamps)) if timestamps else 0
+        
         user_id = user.pk if user.is_authenticated else "public"
-        cache_key = f"master_sections_v2_{user_id}"
+        cache_key = f"master_sections_v4_{user_id}_{last_update}"
+        
         cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data, status=status.HTTP_200_OK)
@@ -134,21 +159,21 @@ def list_master_sections(request):
         from master_data.models import LibraryItem, PenPaperTest, Homework, Video
         from collections import defaultdict
 
-        # 1. Fetch Master Sections
-        sections_query = Section.objects.filter(test__isnull=True).order_by('priority', 'name')
+        # 1. Fetch Master Sections from the dedicated MasterSection model
+        sections_query = MasterSection.objects.all().order_by('priority', 'name')
         
         # Student specific filtering
-        allowed_names = []
+        exam_secs = []
+        study_secs = []
+        omr_sec = "OMR"
+        
         is_student = user.is_authenticated and hasattr(user, 'user_type') and user.user_type == 'student'
         if is_student:
             from api.db_utils import parse_section
-            exam_sections = parse_section(getattr(user, 'exam_section', None))
-            study_sections = parse_section(getattr(user, 'study_section', None))
-            allowed_names.extend(exam_sections)
-            allowed_names.extend(study_sections)
-            # Remove empty/duplicates
-            allowed_names = list(set([n for n in allowed_names if n]))
+            exam_secs = parse_section(getattr(user, 'exam_section', None))
+            study_secs = parse_section(getattr(user, 'study_section', None))
             
+            allowed_names = list(set(exam_secs + study_secs))
             if allowed_names:
                 sections_query = sections_query.filter(name__in=allowed_names)
             else:
@@ -158,7 +183,7 @@ def list_master_sections(request):
         section_ids = [s.pk for s in sections]
 
         # 2. Bulk Fetch All Related Content
-        # We fetch ALL tests that belong to these sections
+        # Fetch ALL tests that have these master sections allotted
         all_tests = list(Test.objects.filter(allotted_sections__in=section_ids).select_related('exam_type').prefetch_related('allotted_sections'))
         test_ids = [t.pk for t in all_tests]
         
@@ -199,13 +224,8 @@ def list_master_sections(request):
         for item in all_vid_items:
             vid_by_section[str(item.section_id)].append(item)
 
-        # 4. Final Result Construction
+        # 4. Final Construction
         result = []
-        from api.db_utils import parse_section
-        exam_secs = parse_section(getattr(user, 'exam_section', None))
-        study_secs = parse_section(getattr(user, 'study_section', None))
-        omr_sec = getattr(user, 'omr_code', None)
-
         for section in sections:
             s_id = str(section.pk)
             
@@ -217,7 +237,6 @@ def list_master_sections(request):
             offline_exam_list = []
             
             # Process Tests
-            # For Admins, we should always allow seeing tests even if they don't have centre allotments
             if not is_student or section.name in exam_secs or section.name == omr_sec:
                 for test in s_tests:
                     t_type_name = (test.exam_type.name or "").lower() if test.exam_type else ""
@@ -237,7 +256,6 @@ def list_master_sections(request):
                         if cid not in section_centres_map:
                             section_centres_map[cid] = c_data
 
-                    # ADDITION: For ADMINS, showing tests even if 0 centres are allotted
                     if not is_student or t_centres:
                         item_data = {
                             'id': str(test.id),
@@ -279,7 +297,7 @@ def list_master_sections(request):
                 item['centres'] = all_centres
 
             result.append({
-                'id': str(section._id),
+                'id': str(section.id),  # MasterSection uses standard int id
                 'name': section.name,
                 'subject_code': section.subject_code,
                 'priority': section.priority,
@@ -294,8 +312,8 @@ def list_master_sections(request):
             'count': len(result),
             'sections': result
         }
-        # Reducing cache timeout for better Admin reactivity
-        cache.set(cache_key, response_data, timeout=60) 
+        # Cache for 1 hour, since we now use global versioning for instant invalidation
+        cache.set(cache_key, response_data, timeout=3600) 
 
         return Response(response_data, status=status.HTTP_200_OK)
 

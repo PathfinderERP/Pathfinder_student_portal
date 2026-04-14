@@ -81,14 +81,22 @@ const NoticeRegistry = () => {
                 axios.get(`${apiUrl}/api/master-data/subjects/`),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`),
-                axios.get(`${apiUrl}/api/sections/`)
+                axios.get(`${apiUrl}/api/master-data/master-sections/`)
             ]);
+            
+            // Handle MasterSection API (Array, {results: []}, or {sections: []})
+            const secData = secRes.data;
+            setSections(
+                Array.isArray(secData) ? secData : 
+                (Array.isArray(secData?.results) ? secData.results : 
+                (Array.isArray(secData?.sections) ? secData.sections : []))
+            );
+            
             setSessions(sessRes.data);
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
             setTargetExams(teRes.data);
-            setSections(secRes.data);
         } catch (error) {
             console.error("Failed to fetch master data", error);
         }
@@ -563,7 +571,7 @@ const NoticeRegistry = () => {
 
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">
@@ -680,7 +688,7 @@ const NoticeRegistry = () => {
 
             {/* View Modal */}
             {isViewModalOpen && selectedItemForView && (
-                <div className={`fixed z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
+                <div className={`fixed z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
                     <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-5xl rounded-[5px] h-[85vh]'}`}>
                         <div className={`grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
                             {/* Minimalism Controls */}

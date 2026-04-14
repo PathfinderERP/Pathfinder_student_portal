@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, response
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
 from django.db.models import Q
 from django.core.cache import cache
 
@@ -50,12 +50,15 @@ class CachedListViewSetMixin(object):
         v_key = f"version_{self.__class__.__name__}"
         try:
             cache.incr(v_key)
-            print(f"✓ Cache Version Incremented: All {self.__class__.__name__} lists invalidated.")
         except:
             # Fallback if incr fails
             v = cache.get(v_key, 1)
             cache.set(v_key, v + 1, 86400 * 30)
-            print(f"✓ Cache Version Updated: All {self.__class__.__name__} lists invalidated.")
+            
+        # Also bump the categorizer's global version so Foundation/Library tabs refresh
+        from django.utils import timezone
+        cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
+        print(f"✓ Cache Version Updated: All {self.__class__.__name__} and Categorizer lists invalidated.")
 
     def get_cache_key(self):
         user = self.request.user
@@ -95,6 +98,11 @@ class CachedListViewSetMixin(object):
     def perform_destroy(self, instance):
         instance.delete()
         self.clear_cache()
+
+class MasterSectionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = MasterSection.objects.all().order_by('priority', 'created_at')
+    serializer_class = MasterSectionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')

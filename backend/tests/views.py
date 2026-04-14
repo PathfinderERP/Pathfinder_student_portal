@@ -3,6 +3,7 @@ from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils import timezone
 from .models import Test, TestCentreAllotment
 from .serializers import TestSerializer, TestCentreAllotmentSerializer
 from sections.models import Section
@@ -92,7 +93,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         instance = serializer.save()
-        # Clear admin test list cache
+        # Clear admin list cache (the categorizer now refreshes automatically via DB timestamp)
         from django.core.cache import cache
         cache.delete("admin_test_list")
         
@@ -106,7 +107,11 @@ class TestViewSet(viewsets.ModelViewSet):
         # Clear related caches
         from django.core.cache import cache
         cache.delete("admin_test_list")
-        cache.delete(f"test_paper_{instance.pk}") # Clear the exam paper cache too if test details changed
+        cache.delete(f"test_paper_{instance.pk}")
+        
+        # Clear related caches
+        cache.delete(f"master_sections_v2_{self.request.user.pk}")
+        cache.delete("master_sections_v2_public")
         
         # Get current allowed centres - safer fetching for Djongo/Mongo
         centres = list(instance.centres.all())

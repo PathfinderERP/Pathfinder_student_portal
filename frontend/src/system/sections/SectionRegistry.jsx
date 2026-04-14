@@ -55,8 +55,8 @@ const SectionRegistry = () => {
             const response = await axios.get(`${apiUrl}/api/sections/`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
-            // Handle both array and object { sections: [...] } response formats
-            const sectionsData = Array.isArray(response.data) ? response.data : (response.data.sections || []);
+            // list_master_sections returns { count, sections: [...] }
+            const sectionsData = Array.isArray(response.data) ? response.data : (response.data.sections || response.data.results || []);
             setSections(sectionsData);
         } catch (err) {
             console.error('Error fetching sections:', err);
@@ -98,13 +98,13 @@ const SectionRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const authToken = token || localStorage.getItem('auth_token');
-            await axios.delete(`${apiUrl}/api/sections/${id}/`, {
+            await axios.delete(`${apiUrl}/api/master-data/master-sections/${id}/`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
             setSections(sections.filter(s => s.id !== id));
         } catch (err) {
             console.error('Error deleting section:', err);
-            alert('Failed to delete section.');
+            triggerAlert('Failed to delete section.', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -117,8 +117,8 @@ const SectionRegistry = () => {
             const apiUrl = getApiUrl().replace(/\/$/, '');
             const authToken = token || localStorage.getItem('auth_token');
             const url = modalMode === 'edit'
-                ? `${apiUrl}/api/sections/${editingSection.id}/`
-                : `${apiUrl}/api/sections/`;
+                ? `${apiUrl}/api/master-data/master-sections/${editingSection.id}/`
+                : `${apiUrl}/api/master-data/master-sections/`;
             const method = modalMode === 'edit' ? 'patch' : 'post';
 
             const payload = modalMode === 'edit'
@@ -129,7 +129,8 @@ const SectionRegistry = () => {
                     allowed_questions: 20,
                     correct_marks: 4,
                     negative_marks: 1,
-                    priority: 1
+                    priority: 1,
+                    is_active: true
                 };
 
             const response = await axios[method](url, payload, {
@@ -137,7 +138,6 @@ const SectionRegistry = () => {
             });
 
             if (modalMode === 'edit') {
-                // Merge with existing section to preserve counts (which aren't in standard serializer)
                 setSections(sections.map(s => s.id === editingSection.id ? { ...s, ...response.data } : s));
             } else {
                 setSections([response.data, ...sections]);

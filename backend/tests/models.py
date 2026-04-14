@@ -15,7 +15,7 @@ class Test(models.Model):
     
     # Allotment
     centres = models.ManyToManyField(Centre, related_name='tests', blank=True)
-    allotted_sections = models.ManyToManyField('sections.Section', related_name='allotted_tests', blank=True)
+    allotted_sections = models.ManyToManyField('master_data.MasterSection', related_name='allotted_tests', blank=True)
     
     duration = models.IntegerField(default=180, help_text="Duration in minutes")
     total_marks = models.IntegerField(default=0)

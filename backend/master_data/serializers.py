@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community
-from sections.models import Section
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from packages.models import Package
 from bson import ObjectId
 
@@ -19,6 +18,13 @@ class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
 
     def to_representation(self, value):
         return str(value.pk)
+
+class MasterSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MasterSection
+        fields = ['id', 'name', 'subject_code', 'total_questions', 'allowed_questions',
+                  'shuffle', 'correct_marks', 'negative_marks', 'partial_type',
+                  'partial_marks', 'priority', 'is_active', 'created_at', 'updated_at']
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -104,7 +110,7 @@ class LibraryItemSerializer(serializers.ModelSerializer):
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
-    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
+    section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = LibraryItem
@@ -116,7 +122,7 @@ class SolutionItemSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
-    sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
+    sections = serializers.PrimaryKeyRelatedField(many=True, queryset=MasterSection.objects.all(), required=False)
     section_names = serializers.SerializerMethodField()
 
     class Meta:
@@ -126,7 +132,7 @@ class SolutionItemSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if 'sections' in ret:
-            ret['sections'] = [str(s.pk) for s in instance.sections.all()]
+            ret['sections'] = [s.pk for s in instance.sections.all()]
         return ret
 
     def get_section_names(self, obj):
@@ -140,7 +146,7 @@ class NoticeSerializer(serializers.ModelSerializer):
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
-    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
+    section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = Notice
@@ -153,7 +159,7 @@ class LiveClassSerializer(serializers.ModelSerializer):
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
-    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
+    section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -178,7 +184,7 @@ class VideoSerializer(serializers.ModelSerializer):
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
-    section = ObjectIdRelatedField(queryset=Section.objects.all(), required=False, allow_null=True)
+    section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -203,7 +209,7 @@ class PenPaperTestSerializer(serializers.ModelSerializer):
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_names = serializers.SerializerMethodField()
-    sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
+    sections = serializers.PrimaryKeyRelatedField(many=True, queryset=MasterSection.objects.all(), required=False)
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -216,7 +222,7 @@ class PenPaperTestSerializer(serializers.ModelSerializer):
         if 'packages' in ret:
              ret['packages'] = [str(p.pk) for p in instance.packages.all()]
         if 'sections' in ret:
-             ret['sections'] = [str(s.pk) for s in instance.sections.all()]
+             ret['sections'] = [s.pk for s in instance.sections.all()]
         return ret
 
     def get_package_names(self, obj):
@@ -233,7 +239,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
-    sections = ObjectIdRelatedField(many=True, queryset=Section.objects.all(), required=False)
+    sections = serializers.PrimaryKeyRelatedField(many=True, queryset=MasterSection.objects.all(), required=False)
     section_names = serializers.SerializerMethodField()
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
@@ -245,7 +251,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if 'sections' in ret:
-            ret['sections'] = [str(s.pk) for s in instance.sections.all()]
+            ret['sections'] = [s.pk for s in instance.sections.all()]
         if 'packages' in ret:
             ret['packages'] = [str(p.pk) for p in instance.packages.all()]
         return ret
