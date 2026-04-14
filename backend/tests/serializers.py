@@ -143,23 +143,10 @@ class TestSerializer(serializers.ModelSerializer):
             seen_identifiers = set()
             total_count = 0
             
-            # Use PyMongo for performance and to bypass Djongo parser issues
-            if db is not None:
-                try:
-                    sub_docs = list(db['tests_testsubmission'].find({'test_id': obj.pk}, {'student_id': 1}))
-                    sub_pks = [d['student_id'] for d in sub_docs]
-                    if sub_pks:
-                        # Fetch key identifiers for these students to avoid double counting during centre/erp loops
-                        submitted_students = CustomUser.objects.filter(pk__in=sub_pks)
-                        for s in submitted_students:
-                            uid = (s.username or str(s.pk)).upper().strip()
-                            if uid in seen_identifiers: continue
-                            seen_identifiers.add(uid)
-                            if s.admission_number: seen_identifiers.add(s.admission_number.upper().strip())
-                            if s.email: seen_identifiers.add(s.email.lower().strip())
-                            total_count += 1
-                except Exception as e:
-                    print(f"Error fetching submitted students baseline: {e}")
+            # Note: We NO LONGER count submitted students as a baseline for the roster.
+            # This ensures that if a test is un-allotted, the roster correctly drops to 0
+            # even if students have taken it in the past.
+
 
             # Sum of cached authoritative counts is the most accurate/consistent for centre-allotted students
             # We add to total_count but MUST check against seen_identifiers to avoid double counting
@@ -184,12 +171,14 @@ class TestSerializer(serializers.ModelSerializer):
                     uid = (student.username or str(student.pk)).upper().strip()
                     if uid in seen_identifiers: continue
                     
-                    # If they matched centre, we apply section filter (unless already counted via submission)
-                    if allowed_sections:
-                        s_exams = [s.lower() for s in parse_section(student.exam_section)]
-                        s_studies = [s.lower() for s in parse_section(student.study_section)]
-                        if not any(sec in allowed_sections for sec in (s_exams + s_studies)):
-                            continue
+                    # If they matched centre, we apply section filter (RESTRICTIVE)
+                    if not allowed_sections:
+                        continue # If no sections are allotted to test, no student can see it
+                        
+                    s_exams = [s.lower() for s in parse_section(student.exam_section)]
+                    s_studies = [s.lower() for s in parse_section(student.study_section)]
+                    if not any(sec in allowed_sections for sec in (s_exams + s_studies)):
+                        continue
                     
                     seen_identifiers.add(uid)
                     if student.admission_number: seen_identifiers.add(student.admission_number.upper().strip())
@@ -212,14 +201,16 @@ class TestSerializer(serializers.ModelSerializer):
                     continue
 
                 # --- SHOW ALL STUDENTS MATCHING SECTIONS (IRRESPECTIVE OF SESSION) ---
-                # 1. Section Match
-                if allowed_sections:
-                    sec_allot = erp_student.get('sectionAllotment', {})
-                    if not isinstance(sec_allot, dict): continue
-                    e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
-                    e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
-                    if not any(sec in allowed_sections for sec in (e_exams + e_studies)):
-                        continue
+                # 1. Section Match (RESTRICTIVE)
+                if not allowed_sections:
+                    continue # No sections assigned = hidden from all students
+                    
+                sec_allot = erp_student.get('sectionAllotment', {})
+                if not isinstance(sec_allot, dict): continue
+                e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
+                e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
+                if not any(sec in allowed_sections for sec in (e_exams + e_studies)):
+                    continue
                 
                 # 2. Centre Match
                 e_centre_raw = erp_student.get('centre')

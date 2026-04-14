@@ -246,7 +246,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 if sub['c_code'] == str(c.code).lower().strip() or sub['c_name'] == str(c.name).lower().strip():
                     # Re-verify section allotment with ERP source of truth
                     is_mismatched = False
-                    if allowed_sections_list:
+                    if not allowed_sections_list:
+                        is_mismatched = True # No sections = no access
+                    else:
                         from api.db_utils import parse_section
                         
                         # PRIORITY: Live ERP, Fallback: Local DB
@@ -294,7 +296,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 uid = (s.username or str(s.pk)).upper().strip()
                 if uid in global_seen_uids: continue
                 
-                if allowed_sections_list:
+                if not allowed_sections_list:
+                    continue # Restrictive: No sections = zero roster
+                else:
                     from api.db_utils import parse_section
                     # PRIORITY: Live ERP, Fallback: Local DB (same as Step A)
                     erp_record = None
@@ -331,14 +335,16 @@ class TestViewSet(viewsets.ModelViewSet):
                 continue
             
             # --- SHOW ALL STUDENTS MATCHING SECTIONS (IRRESPECTIVE OF SESSION) ---
-            # 1. Section Match
-            if allowed_sections_list:
-                sec_allot = erp.get('sectionAllotment', {})
-                if not isinstance(sec_allot, dict): continue
-                e_exams = [sec.lower() for sec in parse_section(sec_allot.get('examSection'))]
-                e_studies = [sec.lower() for sec in parse_section(sec_allot.get('studySection'))]
-                if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
-                    continue
+            # 1. Section Match (RESTRICTIVE)
+            if not allowed_sections_list:
+                continue # No sections allotted = zero visibility
+            
+            sec_allot = erp.get('sectionAllotment', {})
+            if not isinstance(sec_allot, dict): continue
+            e_exams = [sec.lower() for sec in parse_section(sec_allot.get('examSection'))]
+            e_studies = [sec.lower() for sec in parse_section(sec_allot.get('studySection'))]
+            if not any(sec in allowed_sections_list for sec in (e_exams + e_studies)):
+                continue
             
             # 2. Centre Matching
             e_centre_raw = erp.get('centre')
