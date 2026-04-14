@@ -125,8 +125,8 @@ const LibraryRegistry = () => {
             setExamTypes(safeArray(etRes.data));
             setTargetExams(safeArray(teRes.data));
             // Handle Section API which often returns { sections: [...] }
-            setSections(Array.isArray(secRes.data?.sections) 
-                ? secRes.data.sections 
+            setSections(Array.isArray(secRes.data?.sections)
+                ? secRes.data.sections
                 : (Array.isArray(secRes.data) ? secRes.data : [])
             );
         } catch (error) {
@@ -300,20 +300,20 @@ const LibraryRegistry = () => {
     const resetForm = () => {
         setThumbnailError(null);
         setPdfError(null);
-        setNewItem({ 
-            name: '', 
-            description: '', 
-            thumbnail: null, 
-            pdf: null, 
-            video_link: '', 
-            video_file: null, 
+        setNewItem({
+            name: '',
+            description: '',
+            thumbnail: null,
+            pdf: null,
+            video_link: '',
+            video_file: null,
             content_type: 'pdf',
-            session: '', 
-            class_level: '', 
-            subject: '', 
-            exam_type: '', 
-            target_exam: '', 
-            section: '' 
+            session: '',
+            class_level: '',
+            subject: '',
+            exam_type: '',
+            target_exam: '',
+            section: ''
         });
         setSelectedItemForEdit(null);
     };
@@ -329,10 +329,10 @@ const LibraryRegistry = () => {
             const matchesExamType = !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
             const matchesTargetExam = !activeFilters.target_exam || String(item.target_exam) === String(activeFilters.target_exam);
             const matchesSection = !activeFilters.section || String(item.section) === String(activeFilters.section);
-            const matchesContentType = !activeFilters.contentType || 
-                (activeFilters.contentType === 'pdf' && item.pdf_file) || 
+            const matchesContentType = !activeFilters.contentType ||
+                (activeFilters.contentType === 'pdf' && item.pdf_file) ||
                 (activeFilters.contentType === 'video' && (item.video_link || item.video_file));
-            
+
             return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam && matchesSection && matchesContentType;
         }).sort((a, b) => {
             if (sortOrder === 'newest') return new Date(b.created_at) - new Date(a.created_at);
@@ -455,7 +455,7 @@ const LibraryRegistry = () => {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none font-bold transition-colors text-sm ${isDarkMode
-                                        ? 'bg-white/[0.01] border-white/5 text-white focus:border-emerald-500/50'
+                                        ? 'bg-white/1 border-white/5 text-white focus:border-emerald-500/50'
                                         : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500/50'
                                         }`}
                                 />
@@ -613,7 +613,7 @@ const LibraryRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
                                                 {((currentPage - 1) * itemsPerPage) + index + 1}
@@ -725,14 +725,14 @@ const LibraryRegistry = () => {
 
                     <div className="flex items-center gap-2">
                         <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
-                        
+
                         <div className="flex items-center gap-1.5">
                             {getPageNumbers().map(pageNum => (
                                 <button
                                     key={pageNum}
                                     onClick={() => setCurrentPage(pageNum)}
-                                    className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum 
-                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
+                                    className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum
+                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
                                         : (isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
                                 >
                                     {pageNum}
@@ -769,7 +769,7 @@ const LibraryRegistry = () => {
 
             {/* Modals */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className={`p-6 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <div className="flex items-center gap-3">
@@ -781,7 +781,7 @@ const LibraryRegistry = () => {
 
                         <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {/* Top Section: Academic Categorization */}
-                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="flex items-center gap-2 mb-6">
                                     <div className="w-1.5 h-5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-emerald-500">Resource Categorization</span>
@@ -846,7 +846,7 @@ const LibraryRegistry = () => {
                                             type="text"
                                             value={newItem.name}
                                             onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
                                             placeholder="e.g. Physics Module Vol 1"
                                         />
                                     </div>
@@ -856,7 +856,7 @@ const LibraryRegistry = () => {
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[120px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[120px] resize-none ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Provide a brief summary of this resource..."
                                         />
                                     </div>
@@ -865,7 +865,7 @@ const LibraryRegistry = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div className="space-y-2">
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Thumbnail</label>
-                                        <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-emerald-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-emerald-500 bg-slate-50'}`}>
+                                        <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-emerald-500/50 bg-white/1' : 'border-slate-200 hover:border-emerald-500 bg-slate-50'}`}>
                                             {(newItem.thumbnail || newItem.existing_thumbnail) && (
                                                 <button
                                                     type="button"
@@ -899,7 +899,7 @@ const LibraryRegistry = () => {
                                     {newItem.content_type === 'pdf' ? (
                                         <div className="space-y-2 animate-in fade-in duration-300">
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>PDF File</label>
-                                            <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
+                                            <div className={`relative h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/1' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
                                                 {newItem.pdf && (
                                                     <button
                                                         type="button"
@@ -940,14 +940,14 @@ const LibraryRegistry = () => {
                                                     type="url"
                                                     value={newItem.video_link}
                                                     onChange={(e) => setNewItem({ ...newItem, video_link: e.target.value })}
-                                                    className={`w-full px-4 py-3 rounded-[5px] outline-none border-2 font-bold text-xs transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-emerald-500/50 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 text-slate-800'}`}
+                                                    className={`w-full px-4 py-3 rounded-[5px] outline-none border-2 font-bold text-xs transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-emerald-500/50 text-white' : 'bg-slate-50 border-slate-200 focus:border-emerald-500 text-slate-800'}`}
                                                     placeholder="https://youtube.com/watch?v=..."
                                                 />
                                             </div>
-                                            
+
                                             <div className="space-y-2">
                                                 <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Or Upload Video File</label>
-                                                <div className={`relative h-[120px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-2 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
+                                                <div className={`relative h-[120px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-2 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/1' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
                                                     {newItem.video_file && (
                                                         <button
                                                             type="button"
@@ -990,11 +990,11 @@ const LibraryRegistry = () => {
 
             {/* View Modal */}
             {isViewModalOpen && selectedItemForView && (
-                <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
+                <div className={`fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
                     <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-4xl rounded-[5px] h-[85vh]'}`}>
-                        <div className={`flex-grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
+                        <div className={`grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
                             {/* Minimalism Controls */}
-                            <div className="absolute top-6 right-6 z-[110] flex items-center gap-3">
+                            <div className="absolute top-6 right-6 z-110 flex items-center gap-3">
                                 {viewPage === 2 && (
                                     <button
                                         onClick={() => setIsFullScreen(!isFullScreen)}
@@ -1013,7 +1013,7 @@ const LibraryRegistry = () => {
 
                             {viewPage === 1 ? (
                                 <div className="flex flex-col lg:flex-row items-center justify-center h-full p-10 lg:p-16 gap-10 lg:gap-16 overflow-y-auto custom-scrollbar">
-                                    <div className="relative group overflow-hidden rounded-[5px] shadow-2xl w-full max-w-[24rem] h-[32rem] border-[8px] border-white/5 flex-shrink-0 bg-black/40 flex items-center justify-center">
+                                    <div className="relative group overflow-hidden rounded-[5px] shadow-2xl w-full max-w-[24rem] h-128 border-8 border-white/5 shrink-0 bg-black/40 flex items-center justify-center">
                                         {selectedItemForView.thumbnail ? (
                                             <img
                                                 src={selectedItemForView.thumbnail}
@@ -1051,7 +1051,7 @@ const LibraryRegistry = () => {
                                         <p className="text-base font-medium leading-relaxed mb-10 text-white/60">{selectedItemForView.description || "No description available."}</p>
                                         {(selectedItemForView.pdf_file || selectedItemForView.video_link || selectedItemForView.video_file) && (
                                             <button onClick={() => setViewPage(2)} className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-4">
-                                                {selectedItemForView.pdf_file ? <FileText size={24} strokeWidth={3} /> : <PlayCircle size={24} strokeWidth={3} />} 
+                                                {selectedItemForView.pdf_file ? <FileText size={24} strokeWidth={3} /> : <PlayCircle size={24} strokeWidth={3} />}
                                                 <span>{selectedItemForView.pdf_file ? 'Open Reader' : 'Play Video'}</span>
                                             </button>
                                         )}
@@ -1064,10 +1064,10 @@ const LibraryRegistry = () => {
                                     ) : selectedItemForView.video_link ? (
                                         <div className="w-full h-full bg-black flex items-center justify-center">
                                             {selectedItemForView.video_link.includes('youtube.com') || selectedItemForView.video_link.includes('youtu.be') ? (
-                                                <iframe 
-                                                    src={getYouTubeEmbedUrl(selectedItemForView.video_link)} 
-                                                    className="w-full h-full" 
-                                                    allowFullScreen 
+                                                <iframe
+                                                    src={getYouTubeEmbedUrl(selectedItemForView.video_link)}
+                                                    className="w-full h-full"
+                                                    allowFullScreen
                                                     title="Video Player"
                                                 />
                                             ) : (

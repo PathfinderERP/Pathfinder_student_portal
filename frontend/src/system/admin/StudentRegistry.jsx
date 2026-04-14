@@ -395,7 +395,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
 
                     {/* Filter Dropdowns */}
                     {showFilters && (
-                        <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/2 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {/* Course Filter */}
                                 <div>
@@ -495,7 +495,7 @@ const StudentRegistry = ({ studentsData, isERPLoading }) => {
                         </thead>
                         <tbody className="divide-y divide-transparent">
                             {paginatedStudents.length > 0 ? paginatedStudents.map((std, i) => (
-                                <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300`}>
+                                <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'} transition-all duration-300`}>
                                     <td className="py-6 px-4">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center font-black text-sm border-2 transition-all group-hover:scale-110 group-hover:rotate-3 ${isDarkMode ? 'bg-orange-500/10 text-orange-500 border-white/5 shadow-inner' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>

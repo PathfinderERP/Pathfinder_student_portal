@@ -98,7 +98,7 @@ const AllocatedTestsForCentre = ({ centre, onBack }) => {
                             ) : filteredTests.length === 0 ? (
                                 <tr><td colSpan="4" className="py-32 text-center text-xs opacity-40">NO TESTS ALLOTTED TO THIS CENTRE</td></tr>
                             ) : filteredTests.map((t, idx) => (
-                                <tr key={t.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                                <tr key={t.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'}`}>
                                     <td className="py-6 px-10 text-xs opacity-30">{idx + 1}</td>
                                     <td className="py-6 px-10 uppercase text-sm">{t.name}</td>
                                     <td className="py-6 px-10 font-bold"><span className="px-2 py-1 bg-orange-500/10 text-orange-500 rounded-[5px] text-[10px]">{t.code}</span></td>

@@ -147,7 +147,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const updates = selectedAllotmentIds.map(id => 
+            const updates = selectedAllotmentIds.map(id =>
                 axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, { ...bulkEditForm, is_code_sent: false }, getAuthConfig())
             );
             await Promise.all(updates);
@@ -166,7 +166,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const updates = selectedAllotmentIds.map(id => 
+            const updates = selectedAllotmentIds.map(id =>
                 axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, { is_active: status }, getAuthConfig())
             );
             await Promise.all(updates);
@@ -181,7 +181,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     };
 
     const toggleSelect = (id) => {
-        setSelectedAllotmentIds(prev => 
+        setSelectedAllotmentIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
@@ -280,7 +280,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                             </button>
                             <button
                                 onClick={() => handleBulkStatusToggle(false)}
-                                className="px-3 py-1.5 bg-red-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all text-white"
+                                className="px-3 py-1.5 bg-red-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all"
                             >
                                 Disable
                             </button>
@@ -353,7 +353,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     </td>
                                 </tr>
                             ) : filteredAllotments.map((allotment) => (
-                                <tr key={allotment.id} className={`group relative transition-all hover:z-[50] ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'} ${selectedAllotmentIds.includes(allotment.id) ? (isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50/50') : ''}`}>
+                                <tr key={allotment.id} className={`group relative transition-all hover:z-50 ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'} ${selectedAllotmentIds.includes(allotment.id) ? (isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50/50') : ''}`}>
                                     <td className="py-5 px-6 text-center">
                                         <button onClick={() => toggleSelect(allotment.id)} className="p-1 hover:bg-white/10 rounded transition-all">
                                             {selectedAllotmentIds.includes(allotment.id)
@@ -371,13 +371,13 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         <div className="flex flex-col gap-1.5">
                                             {allotment.centre_details?.email && (
                                                 <div className="flex items-center gap-2 text-[10px] font-bold opacity-70">
-                                                    <Mail size={11} className="text-blue-500 flex-shrink-0" />
+                                                    <Mail size={11} className="text-blue-500 shrink-0" />
                                                     <span className="truncate max-w-[180px]">{allotment.centre_details.email}</span>
                                                 </div>
                                             )}
                                             {allotment.centre_details?.phone_number && (
                                                 <div className="flex items-center gap-2 text-[10px] font-bold opacity-70">
-                                                    <Smartphone size={11} className="text-emerald-500 flex-shrink-0" />
+                                                    <Smartphone size={11} className="text-emerald-500 shrink-0" />
                                                     <span>{allotment.centre_details.phone_number}</span>
                                                 </div>
                                             )}
@@ -406,7 +406,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                                     </span>
                                                     {/* History Tooltip */}
                                                     {allotment.code_history?.length > 0 && (
-                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-[5px] shadow-2xl overflow-hidden border transition-all z-[99999] pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                        <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 rounded-[5px] shadow-2xl overflow-hidden border transition-all z-99999 pointer-events-none group-hover/history:pointer-events-auto opacity-0 invisible group-hover/history:opacity-100 group-hover/history:visible ${isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-white border-slate-200'}`}>
                                                             {/* Tooltip Header */}
                                                             <div className={`p-3 border-b flex items-center justify-between ${isDarkMode ? 'bg-orange-500/10 border-white/5' : 'bg-orange-50 border-orange-100'}`}>
                                                                 <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>History</span>
@@ -487,7 +487,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
 
             {/* Schedule Edit Modal */}
             {isEditModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => !isActionLoading && setIsEditModalOpen(false)} />
                     <div className={`relative w-full max-w-sm rounded-[5px] shadow-2xl border overflow-hidden animate-scale-up duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-blue-600 p-6 flex justify-between items-center">
@@ -536,7 +536,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
 
             {/* Bulk Edit Modal */}
             {isBulkEditModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => !isActionLoading && setIsBulkEditModalOpen(false)} />
                     <div className={`relative w-full max-w-sm rounded-[5px] shadow-2xl border overflow-hidden animate-scale-up duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-orange-600 p-6 flex justify-between items-center text-white">
@@ -588,7 +588,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
 
             {/* Alert Notifications */}
             {alert.show && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-999 animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
                     <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
                         <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}

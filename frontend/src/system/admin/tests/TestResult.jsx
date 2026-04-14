@@ -62,15 +62,15 @@ const TestResult = () => {
     const filteredTests = useMemo(() => {
         return tests.filter(test => {
             const matchesSearch = test.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            const matchesStatus = testFilter === 'all' || 
-                                 (testFilter === 'completed' && test.is_completed) ||
-                                 (testFilter === 'in_progress' && !test.is_completed);
-            
-            const matchesSession = selectedSession === 'all' || 
-                                  test.session_details?.name === selectedSession;
-                                 
+                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesStatus = testFilter === 'all' ||
+                (testFilter === 'completed' && test.is_completed) ||
+                (testFilter === 'in_progress' && !test.is_completed);
+
+            const matchesSession = selectedSession === 'all' ||
+                test.session_details?.name === selectedSession;
+
             return matchesSearch && matchesStatus && matchesSession;
         });
     }, [tests, searchTerm, testFilter, selectedSession]);
@@ -133,19 +133,19 @@ const TestResult = () => {
     const handleForcePublishAction = async (test) => {
         if (!test) return;
         setTestToForcePublish(null); // Close modal
-        
+
         try {
             setTogglingStatusId(test.id);
             const apiUrl = getApiUrl();
             const res = await axios.post(`${apiUrl}/api/tests/${test.id}/force_publish/`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             // Update local state with the new values from backend
-            setTests(tests.map(t => t.id === test.id ? { 
-                ...t, 
-                is_completed: true, 
-                is_result_published: true 
+            setTests(tests.map(t => t.id === test.id ? {
+                ...t,
+                is_completed: true,
+                is_result_published: true
             } : t));
         } catch (err) {
             console.error('Error force publishing result:', err);
@@ -324,7 +324,7 @@ const TestResult = () => {
                                     </td>
                                 </tr>
                             ) : currentTests.map((test, index) => (
-                                <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
+                                <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'}`}>
                                     <td className={`py-5 px-6 text-xs font-black ${isDarkMode ? 'opacity-30 text-white' : 'text-slate-500 opacity-90'}`}>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex items-center gap-2 whitespace-nowrap">
@@ -348,10 +348,9 @@ const TestResult = () => {
                                             <button
                                                 onClick={() => handleReleaseResult(test)}
                                                 disabled={togglingStatusId === test.id}
-                                                className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 overflow-hidden ${
-                                                    togglingStatusId === test.id ? 'bg-slate-400 opacity-50' : 
-                                                    test.is_result_published ? 'bg-pink-500 shadow-lg shadow-pink-500/20' : 'bg-slate-300'
-                                                }`}
+                                                className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 overflow-hidden ${togglingStatusId === test.id ? 'bg-slate-400 opacity-50' :
+                                                        test.is_result_published ? 'bg-pink-500 shadow-lg shadow-pink-500/20' : 'bg-slate-300'
+                                                    }`}
                                             >
                                                 {togglingStatusId === test.id ? (
                                                     <div className="absolute inset-0 flex items-center justify-center">
@@ -365,11 +364,10 @@ const TestResult = () => {
                                             <button
                                                 onClick={() => handleForcePublish(test)}
                                                 disabled={togglingStatusId === test.id || (test.total_students === 0)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all mx-auto ${
-                                                    (test.total_students === 0)
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all mx-auto ${(test.total_students === 0)
                                                         ? 'bg-slate-200 dark:bg-white/5 text-slate-400 cursor-not-allowed'
-                                                        : 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95'
-                                                }`}
+                                                        : 'bg-linear-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95'
+                                                    }`}
                                             >
                                                 {togglingStatusId === test.id ? (
                                                     <Loader2 size={12} className="animate-spin" />
@@ -384,11 +382,10 @@ const TestResult = () => {
                                         <button
                                             onClick={() => handleQuestionAnalysis(test.id, test.name)}
                                             disabled={!test.is_completed}
-                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
-                                                test.is_completed 
-                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95' 
+                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${test.is_completed
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95'
                                                     : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
-                                            }`}
+                                                }`}
                                         >
                                             <BarChart3 size={11} /> <span className="hidden sm:inline">Question Analysis</span><span className="sm:hidden">Q. Analysis</span>
                                         </button>
@@ -397,11 +394,10 @@ const TestResult = () => {
                                         <button
                                             onClick={() => handleQuestionVsStudentAnalysis(test.id, test.name)}
                                             disabled={!test.is_completed}
-                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
-                                                test.is_completed 
-                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95' 
+                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${test.is_completed
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95'
                                                     : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
-                                            }`}
+                                                }`}
                                         >
                                             <BarChart3 size={11} /> <span className="hidden sm:inline">Analysis</span><span className="sm:hidden">Analy.</span>
                                         </button>
@@ -410,11 +406,10 @@ const TestResult = () => {
                                         <button
                                             onClick={() => handleShowStudentResponses(test)}
                                             disabled={!test.is_completed}
-                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${
-                                                test.is_completed 
-                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95' 
+                                            className={`px-3.5 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 mx-auto ${test.is_completed
+                                                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20 active:scale-95'
                                                     : 'bg-slate-300 dark:bg-white/5 text-slate-500 dark:text-slate-500 cursor-not-allowed shadow-none'
-                                            }`}
+                                                }`}
                                         >
                                             <Eye size={11} /> Students
                                         </button>
@@ -459,7 +454,7 @@ const TestResult = () => {
                             >
                                 <ChevronLeft size={16} />
                             </button>
-                            
+
                             <div className="flex items-center gap-1 mx-2">
                                 {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => {
                                     let pageNum;
@@ -501,38 +496,38 @@ const TestResult = () => {
 
             {/* Custom Force Publish Confirmation Modal */}
             {testToForcePublish && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div 
+                <div className="fixed inset-0 z-999 flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div
                         className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
                         onClick={() => setTestToForcePublish(null)}
                     />
-                    
-                    <div className={`relative w-full max-w-lg rounded-[1.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white border border-slate-200'} shadow-orange-500/10`}>
+
+                    <div className={`relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white border border-slate-200'} shadow-orange-500/10`}>
                         {/* Header Gradient Strip */}
-                        <div className="h-2 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600" />
-                        
+                        <div className="h-2 bg-linear-to-r from-orange-500 via-pink-500 to-purple-600" />
+
                         <div className="p-8">
                             <div className="flex items-start justify-between mb-8">
-                                <div className="p-4 bg-orange-500/20 rounded-[1rem]">
+                                <div className="p-4 bg-orange-500/20 rounded-2xl">
                                     <ShieldAlert size={32} className="text-orange-500" strokeWidth={2.5} />
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setTestToForcePublish(null)}
                                     className={`p-2 rounded-full transition-all hover:rotate-90 ${isDarkMode ? 'hover:bg-white/10 text-slate-500' : 'hover:bg-slate-100 text-slate-400'}`}
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
-                            
+
                             <div className="space-y-4 mb-10">
                                 <h3 className={`text-2xl font-black uppercase tracking-tight leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                     Confirm <span className="text-orange-500">Force Publish</span>
                                 </h3>
-                                <div className={`p-5 rounded-[1rem] border ${isDarkMode ? 'bg-white/[0.02] border-white/5 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                                <div className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-white/2 border-white/5 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                     <p className="text-sm font-bold leading-relaxed">
                                         Are you sure you want to release results for <span className={`${isDarkMode ? 'text-white' : 'text-slate-900'} underline decoration-orange-500/50 underline-offset-4`}>{testToForcePublish.name}</span>?
                                     </p>
-                                    <div className="mt-4 flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.1em]">
+                                    <div className="mt-4 flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
                                         <div className="flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                                             Immediate Student Access
@@ -544,17 +539,17 @@ const TestResult = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <button
                                     onClick={() => setTestToForcePublish(null)}
-                                    className={`flex-1 px-6 py-4 rounded-[1rem] font-black text-xs uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+                                    className={`flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => handleForcePublishAction(testToForcePublish)}
-                                    className="flex-1 px-6 py-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-[1rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-orange-500/20 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                    className="flex-1 px-6 py-4 bg-linear-to-r from-orange-500 to-pink-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-orange-500/20 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                                 >
                                     <Zap size={14} fill="currentColor" />
                                     Confirm Publish

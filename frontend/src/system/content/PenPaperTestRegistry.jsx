@@ -360,7 +360,7 @@ const PenPaperTestRegistry = () => {
                     </div>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black text-sm uppercase tracking-widest rounded-[5px] shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-2"
+                        className="px-6 py-3 bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black text-sm uppercase tracking-widest rounded-[5px] shadow-lg shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-2"
                     >
                         <Plus size={18} /> Add PenPaperTest
                     </button>
@@ -716,7 +716,7 @@ const PenPaperTestRegistry = () => {
                                         </button>
 
                                         {isSectionDropdownOpen && (
-                                            <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                            <div className={`absolute top-full left-0 right-0 z-110 mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                                 ? 'bg-[#1e293b] border-white/10 shadow-black/40'
                                                 : 'bg-white border-slate-100 shadow-slate-200'
                                                 }`}>
@@ -784,7 +784,7 @@ const PenPaperTestRegistry = () => {
                                     </button>
 
                                     {isTypeDropdownOpen && (
-                                        <div className={`absolute top-full left-0 right-0 z-[120] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                        <div className={`absolute top-full left-0 right-0 z-120 mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                             ? 'bg-[#1e293b] border-white/10 shadow-black'
                                             : 'bg-white border-slate-100 shadow-slate-200'
                                             }`}>
@@ -868,7 +868,7 @@ const PenPaperTestRegistry = () => {
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
                                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-3 rounded-[5px] font-bold text-sm uppercase bg-slate-500/10 text-slate-500">Cancel</button>
-                                <button type="submit" disabled={isActionLoading} className="px-6 py-3 rounded-[5px] font-bold text-sm uppercase bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg">{isActionLoading ? 'Saving...' : 'Save Test'}</button>
+                                <button type="submit" disabled={isActionLoading} className="px-6 py-3 rounded-[5px] font-bold text-sm uppercase bg-linear-to-r from-emerald-500 to-emerald-600 text-white shadow-lg">{isActionLoading ? 'Saving...' : 'Save Test'}</button>
                             </div>
                         </form>
                     </div>

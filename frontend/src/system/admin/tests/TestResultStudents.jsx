@@ -133,7 +133,7 @@ const TestResultStudents = ({ test, onBack }) => {
                                     </td>
                                 </tr>
                             ) : paginatedStudents.map((student) => (
-                                <tr key={student.rank} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/20'}`}>
+                                <tr key={student.rank} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/20'}`}>
                                     <td className="py-6 px-6 text-center">
                                         <span className={`flex items-center justify-center mx-auto w-8 h-8 rounded-full font-black text-xs ${student.rank <= 3 ? 'bg-yellow-500/10 text-yellow-600' : isDarkMode ? 'bg-slate-500/10 text-slate-400' : 'bg-slate-100 text-slate-700'}`}>
                                             {student.rank}
@@ -146,7 +146,7 @@ const TestResultStudents = ({ test, onBack }) => {
                                         <span className={`text-xs font-bold font-mono tracking-tighter uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-700'}`}>{student.enrollment}</span>
                                     </td>
                                     <td className={`py-6 px-6 text-center font-black text-[11px] uppercase tracking-widest ${isDarkMode ? 'text-slate-500 opacity-40' : 'text-slate-700 opacity-90'}`}>{student.centre}</td>
-                                    
+
                                     {sections.map(sec => (
                                         <td key={sec} className={`py-6 px-6 text-center text-xs font-bold ${isDarkMode ? 'text-slate-400 opacity-60' : 'text-slate-800 opacity-90'}`}>
                                             {student.section_scores?.[sec] || '—'}

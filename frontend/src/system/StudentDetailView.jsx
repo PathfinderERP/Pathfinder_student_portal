@@ -23,7 +23,7 @@ const StudentDetailView = ({ student, onClose }) => {
     console.log('StudentDetailView - Extracted details:', { details, course, paymentBreakdown, feeStructure });
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+        <div className="fixed inset-0 z-9999 flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
@@ -74,7 +74,7 @@ const StudentDetailView = ({ student, onClose }) => {
                         <div className="lg:col-span-2 space-y-8">
 
                             {/* Personal Info Card */}
-                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/0.02 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                     <User size={14} className="text-orange-500" /> Personal Information
                                 </h3>
@@ -93,7 +93,7 @@ const StudentDetailView = ({ student, onClose }) => {
                             </section>
 
                             {/* Course Info Card */}
-                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/0.02 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                     <Layers size={14} className="text-blue-500" /> Course Details
                                 </h3>
@@ -107,7 +107,7 @@ const StudentDetailView = ({ student, onClose }) => {
                             </section>
 
                             {/* Payment Timeline */}
-                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <section className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/0.02 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] opacity-50 flex items-center gap-2 mb-6">
                                     <Activity size={14} className="text-emerald-500" /> Installment Schedule
                                 </h3>

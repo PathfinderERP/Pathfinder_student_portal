@@ -709,8 +709,8 @@ const SolutionRegistry = () => {
                                 <button
                                     key={pageNum}
                                     onClick={() => setCurrentPage(pageNum)}
-                                    className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum 
-                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' 
+                                    className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum
+                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
                                         : (isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
                                 >
                                     {pageNum}

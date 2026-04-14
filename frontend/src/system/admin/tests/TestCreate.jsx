@@ -55,7 +55,7 @@ const TestCreate = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [error, setError] = useState(null);
-    
+
     // Master data caching
     const masterDataCacheRef = useRef({});
     const masterDataTimestampRef = useRef(null);
@@ -104,9 +104,9 @@ const TestCreate = () => {
     // Fetch master data with caching
     const fetchMasterData = useCallback(async () => {
         const now = Date.now();
-        
-        if (masterDataCacheRef.current && 
-            masterDataTimestampRef.current && 
+
+        if (masterDataCacheRef.current &&
+            masterDataTimestampRef.current &&
             (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
             Object.keys(masterDataCacheRef.current).length > 0) {
             const cached = masterDataCacheRef.current;
@@ -201,7 +201,7 @@ const TestCreate = () => {
             const config = getAuthConfig();
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
             setData(Array.isArray(response.data) ? response.data : response.data.results || response.data);
-            
+
             // Use cached master data instead of repeated API calls
             await fetchMasterData();
         } catch (err) {
@@ -217,12 +217,12 @@ const TestCreate = () => {
         if (debouncedSearchRef.current) {
             clearTimeout(debouncedSearchRef.current);
         }
-        
+
         debouncedSearchRef.current = setTimeout(() => {
             setDebouncedSearch(searchTerm);
             setCurrentPage(1);
         }, 500);
-        
+
         return () => {
             if (debouncedSearchRef.current) {
                 clearTimeout(debouncedSearchRef.current);
@@ -282,10 +282,10 @@ const TestCreate = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to delete this test?')) return;
         setIsActionLoading(true);
-        
+
         // Optimistic delete
         setData(prev => prev.filter(item => item.id !== id));
-        
+
         try {
             const apiUrl = getApiUrl();
             await axios.delete(`${apiUrl}/api/tests/${id}/`, getAuthConfig());
@@ -299,10 +299,10 @@ const TestCreate = () => {
 
     const handleToggleStatus = async (item) => {
         setIsActionLoading(true);
-        
+
         // Optimistic toggle
         setData(prev => prev.map(d => d.id === item.id ? { ...d, is_completed: !d.is_completed } : d));
-        
+
         try {
             const apiUrl = getApiUrl();
             await axios.patch(`${apiUrl}/api/tests/${item.id}/`,
@@ -466,7 +466,7 @@ const TestCreate = () => {
                             ))
                         ) : (
                             currentRecords.map((item, index) => (
-                                <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-200/50'} transition-colors`}>
+                                <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
                                     <td className="py-5 px-4 font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-4">
                                         <div className="flex flex-col">
@@ -595,7 +595,7 @@ const TestCreate = () => {
                         >
                             <ChevronLeft size={16} />
                         </button>
-                        
+
                         <div className="flex items-center gap-1 mx-2">
                             {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => {
                                 let pageNum;
@@ -710,7 +710,7 @@ const TestCreate = () => {
     const renderModal = () => {
         if (!isModalOpen) return null;
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-8">
+            <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-6 md:p-8">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
                 <div className={`relative w-full max-w-4xl max-h-[85vh] flex flex-col rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
                     {/* Header */}
@@ -777,101 +777,101 @@ const TestCreate = () => {
                                     </div>
                                 </div>
 
-                            {/* Title & Code */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Title & Code */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title * {!isAllCriteriaSelected && '(Select Four Filters First)'}</label>
+                                        <select
+                                            disabled={!isAllCriteriaSelected}
+                                            required
+                                            value={formValues.name}
+                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                            className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all ${!isAllCriteriaSelected ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">Select Exam Title</option>
+                                            {availableTitles.map(title => (
+                                                <option key={title} value={title}>{title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code *</label>
+                                        <input
+                                            required
+                                            placeholder="Exam Code *"
+                                            value={formValues.code}
+                                            onChange={e => setFormValues({ ...formValues, code: e.target.value })}
+                                            className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins) (Auto-selected)</label>
+                                        <input
+                                            type="number"
+                                            readOnly
+                                            required
+                                            value={formValues.duration}
+                                            className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Toggles */}
+                                <div className="flex items-center gap-8 py-2">
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormValues({ ...formValues, is_completed: !formValues.is_completed })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.is_completed ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                        >
+                                            <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.is_completed ? 'right-1' : 'left-1'}`} />
+                                        </button>
+                                        <span className="text-sm font-bold opacity-60">Completed</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormValues({ ...formValues, has_calculator: !formValues.has_calculator })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.has_calculator ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                        >
+                                            <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.has_calculator ? 'right-1' : 'left-1'}`} />
+                                        </button>
+                                        <span className="text-sm font-bold opacity-60">Calculator</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormValues({ ...formValues, option_type_numeric: !formValues.option_type_numeric })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.option_type_numeric ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                        >
+                                            <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.option_type_numeric ? 'right-1' : 'left-1'}`} />
+                                        </button>
+                                        <span className="text-sm font-bold opacity-60">Option type (1,2,3,4)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Divider */}
+                            <div className={`h-px w-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
+
+                            {/* Instructions (After Main Fields) */}
+                            <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title * {!isAllCriteriaSelected && '(Select Four Filters First)'}</label>
-                                    <select
-                                        disabled={!isAllCriteriaSelected}
-                                        required
-                                        value={formValues.name}
-                                        onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                        className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all ${!isAllCriteriaSelected ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                    >
-                                        <option value="">Select Exam Title</option>
-                                        {availableTitles.map(title => (
-                                            <option key={title} value={title}>{title}</option>
-                                        ))}
-                                    </select>
+                                    <h3 className="text-sm font-bold opacity-80 uppercase tracking-widest">Test Instructions</h3>
+                                    <p className="text-[10px] opacity-40 font-medium">Add guidelines and mathematical formulas for the students.</p>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code *</label>
-                                    <input
-                                        required
-                                        placeholder="Exam Code *"
-                                        value={formValues.code}
-                                        onChange={e => setFormValues({ ...formValues, code: e.target.value })}
-                                        className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                    />
-                                </div>
+                                <SmartEditor
+                                    value={formValues.instructions}
+                                    onChange={(val) => setFormValues(prev => ({ ...prev, instructions: val }))}
+                                    placeholder="Enter test instructions..."
+                                    isDarkMode={isDarkMode}
+                                />
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins) (Auto-selected)</label>
-                                    <input
-                                        type="number"
-                                        readOnly
-                                        required
-                                        value={formValues.duration}
-                                        className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Toggles */}
-                            <div className="flex items-center gap-8 py-2">
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormValues({ ...formValues, is_completed: !formValues.is_completed })}
-                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.is_completed ? 'bg-orange-500' : 'bg-slate-300'}`}
-                                    >
-                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.is_completed ? 'right-1' : 'left-1'}`} />
-                                    </button>
-                                    <span className="text-sm font-bold opacity-60">Completed</span>
-                                </div>
-
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormValues({ ...formValues, has_calculator: !formValues.has_calculator })}
-                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.has_calculator ? 'bg-orange-500' : 'bg-slate-300'}`}
-                                    >
-                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.has_calculator ? 'right-1' : 'left-1'}`} />
-                                    </button>
-                                    <span className="text-sm font-bold opacity-60">Calculator</span>
-                                </div>
-
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormValues({ ...formValues, option_type_numeric: !formValues.option_type_numeric })}
-                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.option_type_numeric ? 'bg-orange-500' : 'bg-slate-300'}`}
-                                    >
-                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.option_type_numeric ? 'right-1' : 'left-1'}`} />
-                                    </button>
-                                    <span className="text-sm font-bold opacity-60">Option type (1,2,3,4)</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Divider */}
-                        <div className={`h-px w-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
-
-                        {/* Instructions (After Main Fields) */}
-                        <div className="space-y-4">
-                            <div className="space-y-1">
-                                <h3 className="text-sm font-bold opacity-80 uppercase tracking-widest">Test Instructions</h3>
-                                <p className="text-[10px] opacity-40 font-medium">Add guidelines and mathematical formulas for the students.</p>
-                            </div>
-                            <SmartEditor
-                                value={formValues.instructions}
-                                onChange={(val) => setFormValues(prev => ({ ...prev, instructions: val }))}
-                                placeholder="Enter test instructions..."
-                                isDarkMode={isDarkMode}
-                            />
-                        </div>
 
                         </div>
 

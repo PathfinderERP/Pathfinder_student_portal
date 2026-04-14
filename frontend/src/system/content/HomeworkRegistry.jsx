@@ -391,7 +391,7 @@ const HomeworkRegistry = () => {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none font-bold transition-all text-sm ${isDarkMode
-                                        ? 'bg-white/[0.01] border-white/5 text-white focus:border-orange-500/50'
+                                        ? 'bg-white/1 border-white/5 text-white focus:border-orange-500/50'
                                         : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500/50'
                                         }`}
                                 />
@@ -504,7 +504,7 @@ const HomeworkRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
                                                 {((currentPage - 1) * itemsPerPage) + index + 1}
@@ -624,7 +624,7 @@ const HomeworkRegistry = () => {
 
             {/* Combined Add/Edit Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-4xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className={`p-6 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <div className="flex items-center gap-3">
@@ -636,14 +636,14 @@ const HomeworkRegistry = () => {
 
                         <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {/* Academic Categorization */}
-                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="flex items-center gap-2 mb-6">
                                     <div className="w-1.5 h-5 bg-orange-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-orange-500">Assignment Targeting</span>
                                 </div>
 
                                 <div className="flex flex-col gap-6">
-                                    <div className="flex items-center gap-4 p-4 rounded-[5px] transition-all border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-100 border-slate-200'}">
+                                    <div className="flex items-center gap-4 p-4 rounded-[5px] transition-all border ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-100 border-slate-200'}">
                                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'}`}>Targeting Type:</span>
                                         <div className={`flex p-1 rounded-[5px] shadow-inner ${isDarkMode ? 'bg-black/20 text-white' : 'bg-white border border-slate-200 text-slate-700'}`}>
                                             <button
@@ -707,7 +707,7 @@ const HomeworkRegistry = () => {
                                                 </button>
 
                                                 {isSectionDropdownOpen && (
-                                                    <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
+                                                    <div className={`absolute top-full left-0 right-0 z-110 mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
                                                         ? 'bg-[#1e293b] border-white/10 shadow-black/40'
                                                         : 'bg-white border-slate-100 shadow-slate-200'
                                                         }`}>
@@ -748,7 +748,7 @@ const HomeworkRegistry = () => {
                                                             key={pkg._id}
                                                             className={`flex items-center gap-4 p-4 rounded-[5px] border-2 transition-all cursor-pointer group ${isSelected
                                                                 ? 'bg-orange-500/10 border-orange-500 text-orange-500'
-                                                                : isDarkMode ? 'bg-white/[0.02] border-white/5 text-slate-400 hover:border-white/20' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                                                : isDarkMode ? 'bg-white/2 border-white/5 text-slate-400 hover:border-white/20' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                                                                 }`}
                                                         >
                                                             <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${isSelected ? 'bg-orange-500 text-white' : 'border-2 border-slate-400'}`}>
@@ -783,7 +783,7 @@ const HomeworkRegistry = () => {
                                             type="text"
                                             value={newItem.name}
                                             onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-orange-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-orange-500 text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-orange-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-orange-500 text-slate-800'}`}
                                             placeholder="e.g. Physics Single Choice 01"
                                         />
                                     </div>
@@ -794,7 +794,7 @@ const HomeworkRegistry = () => {
                                             type="button"
                                             onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
                                             className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all text-left flex items-center justify-between ${isDarkMode
-                                                ? 'bg-white/[0.02] border-white/5 text-white focus:border-orange-500/50'
+                                                ? 'bg-white/2 border-white/5 text-white focus:border-orange-500/50'
                                                 : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
                                                 }`}
                                         >
@@ -803,7 +803,7 @@ const HomeworkRegistry = () => {
                                         </button>
 
                                         {isTypeDropdownOpen && (
-                                            <div className={`absolute top-full left-0 right-0 z-[120] mt-3 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-300 ${isDarkMode
+                                            <div className={`absolute top-full left-0 right-0 z-120 mt-3 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-300 ${isDarkMode
                                                 ? 'bg-[#1E2532] border-white/10 shadow-black'
                                                 : 'bg-white border-slate-100 shadow-slate-200'
                                                 }`}>
@@ -832,7 +832,7 @@ const HomeworkRegistry = () => {
 
                                 <div className="space-y-4">
                                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Assignment PDF *</label>
-                                    <div className={`relative h-[200px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
+                                    <div className={`relative h-[200px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-4 ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/1' : 'border-slate-200 hover:border-blue-500 bg-slate-50'}`}>
                                         {(newItem.pdf_file || previews.pdf_file) && (
                                             <button
                                                 type="button"
@@ -882,7 +882,7 @@ const HomeworkRegistry = () => {
             )}
 
             {isViewModalOpen && selectedItemForView && (
-                <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
+                <div className={`fixed inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'p-0' : 'p-4'}`}>
                     <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-6xl rounded-[5px] h-[90vh]'}`}>
                         {/* Modal Header */}
                         <div className={`p-5 flex justify-between items-center border-b ${isDarkMode ? 'bg-[#1E2532] border-white/10 text-white' : 'bg-white border-slate-100 text-slate-800'}`}>
@@ -913,7 +913,7 @@ const HomeworkRegistry = () => {
                         </div>
 
                         {/* PDF Content Area */}
-                        <div className={`flex-grow relative ${isDarkMode ? 'bg-[#0f1419]' : 'bg-slate-50'}`}>
+                        <div className={`grow relative ${isDarkMode ? 'bg-[#0f1419]' : 'bg-slate-50'}`}>
                             <div className="w-full h-full">
                                 {selectedItemForView.pdf_file ? (
                                     <iframe src={selectedItemForView.pdf_file} className="w-full h-full bg-white transition-opacity duration-500" title="PDF Preview" />

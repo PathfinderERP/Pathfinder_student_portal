@@ -256,15 +256,15 @@ const MergeTestResult = () => {
                                 ) : currentLb.map((row) => (
                                     <tr
                                         key={row.student_id}
-                                        className={`transition-all ${rankBg(row.rank)} ${!rankBg(row.rank) && (isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30')}`}
+                                        className={`transition-all ${rankBg(row.rank)} ${!rankBg(row.rank) && (isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30')}`}
                                     >
                                         {/* Rank */}
                                         <td className="py-5 px-6">
                                             <div className={`flex items-center justify-center w-9 h-9 rounded-[5px] font-black text-sm ${rankColor(row.rank)} ${row.rank <= 3 ? (isDarkMode ? 'bg-white/10' : 'bg-white shadow-sm') : ''}`}>
                                                 {row.rank <= 3 ? (
                                                     row.rank === 1 ? <Trophy size={18} className="text-yellow-400" /> :
-                                                    row.rank === 2 ? <Medal size={18} className="text-slate-300" /> :
-                                                    <Medal size={18} className="text-orange-400" />
+                                                        row.rank === 2 ? <Medal size={18} className="text-slate-300" /> :
+                                                            <Medal size={18} className="text-orange-400" />
                                                 ) : row.rank}
                                             </div>
                                         </td>
@@ -478,7 +478,7 @@ const MergeTestResult = () => {
                                     key={test.id}
                                     className={`group transition-all cursor-pointer ${selectedTests.includes(test.id)
                                         ? (isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50')
-                                        : (isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30')}`}
+                                        : (isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30')}`}
                                     onClick={() => handleSelectTest(test.id)}
                                 >
                                     <td className="py-5 px-6">

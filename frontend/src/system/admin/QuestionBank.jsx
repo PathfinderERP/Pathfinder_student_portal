@@ -118,7 +118,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     });
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const mediaInputRef = useRef(null);
-    
+
     // Debounced search state
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const debouncedSearchRef = useRef(null);
@@ -128,12 +128,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         if (debouncedSearchRef.current) {
             clearTimeout(debouncedSearchRef.current);
         }
-        
+
         debouncedSearchRef.current = setTimeout(() => {
             setDebouncedSearch(filters.search);
             setCurrentPage(1);
         }, 500);
-        
+
         return () => {
             if (debouncedSearchRef.current) {
                 clearTimeout(debouncedSearchRef.current);
@@ -181,17 +181,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 if (searchTerm) {
                     const qText = (q.question || q.content || '').toLowerCase();
                     const qId = String(q.id || q._id || '').toLowerCase();
-                    
+
                     // Resolve names from master data for searching if needed
                     const qSubjectObj = subjects.find(s => String(s.id) === String(q.subject?.id || q.subject));
                     const qSubjectName = (qSubjectObj?.name || '').toLowerCase();
-                    
+
                     const qTopicObj = topics.find(t => String(t.id) === String(q.topic?.id || q.topic));
                     const qTopicName = (qTopicObj?.name || '').toLowerCase();
 
-                    if (!qText.includes(searchTerm) && 
-                        !qId.includes(searchTerm) && 
-                        !qSubjectName.includes(searchTerm) && 
+                    if (!qText.includes(searchTerm) &&
+                        !qId.includes(searchTerm) &&
+                        !qSubjectName.includes(searchTerm) &&
                         !qTopicName.includes(searchTerm)) {
                         return false;
                     }
@@ -296,7 +296,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const cached = localStorage.getItem('masterDataCache');
         const cacheTime = localStorage.getItem('masterDataCacheTime');
         const now = Date.now();
-        
+
         // Use cache if less than 2 hours old and not forced
         if (!force && cached && cacheTime && (now - JSON.parse(cacheTime) < 7200000)) {
             try {
@@ -327,7 +327,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
             ]);
-            
+
             const masterData = {
                 classes: classRes.data,
                 subjects: subRes.data,
@@ -336,11 +336,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 targetExams: targetRes.data,
                 examDetails: detailRes.data
             };
-            
+
             // Cache for 2 hours
             localStorage.setItem('masterDataCache', JSON.stringify(masterData));
             localStorage.setItem('masterDataCacheTime', JSON.stringify(now));
-            
+
             setClasses(masterData.classes);
             setSubjects(masterData.subjects);
             setTopics(masterData.topics);
@@ -561,14 +561,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const updatedQuestions = [...prev.questions];
             const currentQ = updatedQuestions[qIndex];
             const isMulti = currentQ.question_type === 'MULTI_CHOICE';
-            
+
             currentQ.options = currentQ.options.map(opt => {
                 if (opt.id === optId) {
                     return { ...opt, isCorrect: isMulti ? !opt.isCorrect : true };
                 }
                 return { ...opt, isCorrect: isMulti ? opt.isCorrect : false };
             });
-            
+
             return { ...prev, questions: updatedQuestions };
         });
     };
@@ -592,7 +592,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const renderMathModal = () => {
         if (!showMathTools) return null;
         return (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMathTools(false)} />
                 <div className={`relative w-full max-w-xl rounded-[5px] overflow-hidden shadow-2xl animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
                     <div className="bg-blue-600 p-6 flex justify-between items-center text-white">
@@ -956,12 +956,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                 {/* Dropdown Menu */}
                 {isOpen && (
-                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                    <div className={`absolute z-100 left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
                         ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-                        
+
                         {/* Search Option */}
                         {options.length > 5 && (
-                            <div className={`p-2 border-b sticky top-0 z-[101] ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className={`p-2 border-b sticky top-0 z-101 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
                                 <div className="relative">
                                     <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
                                     <input
@@ -1040,13 +1040,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const apiUrl = getApiUrl();
 
             let successCount = 0;
-            
+
             // Loop through all questions in the batch
             for (const q of form.questions) {
                 // Sync all Base64 images to cloud before generating the payload
                 const cleanContent = await processEditorImages(q.question);
                 const cleanSolution = await processEditorImages(q.solution);
-                
+
                 // Process option contents as well
                 const cleanOptions = await Promise.all(q.options.map(async opt => ({
                     ...opt,
@@ -1196,7 +1196,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         try {
             const config = getAuthConfig();
             const apiUrl = getApiUrl();
-            setQuestions(prev => prev.map(q => 
+            setQuestions(prev => prev.map(q =>
                 (q.id === questionId || q._id === questionId) ? { ...q, is_wrong: !q.is_wrong } : q
             ));
             await axios.post(`${apiUrl}/api/questions/${questionId}/mark_wrong/`, {}, config);
@@ -1301,8 +1301,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     setSelectedInternalIds([]);
                                 }}
                                 className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
-                                    ${isInternalSelectionMode 
-                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30 active:scale-95' 
+                                    ${isInternalSelectionMode
+                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30 active:scale-95'
                                         : isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                             >
                                 <Layers size={16} />
@@ -1352,12 +1352,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             value={filters.search}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                             className={`w-full pl-14 pr-12 py-4 rounded-[5px] border-2 text-[11px] font-black uppercase tracking-[0.2em] outline-none transition-all
-                                ${isDarkMode 
-                                    ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500/50 focus:bg-white/10' 
+                                ${isDarkMode
+                                    ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500/50 focus:bg-white/10'
                                     : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-emerald-500/30 focus:bg-white shadow-inner'}`}
                         />
                         {filters.search && (
-                            <button 
+                            <button
                                 onClick={() => setFilters({ ...filters, search: '' })}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-all"
                             >
@@ -1478,8 +1478,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 value={filters.filterDate}
                                 onChange={(e) => setFilters({ ...filters, filterDate: e.target.value })}
                                 className={`w-full px-4 py-[11px] rounded-[5px] border-2 text-[13px] font-bold outline-none transition-all
-                                    ${isDarkMode 
-                                        ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' 
+                                    ${isDarkMode
+                                        ? 'bg-white/5 border-white/10 text-white focus:border-blue-500'
                                         : 'bg-white border-slate-300 text-slate-700 focus:border-blue-500 shadow-sm'}`}
                             />
                         </div>
@@ -1502,8 +1502,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     search: ''
                                 })}
                                 className={`h-[42px] px-6 rounded-[5px] font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all active:scale-95 w-full justify-center
-                                    ${isDarkMode 
-                                        ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20' 
+                                    ${isDarkMode
+                                        ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
                                         : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'}`}
                             >
                                 <RefreshCcw size={12} strokeWidth={3} />
@@ -1597,10 +1597,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             )}
                                             <button
                                                 onClick={() => {
-                                                    const availableSlots = totalAllowed > 0 
-                                                        ? Math.max(0, totalAllowed - currentCount - selectedIds.length) 
+                                                    const availableSlots = totalAllowed > 0
+                                                        ? Math.max(0, totalAllowed - currentCount - selectedIds.length)
                                                         : Infinity;
-                                                    
+
                                                     const allIdsToSelect = filteredQuestions
                                                         .filter(q => !alreadySelectedIds.includes(q.id || q._id))
                                                         .map(q => q.id || q._id);
@@ -1635,11 +1635,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         </div>
                                     </div>
                                 )}
- 
+
                                 <div className="mt-8">
                                     {renderPagination()}
                                 </div>
- 
+
                                 <div className="flex flex-col gap-4 mt-8">
                                     {paginatedQuestions.map((q) => {
                                         const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
@@ -1902,7 +1902,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 )}
 
                 {isSelectionMode && selectedIds.length > 0 && (
-                    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[120] animate-in slide-in-from-bottom-5 duration-300">
+                    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-120 animate-in slide-in-from-bottom-5 duration-300">
                         <button
                             onClick={() => {
                                 if (totalAllowed > 0 && (currentCount + selectedIds.length) > totalAllowed) {
@@ -1997,7 +1997,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <Layers size={16} className="text-orange-500" />
                             <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Content Metadata Hierarchy</span>
                         </div>
-                        <div 
+                        <div
                             onClick={() => setForm({ ...form, isIndependentSelection: !form.isIndependentSelection })}
                             className={`flex items-center gap-4 px-8 py-4 rounded-[5px] border-2 border-dashed transition-all cursor-pointer active:scale-95
                                 ${form.isIndependentSelection ? 'bg-emerald-500/5 border-emerald-500/30 text-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
@@ -2100,7 +2100,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                     <div className="space-y-20">
                         {form.questions.map((q, qIdx) => (
-                            <div key={q.tempId} className={`p-8 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'} relative animate-in zoom-in duration-500`}>
+                            <div key={q.tempId} className={`p-8 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-white/2 border-white/10' : 'bg-slate-50 border-slate-200'} relative animate-in zoom-in duration-500`}>
                                 {/* Header / Remove Button */}
                                 <div className="flex flex-wrap items-center justify-between gap-6 mb-8 pb-6 border-b border-dashed border-slate-200/30">
                                     <div className="flex items-center gap-6">
@@ -2162,156 +2162,156 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     </div>
                                 </div>
 
-                                    {/* LIVE IMAGE PREVIEW */}
-                                    {(q.image_1 || q.image_2) && (
-                                        <div className="flex flex-wrap gap-4 pt-2">
-                                            {q.image_1 && (
-                                                <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
-                                                    <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
-                                                        <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 1</span>
-                                                    </div>
-                                                    <img src={q.image_1} alt="Preview 1" className="w-full h-auto max-h-40 object-contain p-4" />
+                                {/* LIVE IMAGE PREVIEW */}
+                                {(q.image_1 || q.image_2) && (
+                                    <div className="flex flex-wrap gap-4 pt-2">
+                                        {q.image_1 && (
+                                            <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                                <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 1</span>
                                                 </div>
-                                            )}
-                                            {q.image_2 && (
-                                                <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
-                                                    <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
-                                                        <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 2</span>
-                                                    </div>
-                                                    <img src={q.image_2} alt="Preview 2" className="w-full h-auto max-h-40 object-contain p-4" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Direct Image Links */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="https://example.com/image1.png"
-                                                value={q.image_1 || ''}
-                                                onChange={(e) => {
-                                                    const updated = [...form.questions];
-                                                    updated[qIdx].image_1 = e.target.value;
-                                                    setForm({ ...form, questions: updated });
-                                                }}
-                                                className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="https://example.com/image2.png"
-                                                value={q.image_2 || ''}
-                                                onChange={(e) => {
-                                                    const updated = [...form.questions];
-                                                    updated[qIdx].image_2 = e.target.value;
-                                                    setForm({ ...form, questions: updated });
-                                                }}
-                                                className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Options or Answer Range System */}
-                                    {['NUMERICAL', 'INTEGER_TYPE'].includes(q.question_type) ? (
-                                        <div className="space-y-4">
-                                            <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Answer Range</label>
-                                            <div className="flex flex-col md:flex-row gap-6">
-                                                <div className="space-y-1 flex-1">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">From *</label>
-                                                    <input
-                                                        type="number"
-                                                        step="any"
-                                                        placeholder="Min valid value"
-                                                        value={q.answerFrom}
-                                                        onChange={(e) => {
-                                                            const updated = [...form.questions];
-                                                            updated[qIdx].answerFrom = e.target.value;
-                                                            setForm({ ...form, questions: updated });
-                                                        }}
-                                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                                    />
-                                                </div>
-                                                <div className="space-y-1 flex-1">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">To *</label>
-                                                    <input
-                                                        type="number"
-                                                        step="any"
-                                                        placeholder="Max valid value"
-                                                        value={q.answerTo}
-                                                        onChange={(e) => {
-                                                            const updated = [...form.questions];
-                                                            updated[qIdx].answerTo = e.target.value;
-                                                            setForm({ ...form, questions: updated });
-                                                        }}
-                                                        className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
-                                                    />
-                                                </div>
+                                                <img src={q.image_1} alt="Preview 1" className="w-full h-auto max-h-40 object-contain p-4" />
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            {q.options.map((opt, optIndex) => (
-                                                <div key={opt.id} className="space-y-3 relative group">
-                                                    <div className="flex items-center justify-between px-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${opt.isCorrect ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                                {String.fromCharCode(65 + optIndex)}
-                                                            </div>
-                                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Option {optIndex + 1}</label>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleToggleOption(qIdx, opt.id)}
-                                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
-                                                        >
-                                                            <div className={`w-4 h-4 flex items-center justify-center transition-all border-2 
-                                                                ${q.question_type === 'MULTI_CHOICE' ? 'rounded-[5px]' : 'rounded-full'}
-                                                                ${opt.isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-current'}`}
-                                                            >
-                                                                {opt.isCorrect && <Check size={10} strokeWidth={4} className="text-white" />}
-                                                            </div>
-                                                            <span className="text-[9px] font-black uppercase tracking-widest">
-                                                                {opt.isCorrect ? (q.question_type === 'MULTI_CHOICE' ? 'Selected' : 'Correct Answer') : 'Mark Correct'}
-                                                            </span>
-                                                        </button>
-                                                    </div>
-                                                    <SmartEditor
-                                                        key={`opt-${q.tempId}-${optIndex}`}
-                                                        value={opt.content}
-                                                        onChange={(val) => {
-                                                            const updated = [...form.questions];
-                                                            updated[qIdx].options[optIndex].content = val;
-                                                            setForm({ ...form, questions: updated });
-                                                        }}
-                                                        placeholder={`Enter content for Option ${String.fromCharCode(65 + optIndex)}...`}
-                                                        isDarkMode={isDarkMode}
-                                                    />
+                                        )}
+                                        {q.image_2 && (
+                                            <div className={`relative group max-w-[240px] rounded-[5px] overflow-hidden border transition-all ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white shadow-lg'}`}>
+                                                <div className="px-3 py-1.5 border-b border-inherit bg-black/5 flex items-center justify-between">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Preview 2</span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                                <img src={q.image_2} alt="Preview 2" className="w-full h-auto max-h-40 object-contain p-4" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                                    {/* Solution / Explanation */}
-                                    <div className="space-y-4">
-                                        <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
-                                        <SmartEditor
-                                            key={`solution-${q.tempId}`}
-                                            value={q.solution}
-                                            onChange={(val) => {
+                                {/* Direct Image Links */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="https://example.com/image1.png"
+                                            value={q.image_1 || ''}
+                                            onChange={(e) => {
                                                 const updated = [...form.questions];
-                                                updated[qIdx].solution = val;
+                                                updated[qIdx].image_1 = e.target.value;
                                                 setForm({ ...form, questions: updated });
                                             }}
-                                            placeholder="Explain how to arrive at the correct answer..."
-                                            isDarkMode={isDarkMode}
+                                            className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="https://example.com/image2.png"
+                                            value={q.image_2 || ''}
+                                            onChange={(e) => {
+                                                const updated = [...form.questions];
+                                                updated[qIdx].image_2 = e.target.value;
+                                                setForm({ ...form, questions: updated });
+                                            }}
+                                            className={`w-full px-6 py-4 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
                                         />
                                     </div>
                                 </div>
+
+                                {/* Options or Answer Range System */}
+                                {['NUMERICAL', 'INTEGER_TYPE'].includes(q.question_type) ? (
+                                    <div className="space-y-4">
+                                        <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Answer Range</label>
+                                        <div className="flex flex-col md:flex-row gap-6">
+                                            <div className="space-y-1 flex-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">From *</label>
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="Min valid value"
+                                                    value={q.answerFrom}
+                                                    onChange={(e) => {
+                                                        const updated = [...form.questions];
+                                                        updated[qIdx].answerFrom = e.target.value;
+                                                        setForm({ ...form, questions: updated });
+                                                    }}
+                                                    className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1 flex-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">To *</label>
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="Max valid value"
+                                                    value={q.answerTo}
+                                                    onChange={(e) => {
+                                                        const updated = [...form.questions];
+                                                        updated[qIdx].answerTo = e.target.value;
+                                                        setForm({ ...form, questions: updated });
+                                                    }}
+                                                    className={`w-full px-6 py-4 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500' : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 shadow-sm'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {q.options.map((opt, optIndex) => (
+                                            <div key={opt.id} className="space-y-3 relative group">
+                                                <div className="flex items-center justify-between px-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${opt.isCorrect ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                            {String.fromCharCode(65 + optIndex)}
+                                                        </div>
+                                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Option {optIndex + 1}</label>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleOption(qIdx, opt.id)}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
+                                                    >
+                                                        <div className={`w-4 h-4 flex items-center justify-center transition-all border-2 
+                                                                ${q.question_type === 'MULTI_CHOICE' ? 'rounded-[5px]' : 'rounded-full'}
+                                                                ${opt.isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-current'}`}
+                                                        >
+                                                            {opt.isCorrect && <Check size={10} strokeWidth={4} className="text-white" />}
+                                                        </div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">
+                                                            {opt.isCorrect ? (q.question_type === 'MULTI_CHOICE' ? 'Selected' : 'Correct Answer') : 'Mark Correct'}
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                                <SmartEditor
+                                                    key={`opt-${q.tempId}-${optIndex}`}
+                                                    value={opt.content}
+                                                    onChange={(val) => {
+                                                        const updated = [...form.questions];
+                                                        updated[qIdx].options[optIndex].content = val;
+                                                        setForm({ ...form, questions: updated });
+                                                    }}
+                                                    placeholder={`Enter content for Option ${String.fromCharCode(65 + optIndex)}...`}
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Solution / Explanation */}
+                                <div className="space-y-4">
+                                    <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
+                                    <SmartEditor
+                                        key={`solution-${q.tempId}`}
+                                        value={q.solution}
+                                        onChange={(val) => {
+                                            const updated = [...form.questions];
+                                            updated[qIdx].solution = val;
+                                            setForm({ ...form, questions: updated });
+                                        }}
+                                        placeholder="Explain how to arrive at the correct answer..."
+                                        isDarkMode={isDarkMode}
+                                    />
+                                </div>
+                            </div>
                         ))}
 
                         {/* Add More Question Button */}
@@ -2329,7 +2329,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                     {/* Final Action */}
                     <div className="pt-10 flex flex-col items-center gap-6">
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-200/20 to-transparent" />
+                        <div className="w-full h-px bg-linear-to-r from-transparent via-slate-200/20 to-transparent" />
                         <button
                             type="button"
                             onClick={handleSubmit}
@@ -2665,11 +2665,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             </div>
         </div>
     );
- 
+
     const renderBulkUpdateModal = () => {
         if (!showBulkUpdateModal) return null;
         return (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm bg-black/60 overflow-y-auto">
+            <div className="fixed inset-0 z-1000 flex items-center justify-center p-6 backdrop-blur-sm bg-black/60 overflow-y-auto">
                 <div className={`relative w-full max-w-2xl rounded-[10px] shadow-2xl animate-in zoom-in-95 fade-in duration-300 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white'}`}>
                     {/* Header */}
                     <div className={`p-8 border-b flex items-center justify-between ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
@@ -2715,13 +2715,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 label="Update Difficulty"
                                 value={bulkUpdateFields.difficulty_level}
                                 options={[
-                                { value: '', label: 'All Levels' },
-                                { value: 'very_easy', label: 'Very Easy' },
-                                { value: 'easy', label: 'Easy' },
-                                { value: 'moderate', label: 'Moderate' },
-                                { value: 'hard', label: 'Hard' },
-                                { value: 'very_hard', label: 'Very Hard' }
-                            ]}
+                                    { value: '', label: 'All Levels' },
+                                    { value: 'very_easy', label: 'Very Easy' },
+                                    { value: 'easy', label: 'Easy' },
+                                    { value: 'moderate', label: 'Moderate' },
+                                    { value: 'hard', label: 'Hard' },
+                                    { value: 'very_hard', label: 'Very Hard' }
+                                ]}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, difficulty_level: val })}
                             />

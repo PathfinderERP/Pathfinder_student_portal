@@ -331,7 +331,7 @@ const LiveClassRegistry = () => {
                                     placeholder="Enter the name..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/[0.01] border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
+                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/1 border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                 />
                             </div>
                             <button
@@ -511,7 +511,7 @@ const LiveClassRegistry = () => {
                                 ))
                             ) : paginatedItems.length > 0 ? (
                                 paginatedItems.map((item, index) => (
-                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>{((currentPage - 1) * itemsPerPage) + index + 1}</span>
                                         </td>
@@ -624,7 +624,7 @@ const LiveClassRegistry = () => {
 
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">
@@ -733,7 +733,7 @@ const LiveClassRegistry = () => {
                                             type="text"
                                             value={newItem.name}
                                             onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                             placeholder="Enter live class title..."
                                         />
                                     </div>
@@ -746,7 +746,7 @@ const LiveClassRegistry = () => {
                                                 type="url"
                                                 value={newItem.meeting_link}
                                                 onChange={(e) => setNewItem({ ...newItem, meeting_link: e.target.value })}
-                                                className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                                className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                                 placeholder="https://..."
                                             />
                                         </div>
@@ -757,7 +757,7 @@ const LiveClassRegistry = () => {
                                                 type="datetime-local"
                                                 value={newItem.start_time}
                                                 onChange={(e) => setNewItem({ ...newItem, start_time: e.target.value })}
-                                                className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                                className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             />
                                         </div>
                                     </div>
@@ -769,7 +769,7 @@ const LiveClassRegistry = () => {
                                             type="number"
                                             value={newItem.duration}
                                             onChange={(e) => setNewItem({ ...newItem, duration: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Duration in minutes"
                                         />
                                     </div>
@@ -779,7 +779,7 @@ const LiveClassRegistry = () => {
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[100px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-900'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[100px] resize-none ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                             placeholder="Provide more context for students..."
                                         />
                                     </div>

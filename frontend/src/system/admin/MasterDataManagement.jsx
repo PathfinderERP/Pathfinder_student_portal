@@ -33,7 +33,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [error, setError] = useState(null);
-    
+
     // Pagination state (100 items per page for good UX)
     const [pageNumber, setPageNumber] = useState(1);
     const ITEMS_PER_PAGE = 100;
@@ -185,7 +185,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [previews, setPreviews] = useState([]);
     const mediaInputRef = useRef(null);
-    
+
     // Debounced search state
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const debouncedSearchRef = useRef(null);
@@ -237,10 +237,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     // Function to fetch master data with caching (defined after getAuthConfig)
     const fetchMasterData = useCallback(async () => {
         const now = Date.now();
-        
+
         // Return cached data if available and not stale
-        if (masterDataCacheRef.current && 
-            masterDataTimestampRef.current && 
+        if (masterDataCacheRef.current &&
+            masterDataTimestampRef.current &&
             (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
             Object.keys(masterDataCacheRef.current).length > 0) {
             const cached = masterDataCacheRef.current;
@@ -318,13 +318,13 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         try {
             const apiUrl = getApiUrl();
             const endpoint = activeSubTab === 'Image' ? 'questions/images' : `master-data/${currentTabConfig.endpoint}`;
-            
+
             // Build parameters for pagination and filtering
             const queryParams = new URLSearchParams();
             queryParams.append('page', pageNumber);
             queryParams.append('limit', ITEMS_PER_PAGE);
             if (topicFilterId) queryParams.append('topic', topicFilterId);
-            
+
             const paramsString = queryParams.toString() ? `?${queryParams.toString()}` : '';
             const response = await axios.get(`${apiUrl}/api/${endpoint}/${paramsString}`, config);
             setData(response.data);
@@ -379,11 +379,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         if (debouncedSearchRef.current) {
             clearTimeout(debouncedSearchRef.current);
         }
-        
+
         debouncedSearchRef.current = setTimeout(() => {
             setDebouncedSearch(searchTerm);
         }, 500);
-        
+
         return () => {
             if (debouncedSearchRef.current) {
                 clearTimeout(debouncedSearchRef.current);
@@ -462,10 +462,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                 });
                 uploadedImages.push(result.data);
             }
-            
+
             // Optimistic: add new images to local state
             setData(prev => [...uploadedImages, ...prev]);
-            
+
             setIsModalOpen(false);
             setSelectedFiles([]);
             setPreviews([]);
@@ -580,10 +580,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
     };
 
     const handleDelete = async (id) => {
-        setConfirmDialog({ 
-            isOpen: true, 
-            id, 
-            title: `Are you sure you want to delete this ${activeSubTab.toLowerCase()}?` 
+        setConfirmDialog({
+            isOpen: true,
+            id,
+            title: `Are you sure you want to delete this ${activeSubTab.toLowerCase()}?`
         });
     };
 
@@ -609,7 +609,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
 
             // Optimistic delete: remove from local state immediately
             setData(prev => prev.filter(item => (item.id !== id && item._id !== id)));
-            
+
             // Use correct endpoint based on active tab
             const endpoint = activeSubTab === 'Image'
                 ? `questions/images/${id}`
@@ -630,10 +630,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            
+
             // Optimistic update: toggle in local state
             setData(prev => prev.map(d => d.id === item.id ? { ...d, is_active: !d.is_active } : d));
-            
+
             await axios.patch(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/${item.id}/`,
                 { is_active: !item.is_active },
                 getAuthConfig()
@@ -677,28 +677,79 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
     };
 
-    const filteredData = useMemo(() => { return data.filter(item => {
-        if (activeSubTab === 'Exam Details') {
-            const matchesSearch = item.session_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.exam_type_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase());
+    const filteredData = useMemo(() => {
+        return data.filter(item => {
+            if (activeSubTab === 'Exam Details') {
+                const matchesSearch = item.session_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.exam_type_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
-            let matchesStatus = true;
-            if (statusFilter === 'active') matchesStatus = item.is_active === true;
-            if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
+                let matchesStatus = true;
+                if (statusFilter === 'active') matchesStatus = item.is_active === true;
+                if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
 
-            const matchesSession = sessionFilter === 'all' || String(item.session) === String(sessionFilter);
-            const matchesExamType = examTypeFilter === 'all' || String(item.exam_type) === String(examTypeFilter);
-            const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
-            const matchesTarget = targetFilter === 'all' || String(item.target_exam) === String(targetFilter);
+                const matchesSession = sessionFilter === 'all' || String(item.session) === String(sessionFilter);
+                const matchesExamType = examTypeFilter === 'all' || String(item.exam_type) === String(examTypeFilter);
+                const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
+                const matchesTarget = targetFilter === 'all' || String(item.target_exam) === String(targetFilter);
 
-            return matchesSearch && matchesStatus && matchesSession && matchesExamType && matchesClass && matchesTarget;
-        }
+                return matchesSearch && matchesStatus && matchesSession && matchesExamType && matchesClass && matchesTarget;
+            }
 
-        if (activeSubTab === 'Chapter') {
+            if (activeSubTab === 'Chapter') {
+                const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.subject_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.class_level_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
+
+                let matchesStatus = true;
+                if (statusFilter === 'active') matchesStatus = item.is_active === true;
+                if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
+
+                return matchesSearch && matchesStatus;
+            }
+
+            if (activeSubTab === 'SubTopic') {
+                const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.topic_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
+
+                let matchesStatus = true;
+                if (statusFilter === 'active') matchesStatus = item.is_active === true;
+                if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
+
+                return matchesSearch && matchesStatus;
+            }
+
+            if (activeSubTab === 'Topic') {
+                const matchesSearch = item.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.subject_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.chapter_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.code?.toLowerCase().includes(debouncedSearch.toLowerCase());
+
+                let matchesStatus = true;
+                if (statusFilter === 'active') matchesStatus = item.is_active === true;
+                if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
+
+                return matchesSearch && matchesStatus;
+            }
+
+            if (activeSubTab === 'Image') {
+                const matchesSearch = (item.topic_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.subject_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+                    (item.image?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
+
+                const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
+                const matchesSubject = subjectFilter === 'all' || String(item.subject) === String(subjectFilter);
+                const matchesTopic = topicFilter === 'all' || String(item.topic) === String(topicFilter);
+                const matchesExamType = examTypeFilter === 'all' || String(item.exam_type) === String(examTypeFilter);
+                const matchesTarget = targetFilter === 'all' || String(item.target_exam) === String(targetFilter);
+
+                return matchesSearch && matchesClass && matchesSubject && matchesTopic && matchesExamType && matchesTarget;
+            }
+
             const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-                (item.subject_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-                (item.class_level_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
                 (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
 
             let matchesStatus = true;
@@ -706,57 +757,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
 
             return matchesSearch && matchesStatus;
-        }
-
-        if (activeSubTab === 'SubTopic') {
-            const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-                (item.topic_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-                (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
-
-            let matchesStatus = true;
-            if (statusFilter === 'active') matchesStatus = item.is_active === true;
-            if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
-
-            return matchesSearch && matchesStatus;
-        }
-
-        if (activeSubTab === 'Topic') {
-            const matchesSearch = item.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.subject_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.chapter_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.code?.toLowerCase().includes(debouncedSearch.toLowerCase());
-
-            let matchesStatus = true;
-            if (statusFilter === 'active') matchesStatus = item.is_active === true;
-            if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
-
-            return matchesSearch && matchesStatus;
-        }
-
-        if (activeSubTab === 'Image') {
-            const matchesSearch = (item.topic_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-                (item.subject_name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-                (item.image?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
-
-            const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
-            const matchesSubject = subjectFilter === 'all' || String(item.subject) === String(subjectFilter);
-            const matchesTopic = topicFilter === 'all' || String(item.topic) === String(topicFilter);
-            const matchesExamType = examTypeFilter === 'all' || String(item.exam_type) === String(examTypeFilter);
-            const matchesTarget = targetFilter === 'all' || String(item.target_exam) === String(targetFilter);
-
-            return matchesSearch && matchesClass && matchesSubject && matchesTopic && matchesExamType && matchesTarget;
-        }
-
-        const matchesSearch = (item.name?.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
-            (item.code?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
-
-        let matchesStatus = true;
-        if (statusFilter === 'active') matchesStatus = item.is_active === true;
-        if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
-
-        return matchesSearch && matchesStatus;
-    }); }, [data, debouncedSearch, statusFilter, activeSubTab, sessionFilter, classFilter, targetFilter, topicFilter, subjectFilter, examTypeFilter]);
+        });
+    }, [data, debouncedSearch, statusFilter, activeSubTab, sessionFilter, classFilter, targetFilter, topicFilter, subjectFilter, examTypeFilter]);
 
     const renderHeader = () => (
         <div className={`p-6 rounded-[5px] border shadow-xl mb-6 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
@@ -909,7 +911,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     <ChevronDown size={14} className={`transition-transform ${isClassFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isClassFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-[100] rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                         <div
                                             onClick={() => { setClassFilter('all'); setIsClassFilterOpen(false); }}
                                             className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -939,7 +941,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     <ChevronDown size={14} className={`transition-transform ${isSubjectFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isSubjectFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-[100] rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                         <div
                                             onClick={() => { setSubjectFilter('all'); setIsSubjectFilterOpen(false); }}
                                             className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${subjectFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -969,7 +971,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     <ChevronDown size={14} className={`transition-transform ${isTopicFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isTopicFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-[100] rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                         <div
                                             onClick={() => { setTopicFilter('all'); setIsTopicFilterOpen(false); }}
                                             className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${topicFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -999,7 +1001,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     <ChevronDown size={14} className={`transition-transform ${isExamTypeFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isExamTypeFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-[100] rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                         <div
                                             onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
                                             className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -1029,7 +1031,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     <ChevronDown size={14} className={`transition-transform ${isTargetFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isTargetFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-[100] rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                         <div
                                             onClick={() => { setTargetFilter('all'); setIsTargetFilterOpen(false); }}
                                             className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
@@ -1105,8 +1107,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </button>
                                         {isSessionFilterOpen && (
                                             <>
-                                                <div className="fixed inset-0 z-[140]" onClick={() => setIsSessionFilterOpen(false)} />
-                                                <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                <div className="fixed inset-0 z-140" onClick={() => setIsSessionFilterOpen(false)} />
+                                                <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                                     <button
                                                         onClick={() => { setSessionFilter('all'); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); }}
                                                         className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${sessionFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -1139,8 +1141,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     </button>
                                     {isClassFilterOpen && (
                                         <>
-                                            <div className="fixed inset-0 z-[140]" onClick={() => setIsClassFilterOpen(false)} />
-                                            <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="fixed inset-0 z-140" onClick={() => setIsClassFilterOpen(false)} />
+                                            <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                                 <button
                                                     onClick={() => { setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); }}
                                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -1172,8 +1174,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </button>
                                         {isSubjectFilterOpen && (
                                             <>
-                                                <div className="fixed inset-0 z-[140]" onClick={() => setIsSubjectFilterOpen(false)} />
-                                                <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                <div className="fixed inset-0 z-140" onClick={() => setIsSubjectFilterOpen(false)} />
+                                                <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                                     <button
                                                         onClick={() => { setSubjectFilter('all'); setIsSubjectFilterOpen(false); }}
                                                         className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${subjectFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -1208,8 +1210,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             </button>
                                             {isTargetFilterOpen && (
                                                 <>
-                                                    <div className="fixed inset-0 z-[140]" onClick={() => setIsTargetFilterOpen(false)} />
-                                                    <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                    <div className="fixed inset-0 z-140" onClick={() => setIsTargetFilterOpen(false)} />
+                                                    <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                                         <button
                                                             onClick={() => { setTargetFilter('all'); setExamTypeFilter('all'); setIsTargetFilterOpen(false); }}
                                                             className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -1241,8 +1243,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                             </button>
                                             {isExamTypeFilterOpen && (
                                                 <>
-                                                    <div className="fixed inset-0 z-[140]" onClick={() => setIsExamTypeFilterOpen(false)} />
-                                                    <div className={`absolute left-0 top-full mt-2 w-48 z-[150] p-3 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                    <div className="fixed inset-0 z-140" onClick={() => setIsExamTypeFilterOpen(false)} />
+                                                    <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-3 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                                                         <button
                                                             onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
                                                             className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -1300,8 +1302,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
 
                             {isFilterOpen && (
                                 <>
-                                    <div className="fixed inset-0 z-[140]" onClick={() => setIsFilterOpen(false)} />
-                                    <div className={`absolute right-0 top-full mt-3 w-56 z-[150] p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'
+                                    <div className="fixed inset-0 z-140" onClick={() => setIsFilterOpen(false)} />
+                                    <div className={`absolute right-0 top-full mt-3 w-56 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'
                                         }`}>
                                         {[
                                             { id: 'all', label: 'All Status' },
@@ -1470,7 +1472,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                             </thead>
                             <tbody className="divide-y divide-transparent">
                                 {filteredData.length > 0 ? filteredData.map((item) => (
-                                    <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-200/50'} transition-colors`}>
+                                    <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
                                         {activeSubTab === 'Exam Details' ? (
                                             <>
                                                 <td className="py-5 px-4">
@@ -1677,7 +1679,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         return (
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -1689,10 +1691,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                             initial={{ scale: 0.95, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className={`relative w-full max-w-xl rounded-3xl border shadow-2xl z-[1001] max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
+                            className={`relative w-full max-w-xl rounded-3xl border shadow-2xl z-1001 max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
                         >
                             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                                <div className="flex justify-between items-center bg-gradient-to-r from-orange-500/10 to-transparent -mx-6 -mt-6 p-6 border-b border-white/5 mb-2">
+                                <div className="flex justify-between items-center bg-linear-to-r from-orange-500/10 to-transparent -mx-6 -mt-6 p-6 border-b border-white/5 mb-2">
                                     <div>
                                         <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                             {modalMode === 'create' ? 'Add New' : 'Edit'} <span className="text-orange-500">{activeSubTab}</span>
@@ -1708,554 +1710,552 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                 </div>
 
                                 <div className="space-y-4">
-                            {activeSubTab === 'Exam Details' ? (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            placeholder="e.g. JEE Advanced Mock - 1"
-                                            className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                            placeholder="e.g. JEE_ADV_2026"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
-                                        <select
-                                            value={formValues.session}
-                                            onChange={e => setFormValues({ ...formValues, session: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 text-left">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                        <select
-                                            value={formValues.class_level}
-                                            onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 text-left">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
-                                        <select
-                                            value={formValues.target_exam}
-                                            onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '' })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Target</option>
-                                            {targetExams.map(te => <option key={te.id} value={te.id}>{te.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                                        <select
-                                            disabled={!formValues.target_exam}
-                                            value={formValues.exam_type}
-                                            onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Type</option>
-                                            {(() => {
-                                                const filteredExamTypes = examTypes.filter(et => {
-                                                    if (et.target_exams && Array.isArray(et.target_exams)) {
-                                                        return et.target_exams.some(teId => String(teId) === String(formValues.target_exam));
-                                                    }
-                                                    return String(et.target_exam || et.target_exam_id || '') === String(formValues.target_exam);
-                                                });
-                                                return filteredExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>);
-                                            })()}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 text-left">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins)</label>
-                                        <input
-                                            type="number"
-                                            value={formValues.duration}
-                                            onChange={e => setFormValues({ ...formValues, duration: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 text-left">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Total Marks</label>
-                                        <input
-                                            type="number"
-                                            value={formValues.total_marks}
-                                            onChange={e => setFormValues({ ...formValues, total_marks: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                </div>
-                            ) : activeSubTab === 'Image' ? (
-                                <div className="space-y-6 text-left">
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                            <select
-                                                value={formValues.class_level}
-                                                onChange={e => setFormValues({ ...formValues, class_level: e.target.value, topic: '' })}
-                                                className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                            >
-                                                <option value="">No Class</option>
-                                                {classes.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
-                                            </select>
+                                    {activeSubTab === 'Exam Details' ? (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. JEE Advanced Mock - 1"
+                                                    className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    placeholder="e.g. JEE_ADV_2026"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
+                                                <select
+                                                    value={formValues.session}
+                                                    onChange={e => setFormValues({ ...formValues, session: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 text-left">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                                <select
+                                                    value={formValues.class_level}
+                                                    onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 text-left">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                                <select
+                                                    value={formValues.target_exam}
+                                                    onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '' })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Target</option>
+                                                    {targetExams.map(te => <option key={te.id} value={te.id}>{te.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                                <select
+                                                    disabled={!formValues.target_exam}
+                                                    value={formValues.exam_type}
+                                                    onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Type</option>
+                                                    {(() => {
+                                                        const filteredExamTypes = examTypes.filter(et => {
+                                                            if (et.target_exams && Array.isArray(et.target_exams)) {
+                                                                return et.target_exams.some(teId => String(teId) === String(formValues.target_exam));
+                                                            }
+                                                            return String(et.target_exam || et.target_exam_id || '') === String(formValues.target_exam);
+                                                        });
+                                                        return filteredExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>);
+                                                    })()}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 text-left">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins)</label>
+                                                <input
+                                                    type="number"
+                                                    value={formValues.duration}
+                                                    onChange={e => setFormValues({ ...formValues, duration: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 text-left">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Total Marks</label>
+                                                <input
+                                                    type="number"
+                                                    value={formValues.total_marks}
+                                                    onChange={e => setFormValues({ ...formValues, total_marks: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
-                                            <select
-                                                value={formValues.subject}
-                                                onChange={e => setFormValues({ ...formValues, subject: e.target.value, topic: '' })}
-                                                className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                            >
-                                                <option value="">No Subject</option>
-                                                {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
-                                            </select>
+                                    ) : activeSubTab === 'Image' ? (
+                                        <div className="space-y-6 text-left">
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                                    <select
+                                                        value={formValues.class_level}
+                                                        onChange={e => setFormValues({ ...formValues, class_level: e.target.value, topic: '' })}
+                                                        className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    >
+                                                        <option value="">No Class</option>
+                                                        {classes.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
+                                                    <select
+                                                        value={formValues.subject}
+                                                        onChange={e => setFormValues({ ...formValues, subject: e.target.value, topic: '' })}
+                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    >
+                                                        <option value="">No Subject</option>
+                                                        {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
+                                                    <select
+                                                        value={formValues.topic}
+                                                        onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
+                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    >
+                                                        <option value="">No Topic</option>
+                                                        {filteredTopicsForImage.map(t => <option key={t.id || t._id} value={t.id || t._id}>{t.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                                    <select
+                                                        value={formValues.exam_type}
+                                                        onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
+                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    >
+                                                        <option value="">No Type</option>
+                                                        {examTypes.map(et => <option key={et.id || et._id} value={et.id || et._id}>{et.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                                    <select
+                                                        value={formValues.target_exam}
+                                                        onChange={e => setFormValues({ ...formValues, target_exam: e.target.value })}
+                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    >
+                                                        <option value="">No Target</option>
+                                                        {targetExams.map(te => <option key={te.id || te._id} value={te.id || te._id}>{te.name}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 rounded-[5px] border-2 border-dashed border-orange-500/20 bg-orange-500/2 flex flex-col items-center justify-center text-center space-y-3">
+                                                <div className="w-24 h-24 rounded-[5px] bg-orange-500/10 flex items-center justify-center text-orange-500 overflow-hidden border-4 border-white shadow-lg">
+                                                    {previews.length > 0 ? (
+                                                        <img src={previews[0]} alt="Preview" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <ImageIcon size={32} />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-black uppercase tracking-tight">
+                                                        {selectedFiles.length > 0 ? `${selectedFiles.length} File(s) Ready` : 'Select Images First'}
+                                                    </h4>
+                                                    <p className="text-[10px] font-medium opacity-50 max-w-[200px] mx-auto">
+                                                        {selectedFiles.length > 0 ? 'Click "Save Configuration" to start upload' : 'Tagging your images helps you find them later in the Question Bank.'}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => mediaInputRef.current.click()}
+                                                    className="px-6 py-2 bg-orange-600 text-white rounded-[5px] text-xs font-bold shadow-lg shadow-orange-600/30 hover:bg-orange-700 transition-all active:scale-95"
+                                                >
+                                                    {selectedFiles.length > 0 ? 'Change Selection' : 'Browse Images'}
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="file"
+                                                ref={mediaInputRef}
+                                                onChange={handleFileSelect}
+                                                className="hidden"
+                                                multiple
+                                                accept="image/*"
+                                            />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
-                                            <select
-                                                value={formValues.topic}
-                                                onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
-                                                className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                            >
-                                                <option value="">No Topic</option>
-                                                {filteredTopicsForImage.map(t => <option key={t.id || t._id} value={t.id || t._id}>{t.name}</option>)}
-                                            </select>
+                                    ) : activeSubTab === 'SubTopic' ? (
+                                        <div className="grid grid-cols-2 gap-4 text-left">
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
+                                                <select
+                                                    required
+                                                    value={formValues.topic}
+                                                    onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Topic</option>
+                                                    {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">SubTopic Name</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. Introduction, Key Concepts"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    placeholder="CODE"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
+                                                <input
+                                                    type="number"
+                                                    value={formValues.order}
+                                                    onChange={e => setFormValues({ ...formValues, order: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                                            <select
-                                                value={formValues.exam_type}
-                                                onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
-                                                className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                            >
-                                                <option value="">No Type</option>
-                                                {examTypes.map(et => <option key={et.id || et._id} value={et.id || et._id}>{et.name}</option>)}
-                                            </select>
+                                    ) : activeSubTab === 'Chapter' ? (
+                                        <div className="grid grid-cols-2 gap-4 text-left">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                                <select
+                                                    required
+                                                    value={formValues.class_level}
+                                                    onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Class</option>
+                                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
+                                                <select
+                                                    required
+                                                    value={formValues.subject}
+                                                    onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Subject</option>
+                                                    {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter Name</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. Chemical Bonding, Linear Algebra"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    placeholder="CODE"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
+                                                <input
+                                                    type="number"
+                                                    value={formValues.order}
+                                                    onChange={e => setFormValues({ ...formValues, order: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
-                                            <select
-                                                value={formValues.target_exam}
-                                                onChange={e => setFormValues({ ...formValues, target_exam: e.target.value })}
-                                                className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                            >
-                                                <option value="">No Target</option>
-                                                {targetExams.map(te => <option key={te.id || te._id} value={te.id || te._id}>{te.name}</option>)}
-                                            </select>
+                                    ) : activeSubTab === 'Topic' ? (
+                                        <div className="grid grid-cols-2 gap-4 text-left">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                                <select
+                                                    required
+                                                    value={formValues.class_level}
+                                                    onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Class</option>
+                                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
+                                                <select
+                                                    required
+                                                    value={formValues.subject}
+                                                    onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Subject</option>
+                                                    {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter</label>
+                                                <select
+                                                    value={formValues.chapter}
+                                                    onChange={e => setFormValues({ ...formValues, chapter: e.target.value })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Chapter</option>
+                                                    {chapters.filter(ch =>
+                                                        (!formValues.class_level || String(ch.class_level) === String(formValues.class_level)) &&
+                                                        (!formValues.subject || String(ch.subject) === String(formValues.subject))
+                                                    ).map(ch => (
+                                                        <option key={ch.id} value={ch.id}>{ch.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic Name</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. Thermodynamics, Genetics"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Sub-topic (Optional)</label>
+                                                <input
+                                                    type="text"
+                                                    value={formValues.sub_topic}
+                                                    onChange={e => setFormValues({ ...formValues, sub_topic: e.target.value })}
+                                                    placeholder="e.g. Laws of Motion"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 text-left">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    placeholder="CODE"
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="p-8 rounded-[5px] border-2 border-dashed border-orange-500/20 bg-orange-500/[0.02] flex flex-col items-center justify-center text-center space-y-3">
-                                        <div className="w-24 h-24 rounded-[5px] bg-orange-500/10 flex items-center justify-center text-orange-500 overflow-hidden border-4 border-white shadow-lg">
-                                            {previews.length > 0 ? (
-                                                <img src={previews[0]} alt="Preview" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <ImageIcon size={32} />
+                                    ) : activeSubTab === 'Teacher' ? (
+                                        <div className="grid grid-cols-2 gap-3 text-left">
+                                            <div className="space-y-1 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Teacher Name</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. John Doe, Dr. Smith"
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
+                                                <select
+                                                    value={formValues.subject}
+                                                    onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="">Select Subject</option>
+                                                    {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Email</label>
+                                                <input
+                                                    type="email"
+                                                    value={formValues.email}
+                                                    onChange={e => setFormValues({ ...formValues, email: e.target.value })}
+                                                    placeholder="email@example.com"
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Phone</label>
+                                                <input
+                                                    type="text"
+                                                    value={formValues.phone}
+                                                    onChange={e => setFormValues({ ...formValues, phone: e.target.value })}
+                                                    placeholder="+1 234 567 890"
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Qualification</label>
+                                                <input
+                                                    type="text"
+                                                    value={formValues.qualification}
+                                                    onChange={e => setFormValues({ ...formValues, qualification: e.target.value })}
+                                                    placeholder="e.g. PhD, MSc"
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Experience</label>
+                                                <input
+                                                    type="text"
+                                                    value={formValues.experience}
+                                                    onChange={e => setFormValues({ ...formValues, experience: e.target.value })}
+                                                    placeholder="e.g. 5 Years"
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1 text-left col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    placeholder="TEACHER_CODE"
+                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Name / Title</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => {
+                                                        const val = activeSubTab === 'Subject' ? e.target.value.toUpperCase() : e.target.value;
+                                                        setFormValues({ ...formValues, name: val });
+                                                    }}
+                                                    placeholder={activeSubTab === 'Subject' ? "e.g. Mathematics, Physics" : "e.g. JEE Mock"}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5 text-left">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+
+                                            {activeSubTab === 'Exam Type' && (
+                                                <div className="space-y-3 col-span-2 bg-black/5 p-4 rounded-xl border border-white/5">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exams (Select Multiple)</label>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                        {targetExams.map(te => {
+                                                            const isChecked = (formValues.target_exams || []).some(id => String(id) === String(te.id));
+                                                            return (
+                                                                <label
+                                                                    key={te.id}
+                                                                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${isChecked
+                                                                        ? 'bg-orange-500/10 border-orange-500/50 text-orange-500'
+                                                                        : isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                                        }`}
+                                                                >
+                                                                    <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-all ${isChecked ? 'bg-orange-500 border-orange-500' : 'border-slate-400 group-hover:border-orange-500'
+                                                                        }`}>
+                                                                        {isChecked && <Check size={14} className="text-white" strokeWidth={4} />}
+                                                                    </div>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="hidden"
+                                                                        checked={isChecked}
+                                                                        onChange={() => {
+                                                                            const currentExams = formValues.target_exams || [];
+                                                                            const teId = String(te.id);
+                                                                            const newExams = currentExams.some(id => String(id) === teId)
+                                                                                ? currentExams.filter(id => String(id) !== teId)
+                                                                                : [...currentExams, te.id];
+                                                                            setFormValues({ ...formValues, target_exams: newExams });
+                                                                        }}
+                                                                    />
+                                                                    <span className="font-bold text-xs uppercase tracking-tight">{te.name}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
                                             )}
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-black uppercase tracking-tight">
-                                                {selectedFiles.length > 0 ? `${selectedFiles.length} File(s) Ready` : 'Select Images First'}
-                                            </h4>
-                                            <p className="text-[10px] font-medium opacity-50 max-w-[200px] mx-auto">
-                                                {selectedFiles.length > 0 ? 'Click "Save Configuration" to start upload' : 'Tagging your images helps you find them later in the Question Bank.'}
-                                            </p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => mediaInputRef.current.click()}
-                                            className="px-6 py-2 bg-orange-600 text-white rounded-[5px] text-xs font-bold shadow-lg shadow-orange-600/30 hover:bg-orange-700 transition-all active:scale-95"
-                                        >
-                                            {selectedFiles.length > 0 ? 'Change Selection' : 'Browse Images'}
-                                        </button>
-                                    </div>
-                                    <input
-                                        type="file"
-                                        ref={mediaInputRef}
-                                        onChange={handleFileSelect}
-                                        className="hidden"
-                                        multiple
-                                        accept="image/*"
-                                    />
-                                </div>
-                            ) : activeSubTab === 'SubTopic' ? (
-                                <div className="grid grid-cols-2 gap-4 text-left">
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
-                                        <select
-                                            required
-                                            value={formValues.topic}
-                                            onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Topic</option>
-                                            {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">SubTopic Name</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            placeholder="e.g. Introduction, Key Concepts"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                            placeholder="CODE"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
-                                        <input
-                                            type="number"
-                                            value={formValues.order}
-                                            onChange={e => setFormValues({ ...formValues, order: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                </div>
-                            ) : activeSubTab === 'Chapter' ? (
-                                <div className="grid grid-cols-2 gap-4 text-left">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                        <select
-                                            required
-                                            value={formValues.class_level}
-                                            onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Class</option>
-                                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
-                                        <select
-                                            required
-                                            value={formValues.subject}
-                                            onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Subject</option>
-                                            {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter Name</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            placeholder="e.g. Chemical Bonding, Linear Algebra"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                            placeholder="CODE"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
-                                        <input
-                                            type="number"
-                                            value={formValues.order}
-                                            onChange={e => setFormValues({ ...formValues, order: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                </div>
-                            ) : activeSubTab === 'Topic' ? (
-                                <div className="grid grid-cols-2 gap-4 text-left">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                        <select
-                                            required
-                                            value={formValues.class_level}
-                                            onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Class</option>
-                                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
-                                        <select
-                                            required
-                                            value={formValues.subject}
-                                            onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Subject</option>
-                                            {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter</label>
-                                        <select
-                                            value={formValues.chapter}
-                                            onChange={e => setFormValues({ ...formValues, chapter: e.target.value })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Chapter</option>
-                                            {chapters.filter(ch =>
-                                                (!formValues.class_level || String(ch.class_level) === String(formValues.class_level)) &&
-                                                (!formValues.subject || String(ch.subject) === String(formValues.subject))
-                                            ).map(ch => (
-                                                <option key={ch.id} value={ch.id}>{ch.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic Name</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            placeholder="e.g. Thermodynamics, Genetics"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Sub-topic (Optional)</label>
-                                        <input
-                                            type="text"
-                                            value={formValues.sub_topic}
-                                            onChange={e => setFormValues({ ...formValues, sub_topic: e.target.value })}
-                                            placeholder="e.g. Laws of Motion"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 text-left">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                            placeholder="CODE"
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-                                </div>
-                            ) : activeSubTab === 'Teacher' ? (
-                                <div className="grid grid-cols-2 gap-3 text-left">
-                                    <div className="space-y-1 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Teacher Name</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            placeholder="e.g. John Doe, Dr. Smith"
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1 col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
-                                        <select
-                                            value={formValues.subject}
-                                            onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Subject</option>
-                                            {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Email</label>
-                                        <input
-                                            type="email"
-                                            value={formValues.email}
-                                            onChange={e => setFormValues({ ...formValues, email: e.target.value })}
-                                            placeholder="email@example.com"
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Phone</label>
-                                        <input
-                                            type="text"
-                                            value={formValues.phone}
-                                            onChange={e => setFormValues({ ...formValues, phone: e.target.value })}
-                                            placeholder="+1 234 567 890"
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Qualification</label>
-                                        <input
-                                            type="text"
-                                            value={formValues.qualification}
-                                            onChange={e => setFormValues({ ...formValues, qualification: e.target.value })}
-                                            placeholder="e.g. PhD, MSc"
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Experience</label>
-                                        <input
-                                            type="text"
-                                            value={formValues.experience}
-                                            onChange={e => setFormValues({ ...formValues, experience: e.target.value })}
-                                            placeholder="e.g. 5 Years"
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1 text-left col-span-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                            placeholder="TEACHER_CODE"
-                                            className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Name / Title</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.name}
-                                            onChange={e => {
-                                                const val = activeSubTab === 'Subject' ? e.target.value.toUpperCase() : e.target.value;
-                                                setFormValues({ ...formValues, name: val });
-                                            }}
-                                            placeholder={activeSubTab === 'Subject' ? "e.g. Mathematics, Physics" : "e.g. JEE Mock"}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
 
-                                    <div className="space-y-1.5 text-left">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
-                                        />
-                                    </div>
-
-                                    {activeSubTab === 'Exam Type' && (
-                                        <div className="space-y-3 col-span-2 bg-black/5 p-4 rounded-xl border border-white/5">
-                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exams (Select Multiple)</label>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                {targetExams.map(te => {
-                                                    const isChecked = (formValues.target_exams || []).some(id => String(id) === String(te.id));
-                                                    return (
-                                                        <label 
-                                                            key={te.id} 
-                                                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${
-                                                                isChecked 
-                                                                    ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' 
-                                                                    : isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                                            }`}
-                                                        >
-                                                            <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-all ${
-                                                                isChecked ? 'bg-orange-500 border-orange-500' : 'border-slate-400 group-hover:border-orange-500'
-                                                            }`}>
-                                                                {isChecked && <Check size={14} className="text-white" strokeWidth={4} />}
-                                                            </div>
-                                                            <input
-                                                                type="checkbox"
-                                                                className="hidden"
-                                                                checked={isChecked}
-                                                                onChange={() => {
-                                                                    const currentExams = formValues.target_exams || [];
-                                                                    const teId = String(te.id);
-                                                                    const newExams = currentExams.some(id => String(id) === teId)
-                                                                        ? currentExams.filter(id => String(id) !== teId)
-                                                                        : [...currentExams, te.id];
-                                                                    setFormValues({ ...formValues, target_exams: newExams });
-                                                                }}
-                                                            />
-                                                            <span className="font-bold text-xs uppercase tracking-tight">{te.name}</span>
-                                                        </label>
-                                                    );
-                                                })}
+                                            <div className={`${activeSubTab === 'Exam Type' ? '' : 'col-span-2'} space-y-1.5`}>
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Description</label>
+                                                <textarea
+                                                    rows="1"
+                                                    value={formValues.description}
+                                                    onChange={e => setFormValues({ ...formValues, description: e.target.value })}
+                                                    placeholder="Optional details..."
+                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
                                             </div>
                                         </div>
                                     )}
 
-                                    <div className={`${activeSubTab === 'Exam Type' ? '' : 'col-span-2'} space-y-1.5`}>
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Description</label>
-                                        <textarea
-                                            rows="1"
-                                            value={formValues.description}
-                                            onChange={e => setFormValues({ ...formValues, description: e.target.value })}
-                                            placeholder="Optional details..."
-                                            className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                        />
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormValues({ ...formValues, is_active: !formValues.is_active })}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-[5px] border transition-all font-black text-[10px] uppercase tracking-widest ${formValues.is_active
+                                                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
+                                                : isDarkMode ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-400'}`}
+                                        >
+                                            <div className={`w-2 h-2 rounded-full ${formValues.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                            {formValues.is_active ? 'Active' : 'Inactive'}
+                                        </button>
                                     </div>
                                 </div>
-                            )}
 
-                            <div className="flex items-center gap-4">
                                 <button
-                                    type="button"
-                                    onClick={() => setFormValues({ ...formValues, is_active: !formValues.is_active })}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-[5px] border transition-all font-black text-[10px] uppercase tracking-widest ${formValues.is_active
-                                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
-                                        : isDarkMode ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-400'}`}
+                                    disabled={isActionLoading}
+                                    type="submit"
+                                    className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3"
                                 >
-                                    <div className={`w-2 h-2 rounded-full ${formValues.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                    {formValues.is_active ? 'Active' : 'Inactive'}
+                                    {isActionLoading ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <>SAVE CONFIGURATION <Check size={14} strokeWidth={3} /></>
+                                    )}
                                 </button>
-                            </div>
-                        </div>
-
-                        <button
-                            disabled={isActionLoading}
-                            type="submit"
-                            className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3"
-                        >
-                            {isActionLoading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <>SAVE CONFIGURATION <Check size={14} strokeWidth={3} /></>
-                            )}
-                        </button>
                             </form>
                         </motion.div>
                     </div>
@@ -2273,7 +2273,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             {/* Premium Confirm Modal */}
             <AnimatePresence>
                 {confirmDialog.isOpen && (
-                    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-1100 flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}

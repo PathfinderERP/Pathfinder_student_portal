@@ -13,7 +13,7 @@ const LoginHistory = ({ loginHistory, isDarkMode, isLoading }) => {
             <div className="space-y-4">
                 {isLoading ? (
                     [1, 2, 3].map((i) => (
-                        <div key={i} className={`flex items-center justify-between p-4 rounded-[5px] border animate-pulse ${isDarkMode ? 'bg-white/[0.03] border-white/5' : 'bg-white border-slate-100'}`}>
+                        <div key={i} className={`flex items-center justify-between p-4 rounded-[5px] border animate-pulse ${isDarkMode ? 'bg-white/3 border-white/5' : 'bg-white border-slate-100'}`}>
                             <div className="flex items-center gap-4">
                                 <div className={`w-10 h-10 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}></div>
                                 <div>
@@ -24,7 +24,7 @@ const LoginHistory = ({ loginHistory, isDarkMode, isLoading }) => {
                         </div>
                     ))
                 ) : loginHistory.length > 0 ? loginHistory.map((log, i) => (
-                    <div key={i} className={`flex items-center justify-between p-4 rounded-[5px] border transition-all group ${isDarkMode ? 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]' : 'bg-slate-100 border-slate-200/50 hover:bg-slate-200'}`}>
+                    <div key={i} className={`flex items-center justify-between p-4 rounded-[5px] border transition-all group ${isDarkMode ? 'bg-white/3 border-white/5 hover:bg-white/6' : 'bg-slate-100 border-slate-200/50 hover:bg-slate-200'}`}>
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-[5px] bg-orange-500/10 flex items-center justify-center text-orange-500 shadow-lg shadow-orange-500/5">
                                 <Clock size={18} strokeWidth={2.5} />

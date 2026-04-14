@@ -121,7 +121,7 @@ const SectionRegistry = () => {
                 : `${apiUrl}/api/sections/`;
             const method = modalMode === 'edit' ? 'patch' : 'post';
 
-            const payload = modalMode === 'edit' 
+            const payload = modalMode === 'edit'
                 ? { ...formData }
                 : {
                     ...formData,
@@ -144,7 +144,7 @@ const SectionRegistry = () => {
             }
             setShowModal(false);
             // Silent refresh to get fresh counts and data from backend without showing skeletons
-            await fetchSections(true); 
+            await fetchSections(true);
             triggerAlert(`Section ${modalMode === 'edit' ? 'updated' : 'added'} successfully!`, 'success');
         } catch (err) {
             console.error('Error saving section:', err);
@@ -160,12 +160,12 @@ const SectionRegistry = () => {
         setView('details');
     };
 
-    const filteredSections = Array.isArray(sections) 
+    const filteredSections = Array.isArray(sections)
         ? sections.filter(s =>
             !s.test && // Only show Master Sections (those not assigned to a specific test)
             ((s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-             (s.subject_code || s.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
-          )
+                (s.subject_code || s.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
+        )
         : [];
 
     if (view === 'details' && selectedSectionForTests) {
@@ -257,7 +257,7 @@ const SectionRegistry = () => {
                                     </tr>
                                 ))
                             ) : filteredSections.length > 0 ? filteredSections.map((section, index) => (
-                                <tr key={section.id} className={`group transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'}`}>
+                                <tr key={section.id} className={`group transition-colors ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50/80'}`}>
                                     <td className="py-5 px-8 text-sm font-bold opacity-50">{index + 1}</td>
                                     <td className="py-5 px-8">
                                         <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -270,36 +270,36 @@ const SectionRegistry = () => {
                                         </span>
                                     </td>
                                     <td className="py-5 px-8 text-center">
-                                        <button 
+                                        <button
                                             onClick={() => handleShowTests(section, 'online')}
                                             className={`group/btn relative inline-flex items-center justify-center min-w-[42px] h-10 px-4 rounded-[8px] text-sm font-black transition-all duration-300
                                                 hover:scale-110 hover:-translate-y-1 active:scale-95 shadow-sm hover:shadow-lg
-                                                ${isDarkMode 
-                                                    ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white hover:shadow-blue-500/20' 
+                                                ${isDarkMode
+                                                    ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white hover:shadow-blue-500/20'
                                                     : 'bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white hover:shadow-blue-600/30'}`}
                                         >
                                             <span className="relative z-10">{(section.online_exam_centres || []).length}</span>
                                         </button>
                                     </td>
                                     <td className="py-5 px-8 text-center">
-                                        <button 
+                                        <button
                                             onClick={() => handleShowTests(section, 'offline')}
                                             className={`group/btn relative inline-flex items-center justify-center min-w-[42px] h-10 px-4 rounded-[8px] text-sm font-black transition-all duration-300
                                                 hover:scale-110 hover:-translate-y-1 active:scale-95 shadow-sm hover:shadow-lg
-                                                ${isDarkMode 
-                                                    ? 'bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white hover:shadow-orange-500/20' 
+                                                ${isDarkMode
+                                                    ? 'bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white hover:shadow-orange-500/20'
                                                     : 'bg-orange-50 border border-orange-100 text-orange-600 hover:bg-orange-600 hover:text-white hover:shadow-orange-600/30'}`}
                                         >
                                             <span className="relative z-10">{(section.offline_exam_centres || []).length}</span>
                                         </button>
                                     </td>
                                     <td className="py-5 px-8 text-center">
-                                        <button 
+                                        <button
                                             onClick={() => handleShowTests(section, 'study')}
                                             className={`group/btn relative inline-flex items-center justify-center min-w-[42px] h-10 px-4 rounded-[8px] text-sm font-black transition-all duration-300
                                                 hover:scale-110 hover:-translate-y-1 active:scale-95 shadow-sm hover:shadow-lg
-                                                ${isDarkMode 
-                                                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/20' 
+                                                ${isDarkMode
+                                                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white hover:shadow-emerald-500/20'
                                                     : 'bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:shadow-emerald-600/30'}`}
                                         >
                                             <span className="relative z-10">{(section.study_material_centres || []).length}</span>
@@ -339,7 +339,7 @@ const SectionRegistry = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div
                         className="absolute inset-0 bg-[#0B0E14]/80 backdrop-blur-md animate-fade-in"
                         onClick={() => !isActionLoading && setShowModal(false)}
@@ -414,7 +414,7 @@ const SectionRegistry = () => {
 
             {/* Premium Custom Alert */}
             {alert.show && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-999 animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
                     <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success'
                         ? 'bg-emerald-500/90 border-emerald-400 text-white'
                         : 'bg-red-500/90 border-red-400 text-white'

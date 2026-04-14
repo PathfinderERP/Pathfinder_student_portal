@@ -243,7 +243,7 @@ const VideoRegistry = () => {
     const dynamicFilterOptions = useMemo(() => {
         const safeArray = (arr) => Array.isArray(arr) ? arr : [];
         const safeVideos = safeArray(videos);
-        
+
         return {
             sessions: safeArray(sessions).filter(s => safeVideos.some(n => n.session === s.id)),
             classes: safeArray(classes).filter(c => safeVideos.some(n => n.class_level === c.id)),
@@ -555,8 +555,8 @@ const VideoRegistry = () => {
                                         <button
                                             key={pageNum}
                                             onClick={() => setCurrentPage(pageNum)}
-                                            className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum 
-                                                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' 
+                                            className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum
+                                                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
                                                 : (isDarkMode ? 'bg-[#1a1f2e] text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
                                         >
                                             {pageNum}

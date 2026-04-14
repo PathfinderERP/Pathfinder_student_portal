@@ -185,9 +185,9 @@ const CreateUserPage = ({ onBack }) => {
                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Username</label>
                                     <input required type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                        className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                             ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
-                                            autofill:transition-colors autofill:duration-[5000000ms]`}
+                                            autofill:transition-colors autofill:duration-5000000`}
                                         placeholder="admin_atanu"
                                     />
                                 </div>
@@ -197,7 +197,7 @@ const CreateUserPage = ({ onBack }) => {
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                         className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                             ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
-                                            autofill:transition-colors autofill:duration-[5000000ms]`}
+                                            autofill:transition-colors autofill:duration-5000000`}
                                         placeholder="atanu@example.com"
                                     />
                                 </div>
@@ -212,7 +212,7 @@ const CreateUserPage = ({ onBack }) => {
                                             style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                             className={`w-full p-4 pr-12 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
-                                                autofill:transition-colors autofill:duration-[5000000ms]`}
+                                                autofill:transition-colors autofill:duration-5000000`}
                                             placeholder="••••••••"
                                         />
                                         <button
@@ -262,7 +262,7 @@ const CreateUserPage = ({ onBack }) => {
 
                         <div className="space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                             {permissionTabs.map((tab) => (
-                                <div key={tab.id} className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-100/30 border-slate-200/60 shadow-sm hover:bg-white'}`}>
+                                <div key={tab.id} className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-100/30 border-slate-200/60 shadow-sm hover:bg-white'}`}>
                                     <div className="flex items-center justify-between mb-6">
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-black uppercase tracking-widest opacity-80">{tab.label}</span>

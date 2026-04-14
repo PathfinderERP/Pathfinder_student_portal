@@ -53,15 +53,15 @@ const TestResponses = () => {
     const filteredTests = useMemo(() => {
         return tests.filter(test => {
             const matchesSearch = test.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            const matchesStatus = testFilter === 'all' || 
-                                 (testFilter === 'completed' && test.is_completed) ||
-                                 (testFilter === 'in_progress' && !test.is_completed);
-            
-            const matchesSession = selectedSession === 'all' || 
-                                  test.session_details?.name === selectedSession;
-                                 
+                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesStatus = testFilter === 'all' ||
+                (testFilter === 'completed' && test.is_completed) ||
+                (testFilter === 'in_progress' && !test.is_completed);
+
+            const matchesSession = selectedSession === 'all' ||
+                test.session_details?.name === selectedSession;
+
             return matchesSearch && matchesStatus && matchesSession;
         });
     }, [tests, searchTerm, testFilter, selectedSession]);
@@ -161,7 +161,7 @@ const TestResponses = () => {
     const filteredSubmissions = useMemo(() => {
         return submissions.filter(sub => {
             const status = getNormalizedStatus(sub.status);
-            
+
             // 1. Status Filter
             if (studentFilter === 'attempted') {
                 if (status === 'available') return false;
@@ -195,9 +195,9 @@ const TestResponses = () => {
             const res = await axios.post(`${apiUrl}/api/tests/${testId}/generate_result/`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setSuccessModal({ 
-                isOpen: true, 
-                message: res.data.message || 'The exam results have been successfully processed and synchronized.' 
+            setSuccessModal({
+                isOpen: true,
+                message: res.data.message || 'The exam results have been successfully processed and synchronized.'
             });
             fetchTests();
         } catch (err) {
@@ -270,7 +270,7 @@ const TestResponses = () => {
         if (!confirmModal.isOpen) return null;
 
         return (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 backdrop-blur-sm bg-black/40 animate-in fade-in duration-300">
+            <div className="fixed inset-0 z-9999 flex items-center justify-center p-6 backdrop-blur-sm bg-black/40 animate-in fade-in duration-300">
                 <div className={`w-full max-w-md rounded-[5px] shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-[#0F131A] border-white/5 shadow-black/60' : 'bg-white border-slate-200 shadow-slate-300/50'}`}>
                     <div className="relative h-1.5 w-full bg-slate-100/10 overflow-hidden">
                         <div className={`absolute inset-0 h-full transition-all duration-300 ${confirmModal.type === 'red' ? 'bg-red-500' : 'bg-blue-500'} ${isModalLoading ? 'animate-pulse w-[40%]' : 'w-full'}`} />
@@ -317,7 +317,7 @@ const TestResponses = () => {
         if (!successModal.isOpen) return null;
 
         return (
-            <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6 backdrop-blur-xl bg-black/60 animate-in fade-in zoom-in duration-500">
+            <div className="fixed inset-0 z-10000 flex items-center justify-center p-6 backdrop-blur-xl bg-black/60 animate-in fade-in zoom-in duration-500">
                 <div className={`w-full max-w-sm rounded-[5px] shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-[#0F131A] border-white/5 shadow-black/80' : 'bg-white border-slate-200 shadow-slate-300/50'}`}>
                     <div className="p-10 flex flex-col items-center text-center">
                         <div className="mb-6 relative">
@@ -327,18 +327,18 @@ const TestResponses = () => {
                                 <CheckCircle size={56} strokeWidth={2.5} className="relative z-10 animate-in slide-in-from-bottom-4 duration-700" />
                             </div>
                         </div>
-                        
+
                         <h2 className={`text-3xl font-black uppercase tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                             Complete<span className="text-emerald-500">_</span>
                         </h2>
-                        
+
                         <p className={`text-sm font-bold leading-relaxed mb-10 opacity-60 px-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                             {successModal.message}
                         </p>
-                        
+
                         <button
                             onClick={() => setSuccessModal({ isOpen: false, message: '' })}
-                            className="w-full py-5 rounded-[5px] bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white text-[11px] font-black uppercase tracking-[0.25em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-3"
+                            className="w-full py-5 rounded-[5px] bg-linear-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white text-[11px] font-black uppercase tracking-[0.25em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-3"
                         >
                             Continue Deployment
                         </button>
@@ -466,7 +466,7 @@ const TestResponses = () => {
                                             </td>
                                         </tr>
                                     ) : currentTests.map((test, index) => (
-                                        <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
+                                        <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'}`}>
                                             <td className="py-5 px-6 text-xs font-black opacity-30">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                             <td className="py-5 px-6">
                                                 <div className="flex items-center gap-2 whitespace-nowrap">
@@ -505,12 +505,12 @@ const TestResponses = () => {
                                                     disabled={(!test.is_over && !test.is_completed) || generatingId === test.id}
                                                     title={(!test.is_over && !test.is_completed) ? "Exam is still in progress. Can only generate after end time of all centres." : "Click to generate result"}
                                                     className={`px-4 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1.5 mx-auto
-                                                        ${(test.is_over || test.is_completed) 
-                                                            ? (generatingId === test.id ? 'bg-green-500/50 text-white cursor-wait' : 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-600/20') 
+                                                        ${(test.is_over || test.is_completed)
+                                                            ? (generatingId === test.id ? 'bg-green-500/50 text-white cursor-wait' : 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-600/20')
                                                             : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none'}
                                                      `}
                                                 >
-                                                    {generatingId === test.id ? <RefreshCw size={11} className="animate-spin" /> : <FileText size={11} />} 
+                                                    {generatingId === test.id ? <RefreshCw size={11} className="animate-spin" /> : <FileText size={11} />}
                                                     {generatingId === test.id ? 'Processing...' : (test.is_completed ? 'Regenerate' : 'Generate Result')}
                                                 </button>
                                             </td>
@@ -554,7 +554,7 @@ const TestResponses = () => {
                                     >
                                         <ChevronLeft size={16} />
                                     </button>
-                                    
+
                                     <div className="flex items-center gap-1 mx-2">
                                         {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => {
                                             let pageNum;
@@ -654,7 +654,7 @@ const TestResponses = () => {
                                             <td colSpan="5" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Centres Found</td>
                                         </tr>
                                     ) : centres.map((centre, index) => (
-                                        <tr key={centre.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/30'}`}>
+                                        <tr key={centre.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'}`}>
                                             <td className="py-5 px-6 text-xs font-black opacity-30">{index + 1}</td>
                                             <td className="py-5 px-6">
                                                 <div className="flex flex-col">
@@ -743,8 +743,8 @@ const TestResponses = () => {
                                         key={val}
                                         onClick={() => setStudentFilter(val)}
                                         className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border ${studentFilter === val
-                                                ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
-                                                : isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                                            ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
+                                            : isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                                             }`}
                                     >
                                         {label}
@@ -798,7 +798,7 @@ const TestResponses = () => {
                                             const alreadyUnlocked = sub.allow_resume;
                                             const currentStatus = getNormalizedStatus(sub.status);
                                             return (
-                                                <tr key={sub.student_id ? `${sub.student_id}-${index}` : `erp-${index}`} className={`group transition-all ${hasSession ? (isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/5') : ''
+                                                <tr key={sub.student_id ? `${sub.student_id}-${index}` : `erp-${index}`} className={`group transition-all ${hasSession ? (isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/5') : ''
                                                     }`}>
                                                     <td className="py-5 px-6 text-xs text-center font-black opacity-30">{index + 1}</td>
                                                     <td className="py-5 px-6">
@@ -819,8 +819,7 @@ const TestResponses = () => {
                                                     </td>
                                                     <td className="py-5 px-6">
                                                         <div className="flex flex-col gap-1">
-                                                            <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${
-                                                                sub.is_section_mismatched
+                                                            <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${sub.is_section_mismatched
                                                                     ? 'text-orange-600'
                                                                     : 'opacity-60'
                                                                 }`}>
@@ -861,8 +860,8 @@ const TestResponses = () => {
                                                                 disabled={!canUnlock}
                                                                 title={!hasSession ? 'Student has not started the exam yet' : 'Click to allow resume'}
                                                                 className={`px-4 py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${canUnlock
-                                                                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 cursor-pointer'
-                                                                        : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 cursor-pointer'
+                                                                    : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                                                     }`}
                                                             >
                                                                 Resume
@@ -874,8 +873,8 @@ const TestResponses = () => {
                                                             onClick={() => handleResetSession(sub.student_id, sub.student_name)}
                                                             disabled={!hasSession}
                                                             className={`px-4 py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${hasSession
-                                                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'
-                                                                    : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30'
+                                                                : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                                                 }`}
                                                         >
                                                             Delete

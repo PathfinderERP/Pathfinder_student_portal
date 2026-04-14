@@ -114,7 +114,7 @@ const TestAllotment = () => {
 
             const erpDataRaw = erpCentresRes.data || [];
             const erpData = Array.isArray(erpDataRaw) ? erpDataRaw : (erpDataRaw.data || []);
-            
+
             // Highly robust deduplication by normalized code
             const uniqueErpData = [];
             const seenCodes = new Set();
@@ -173,7 +173,7 @@ const TestAllotment = () => {
 
     const handleSaveAllotment = async () => {
         console.log("👉 handleSaveAllotment START");
-        
+
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
@@ -183,8 +183,8 @@ const TestAllotment = () => {
             // 1. Sync Centres
             for (const erpCode of selectedCentreIds) {
                 const allottedCentreIds = selectedTest?.centres || [];
-                let local = localCentres.find(lc => 
-                    lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase() && 
+                let local = localCentres.find(lc =>
+                    lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase() &&
                     allottedCentreIds.includes(lc.id)
                 ) || localCentres.find(lc => lc.code?.toString().toLowerCase() === erpCode?.toString().toLowerCase());
 
@@ -219,7 +219,7 @@ const TestAllotment = () => {
                         start_time: a.start_time,
                         end_time: a.end_time
                     }, getAuthConfig()));
-                
+
                 await Promise.all(updatePromises);
             }
 
@@ -425,7 +425,7 @@ const TestAllotment = () => {
                                     <td colSpan="8" className="py-20 text-center opacity-40">No tests found matching your criteria.</td>
                                 </tr>
                             ) : currentTests.map((test, index) => (
-                                <tr key={test.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors`}>
+                                <tr key={test.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'} transition-colors`}>
                                     <td className="py-5 px-6 text-center font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex flex-col">
@@ -518,7 +518,7 @@ const TestAllotment = () => {
                             >
                                 <ChevronLeft size={16} />
                             </button>
-                            
+
                             <div className="flex items-center gap-1 mx-2">
                                 {Array.from({ length: Math.min(pageCount, 5) }, (_, i) => {
                                     let pageNum;
@@ -559,7 +559,7 @@ const TestAllotment = () => {
             </div>
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
                     <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-emerald-600 p-6 flex justify-between items-center text-white font-black">
@@ -567,7 +567,7 @@ const TestAllotment = () => {
                                 <h3 className="text-lg uppercase tracking-tight truncate">Centres Allotment</h3>
                                 <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest truncate">{selectedTest?.name}</p>
                             </div>
-                            
+
                             <div className="flex items-center gap-3 bg-white/10 p-1 rounded-[5px] ml-4">
                                 <button
                                     onClick={() => setIsTableView(false)}
@@ -690,7 +690,7 @@ const TestAllotment = () => {
                                                         }}
                                                         className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all ${isSelected
                                                             ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
-                                                            : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md')}`}
+                                                            : (isDarkMode ? 'bg-white/2 border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md')}`}
                                                     >
                                                         <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all ${isSelected
                                                             ? 'bg-blue-600 border-blue-600 scale-110'
@@ -833,7 +833,7 @@ const TestAllotment = () => {
             )}
             {/* Section Allotment Modal */}
             {isSectionModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSectionModalOpen(false)} />
                     <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         <div className="bg-orange-600 p-6 flex justify-between items-center text-white font-black">
@@ -953,7 +953,7 @@ const TestAllotment = () => {
                                                     }}
                                                     className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
                                                         ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
-                                                        : (isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
+                                                        : (isDarkMode ? 'bg-white/2 border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
                                                 >
                                                     <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
                                                         ? 'bg-blue-600 border-blue-600 scale-110'
@@ -993,7 +993,7 @@ const TestAllotment = () => {
             )}
             {/* Premium Custom Alert */}
             {alert.show && (
-                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-10 duration-500">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
                     <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : alert.type === 'info' ? 'bg-blue-500/90 border-blue-400 text-white' : alert.type === 'warning' ? 'bg-amber-500/90 border-amber-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
                         <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}

@@ -72,7 +72,7 @@ const UserManagementTable = ({
                 </thead>
                 <tbody className="divide-y divide-transparent">
                     {users.length > 0 ? users.map((admin, i) => (
-                        <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-200/50'} transition-colors`}>
+                        <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
                             <td className="py-5 px-4">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-orange-900/20 text-orange-500 border-white/5' : 'bg-orange-100 text-orange-600 border-slate-200'}`}>

@@ -298,7 +298,7 @@ const NoticeRegistry = () => {
                                     placeholder="Search notices by title..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/[0.01] border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
+                                    className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none transition-all font-bold text-sm ${isDarkMode ? 'bg-white/1 border-white/5 focus:border-amber-500/50 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-900'}`}
                                 />
                             </div>
                             <button
@@ -432,7 +432,7 @@ const NoticeRegistry = () => {
                                 ))
                             ) : paginatedNotices.length > 0 ? (
                                 paginatedNotices.map((notice, index) => (
-                                    <tr key={notice.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={notice.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>{((currentPage - 1) * itemsPerPage) + index + 1}</span>
                                         </td>
@@ -563,7 +563,7 @@ const NoticeRegistry = () => {
 
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">
@@ -575,7 +575,7 @@ const NoticeRegistry = () => {
 
                         <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {/* Top Section: Academic Targeting */}
-                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <div className={`p-6 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="flex items-center gap-2 mb-6">
                                     <div className="w-1.5 h-5 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-amber-500">Academic Targeting</span>
@@ -616,7 +616,7 @@ const NoticeRegistry = () => {
                                             type="text"
                                             value={newItem.title}
                                             onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-black transition-all ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-100 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Enter notice title..."
                                         />
                                     </div>
@@ -626,7 +626,7 @@ const NoticeRegistry = () => {
                                         <textarea
                                             value={newItem.description}
                                             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[140px] resize-none ${isDarkMode ? 'bg-white/[0.02] border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-800'}`}
+                                            className={`w-full px-6 py-4 rounded-[5px] outline-none border-2 font-bold transition-all min-h-[140px] resize-none ${isDarkMode ? 'bg-white/2 border-white/5 focus:border-amber-500/50 focus:bg-white/5 text-white' : 'bg-slate-50 border-slate-200 focus:border-amber-500 focus:bg-white text-slate-800'}`}
                                             placeholder="Provide more context for students..."
                                         />
                                     </div>
@@ -634,7 +634,7 @@ const NoticeRegistry = () => {
 
                                 <div className="flex flex-col">
                                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Attachment</label>
-                                    <div className={`relative flex-grow min-h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-6 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/[0.01]' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
+                                    <div className={`relative grow min-h-[220px] rounded-[5px] border-2 border-dashed transition-all group overflow-hidden flex flex-col items-center justify-center p-6 ${isDarkMode ? 'border-white/10 hover:border-amber-500/50 bg-white/1' : 'border-slate-200 hover:border-amber-500 bg-slate-50'}`}>
                                         {(previews.image_preview || previews.file_attachment) ? (
                                             <div className="relative w-full h-full flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
                                                 <button
@@ -680,11 +680,11 @@ const NoticeRegistry = () => {
 
             {/* View Modal */}
             {isViewModalOpen && selectedItemForView && (
-                <div className={`fixed z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
+                <div className={`fixed z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 ${isFullScreen ? 'inset-0 p-0' : 'inset-0 p-4'}`}>
                     <div className={`transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'w-full h-full rounded-none' : 'w-full max-w-5xl rounded-[5px] h-[85vh]'}`}>
-                        <div className={`flex-grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
+                        <div className={`grow overflow-hidden flex flex-col relative ${isDarkMode ? 'bg-black/80' : 'bg-slate-900/90'}`}>
                             {/* Minimalism Controls */}
-                            <div className="absolute top-6 right-6 z-[110] flex items-center gap-3">
+                            <div className="absolute top-6 right-6 z-110 flex items-center gap-3">
                                 <button
                                     onClick={() => setIsFullScreen(!isFullScreen)}
                                     className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[5px] transition-all active:scale-90"
@@ -700,7 +700,7 @@ const NoticeRegistry = () => {
                             </div>
 
                             {selectedItemForView.file_attachment && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(selectedItemForView.file_attachment) ? (
-                                <div className="flex-grow flex items-center justify-center p-4 overflow-hidden">
+                                <div className="grow flex items-center justify-center p-4 overflow-hidden">
                                     <img
                                         src={selectedItemForView.file_attachment}
                                         alt={selectedItemForView.title}

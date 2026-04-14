@@ -228,7 +228,7 @@ const HeadOfficeAdminManagement = () => {
                                     <td colSpan="7" className="py-20 text-center opacity-40 uppercase font-black tracking-widest text-sm">No Admins Found</td>
                                 </tr>
                             ) : filteredAdmins.map((admin, index) => (
-                                <tr key={admin.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-indigo-50/20'}`}>
+                                <tr key={admin.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-indigo-50/20'}`}>
                                     <td className="py-6 px-10 font-black text-sm uppercase">{admin.name}</td>
                                     <td className="py-6 px-10 font-bold text-xs">
                                         <span className="px-2 py-1 bg-blue-500/10 text-blue-500 rounded-[5px] font-mono tracking-wider">{admin.employee_id}</span>
@@ -271,7 +271,7 @@ const HeadOfficeAdminManagement = () => {
 
             {/* Standard Form Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#0B0E14]/70 backdrop-blur-md" onClick={() => !isActionLoading && setShowModal(false)} />
                     <div className={`relative w-full max-w-lg rounded-[5px] overflow-hidden shadow-2xl animate-scale-up ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
                         <div className="bg-blue-700 p-6 flex items-center justify-between">
@@ -358,7 +358,7 @@ const HeadOfficeAdminManagement = () => {
 
             {/* Password Reset Modal */}
             {showPassModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#0B0E14]/80 backdrop-blur-md" onClick={() => setShowPassModal(false)} />
                     <div className={`relative w-full max-w-sm rounded-[5px] overflow-hidden shadow-2xl animate-scale-up ${isDarkMode ? 'bg-[#10141D] border border-white/10' : 'bg-white'}`}>
                         <div className="bg-orange-500 p-6 flex items-center justify-between">
@@ -393,7 +393,7 @@ const HeadOfficeAdminManagement = () => {
 
             {/* Premium Alert */}
             {alert.show && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-999 animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
                     <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
                         <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}

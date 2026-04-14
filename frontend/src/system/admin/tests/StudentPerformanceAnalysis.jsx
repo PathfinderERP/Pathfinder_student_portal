@@ -107,7 +107,7 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                         className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === tab
                             ? 'text-blue-600'
                             : isDarkMode ? 'text-slate-500 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'
-                        }`}
+                            }`}
                     >
                         {tab}
                         {activeTab === tab && (
@@ -303,7 +303,7 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
                                     {(data?.section_stats || []).map((sec, idx) => (
-                                        <tr key={idx} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-blue-50/20'}`}>
+                                        <tr key={idx} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/20'}`}>
                                             <td className={`py-6 px-8 font-bold text-xs ${isDarkMode ? 'opacity-60' : 'text-slate-700 opacity-90'}`}>{idx + 1}</td>
                                             <td className="py-6 px-8">
                                                 <span className={`font-extrabold text-xs uppercase tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{sec.name}</span>
@@ -334,11 +334,10 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                             <button
                                 key={sec}
                                 onClick={() => setActiveSolutionSection(sec)}
-                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border transition-all rounded-[5px] whitespace-nowrap ${
-                                    sec === activeSolutionSection
+                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border transition-all rounded-[5px] whitespace-nowrap ${sec === activeSolutionSection
                                         ? 'bg-blue-600 text-white border-blue-600 shadow-md'
                                         : `opacity-60 hover:opacity-100 ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`
-                                }`}
+                                    }`}
                             >
                                 {sec}
                             </button>
@@ -347,7 +346,7 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
 
                     {/* Section Summary Bar */}
                     {activeSolutionSection && (
-                        <div className={`mb-8 p-5 rounded-[10px] border flex justify-between items-center animate-fade-in ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className={`mb-8 p-5 rounded-[10px] border flex justify-between items-center animate-fade-in ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                             <div className="flex gap-10">
                                 <div className="space-y-1.5 flex flex-col items-center">
                                     <p className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500 opacity-60'}`}>Correct</p>
@@ -388,12 +387,11 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                             <span className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                                 Q.{idx + 1} | {q.type.replace('_', ' ')}
                                             </span>
-                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                                                q.result === 'CA' ? 'bg-emerald-500/10 text-emerald-600' :
-                                                q.result === 'IA' ? 'bg-red-500/10 text-red-600' :
-                                                q.result === 'PA' ? 'bg-blue-500/10 text-blue-600' :
-                                                isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500'
-                                            }`}>
+                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${q.result === 'CA' ? 'bg-emerald-500/10 text-emerald-600' :
+                                                    q.result === 'IA' ? 'bg-red-500/10 text-red-600' :
+                                                        q.result === 'PA' ? 'bg-blue-500/10 text-blue-600' :
+                                                            isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500'
+                                                }`}>
                                                 {q.result === 'CA' ? '✓ Correct' : q.result === 'IA' ? '✗ Incorrect' : q.result === 'PA' ? '~ Partial' : 'Not Attempted'}
                                             </span>
                                         </div>
@@ -404,7 +402,7 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
 
                                     {/* Question Content */}
                                     <div className={`p-8 border rounded-b-[5px] shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
-                                        <div 
+                                        <div
                                             className={`text-xs font-bold mb-8 leading-relaxed prose-sm max-w-none ${isDarkMode ? 'opacity-90' : 'text-slate-800'}`}
                                             dangerouslySetInnerHTML={{ __html: q.content }}
                                         />
@@ -414,36 +412,35 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                                 const keys = ['a', 'b', 'c', 'd', 'e', 'f'];
                                                 const optIdStr = String(opt.id || opt._id || oi);
                                                 const isCorrect = q.correct_options.includes(optIdStr);
-                                                
+
                                                 // Robust matching for user answer (by ID, by index, or by label)
                                                 const isUserAnswer = userAnswerStr.some(ua => {
                                                     const uaStr = String(ua).toLowerCase();
                                                     return (
-                                                        uaStr === optIdStr.toLowerCase() || 
-                                                        uaStr === String(oi) || 
-                                                        uaStr === keys[oi] || 
+                                                        uaStr === optIdStr.toLowerCase() ||
+                                                        uaStr === String(oi) ||
+                                                        uaStr === keys[oi] ||
                                                         uaStr === (opt?.content?.toLowerCase() || '')
                                                     );
                                                 });
-                                                
+
                                                 return (
                                                     <div
                                                         key={optIdStr}
-                                                        className={`p-4 rounded-[4px] border transition-all flex justify-between items-center ${
-                                                            isCorrect && isUserAnswer ? 'border-emerald-500/40 bg-emerald-500/8' :
-                                                            isCorrect ? 'border-emerald-500/30 bg-emerald-500/5' :
-                                                            isUserAnswer ? 'border-red-500/30 bg-red-500/5' :
-                                                            isDarkMode ? 'border-white/5' : 'border-slate-100'
-                                                        }`}
+                                                        className={`p-4 rounded-[4px] border transition-all flex justify-between items-center ${isCorrect && isUserAnswer ? 'border-emerald-500/40 bg-emerald-500/8' :
+                                                                isCorrect ? 'border-emerald-500/30 bg-emerald-500/5' :
+                                                                    isUserAnswer ? 'border-red-500/30 bg-red-500/5' :
+                                                                        isDarkMode ? 'border-white/5' : 'border-slate-100'
+                                                            }`}
                                                     >
                                                         <div className="flex gap-4 items-start">
                                                             <span className={`text-xs font-black uppercase min-w-[16px] ${isDarkMode ? 'opacity-50' : 'text-slate-600 opacity-80'}`}>{keys[oi] ?? oi})</span>
-                                                            <div 
+                                                            <div
                                                                 className={`text-xs font-bold leading-relaxed prose-sm max-w-none ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}
                                                                 dangerouslySetInnerHTML={{ __html: opt.content || opt.text || optIdStr }}
                                                             />
                                                         </div>
-                                                        <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                                                        <div className="flex items-center gap-2 shrink-0 ml-4">
                                                             {isCorrect && isUserAnswer && (
                                                                 <span className="flex items-center gap-1 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
                                                                     Your Answer (Correct) <CheckCircle2 size={14} />
@@ -482,7 +479,7 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                                     <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                                 </button>
                                                 {isExpanded && (
-                                                    <div 
+                                                    <div
                                                         className={`mt-4 p-4 rounded-[4px] bg-slate-50 dark:bg-white/5 border dark:border-white/5 text-[11px] leading-relaxed prose-sm max-w-none ${isDarkMode ? 'opacity-80' : 'text-slate-700'}`}
                                                         dangerouslySetInnerHTML={{ __html: q.solution }}
                                                     />

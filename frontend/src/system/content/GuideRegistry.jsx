@@ -246,7 +246,7 @@ const GuideRegistry = () => {
                                 ))
                             ) : filteredGuides.length > 0 ? (
                                 filteredGuides.map((guide, index) => (
-                                    <tr key={guide.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={guide.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-4 px-6 text-center font-bold text-xs opacity-60">
                                             {index + 1}
                                         </td>
@@ -330,7 +330,7 @@ const GuideRegistry = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-lg rounded-lg shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1a1f2e]' : 'bg-white'}`}>
                         <div className="bg-orange-600 p-4 flex justify-between items-center text-white">
                             <h2 className="text-xl font-bold">
@@ -372,7 +372,7 @@ const GuideRegistry = () => {
 
                             {/* Thumbnail */}
                             <div className="space-y-1">
-                                <label className="block text-sm font-medium opacity-70 mb-1 font-bold">Thumbnail Image</label>
+                                <label className="block text-sm font-medium opacity-70 mb-1">Thumbnail Image</label>
                                 <div className={`border-2 border-dashed rounded-[5px] p-4 text-center ${isDarkMode ? 'border-white/10' : 'border-slate-300'}`}>
                                     {previewThumbnail ? (
                                         <div className="relative group">
@@ -453,7 +453,7 @@ const GuideRegistry = () => {
             {/* Image Preview Modal */}
             {selectedThumbnailImage && (
                 <div
-                    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300 p-4"
+                    className="fixed inset-0 z-110 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300 p-4"
                     onClick={() => setSelectedThumbnailImage(null)}
                 >
                     <div className="relative max-w-full max-h-full p-2">

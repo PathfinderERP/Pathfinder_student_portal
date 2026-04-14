@@ -658,7 +658,7 @@ const SystemDashboard = () => {
                 )}
             >
                 {successMessage && (
-                    <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top duration-500">
+                    <div className="fixed top-24 left-1/2 -translate-x-1/2 z-100 animate-in slide-in-from-top duration-500">
                         <div className="flex items-center gap-3 px-6 py-3 bg-emerald-500 text-white rounded-[5px] shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest text-[10px]">
                             <CheckCircle size={14} strokeWidth={3} /> {successMessage}
                         </div>
@@ -672,7 +672,7 @@ const SystemDashboard = () => {
 
             {/* Create User Modal */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-10">
+                <div className="fixed inset-0 z-9999 flex items-start justify-center p-4 pt-10">
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsCreateModalOpen(false)} />
                     <div className="relative w-full max-w-6xl max-h-[95vh] overflow-y-auto overscroll-contain">
                         <CreateUserPage onBack={() => setIsCreateModalOpen(false)} />

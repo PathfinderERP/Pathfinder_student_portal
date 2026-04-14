@@ -288,7 +288,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
                         </div>
 
                         {showFilters && (
-                            <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/2 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div>
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Subject</label>
@@ -354,7 +354,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
                                             setSelectedTeacher(t);
                                             setIsDetailOpen(true);
                                         }}
-                                        className={`group cursor-pointer ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-all duration-300`}
+                                        className={`group cursor-pointer ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'} transition-all duration-300`}
                                     >
                                         <td className="py-6 px-4">
                                             <div className="flex items-center gap-4">
@@ -481,7 +481,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
 
             </div>
             {isDetailOpen && selectedTeacher && ReactDOM.createPortal(
-                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 md:p-8">
+                <div className="fixed inset-0 z-999 flex items-center justify-center p-4 md:p-8">
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => setIsDetailOpen(false)}></div>
                     <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[5px] border shadow-2xl animate-in zoom-in-95 duration-500 ${isDarkMode ? 'bg-[#0D1117] border-white/10' : 'bg-white border-slate-200'}`}>
                         {/* Header */}
@@ -631,7 +631,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
                         </div>
 
                         {/* Footer */}
-                        <div className={`p-8 md:p-10 border-t flex justify-end ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
+                        <div className={`p-8 md:p-10 border-t flex justify-end ${isDarkMode ? 'border-white/5 bg-white/2' : 'border-slate-100 bg-slate-50/50'}`}>
                             <button
                                 onClick={() => setIsDetailOpen(false)}
                                 className={`px-8 py-3 rounded-[5px] text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white text-slate-900' : 'bg-slate-900 text-white shadow-xl shadow-slate-900/20'}`}

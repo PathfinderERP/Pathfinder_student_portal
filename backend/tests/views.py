@@ -1,3 +1,4 @@
+from tests.models import TestSubmission
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -160,7 +161,7 @@ class TestViewSet(viewsets.ModelViewSet):
             test = Test.objects.get(pk=pk)
         except Test.DoesNotExist:
             return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
-        sections = test.allotted_sections.all()
+        sections = test.sections.all()
         serializer = SectionSerializer(sections, many=True)
         return Response(serializer.data)
 

@@ -199,7 +199,7 @@ const BannerRegistry = () => {
                                 ))
                             ) : banners.length > 0 ? (
                                 banners.map((banner, index) => (
-                                    <tr key={banner.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.01]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={banner.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>
                                                 {index + 1}
@@ -257,7 +257,7 @@ const BannerRegistry = () => {
 
             {/* Add/Edit Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-md rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black' : 'bg-white border-slate-100 shadow-slate-200'}`}>
                         <div className={`p-4 border-b border-white/10 flex justify-between items-center text-white ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                             <h2 className="text-sm font-black uppercase tracking-widest">{isEditModalOpen ? 'Edit Banner' : 'Add New Banner'}</h2>
@@ -270,7 +270,7 @@ const BannerRegistry = () => {
                                     {isEditModalOpen ? 'Update Banner Image' : 'Upload Banner'}
                                 </h3>
 
-                                <div className={`relative border-2 border-dashed rounded-[5px] p-6 text-center group transition-all ${isDarkMode ? 'border-white/10 hover:border-orange-500/50 bg-white/[0.02]' : 'border-slate-300 hover:border-orange-500 bg-slate-50'}`}>
+                                <div className={`relative border-2 border-dashed rounded-[5px] p-6 text-center group transition-all ${isDarkMode ? 'border-white/10 hover:border-orange-500/50 bg-white/2' : 'border-slate-300 hover:border-orange-500 bg-slate-50'}`}>
                                     <input
                                         type="file"
                                         accept="image/*"
@@ -314,7 +314,7 @@ const BannerRegistry = () => {
             {/* Image Preview Modal */}
             {selectedImage && (
                 <div
-                    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300 p-4"
+                    className="fixed inset-0 z-110 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300 p-4"
                     onClick={() => setSelectedImage(null)}
                 >
                     <div className="relative max-w-full max-h-full p-2">

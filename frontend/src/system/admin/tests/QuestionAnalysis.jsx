@@ -11,7 +11,7 @@ const PieChart = ({ data, size = 160 }) => {
     const total = data.reduce((s, d) => s + d.value, 0);
     if (total === 0) return (
         <div style={{ width: size, height: size }} className="flex items-center justify-center rounded-full border-4 border-dashed border-slate-300/30">
-            <span className="text-[10px] font-black opacity-30 uppercase tracking-widest text-center">No<br/>Data</span>
+            <span className="text-[10px] font-black opacity-30 uppercase tracking-widest text-center">No<br />Data</span>
         </div>
     );
 
@@ -62,7 +62,7 @@ const PieChart = ({ data, size = 160 }) => {
 // ────────────────────────────────────────────────────────────────────
 const StatBadge = ({ icon: Icon, label, value, color, bg }) => (
     <div className={`flex items-center gap-2 px-3 py-2 rounded-[5px] border ${bg}`}>
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0`} style={{ background: color }} />
+        <div className={`w-2.5 h-2.5 rounded-full shrink-0`} style={{ background: color }} />
         <span className="text-[10px] font-black uppercase tracking-wider opacity-70">{label}</span>
         <span className="text-sm font-black ml-auto">{value}</span>
     </div>
@@ -116,17 +116,17 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
     }, [testId]);
 
     const PIE_COLORS = {
-        correct:      '#22c55e',
-        incorrect:    '#ef4444',
-        partial:      '#f97316',
-        not_attempted:'#94a3b8',
+        correct: '#22c55e',
+        incorrect: '#ef4444',
+        partial: '#f97316',
+        not_attempted: '#94a3b8',
     };
 
     const buildPieData = (q) => [
-        { label: 'Correct Attempt',   value: q.correct,       color: PIE_COLORS.correct },
-        { label: 'Incorrect Attempt', value: q.incorrect,     color: PIE_COLORS.incorrect },
-        { label: 'Partial Attempt',   value: q.partial,       color: PIE_COLORS.partial },
-        { label: 'Not Attempt',       value: q.not_attempted, color: PIE_COLORS.not_attempted },
+        { label: 'Correct Attempt', value: q.correct, color: PIE_COLORS.correct },
+        { label: 'Incorrect Attempt', value: q.incorrect, color: PIE_COLORS.incorrect },
+        { label: 'Partial Attempt', value: q.partial, color: PIE_COLORS.partial },
+        { label: 'Not Attempt', value: q.not_attempted, color: PIE_COLORS.not_attempted },
     ];
 
     // ── Loading ──────────────────────────────────────────────────────
@@ -215,11 +215,10 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                         <button
                             key={i}
                             onClick={() => setActiveSection(i)}
-                            className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border ${
-                                activeSection === i
-                                    ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/20'
-                                    : (isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:bg-slate-50')
-                            }`}
+                            className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border ${activeSection === i
+                                ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-600/20'
+                                : (isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:bg-slate-50')
+                                }`}
                         >
                             {sec.name}
                         </button>
@@ -230,13 +229,13 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
             {/* ── Legend ─────────────────────────────────────────── */}
             <div className={`p-5 rounded-[5px] border flex flex-wrap items-center gap-4 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
                 {[
-                    { label: 'Correct Attempt',   color: PIE_COLORS.correct },
+                    { label: 'Correct Attempt', color: PIE_COLORS.correct },
                     { label: 'Incorrect Attempt', color: PIE_COLORS.incorrect },
-                    { label: 'Partial Attempt',   color: PIE_COLORS.partial },
-                    { label: 'Not Attempt',       color: PIE_COLORS.not_attempted },
+                    { label: 'Partial Attempt', color: PIE_COLORS.partial },
+                    { label: 'Not Attempt', color: PIE_COLORS.not_attempted },
                 ].map(item => (
                     <div key={item.label} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: item.color }} />
+                        <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: item.color }} />
                         <span className="text-[10px] font-black uppercase tracking-wider opacity-70">{item.label}</span>
                     </div>
                 ))}
@@ -264,7 +263,7 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                                 className={`rounded-[5px] border overflow-hidden shadow-lg transition-all hover:shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/30' : 'bg-white border-slate-100 shadow-slate-100'}`}
                             >
                                 {/* Question header strip */}
-                                <div className={`px-6 py-3 border-b flex items-center justify-between flex-wrap gap-2 ${isDarkMode ? 'bg-white/[0.03] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <div className={`px-6 py-3 border-b flex items-center justify-between flex-wrap gap-2 ${isDarkMode ? 'bg-white/0.03 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                     <div className="flex items-center gap-3">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
                                             Question No: {qi + 1}
@@ -296,31 +295,29 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                                         {q.options && q.options.length > 0 && (
                                             <div className="mt-8 space-y-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-slate-500/20 to-transparent" />
+                                                    <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-500/20 to-transparent" />
                                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 whitespace-nowrap">Options & Analysis</span>
-                                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-slate-500/20 to-transparent" />
+                                                    <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-500/20 to-transparent" />
                                                 </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     {q.options.map((opt, idx) => (
-                                                        <div 
-                                                            key={opt.id} 
-                                                            className={`group flex items-start gap-4 p-4 rounded-[5px] border transition-all duration-300 ${
-                                                                opt.isCorrect 
-                                                                    ? (isDarkMode ? 'bg-green-500/10 border-green-500/30' : 'bg-green-50 border-green-200 shadow-lg shadow-green-500/5') 
-                                                                    : (isDarkMode ? 'bg-white/2 border-white/5 hover:bg-white/5' : 'bg-slate-50/50 border-slate-100 hover:bg-slate-50')
-                                                            }`}
+                                                        <div
+                                                            key={opt.id}
+                                                            className={`group flex items-start gap-4 p-4 rounded-[5px] border transition-all duration-300 ${opt.isCorrect
+                                                                ? (isDarkMode ? 'bg-green-500/10 border-green-500/30' : 'bg-green-50 border-green-200 shadow-lg shadow-green-500/5')
+                                                                : (isDarkMode ? 'bg-white/2 border-white/5 hover:bg-white/5' : 'bg-slate-50/50 border-slate-100 hover:bg-slate-50')
+                                                                }`}
                                                         >
-                                                            <div className={`mt-0.5 flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border transition-all duration-300 ${
-                                                                opt.isCorrect
-                                                                    ? 'bg-green-500 border-green-600 text-white scale-110 shadow-lg shadow-green-500/30'
-                                                                    : (isDarkMode ? 'bg-white/5 border-white/10 opacity-30 group-hover:opacity-60' : 'bg-white border-slate-200 opacity-40 group-hover:opacity-70')
-                                                            }`}>
+                                                            <div className={`mt-0.5 shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border transition-all duration-300 ${opt.isCorrect
+                                                                ? 'bg-green-500 border-green-600 text-white scale-110 shadow-lg shadow-green-500/30'
+                                                                : (isDarkMode ? 'bg-white/5 border-white/10 opacity-30 group-hover:opacity-60' : 'bg-white border-slate-200 opacity-40 group-hover:opacity-70')
+                                                                }`}>
                                                                 {String.fromCharCode(65 + idx)}
                                                             </div>
                                                             <div className="flex-1 space-y-1">
-                                                                <div 
+                                                                <div
                                                                     className={`text-xs font-bold leading-relaxed ${opt.isCorrect ? (isDarkMode ? 'text-green-400' : 'text-green-700') : (isDarkMode ? 'text-slate-400' : 'text-slate-600')}`}
-                                                                    dangerouslySetInnerHTML={{ __html: opt.content }} 
+                                                                    dangerouslySetInnerHTML={{ __html: opt.content }}
                                                                 />
                                                             </div>
                                                             {opt.isCorrect && (
@@ -344,9 +341,9 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">Explanation / Solution</span>
                                                 </div>
                                                 <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-amber-500/5 border-amber-500/10 shadow-black/20' : 'bg-amber-50/50 border-amber-100 shadow-amber-500/5'} shadow-lg`}>
-                                                    <div 
+                                                    <div
                                                         className={`text-sm leading-relaxed font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} [&_img]:max-w-xs [&_img]:rounded`}
-                                                        dangerouslySetInnerHTML={{ __html: q.solution }} 
+                                                        dangerouslySetInnerHTML={{ __html: q.solution }}
                                                     />
                                                 </div>
                                             </div>
@@ -369,7 +366,7 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                                                             {q.answer_from} <span className="text-sm font-bold opacity-30 mx-2">to</span> {q.answer_to}
                                                         </p>
                                                     </div>
-                                                    <div className={`h-12 w-[1px] hidden sm:block ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-500/10'}`} />
+                                                    <div className={`h-12 w-px hidden sm:block ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-500/10'}`} />
                                                     <div className="text-center sm:text-right">
                                                         <span className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-white text-blue-600 border border-blue-100'}`}>
                                                             Numerical Input
@@ -381,7 +378,7 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                                     </div>
 
                                     {/* Pie chart + stats (right ~40%) */}
-                                    <div className="md:w-80 flex-shrink-0 px-6 py-5 flex flex-col items-center gap-5">
+                                    <div className="md:w-80 shrink-0 px-6 py-5 flex flex-col items-center gap-5">
                                         <PieChart data={pieData} size={170} />
 
                                         {/* Stat rows */}
@@ -391,10 +388,10 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                                                 <span className="opacity-40">Count</span>
                                             </div>
                                             {[
-                                                { label: 'Correct',      value: q.correct,       color: PIE_COLORS.correct,      bg: isDarkMode ? 'bg-green-500/5 border-green-500/10' : 'bg-green-50 border-green-100' },
-                                                { label: 'Incorrect',    value: q.incorrect,     color: PIE_COLORS.incorrect,    bg: isDarkMode ? 'bg-red-500/5 border-red-500/10' : 'bg-red-50 border-red-100' },
-                                                { label: 'Partial',      value: q.partial,       color: PIE_COLORS.partial,      bg: isDarkMode ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-100' },
-                                                { label: 'Not Attempted',value: q.not_attempted, color: PIE_COLORS.not_attempted,bg: isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100' },
+                                                { label: 'Correct', value: q.correct, color: PIE_COLORS.correct, bg: isDarkMode ? 'bg-green-500/5 border-green-500/10' : 'bg-green-50 border-green-100' },
+                                                { label: 'Incorrect', value: q.incorrect, color: PIE_COLORS.incorrect, bg: isDarkMode ? 'bg-red-500/5 border-red-500/10' : 'bg-red-50 border-red-100' },
+                                                { label: 'Partial', value: q.partial, color: PIE_COLORS.partial, bg: isDarkMode ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-100' },
+                                                { label: 'Not Attempted', value: q.not_attempted, color: PIE_COLORS.not_attempted, bg: isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100' },
                                             ].map(item => (
                                                 <div key={item.label} className={`px-3 py-2 rounded-[5px] border ${item.bg}`}>
                                                     <div className="flex items-center justify-between mb-1">
