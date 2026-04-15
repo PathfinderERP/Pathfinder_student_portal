@@ -51,58 +51,40 @@ class TestViewSet(viewsets.ModelViewSet):
             ).order_by('-created_at')
         
         # If user is a student, enforce smart visibility rules
-        # Main motiv: All students shouldn't see all exams, only privileged ones.
         if not user.is_staff and not user.is_superuser and getattr(user, 'user_type', None) == 'student':
             from api.db_utils import parse_section, get_db
             db = get_db()
             
-            # Fetch ALL potential tests to filter in Python
-            all_tests = list(queryset)
-            visible_ids = []
-            
-            # Prep student metadata
-            s_exams = [s.lower() for s in parse_section(getattr(user, 'exam_section', ''))]
-            s_studies = [s.lower() for s in parse_section(getattr(user, 'study_section', ''))]
-            student_sections = set(s_exams + s_studies)
+            # Prep student metadata (Include both casings to bypass DB case-sensitivity in __in filter)
+            s_exams = [s.strip() for s in parse_section(getattr(user, 'exam_section', ''))]
+            s_studies = [s.strip() for s in parse_section(getattr(user, 'study_section', ''))]
+            raw_sects = s_exams + s_studies
+            student_sections = set([s.lower() for s in raw_sects] + [s.upper() for s in raw_sects])
             
             c_code = str(getattr(user, 'centre_code', '')).lower().strip()
             c_name = str(getattr(user, 'centre_name', '')).lower().strip()
 
-            # Pre-fetch submission test IDs for this student
-            submission_test_ids = set()
+            # Pre-fetch submission test IDs for this student (FAST)
+            submission_test_ids = []
             if db is not None:
                 try: 
                     sub_docs = list(db['tests_testsubmission'].find({'student_id': user.pk}, {'test_id': 1}))
-                    submission_test_ids = {str(d['test_id']) for d in sub_docs}
+                    submission_test_ids = [d['test_id'] for d in sub_docs]
                 except: pass
 
-            for t in all_tests:
-                tid_str = str(t.pk)
-                # 1. ALWAYS show if they have a submission
-                if tid_str in submission_test_ids:
-                    visible_ids.append(t.pk)
-                    continue
-                
-                # 2. Centre AND Section check
-                t_centres = t.centres.all()
-                if not t_centres: continue
-                
-                match_centre = any(c_code == str(c.code).lower().strip() or c_name == str(c.name).lower().strip() for c in t_centres)
-                if not match_centre: continue
-                
-                t_sections = [s.name.lower().strip() for s in t.allotted_sections.all()]
-                # Only show if the student's section matches one of the allotted sections
-                # This prevents tests with NO allotted sections from showing up to students.
-                if t_sections and any(sec in student_sections for sec in t_sections):
-                    visible_ids.append(t.pk)
-
-            # Final re-filter
-            queryset = queryset.filter(id__in=visible_ids).prefetch_related(
-                'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
-                'centre_allotments', 'centre_allotments__centre'
-            ).order_by('-created_at')
-            if not visible_ids:
-                queryset = queryset.none()
+            # Optimized Filtering: Use DB-level filtering as much as possible to avoid N+1
+            # Filter condition: (Submitted tests) OR (Matched Centre AND Matched Section)
+            from django.db.models import Q
+            
+            # Centre Filter: Student's centre must be in the test's allotted centres
+            centre_filter = Q(centres__code__iexact=c_code) | Q(centres__name__iexact=c_name)
+            
+            # Section Filter: Student's section must be in allotted_sections, OR no sections allotted
+            section_filter = Q(allotted_sections__name__in=student_sections) | Q(allotted_sections__isnull=True)
+            
+            queryset = queryset.filter(
+                Q(id__in=submission_test_ids) | (centre_filter & section_filter)
+            ).distinct()
         
         package_id = self.request.query_params.get('package', None)
         if package_id:
@@ -2280,17 +2262,9 @@ class TestViewSet(viewsets.ModelViewSet):
         if db is None:
             return Response([])
             
-        # Get all published tests with sections to compute max marks efficiently if 0
-        published_tests = Test.objects.filter(is_result_published=True).prefetch_related('sections')
-        tests_map = {}
-        for t in published_tests:
-            if t.total_marks == 0:
-                calc_total = 0
-                for sec in t.sections.all():
-                    unique_q_count = len(set(q.pk for q in sec.questions.all()))
-                    calc_total += unique_q_count * float(sec.correct_marks or 0)
-                t.total_marks = int(calc_total)
-            tests_map[str(t.pk)] = t
+        # Fast map creation for results
+        published_tests = Test.objects.filter(is_result_published=True).only('id', 'name', 'code', 'total_marks')
+        tests_map = {str(t.pk): t for t in published_tests}
         
         # Prepare test_id array for Mongo matching
         from bson import ObjectId
