@@ -107,17 +107,29 @@ def get_student_lookup_index(force_refresh=False):
     
     print(f"[ERP] O(1) Indexing {len(bulk_cache)} records for high-performance lookup...")
     idx = {}
+    # Helper to check if record has sections
+    def has_sects(r):
+        sa = (r or {}).get('sectionAllotment', {}) or {}
+        return bool(sa.get('examSection') or sa.get('studySection'))
+
     for record in bulk_cache:
-        # Index by Admission Number
+        # Index by Admission Number (Normalizes to Upper/Strip)
         adm_no = str(record.get('admissionNumber') or '').strip().upper()
-        if adm_no: idx[f"adm_{adm_no}"] = record
+        if adm_no:
+            key = f"adm_{adm_no}"
+            # Overwrite only if the existing one has no sections and the new one does
+            if key not in idx or (not has_sects(idx[key]) and has_sects(record)):
+                idx[key] = record
         
-        # Index by Student Emails
+        # Index by Student Emails (Normalizes to Lower/Strip)
         details = record.get('student', {}).get('studentsDetails', [])
         for d in details:
             email = str(d.get('studentEmail') or '').strip().lower()
             if email:
-                if f"email_{email}" not in idx: idx[f"email_{email}"] = record
+                key = f"email_{email}"
+                # Overwrite only if the existing one has no sections and the new one does
+                if key not in idx or (not has_sects(idx[key]) and has_sects(record)):
+                    idx[key] = record
                 
     cache.set(index_key, idx, 3600) # 1 hour index life
     return idx

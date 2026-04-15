@@ -17,6 +17,17 @@ def clean_html(text):
     if not text: return ""
     return re.sub('<[^<]+?>', '', str(text)).strip().lower()
 
+def _get_student_sections(obj, is_erp=False):
+    from api.db_utils import parse_section
+    if is_erp:
+        sa = obj.get('sectionAllotment', {}) or {}
+        return [s.lower().strip() for s in parse_section(sa.get('examSection'))] + \
+               [s.lower().strip() for s in parse_section(sa.get('studySection'))]
+    else:
+        return [s.lower().strip() for s in parse_section(getattr(obj, 'exam_section', ''))] + \
+               [s.lower().strip() for s in parse_section(getattr(obj, 'study_section', ''))]
+
+
 class TestViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = TestSerializer
@@ -206,10 +217,76 @@ class TestViewSet(viewsets.ModelViewSet):
                     
                     data_items = response.data.get('results', []) if isinstance(response.data, dict) else response.data
                     if isinstance(data_items, list):
+                        # 1. Submission Counts (Attempts)
                         for item in data_items:
                             item['total_students'] = count_map.get(str(item.get('id')), 0)
+                            
+                        # 2. Roster Counts (Allocated) - Bulk calculation to avoid N+1 hang
+                        from api.db_utils import parse_section
+                        from .models import Test
+                        
+                        test_ids = [item.get('id') for item in data_items]
+                        all_tests = Test.objects.filter(id__in=test_ids).prefetch_related('allotted_sections', 'centres')
+                        test_map = {t.id: t for t in all_tests}
+                        
+                        # Pre-process test criteria for fast matching
+                        test_criteria = {}
+                        for t_id in test_ids:
+                            t = test_map.get(t_id)
+                            if not t: continue
+                            test_criteria[t_id] = {
+                                'sections': set(s.name.strip().lower() for s in t.allotted_sections.all()),
+                                'centres': set(c.name.strip().upper() for c in t.centres.all())
+                            }
+                        
+                        roster_scores = {t_id: 0 for t_id in test_ids}
+                        seen_students = {t_id: set() for t_id in test_ids}
+                        
+                        # Use the indexed values (already de-duplicated by ERP indexing logic)
+                        from api.erp_views import get_student_lookup_index
+                        erp_index = get_student_lookup_index(force_refresh=False)
+                        if not erp_index: erp_index = {}
+
+                        # Single pass over ERP students (O(S * N_page))
+                        for erp in erp_index.values():
+                            if not isinstance(erp, dict): continue
+                            
+                            # Identifiers for de-duplication per Test
+                            adm = str(erp.get('admissionNumber') or '').strip().upper()
+                            details = erp.get('student', {}).get('studentsDetails', [])
+                            em = str(details[0].get('studentEmail') or '').strip().lower() if details else None
+                            
+                            # Get student's centre
+                            c_raw = erp.get('centre')
+                            if not c_raw:
+                                v = erp.get('venue')
+                                c_raw = (v.get('centreName') or v.get('name')) if isinstance(v, dict) else v
+                            s_centre = str(c_raw or '').upper().strip()
+                            if not s_centre: continue
+                            
+                            # Get student's sections
+                            sa = erp.get('sectionAllotment', {})
+                            s_sects = set([s.strip().lower() for s in parse_section(sa.get('examSection'))] + 
+                                          [s.strip().lower() for s in parse_section(sa.get('studySection'))])
+                            
+                            if not s_sects: continue
+                            
+                            # Check against every test in current page
+                            for t_id, criteria in test_criteria.items():
+                                if s_centre in criteria['centres'] and (s_sects & criteria['sections']):
+                                    # De-duplicate within the test's roster
+                                    is_seen = (adm and adm in seen_students[t_id]) or (em and em in seen_students[t_id])
+                                    if not is_seen:
+                                        if adm: seen_students[t_id].add(adm)
+                                        if em: seen_students[t_id].add(em)
+                                        roster_scores[t_id] += 1
+                        
+                        # Inject results back into response data
+                        for item in data_items:
+                            item['total_roster_count'] = roster_scores.get(item.get('id'), 0)
+
                 except Exception as e:
-                    pass
+                    print(f"List Optimization Error: {e}")
 
             # Cache for a longer time (10 mins) to ensure speed, while allowing force-refresh
             cache.set("admin_test_list", response.data, 600)
@@ -633,14 +710,19 @@ class TestViewSet(viewsets.ModelViewSet):
                 adm = str(erp.get('admissionNumber') or '').upper().strip()
                 det = erp.get('student', {}).get('studentsDetails', [{}])[0]
                 em = str(det.get('studentEmail') or "").lower().strip()
+                
+                # Check for existing local student or already processed ERP student
                 if (adm and adm in global_seen_uids) or (em and em in global_seen_uids): continue
                 if not allowed_sections_list: continue
                 
+                # 1. Section Matching (Must match one of the test's allotted sections)
                 sects = _get_student_sections(erp, True)
-                if not any(sec in allowed_sections_list for sec in sects): continue
+                if not any(sec in allowed_sections_list for sec in (sects or [])): continue
                 
+                # 2. Centre Matching
                 ecr = erp.get('centre') or (erp.get('venue', {}) if isinstance(erp.get('venue'), dict) else {}).get('centreName')
                 ec = str(ecr or '').upper().strip()
+                
                 if ec == tcn or ec == tcc or tcn in ec or ec in tcn:
                     sn = str(det.get('studentName') or 'Student').strip()
                     sp = sn.split(' ')
@@ -651,7 +733,8 @@ class TestViewSet(viewsets.ModelViewSet):
                         study_section=erp.get('sectionAllotment', {}).get('studySection'),
                         rm_code=None, omr_code=None, employee_id=None, user_type='student'
                     ), False))
-                    global_seen_uids.add(adm); global_seen_uids.add(em)
+                    if adm: global_seen_uids.add(adm)
+                    if em: global_seen_uids.add(em)
 
         # 5. Format and Enrich Final Response
         data = []

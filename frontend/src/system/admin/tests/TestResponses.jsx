@@ -443,7 +443,7 @@ const TestResponses = () => {
                                         <th className="py-5 px-6">Test Name</th>
                                         <th className="py-5 px-6">Test Code</th>
                                         <th className="py-5 px-6 text-center">Attempts</th>
-                                        <th className="py-5 px-6 text-center">Total Roster</th>
+                                        <th className="py-5 px-6 text-center">Total Students</th>
                                         <th className="py-5 px-6 text-center">Centres</th>
                                         <th className="py-5 px-6 text-center">Results</th>
                                     </tr>
@@ -489,7 +489,7 @@ const TestResponses = () => {
                                             <td className="py-5 px-6 text-center">
                                                 <div className="flex items-center justify-center gap-2 text-blue-500">
                                                     <Users size={14} />
-                                                    <span className="text-sm font-black">{test.total_roster_count || 0}</span>
+                                                    <span className="text-sm font-black" title="Total Allocated Students (from ERP)">{test.total_roster_count || 0}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6 text-center">
@@ -821,8 +821,8 @@ const TestResponses = () => {
                                                     <td className="py-5 px-6">
                                                         <div className="flex flex-col gap-1">
                                                             <span className={`text-[11px] font-mono font-black uppercase tracking-tighter ${sub.is_section_mismatched
-                                                                    ? 'text-orange-600'
-                                                                    : 'opacity-60'
+                                                                ? 'text-orange-600'
+                                                                : 'opacity-60'
                                                                 }`}>
                                                                 {sub.section || '---'}
                                                             </span>
