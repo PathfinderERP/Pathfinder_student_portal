@@ -241,13 +241,21 @@ class TestViewSet(viewsets.ModelViewSet):
         except Test.DoesNotExist:
             return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
             
+        from django.core.cache import cache
+        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
+        
+        cache_key = f"test_{test.pk}_centers_full_v3"
+        if not force_refresh:
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(cached_data)
+
         from api.models import CustomUser
         from .models import TestSubmission
         from centres.models import Centre
         from api.db_utils import get_db, parse_section
-        from django.core.cache import cache
+        from api.db_utils import get_db, parse_section
         from api.erp_views import get_student_lookup_index # Optimized indexing
-        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
         
         db = get_db()
         
@@ -338,23 +346,27 @@ class TestViewSet(viewsets.ModelViewSet):
             else:
                 unassigned_sub_count += 1
 
-        # B. Assign Remaining Local Students (Limited to relevant centres)
-        for c in all_target_centres:
-            pool = CustomUser.objects.filter(user_type='student').filter(
-                Q(centre_code__iexact=c.code) | Q(centre_name__iexact=c.name)
-            )
-            for s in pool:
-                uid = (s.username or str(s.pk)).upper().strip()
-                if uid in global_seen_uids: continue
-                if not allowed_sections_list: continue
-                
-                erp_rec = erp_index.get(f"email_{str(s.email).lower()}") or erp_index.get(f"adm_{str(s.admission_number).upper()}")
-                sects = _get_student_sections(erp_rec, True) if erp_rec else _get_student_sections(s)
-                if any(sec in allowed_sections_list for sec in sects):
-                    centre_counts[str(c.pk)]['roster'] += 1
-                    global_seen_uids.add(uid)
-                    if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
-                    if s.email: global_seen_uids.add(s.email.lower().strip())
+        # B. Assign Remaining Local Students (SINGLE BATCH LOOKUP to void N+1 issues)
+        all_students = CustomUser.objects.filter(user_type='student')
+        for s in all_students:
+            s_c_code = (s.centre_code or '').lower().strip()
+            s_c_name = (s.centre_name or '').lower().strip()
+            if not s_c_code and not s_c_name: continue
+            
+            for c in all_target_centres:
+                if s_c_code == str(c.code).lower().strip() or s_c_name == str(c.name).lower().strip():
+                    uid = (s.username or str(s.pk)).upper().strip()
+                    if uid in global_seen_uids: break
+                    if not allowed_sections_list: break
+                    
+                    erp_rec = erp_index.get(f"email_{str(s.email).lower()}") or erp_index.get(f"adm_{str(s.admission_number).upper()}")
+                    sects = _get_student_sections(erp_rec, True) if erp_rec else _get_student_sections(s)
+                    if any(sec in allowed_sections_list for sec in sects):
+                        centre_counts[str(c.pk)]['roster'] += 1
+                        global_seen_uids.add(uid)
+                        if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
+                        if s.email: global_seen_uids.add(s.email.lower().strip())
+                    break
 
         # C. Assign Remaining ERP Students (Using O(1) Index for faster matching)
         # We only iterate over ALL erp students once here, but the checks are now simpler
@@ -409,6 +421,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 'is_active': False, 'test_name': test.name, 'submission_count': unassigned_sub_count,
                 'total_students_in_centre': unassigned_sub_count
             })
+            
+        # Cache the result for 5 minutes (300 seconds) to ensure immediate UX and reduce loads
+        cache.set(cache_key, data, 300)
             
         return Response(data)
 

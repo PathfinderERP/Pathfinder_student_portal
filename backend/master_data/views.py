@@ -225,7 +225,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
     serializer_class = LibraryItemSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardPagination
+    pagination_class = None
 
     def get_queryset(self):
         queryset = LibraryItem.objects.select_related(
@@ -250,7 +250,7 @@ class NoticeViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.
     serializer_class = NoticeSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardPagination
+    pagination_class = None
 
     def get_queryset(self):
         queryset = Notice.objects.select_related(
@@ -273,7 +273,7 @@ class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.M
     queryset = Video.objects.all()
     serializer_class = VideoSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardPagination
+    pagination_class = None
 
     def get_queryset(self):
         queryset = Video.objects.select_related(
@@ -285,7 +285,7 @@ class PenPaperTestViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, vie
     queryset = PenPaperTest.objects.all()
     serializer_class = PenPaperTestSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardPagination
+    pagination_class = None
 
     def get_queryset(self):
         queryset = PenPaperTest.objects.select_related(
@@ -298,7 +298,7 @@ class HomeworkViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewset
     serializer_class = HomeworkSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardPagination
+    pagination_class = None
 
     def get_queryset(self):
         queryset = Homework.objects.select_related(

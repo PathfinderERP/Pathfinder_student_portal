@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import CentreAllotmentDetails from './CentreAllotmentDetails';
@@ -380,6 +380,16 @@ const TestAllotment = () => {
                                 <option value="not_allotted" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Not Allotted Only</option>
                             </select>
                         </div>
+
+                        {/* Refresh Button */}
+                        <button
+                            onClick={() => fetchData(true)}
+                            disabled={isLoading}
+                            className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode ? 'bg-[#10141D] border-white/10 text-slate-400 hover:text-white hover:border-white/20' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                            title="Refresh Data"
+                        >
+                            <RefreshCw size={16} className={isLoading ? 'animate-spin opacity-50' : ''} />
+                        </button>
                     </div>
                 </div>
             </div>

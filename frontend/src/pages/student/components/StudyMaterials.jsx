@@ -66,7 +66,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
             });
 
-            const data = response.data;
+            const data = Array.isArray(response.data) ? response.data : (response.data.results || []);
 
             // Use materialsRef.current instead of materials from state closure
             const isDataSame = JSON.stringify(data) === JSON.stringify(materialsRef.current);
