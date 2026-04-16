@@ -1,6 +1,6 @@
 from djongo import models as djongo_models
 from django.db import models
-from master_data.models import ClassLevel, Subject, Topic, ExamType, TargetExam, ExamDetail
+from master_data.models import ClassLevel, Subject, Chapter, Topic, ExamType, TargetExam, ExamDetail
 
 class Question(models.Model):
     _id = djongo_models.ObjectIdField(primary_key=True)
@@ -8,6 +8,7 @@ class Question(models.Model):
     # Classification
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, related_name='questions')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, related_name='questions')
+    chapter = models.ForeignKey(Chapter, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
     topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, related_name='questions')
     
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
@@ -26,6 +27,8 @@ class Question(models.Model):
     )
     question_type = models.CharField(max_length=50, choices=QUESTION_TYPES, default='SINGLE_CHOICE')
     difficulty_level = models.CharField(max_length=10, default='1') # 1-5
+    solve_time = models.IntegerField(default=60, help_text="Time to solve in seconds") # default 60 seconds
+
     
     # Content
     content = models.TextField(help_text="Rich text content")

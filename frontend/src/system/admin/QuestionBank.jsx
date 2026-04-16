@@ -64,6 +64,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const [topics, setTopics] = useState([]);
     const [examTypes, setExamTypes] = useState([]);
     const [targetExams, setTargetExams] = useState([]);
+    const [chapters, setChapters] = useState([]);
     const [examDetails, setExamDetails] = useState([]);
     const [isLoadingMaster, setIsLoadingMaster] = useState(false);
 
@@ -78,6 +79,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         classId: '',
         subjectId: '',
         topicId: '',
+        chapterId: '',
         examTypeId: '',
         targetExamId: '',
         question_type: '',
@@ -96,6 +98,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         difficulty_level: '',
         subject: '',
         topic: '',
+        chapter: '',
         class_level: '',
         exam_type: '',
         target_exam: '',
@@ -172,6 +175,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 if (qDate !== filters.filterDate) return false;
             }
 
+            const qChapter = q.chapter?.id || q.chapter;
+            if (filters.chapterId && String(qChapter) !== String(filters.chapterId)) return false;
+
             const qTestName = q.test_name?.id || q.test_name;
             if (filters.testNameId && String(qTestName) !== String(filters.testNameId)) return false;
 
@@ -241,6 +247,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         solution: '',
         image_1: '',
         image_2: '',
+        solve_time: 30,
         answerFrom: '',
         answerTo: ''
     }), []);
@@ -251,6 +258,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         id: null,
         classId: '',
         subjectId: '',
+        chapterId: '',
         topicId: '',
         examTypeId: '',
         targetExamId: '',
@@ -268,6 +276,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             id: null,
             classId: '',
             subjectId: '',
+            chapterId: '',
             topicId: '',
             examTypeId: '',
             targetExamId: '',
@@ -297,17 +306,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const cacheTime = localStorage.getItem('masterDataCacheTime');
         const now = Date.now();
 
-        // Use cache if less than 2 hours old and not forced
+        // Use cache if less than 2 hours old, not forced, and contains chapters
         if (!force && cached && cacheTime && (now - JSON.parse(cacheTime) < 7200000)) {
             try {
                 const data = JSON.parse(cached);
-                setClasses(data.classes);
-                setSubjects(data.subjects);
-                setTopics(data.topics);
-                setExamTypes(data.examTypes);
-                setTargetExams(data.targetExams);
-                setExamDetails(data.examDetails);
-                return;
+                if (data.chapters) {
+                    setClasses(data.classes);
+                    setSubjects(data.subjects);
+                    setTopics(data.topics);
+                    setExamTypes(data.examTypes);
+                    setTargetExams(data.targetExams);
+                    setChapters(data.chapters);
+                    setExamDetails(data.examDetails);
+                    return;
+                }
             } catch (e) {
                 localStorage.removeItem('masterDataCache');
             }
@@ -319,9 +331,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         setIsLoadingMaster(true);
         try {
             const apiUrl = getApiUrl();
-            const [classRes, subRes, topicRes, typeRes, targetRes, detailRes] = await Promise.all([
+            const [classRes, subRes, chapterRes, topicRes, typeRes, targetRes, detailRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/classes/`, config),
                 axios.get(`${apiUrl}/api/master-data/subjects/`, config),
+                axios.get(`${apiUrl}/api/master-data/chapters/`, config),
                 axios.get(`${apiUrl}/api/master-data/topics/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
@@ -333,6 +346,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const masterData = {
                 classes: extractData(classRes),
                 subjects: extractData(subRes),
+                chapters: extractData(chapterRes),
                 topics: extractData(topicRes),
                 examTypes: extractData(typeRes),
                 targetExams: extractData(targetRes),
@@ -348,6 +362,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             setTopics(masterData.topics);
             setExamTypes(masterData.examTypes);
             setTargetExams(masterData.targetExams);
+            setChapters(masterData.chapters);
             setExamDetails(masterData.examDetails);
         } catch (err) {
             console.error("Failed to fetch master data", err);
@@ -510,14 +525,24 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         return subjects.filter(s => subjectIds.includes(String(s.id)));
     }, [subjects, topics, form.classId, form.isIndependentSelection]);
 
+    const filteredChapters = useMemo(() => {
+        if (form.isIndependentSelection) return chapters;
+        return chapters.filter(c => {
+            const matchesClass = !form.classId || String(c.class_level) === String(form.classId);
+            const matchesSubject = !form.subjectId || String(c.subject) === String(form.subjectId);
+            return matchesClass && matchesSubject;
+        });
+    }, [chapters, form.classId, form.subjectId, form.isIndependentSelection]);
+
     const filteredTopics = useMemo(() => {
         if (form.isIndependentSelection) return topics;
         return topics.filter(t => {
             const matchesClass = !form.classId || String(t.class_level) === String(form.classId);
             const matchesSubject = !form.subjectId || String(t.subject) === String(form.subjectId);
-            return matchesClass && matchesSubject;
+            const matchesChapter = !form.chapterId || String(t.chapter) === String(form.chapterId);
+            return matchesClass && matchesSubject && matchesChapter;
         });
-    }, [topics, form.classId, form.subjectId, form.isIndependentSelection]);
+    }, [topics, form.classId, form.subjectId, form.chapterId, form.isIndependentSelection]);
 
     // Helper to process and upload Base64 images from HTML content before saving to DB
     const processEditorImages = async (html) => {
@@ -1067,12 +1092,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     difficulty_level: form.level,
                     class_level: form.classId,
                     subject: form.subjectId,
+                    chapter: form.chapterId || null,
                     topic: form.topicId,
                     exam_type: form.examTypeId,
                     target_exam: form.targetExamId,
                     test_name: form.testNameId || null,
                     has_calculator: form.hasCalculator,
                     use_numeric_options: form.useNumericOptions,
+                    solve_time: q.solve_time || 30,
                     answer_from: q.answerFrom || null,
                     answer_to: q.answerTo || null,
                     image_1: q.image_1,
@@ -1380,14 +1407,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             value={filters.classId}
                             options={classes}
                             placeholder="All Classes"
-                            onChange={(val) => setFilters({ ...filters, classId: val, subjectId: '', topicId: '' })}
+                            onChange={(val) => setFilters({ ...filters, classId: val, subjectId: '', chapterId: '', topicId: '' })}
                         />
                         <CustomSelect
                             label="Filter Subject"
                             value={filters.subjectId}
                             options={subjects}
                             placeholder="All Subjects"
-                            onChange={(val) => setFilters({ ...filters, subjectId: val, topicId: '' })}
+                            onChange={(val) => setFilters({ ...filters, subjectId: val, chapterId: '', topicId: '' })}
+                        />
+                        <CustomSelect
+                            label="Filter Chapter"
+                            value={filters.chapterId}
+                            options={chapters}
+                            placeholder="All Chapters"
+                            onChange={(val) => setFilters({ ...filters, chapterId: val, topicId: '' })}
                         />
                         <CustomSelect
                             label="Filter Topic"
@@ -1410,6 +1444,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             placeholder="All Targets"
                             onChange={(val) => setFilters({ ...filters, targetExamId: val })}
                         />
+                    </div>
+
+                    {/* Filters - Row 2 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
                         <CustomSelect
                             label="Filter Test Name"
                             value={filters.testNameId}
@@ -1417,10 +1455,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             placeholder="All Tests"
                             onChange={(val) => setFilters({ ...filters, testNameId: val })}
                         />
-                    </div>
-
-                    {/* Filters - Row 2 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
                         <CustomSelect
                             label="Q. Type"
                             value={filters.question_type}
@@ -1489,33 +1523,34 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         : 'bg-white border-slate-300 text-slate-700 focus:border-blue-500 shadow-sm'}`}
                             />
                         </div>
+                    </div>
 
-                        {/* Reset Button */}
-                        <div className="flex items-end">
-                            <button
-                                onClick={() => setFilters({
-                                    classId: '',
-                                    subjectId: '',
-                                    topicId: '',
-                                    examTypeId: '',
-                                    targetExamId: '',
-                                    question_type: '',
-                                    level: '',
-                                    is_wrong: '',
-                                    sortBy: 'newest',
-                                    filterDate: '',
-                                    testNameId: '',
-                                    search: ''
-                                })}
-                                className={`h-[42px] px-6 rounded-[5px] font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all active:scale-95 w-full justify-center
-                                    ${isDarkMode
-                                        ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
-                                        : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'}`}
-                            >
-                                <RefreshCcw size={12} strokeWidth={3} />
-                                Reset
-                            </button>
-                        </div>
+                    {/* Actions Row */}
+                    <div className="flex justify-end mt-6">
+                        <button
+                            onClick={() => setFilters({
+                                classId: '',
+                                subjectId: '',
+                                topicId: '',
+                                chapterId: '',
+                                examTypeId: '',
+                                targetExamId: '',
+                                question_type: '',
+                                level: '',
+                                is_wrong: '',
+                                sortBy: 'newest',
+                                filterDate: '',
+                                testNameId: '',
+                                search: ''
+                            })}
+                            className={`h-[42px] px-8 rounded-[5px] font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg
+                                ${isDarkMode
+                                    ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                                    : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 shadow-red-500/5'}`}
+                        >
+                            <RefreshCcw size={14} strokeWidth={3} />
+                            Reset Filters
+                        </button>
                     </div>
                 </div>
 
@@ -1728,6 +1763,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                     {qSubject.name}
                                                                 </div>
                                                             )}
+                                                            {q.chapter && (
+                                                                <div className="px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest">
+                                                                    {chapters.find(c => String(c.id) === String(q.chapter?.id || q.chapter))?.name || 'Chapter'}
+                                                                </div>
+                                                            )}
+                                                            {q.solve_time && (
+                                                                <div className="px-3 py-1 rounded-[5px] bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                                                    <Clock size={10} />
+                                                                    <span>{Math.floor(q.solve_time / 60)}m {q.solve_time % 60}s</span>
+                                                                </div>
+                                                            )}
                                                             {q.is_wrong && (
                                                                 <div className="px-3 py-1 rounded-[5px] bg-red-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
                                                                     <AlertCircle size={10} />
@@ -1829,8 +1875,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                         ...form,
                                                                         id: q.id || q._id,
                                                                         level: String(q.difficulty_level),
-                                                                        classId: q.class_level,
+                                                                         classId: q.class_level,
                                                                         subjectId: q.subject?.id || q.subject,
+                                                                        chapterId: q.chapter?.id || q.chapter || '',
                                                                         topicId: q.topic?.id || q.topic || '',
                                                                         examTypeId: q.exam_type?.id || q.exam_type || '',
                                                                         targetExamId: q.target_exam?.id || q.target_exam || '',
@@ -1843,6 +1890,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                             question_type: q.question_type || q.type,
                                                                             solution: q.solution,
                                                                             options: formattedOptions.length > 0 ? formattedOptions : createNewQuestion().options,
+                                                                            solve_time: q.solve_time || 30,
                                                                             answerFrom: q.answer_from || '',
                                                                             answerTo: q.answer_to || '',
                                                                             image_1: q.image_1 || '',
@@ -2019,7 +2067,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </div>
 
                     {/* Metadata Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                         <CustomSelect
                             label="Class"
                             value={form.classId}
@@ -2032,7 +2080,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             value={form.subjectId}
                             options={filteredSubjects}
                             placeholder="Select Subject"
-                            onChange={(val) => setForm({ ...form, subjectId: val, topicId: '' })}
+                            onChange={(val) => setForm({ ...form, subjectId: val, chapterId: '', topicId: '' })}
+                        />
+                        <CustomSelect
+                            label="Chapter"
+                            value={form.chapterId}
+                            options={filteredChapters}
+                            placeholder="Select Chapter"
+                            onChange={(val) => setForm({ ...form, chapterId: val, topicId: '' })}
                         />
                         <CustomSelect
                             label="Topic"
@@ -2150,8 +2205,25 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     <div className="flex-1 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <label className="text-xs font-black uppercase tracking-[0.2em]">Enter Question Content</label>
-                                            <div className="flex gap-1">
-                                                <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {q.question?.length || 0}</span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-[5px] border-2 border-dashed border-amber-500/30 bg-amber-500/5">
+                                                    <Clock size={14} className="text-amber-500" />
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-amber-600">Solve Time:</label>
+                                                    <input
+                                                        type="number"
+                                                        value={q.solve_time}
+                                                        onChange={(e) => {
+                                                            const updated = [...form.questions];
+                                                            updated[qIdx].solve_time = parseInt(e.target.value);
+                                                            setForm({ ...form, questions: updated });
+                                                        }}
+                                                        className="w-16 bg-transparent outline-none text-xs font-black text-amber-600 border-b border-amber-500/50 text-center"
+                                                    />
+                                                    <span className="text-[10px] font-black text-amber-600 opacity-40 uppercase">Sec</span>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <span className={`px-2 py-1 rounded-[5px] text-[9px] font-black uppercase ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>Character: {q.question?.length || 0}</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <SmartEditor
@@ -2709,6 +2781,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 options={subjects}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, subject: val })}
+                            />
+                            <CustomSelect
+                                label="Update Chapter"
+                                value={bulkUpdateFields.chapter}
+                                options={chapters}
+                                placeholder="Keep Original"
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, chapter: val, topic: '' })}
                             />
                             <CustomSelect
                                 label="Update Topic"

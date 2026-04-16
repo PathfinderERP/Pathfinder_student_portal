@@ -7,8 +7,8 @@ class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = [
-            'id', 'class_level', 'subject', 'topic', 'exam_type', 'target_exam', 'test_name',
-            'question_type', 'difficulty_level', 'content', 'image_1', 'image_2',
+            'id', 'class_level', 'subject', 'chapter', 'topic', 'exam_type', 'target_exam', 'test_name',
+            'question_type', 'difficulty_level', 'solve_time', 'content', 'image_1', 'image_2',
             'solution', 'question_options', 'answer_from', 'answer_to',
             'has_calculator', 'use_numeric_options', 'is_wrong', 'created_at', 'updated_at'
         ]
