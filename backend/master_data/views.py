@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions, response, pagination
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
 
 class StandardPagination(pagination.PageNumberPagination):
@@ -232,6 +232,81 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
             'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
+
+    def perform_create(self, serializer):
+        item = serializer.save()
+        self.handle_multi_files(item)
+        self.clear_cache()
+        
+    def perform_update(self, serializer):
+        item = serializer.save()
+        self.handle_multi_files(item)
+        self.clear_cache()
+
+    def handle_multi_files(self, item):
+        import json
+        request = self.request
+        
+        # 1. Handle PDFs with individual thumbnails, titles, and descriptions
+        pdfs = request.FILES.getlist('multi_pdfs')
+        for i, f in enumerate(pdfs):
+            thumb = request.FILES.get(f'pdf_{i}_thumb')
+            title = request.data.get(f'pdf_{i}_title')
+            desc = request.data.get(f'pdf_{i}_desc')
+            LibraryPDF.objects.create(
+                library_item=item, 
+                file=f, 
+                thumbnail=thumb,
+                title=title if title else f.name,
+                description=desc
+            )
+            
+        # 2. Handle Video Files with individual details
+        videos = request.FILES.getlist('multi_videos')
+        for i, f in enumerate(videos):
+            thumb = request.FILES.get(f'video_{i}_thumb')
+            title = request.data.get(f'video_{i}_title')
+            desc = request.data.get(f'video_{i}_desc')
+            LibraryVideo.objects.create(
+                library_item=item, 
+                video_file=f, 
+                thumbnail=thumb,
+                title=title if title else f.name,
+                description=desc
+            )
+            
+        # 3. Handle Video Links with individual details
+        links_data = request.data.get('multi_video_links_data', '[]')
+        try:
+            links = json.loads(links_data)
+            for i, v in enumerate(links):
+                link_url = v.get('link')
+                if link_url and str(link_url).strip():
+                    thumb = request.FILES.get(f'link_{i}_thumb')
+                    LibraryVideo.objects.create(
+                        library_item=item, 
+                        video_link=link_url.strip(), 
+                        thumbnail=thumb,
+                        title=v.get('name') or f"Video Link {i+1}",
+                        description=v.get('description')
+                    )
+        except Exception as e:
+            print(f"Error processing video links: {e}")
+            pass
+
+        # 4. Handle multiple DPPs
+        dpps = request.FILES.getlist('multi_dpps')
+        for i, f in enumerate(dpps):
+            thumb = request.FILES.get(f'dpp_{i}_thumb')
+            title = request.data.get(f'dpp_{i}_title')
+            desc = request.data.get(f'dpp_{i}_desc')
+            LibraryDPP.objects.create(
+                library_item=item,
+                file=f,
+                thumbnail=thumb,
+                title=title if title else f.name,
+                description=desc
+            )
 
 class SolutionItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
     queryset = SolutionItem.objects.all()

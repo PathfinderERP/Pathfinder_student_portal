@@ -236,14 +236,18 @@ class LibraryItem(models.Model):
     pdf_file = models.FileField(upload_to='library/pdfs/', blank=True, null=True)
     video_link = models.URLField(max_length=500, blank=True, null=True)
     video_file = models.FileField(upload_to='library/videos/', blank=True, null=True)
+    dpp_file = models.FileField(upload_to='library/dpps/', blank=True, null=True)
     
     # Master Data Links
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    chapter = models.ForeignKey(Chapter, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    questions = models.ManyToManyField('questions.Question', blank=True, related_name='library_items')
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -251,6 +255,40 @@ class LibraryItem(models.Model):
 
     def __str__(self):
         return self.name
+
+class LibraryPDF(models.Model):
+    library_item = models.ForeignKey(LibraryItem, on_delete=models.CASCADE, related_name='pdfs')
+    title = models.CharField(max_length=255, blank=True, null=True, help_text="Optional title for this specific PDF")
+    file = models.FileField(upload_to='library/pdfs_multi/', blank=True, null=True)
+    thumbnail = models.ImageField(upload_to='library/pdfs_thumbs/', blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.title or f"PDF for {self.library_item.name}"
+
+class LibraryVideo(models.Model):
+    library_item = models.ForeignKey(LibraryItem, on_delete=models.CASCADE, related_name='videos')
+    title = models.CharField(max_length=255, blank=True, null=True, help_text="Optional title for this specific video")
+    video_link = models.URLField(max_length=500, blank=True, null=True)
+    video_file = models.FileField(upload_to='library/videos_multi/', blank=True, null=True)
+    thumbnail = models.ImageField(upload_to='library/videos_thumbs/', blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.title or f"Video for {self.library_item.name}"
+
+class LibraryDPP(models.Model):
+    library_item = models.ForeignKey(LibraryItem, on_delete=models.CASCADE, related_name='dpps')
+    title = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    file = models.FileField(upload_to='library/dpps_multi/', blank=True, null=True)
+    thumbnail = models.ImageField(upload_to='library/dpps_thumbs/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title or f"DPP for {self.library_item.name}"
 
 class SolutionItem(models.Model):
     # Core Details

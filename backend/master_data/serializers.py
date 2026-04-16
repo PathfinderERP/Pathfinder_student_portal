@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from packages.models import Package
 from bson import ObjectId
 
@@ -103,18 +103,42 @@ class TeacherSerializer(serializers.ModelSerializer):
         model = Teacher
         fields = '__all__'
 
+class LibraryPDFSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LibraryPDF
+        fields = ['id', 'title', 'description', 'file', 'thumbnail', 'created_at']
+
+class LibraryVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LibraryVideo
+        fields = ['id', 'title', 'description', 'video_link', 'video_file', 'thumbnail', 'created_at']
+
+class LibraryDPPSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LibraryDPP
+        fields = ['id', 'title', 'description', 'file', 'thumbnail', 'created_at']
+
 class LibraryItemSerializer(serializers.ModelSerializer):
     session_name = serializers.CharField(source='session.name', read_only=True)
     class_name = serializers.CharField(source='class_level.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
+    chapter_name = serializers.CharField(source='chapter.name', read_only=True)
+    topic_name = serializers.CharField(source='topic.name', read_only=True)
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
     section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
+    questions_count = serializers.SerializerMethodField()
+    pdfs = LibraryPDFSerializer(many=True, read_only=True)
+    videos = LibraryVideoSerializer(many=True, read_only=True)
+    dpps = LibraryDPPSerializer(many=True, read_only=True)
 
     class Meta:
         model = LibraryItem
         fields = '__all__'
+
+    def get_questions_count(self, obj):
+        return obj.questions.count()
 
 class SolutionItemSerializer(serializers.ModelSerializer):
     session_name = serializers.CharField(source='session.name', read_only=True)
