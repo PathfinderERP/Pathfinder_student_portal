@@ -5,7 +5,7 @@ from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerial
 
 class StandardPagination(pagination.PageNumberPagination):
     page_size = 20
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.core.cache import cache
 
 class StudentSectionFilterMixin:
@@ -229,7 +229,10 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
 
     def get_queryset(self):
         queryset = LibraryItem.objects.select_related(
-            'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
+            'session', 'class_level', 'subject', 'chapter', 'topic', 
+            'exam_type', 'target_exam', 'section'
+        ).prefetch_related(
+            'pdfs', 'videos', 'dpps', 'questions'
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
@@ -329,7 +332,7 @@ class NoticeViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.
 
     def get_queryset(self):
         queryset = Notice.objects.select_related(
-            'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+            'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
@@ -340,7 +343,7 @@ class LiveClassViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewse
 
     def get_queryset(self):
         queryset = LiveClass.objects.select_related(
-            'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+            'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
         ).prefetch_related('packages').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
@@ -352,7 +355,7 @@ class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.M
 
     def get_queryset(self):
         queryset = Video.objects.select_related(
-            'session', 'class_level', 'subject', 'exam_type', 'target_exam'
+            'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
         ).prefetch_related('packages').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
@@ -378,7 +381,7 @@ class HomeworkViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewset
     def get_queryset(self):
         queryset = Homework.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam'
-        ).prefetch_related('sections').all().order_by('-created_at')
+        ).prefetch_related('sections', 'packages').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'sections')
 
 class BannerViewSet(viewsets.ModelViewSet):
