@@ -1,5 +1,9 @@
-from rest_framework import viewsets, permissions, response, pagination
+from rest_framework import viewsets, permissions, response, pagination, status
+from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.http import HttpResponse
+import csv
+import io
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
 
@@ -159,6 +163,84 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Chapter.objects.select_related('class_level', 'subject').all().order_by('-created_at')
     serializer_class = ChapterSerializer
 
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        queryset = self.get_queryset()
+        
+        res = HttpResponse(content_type='text/csv')
+        res['Content-Disposition'] = 'attachment; filename="chapters_export.csv"'
+        
+        writer = csv.writer(res)
+        writer.writerow(['Name', 'Class Level', 'Subject', 'Code', 'Sort Order', 'Is Active'])
+        
+        for item in queryset:
+            writer.writerow([
+                item.name,
+                item.class_level.name if item.class_level else '',
+                item.subject.name if item.subject else '',
+                item.code,
+                item.sort_order,
+                item.is_active
+            ])
+        return res
+
+    @action(detail=False, methods=['post'], url_path='bulk-upload')
+    def bulk_upload(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            decoded_file = file_obj.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+            
+            created_count = 0
+            errors = []
+            
+            for row_idx, row in enumerate(reader, start=2):
+                try:
+                    name = row.get('Name', '').strip()
+                    class_name = row.get('Class Level', '').strip()
+                    subject_name = row.get('Subject', '').strip()
+                    sort_order = row.get('Sort Order', '1').strip()
+                    is_active = str(row.get('Is Active', 'true')).lower() == 'true'
+                    
+                    if not name or not class_name or not subject_name:
+                        if any(row.values()):
+                            errors.append(f"Row {row_idx}: Missing required fields (Name, Class Level, or Subject)")
+                        continue
+                        
+                    class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
+                    subject = Subject.objects.filter(name__iexact=subject_name).first()
+                    
+                    if not class_level:
+                        errors.append(f"Row {row_idx}: Class '{class_name}' not found")
+                        continue
+                    if not subject:
+                        errors.append(f"Row {row_idx}: Subject '{subject_name}' not found")
+                        continue
+                        
+                    Chapter.objects.create(
+                        name=name,
+                        class_level=class_level,
+                        subject=subject,
+                        sort_order=int(sort_order) if sort_order.isdigit() else 1,
+                        is_active=is_active
+                    )
+                    created_count += 1
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: {str(e)}")
+            
+            self.clear_cache()
+            return response.Response({
+                "message": f"Successfully imported {created_count} chapters",
+                "errors": errors
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class ExamDetailViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = ExamDetail.objects.select_related('session', 'target_exam', 'exam_type', 'class_level').all().order_by('-created_at')
     serializer_class = ExamDetailSerializer
@@ -177,6 +259,88 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
         if chapter_id:
             queryset = queryset.filter(chapter_id=chapter_id)
         return queryset
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        queryset = self.get_queryset()
+        
+        res = HttpResponse(content_type='text/csv')
+        res['Content-Disposition'] = 'attachment; filename="topics_export.csv"'
+        
+        writer = csv.writer(res)
+        writer.writerow(['Name', 'Chapter', 'Class Level', 'Subject', 'Code', 'Sort Order', 'Is Active'])
+        
+        for item in queryset:
+            writer.writerow([
+                item.name,
+                item.chapter.name if item.chapter else '',
+                item.class_level.name if item.class_level else '',
+                item.subject.name if item.subject else '',
+                item.code,
+                item.sort_order,
+                item.is_active
+            ])
+        return res
+
+    @action(detail=False, methods=['post'], url_path='bulk-upload')
+    def bulk_upload(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            decoded_file = file_obj.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+            
+            created_count = 0
+            errors = []
+            
+            for row_idx, row in enumerate(reader, start=2):
+                try:
+                    name = row.get('Name', '').strip()
+                    chapter_name = row.get('Chapter', '').strip()
+                    class_name = row.get('Class Level', '').strip()
+                    subject_name = row.get('Subject', '').strip()
+                    sort_order = row.get('Sort Order', '1').strip()
+                    is_active = str(row.get('Is Active', 'true')).lower() == 'true'
+                    
+                    if not name or not class_name or not subject_name:
+                        if any(row.values()):
+                            errors.append(f"Row {row_idx}: Missing required fields (Name, Class Level, or Subject)")
+                        continue
+                        
+                    class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
+                    subject = Subject.objects.filter(name__iexact=subject_name).first()
+                    chapter = Chapter.objects.filter(name__iexact=chapter_name, subject=subject, class_level=class_level).first() if chapter_name else None
+                    
+                    if not class_level:
+                        errors.append(f"Row {row_idx}: Class '{class_name}' not found")
+                        continue
+                    if not subject:
+                        errors.append(f"Row {row_idx}: Subject '{subject_name}' not found")
+                        continue
+                        
+                    Topic.objects.create(
+                        name=name,
+                        chapter=chapter,
+                        class_level=class_level,
+                        subject=subject,
+                        sort_order=int(sort_order) if sort_order.isdigit() else 1,
+                        is_active=is_active
+                    )
+                    created_count += 1
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: {str(e)}")
+            
+            self.clear_cache()
+            return response.Response({
+                "message": f"Successfully imported {created_count} topics",
+                "errors": errors
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     def list(self, request, *args, **kwargs):
         # Only use cache when fetching ALL topics (no filter applied)
@@ -203,6 +367,77 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
         elif chapter_id:
             queryset = queryset.filter(topic__chapter_id=chapter_id)
         return queryset
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        queryset = self.get_queryset()
+        
+        res = HttpResponse(content_type='text/csv')
+        res['Content-Disposition'] = 'attachment; filename="subtopics_export.csv"'
+        
+        writer = csv.writer(res)
+        writer.writerow(['Name', 'Topic', 'Code', 'Sort Order', 'Is Active'])
+        
+        for item in queryset:
+            writer.writerow([
+                item.name,
+                item.topic.name if item.topic else '',
+                item.code,
+                item.sort_order,
+                item.is_active
+            ])
+        return res
+
+    @action(detail=False, methods=['post'], url_path='bulk-upload')
+    def bulk_upload(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            decoded_file = file_obj.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+            
+            created_count = 0
+            errors = []
+            
+            for row_idx, row in enumerate(reader, start=2):
+                try:
+                    name = row.get('Name', '').strip()
+                    topic_name = row.get('Topic', '').strip()
+                    sort_order = row.get('Sort Order', '1').strip()
+                    is_active = str(row.get('Is Active', 'true')).lower() == 'true'
+                    
+                    if not name or not topic_name:
+                        if any(row.values()):
+                            errors.append(f"Row {row_idx}: Missing required fields (Name or Topic)")
+                        continue
+                        
+                    topic = Topic.objects.filter(name__iexact=topic_name).first()
+                    
+                    if not topic:
+                        errors.append(f"Row {row_idx}: Topic '{topic_name}' not found")
+                        continue
+                        
+                    SubTopic.objects.create(
+                        name=name,
+                        topic=topic,
+                        sort_order=int(sort_order) if sort_order.isdigit() else 1,
+                        is_active=is_active
+                    )
+                    created_count += 1
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: {str(e)}")
+            
+            self.clear_cache()
+            return response.Response({
+                "message": f"Successfully imported {created_count} sub-topics",
+                "errors": errors
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     def list(self, request, *args, **kwargs):
         # Only use cache when fetching ALL subtopics (no filter applied)

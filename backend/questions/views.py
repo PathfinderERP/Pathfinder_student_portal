@@ -19,7 +19,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
     queryset = Question.objects.all()
     serializer_class = QuestionSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = QuestionPagination
+    pagination_class = None
     
     def get_queryset(self):
         queryset = Question.objects.all()

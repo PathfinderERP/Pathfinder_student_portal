@@ -3,7 +3,8 @@ import axios from 'axios';
 import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
     Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen,
-    Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle
+    Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle,
+    Download, FileSpreadsheet, Upload
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,7 +26,7 @@ const subTabs = [
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
 ];
 
-const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
+const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigate }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
@@ -128,6 +129,12 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         total_marks: 0,
         is_active: true
     });
+
+    // Bulk Import/Export State
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [isImporting, setIsImporting] = useState(false);
+    const bulkFileInputRef = useRef(null);
 
     const lastFetchedTab = useRef(null);
     const masterDataCacheRef = useRef({}); // Cache master data in memory
@@ -647,6 +654,18 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
         }
     };
 
+    const handleAddToLibrary = (item) => {
+        sessionStorage.setItem('library_prefill', JSON.stringify({
+            name: item.name,
+            class_level: item.class_level,
+            subject: item.subject,
+            chapter: item.id
+        }));
+        if (onNavigate) {
+            onNavigate('Library');
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -670,10 +689,64 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             }
             setIsModalOpen(false);
             toast.success(`${modalMode === 'create' ? 'Created' : 'Updated'} successfully!`);
+
+            // Automatically navigate to Library for newly created Chapters
+            if (modalMode === 'create' && activeSubTab === 'Chapter' && result.data) {
+                handleAddToLibrary(result.data);
+            }
         } catch (err) {
             toast.error(`Failed to ${modalMode} item: ` + (err.response?.data?.code || err.message));
         } finally {
             setIsActionLoading(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/export/`, {
+                headers: getAuthConfig().headers,
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${activeSubTab.toLowerCase()}s_export.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("CSV Exported successfully!");
+        } catch (err) {
+            toast.error("Export failed");
+        }
+    };
+
+    const handleBulkImport = async () => {
+        if (!importFile) return;
+        setIsImporting(true);
+        const formData = new FormData();
+        formData.append('file', importFile);
+        try {
+            const apiUrl = getApiUrl();
+            const config = getAuthConfig();
+            const res = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/bulk-upload/`, formData, {
+                headers: { ...config.headers, 'Content-Type': 'multipart/form-data' }
+            });
+            
+            if (res.data.errors && res.data.errors.length > 0) {
+                toast.success(`Imported with ${res.data.errors.length} errors. Check console.`);
+                console.warn("Import Errors:", res.data.errors);
+            } else {
+                toast.success(res.data.message || "Import successful!");
+            }
+            
+            setShowBulkModal(false);
+            setImportFile(null);
+            fetchData(true);
+        } catch (err) {
+            toast.error(err.response?.data?.error || "Import failed");
+        } finally {
+            setIsImporting(false);
         }
     };
 
@@ -1337,6 +1410,25 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                             <Plus size={16} strokeWidth={3} />
                             Add New {activeSubTab}
                         </button>
+
+                        {(activeSubTab === 'Chapter' || activeSubTab === 'Topic' || activeSubTab === 'SubTopic') && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleExport}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-[5px] border font-black text-[10px] uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                    <Download size={16} />
+                                    Export
+                                </button>
+                                <button
+                                    onClick={() => setShowBulkModal(true)}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-[5px] border font-black text-[10px] uppercase tracking-widest transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}
+                                >
+                                    <Upload size={16} />
+                                    Import
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -1348,14 +1440,17 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     <tr className={`border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
                                         {activeSubTab === 'Exam Details' ? (
                                             <>
+                                                <th className="pb-4 px-4"><div className={`h-3 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
                                                 {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <th key={i} className="pb-4 px-4"><div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>)}
                                             </>
                                         ) : activeSubTab === 'Chapter' || activeSubTab === 'Topic' ? (
                                             <>
+                                                <th className="pb-4 px-4"><div className={`h-3 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
                                                 {[1, 2, 3, 4, 5].map(i => <th key={i} className="pb-4 px-4"><div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>)}
                                             </>
                                         ) : (
                                             <>
+                                                <th className="pb-4 px-4"><div className={`h-3 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
                                                 {[1, 2, 3].map(i => <th key={i} className="pb-4 px-4"><div className={`h-3 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>)}
                                             </>
                                         )}
@@ -1368,6 +1463,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         <tr key={row}>
                                             {activeSubTab === 'Exam Details' ? (
                                                 <>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4"><div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4"><div className={`h-4 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
@@ -1379,6 +1475,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                                 </>
                                             ) : activeSubTab === 'Chapter' || activeSubTab === 'Topic' ? (
                                                 <>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4"><div className={`h-4 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4"><div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
@@ -1387,6 +1484,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                                 </>
                                             ) : (
                                                 <>
+                                                    <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                                     <td className="py-5 px-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-10 h-10 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
@@ -1420,6 +1518,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                 <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
                                     {activeSubTab === 'Exam Details' ? (
                                         <>
+                                            <th className="pb-4 px-4 font-black">#</th>
                                             <th className="pb-4 px-4 font-black">Exam Title</th>
                                             <th className="pb-4 px-4 font-black">Code</th>
                                             <th className="pb-4 px-4 font-black">Session</th>
@@ -1431,6 +1530,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </>
                                     ) : activeSubTab === 'Chapter' ? (
                                         <>
+                                            <th className="pb-4 px-4 font-black">#</th>
                                             <th className="pb-4 px-4 font-black">Chapter Name</th>
                                             <th className="pb-4 px-4 font-black text-center">Class</th>
                                             <th className="pb-4 px-4 font-black">Subject</th>
@@ -1438,12 +1538,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </>
                                     ) : activeSubTab === 'SubTopic' ? (
                                         <>
+                                            <th className="pb-4 px-4 font-black">#</th>
                                             <th className="pb-4 px-4 font-black">SubTopic Name</th>
                                             <th className="pb-4 px-4 font-black text-center">Topic</th>
                                             <th className="pb-4 px-4 font-black">Code</th>
                                         </>
                                     ) : activeSubTab === 'Topic' ? (
                                         <>
+                                            <th className="pb-4 px-4 font-black">#</th>
                                             <th className="pb-4 px-4 font-black">Topic Name</th>
                                             <th className="pb-4 px-4 font-black text-center">Class</th>
                                             <th className="pb-4 px-4 font-black">Subject</th>
@@ -1453,6 +1555,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </>
                                     ) : activeSubTab === 'Teacher' ? (
                                         <>
+                                            <th className="pb-4 px-4 font-black">#</th>
                                             <th className="pb-4 px-4 font-black">Teacher Name</th>
                                             <th className="pb-4 px-4 font-black">Subject</th>
                                             <th className="pb-4 px-4 font-black">Email</th>
@@ -1461,6 +1564,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </>
                                     ) : (
                                         <>
+                                            <th className="pb-4 px-4 font-black">#</th>
                                             <th className="pb-4 px-4 font-black">Name / Title</th>
                                             {activeSubTab === 'Exam Type' && <th className="pb-4 px-4 font-black">Target</th>}
                                             <th className="pb-4 px-4 font-black">Code</th>
@@ -1471,8 +1575,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-transparent">
-                                {filteredData.length > 0 ? filteredData.map((item) => (
+                                {filteredData.length > 0 ? filteredData.map((item, index) => (
                                     <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
+                                        <td className="py-5 px-4 font-bold opacity-30 text-xs">{index + 1}</td>
                                         {activeSubTab === 'Exam Details' ? (
                                             <>
                                                 <td className="py-5 px-4">
@@ -1640,6 +1745,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                         </td>
                                         <td className="py-5 px-4">
                                             <div className="flex justify-end items-center gap-2">
+                                                {activeSubTab === 'Chapter' && (
+                                                    <button
+                                                        onClick={() => handleAddToLibrary(item)}
+                                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-orange-500/10 text-orange-400 hover:text-white hover:bg-orange-500' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white'}`}
+                                                        title="Quick Add to Library"
+                                                    >
+                                                        <Plus size={16} />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleEdit(item)}
                                                     className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white'}`}
@@ -1658,7 +1772,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={activeSubTab === 'Exam Details' ? 8 : (activeSubTab === 'Exam Type' ? 5 : 4)} className="py-24 text-center">
+                                        <td colSpan={
+                                            activeSubTab === 'Exam Details' ? 11 :
+                                                activeSubTab === 'Topic' ? 9 :
+                                                    activeSubTab === 'Teacher' ? 8 :
+                                                        activeSubTab === 'Chapter' ? 7 :
+                                                            activeSubTab === 'Exam Type' ? 6 :
+                                                                activeSubTab === 'SubTopic' ? 6 : 5
+                                        } className="py-24 text-center">
                                             <div className="flex flex-col items-center opacity-20">
                                                 <Database size={48} className="mb-4" />
                                                 <p className="font-black uppercase tracking-[0.2em] text-sm">No Records Found</p>
@@ -1670,6 +1791,89 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
                             </tbody>
                         </table>
                     )}
+                </div>
+            </div>
+        );
+    };
+
+    const renderBulkImportModal = () => {
+        if (!showBulkModal) return null;
+        return (
+            <div className="fixed inset-0 z-2000 flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
+                <div className={`relative w-full max-w-lg rounded-[15px] shadow-2xl animate-in zoom-in-95 fade-in duration-300 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white'}`}>
+                    <div className="p-8 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-emerald-500 rounded-[10px] text-white">
+                                    <CloudUpload size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight">Bulk Import {activeSubTab}s</h3>
+                                    <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Upload CSV file to process records</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowBulkModal(false)} className={`p-2 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div 
+                            onClick={() => bulkFileInputRef.current?.click()}
+                            className={`p-10 border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center gap-4 cursor-pointer transition-all ${importFile ? 'bg-emerald-500/5 border-emerald-500/50' : isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-white hover:border-orange-500/30'}`}
+                        >
+                            <input
+                                type="file"
+                                ref={bulkFileInputRef}
+                                onChange={(e) => setImportFile(e.target.files[0])}
+                                accept=".csv"
+                                className="hidden"
+                            />
+                            {importFile ? (
+                                <>
+                                    <FileSpreadsheet size={48} className="text-emerald-500" />
+                                    <div className="text-center">
+                                        <p className="text-sm font-black truncate max-w-[200px]">{importFile.name}</p>
+                                        <p className="text-[9px] font-bold opacity-50 uppercase mt-1">{(importFile.size / 1024).toFixed(2)} KB</p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <Database size={48} className="opacity-20" />
+                                    <p className="text-xs font-black uppercase tracking-widest opacity-40">Click to Select CSV File</p>
+                                </>
+                            )}
+                        </div>
+
+                        <div className={`p-4 rounded-[10px] ${isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50'} border ${isDarkMode ? 'border-blue-500/20' : 'border-blue-100'}`}>
+                            <div className="flex gap-3">
+                                <AlertTriangle className="text-blue-500 shrink-0" size={18} />
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-blue-500 tracking-widest">CSV Instructions</p>
+                                    <p className="text-[10px] font-bold opacity-70 leading-relaxed text-left">
+                                        Ensure columns match the template: <span className="underline cursor-pointer" onClick={handleExport}>Download current as template</span>.
+                                        Check Class and Subject names exactly as they appear in the system.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowBulkModal(false)}
+                                className={`flex-1 py-4 rounded-[10px] font-black uppercase text-[11px] tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkImport}
+                                disabled={!importFile || isImporting}
+                                className={`flex-[1.5] py-4 rounded-[10px] font-black uppercase text-[11px] tracking-widest text-white shadow-xl transition-all flex items-center justify-center gap-3 ${!importFile || isImporting ? 'bg-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30'}`}
+                            >
+                                {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                                {isImporting ? 'Processing...' : 'Confirm Import'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -2269,6 +2473,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack }) => {
             {renderHeader()}
             {renderContent()}
             {renderModal()}
+            {renderBulkImportModal()}
 
             {/* Premium Confirm Modal */}
             <AnimatePresence>

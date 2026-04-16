@@ -524,6 +524,7 @@ const SystemDashboard = () => {
                     <MasterDataManagement
                         activeSubTab={masterSubTab}
                         setActiveSubTab={setMasterSubTab}
+                        onNavigate={setActiveTab}
                         onBack={previousTab ? () => { setActiveTab(previousTab); setPreviousTab(null); } : null}
                     />
                 );
