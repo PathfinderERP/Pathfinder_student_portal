@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, HelpCircle, Youtube, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Filter, Layers, ChevronsLeft, ChevronsRight, ChevronRight, Video, PlayCircle, ArrowUpDown, ChevronDown, Check, Clock, Save, Download, Settings } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
@@ -12,6 +12,71 @@ const LibraryRegistry = () => {
     const { getApiUrl, token, loading: authLoading } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [topicDataMap, setTopicDataMap] = useState({}); // Per-topic content storage
+    const scrollContainerRef = useRef(null);
+
+    // Grab to scroll logic
+    const handleGrabScroll = (e) => {
+        const slider = scrollContainerRef.current;
+        if (!slider) return;
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        const onMouseDown = (e) => {
+            isDown = true;
+            slider.classList.add('active');
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        };
+        const onMouseLeave = () => {
+            isDown = false;
+            slider.classList.remove('active');
+        };
+        const onMouseUp = () => {
+            isDown = false;
+            slider.classList.remove('active');
+        };
+        const onMouseMove = (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 2; // Scroll speed
+            slider.scrollLeft = scrollLeft - walk;
+        };
+
+        slider.addEventListener('mousedown', onMouseDown);
+        slider.addEventListener('mouseleave', onMouseLeave);
+        slider.addEventListener('mouseup', onMouseUp);
+        slider.addEventListener('mousemove', onMouseMove);
+
+        return () => {
+            slider.removeEventListener('mousedown', onMouseDown);
+            slider.removeEventListener('mouseleave', onMouseLeave);
+            slider.removeEventListener('mouseup', onMouseUp);
+            slider.removeEventListener('mousemove', onMouseMove);
+        };
+    };
+
+    useEffect(() => {
+        if (isAddModalOpen) {
+            const cleanup = handleGrabScroll();
+            return cleanup;
+        }
+    }, [isAddModalOpen]);
+    const DUMMY_TOPICS = [
+        { id: 'dummy-1', name: 'Chapter Introduction' },
+        { id: 'dummy-2', name: 'Main Concepts & Theory' },
+        { id: 'dummy-3', name: 'Step-by-Step Examples' },
+        { id: 'dummy-4', name: 'Practice Exercises' },
+        { id: 'dummy-5', name: 'Advanced Problem Solving' },
+        { id: 'dummy-6', name: 'Previous Year Questions' },
+        { id: 'dummy-7', name: 'Quick Revision Notes' },
+        { id: 'dummy-8', name: 'Case Study Analysis' },
+        { id: 'dummy-9', name: 'Final Assessment' },
+        { id: 'dummy-10', name: 'Additional Resources' }
+    ];
+
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -55,11 +120,11 @@ const LibraryRegistry = () => {
                     onClick={() => setIsOpen(!isOpen)}
                     className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
                         ${isOpen
-                            ? 'border-emerald-500 bg-white shadow-[0_0_0_4px_rgba(16,185,129,0.1)]'
+                            ? 'border-[#E67E22] bg-white shadow-[0_0_0_4px_rgba(16,185,129,0.1)]'
                             : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
                 >
                     <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
-                        ${isOpen ? 'text-emerald-500 bg-white' : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                        ${isOpen ? 'text-[#E67E22] bg-white' : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
                         {label} {required && '*'}
                     </label>
 
@@ -81,7 +146,7 @@ const LibraryRegistry = () => {
                                 <X size={12} strokeWidth={3} className="text-red-500" />
                             </button>
                         )}
-                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-emerald-500' : 'opacity-40'}`} />
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#E67E22]' : 'opacity-40'}`} />
                     </div>
                 </div>
 
@@ -100,7 +165,7 @@ const LibraryRegistry = () => {
                                     onClick={(e) => e.stopPropagation()}
                                     placeholder={`Search ${label}...`}
                                     className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
-                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-emerald-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-emerald-500 shadow-sm'}`}
+                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-[#E67E22]' : 'bg-white border border-slate-200 text-slate-700 focus:border-[#E67E22] shadow-sm'}`}
                                 />
                             </div>
                         </div>
@@ -115,7 +180,7 @@ const LibraryRegistry = () => {
                                     }}
                                     className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
                                         ${(String(opt.id) === String(value) || opt.value === value)
-                                            ? 'bg-emerald-500 text-white'
+                                            ? 'bg-[#E67E22] text-white'
                                             : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
                                 >
                                     {opt.label || opt.name || opt.value}
@@ -476,32 +541,58 @@ const LibraryRegistry = () => {
     };
 
     const handleAddItem = async (e) => {
-        e.preventDefault();
-        try {
-            setIsActionLoading(true);
-            const apiUrl = getApiUrl();
-            const formData = new FormData();
+        if (e) e.preventDefault();
+        
+        // Accumulate all data from the map + current unsaved state
+        const allPopulatedData = { ...topicDataMap };
+        if (newItem.topic) {
+            allPopulatedData[newItem.topic] = {
+                multi_pdfs: [...newItem.multi_pdfs],
+                multi_videos: [...newItem.multi_videos],
+                multi_video_links: [...newItem.multi_video_links],
+                questions: [...newItem.questions],
+                content_type: newItem.content_type
+            };
+        }
 
-            // Use the name of the first available resource as the main item name
-            const firstResourceName = newItem.multi_pdfs[0]?.name || newItem.multi_videos[0]?.name || newItem.multi_video_links[0]?.name || newItem.multi_dpps[0]?.name || "Library Resource";
-            formData.append('name', firstResourceName);
-            formData.append('description', newItem.multi_pdfs[0]?.description || newItem.multi_dpps[0]?.description || '');
-            if (newItem.multi_dpps[0]?.thumbnail) {
-                formData.append('thumbnail', newItem.multi_dpps[0].thumbnail);
+        // Filter valid topics that have content
+        const topicsToSubmit = Object.entries(allPopulatedData).filter(([tid, data]) => {
+            if (String(tid).startsWith('dummy-')) return false;
+            const hasData = (data.multi_pdfs?.length > 0 || data.multi_videos?.length > 0 || data.multi_video_links?.length > 0 || data.questions?.length > 0);
+            return hasData;
+        });
+
+        if (topicsToSubmit.length === 0) {
+            if (String(newItem.topic).startsWith('dummy-')) {
+                toast.error("Cannot save to a 'Dummy' topic. Please select a real topic from Master Data.");
+                return;
             }
+            toast.error("Please add content to at least one topic.");
+            return;
+        }
 
-            if (newItem.session) formData.append('session', newItem.session);
-            if (newItem.class_level) formData.append('class_level', newItem.class_level);
-            if (newItem.subject) formData.append('subject', newItem.subject);
-            if (newItem.chapter) formData.append('chapter', newItem.chapter);
-            if (newItem.topic) formData.append('topic', newItem.topic);
-            if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
-            if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
-            if (newItem.section) formData.append('section', newItem.section);
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            let successCount = 0;
 
-            // Handle Granular PDFs
-            if (newItem.multi_pdfs && newItem.multi_pdfs.length > 0) {
-                newItem.multi_pdfs.forEach((item, i) => {
+            for (const [topicId, data] of topicsToSubmit) {
+                const formData = new FormData();
+                
+                // Name for the main Library item record
+                const firstResourceName = data.multi_pdfs[0]?.name || data.multi_videos[0]?.name || data.multi_video_links[0]?.name || data.multi_dpps?.[0]?.name || "Library Resource";
+                formData.append('name', firstResourceName);
+                formData.append('description', data.multi_pdfs[0]?.description || '');
+
+                formData.append('session', newItem.session || '');
+                formData.append('class_level', newItem.class_level || '');
+                formData.append('subject', newItem.subject || '');
+                formData.append('chapter', newItem.chapter || '');
+                formData.append('topic', topicId);
+                formData.append('content_type', data.content_type);
+
+                // Granular PDFs
+                data.multi_pdfs.forEach((item, i) => {
                     if (item.file) {
                         formData.append('multi_pdfs', item.file);
                         formData.append(`pdf_${i}_title`, item.name);
@@ -509,11 +600,9 @@ const LibraryRegistry = () => {
                         if (item.thumbnail) formData.append(`pdf_${i}_thumb`, item.thumbnail);
                     }
                 });
-            }
 
-            // Handle Granular Videos
-            if (newItem.multi_videos && newItem.multi_videos.length > 0) {
-                newItem.multi_videos.forEach((item, i) => {
+                // Granular Videos
+                data.multi_videos.forEach((item, i) => {
                     if (item.file) {
                         formData.append('multi_videos', item.file);
                         formData.append(`video_${i}_title`, item.name);
@@ -521,85 +610,68 @@ const LibraryRegistry = () => {
                         if (item.thumbnail) formData.append(`video_${i}_thumb`, item.thumbnail);
                     }
                 });
-            }
 
-            // Handle Granular Video Links
-            if (newItem.multi_video_links && newItem.multi_video_links.length > 0) {
-                formData.append('multi_video_links_data', JSON.stringify(newItem.multi_video_links.map(v => ({ name: v.name, link: v.link, description: v.description }))));
-                newItem.multi_video_links.forEach((v, i) => {
-                    if (v.thumbnail) formData.append(`link_${i}_thumb`, v.thumbnail);
-                });
-            }
-
-            // Handle DPP Questions Sync
-            if (newItem.content_type === 'dpp' && newItem.questions.length > 0) {
-                const dppExamTypeId = examTypes.find(e => e.name.toUpperCase() === 'DPP')?.id;
-                const dppTargetExamId = targetExams.find(t => t.name.toUpperCase() === 'DPP')?.id;
-
-                const questionIds = [];
-                for (const q of newItem.questions) {
-                    const cleanContent = await processEditorImages(q.question);
-                    const cleanSolution = await processEditorImages(q.solution);
-                    const cleanOptions = await Promise.all(q.options.map(async opt => ({
-                        ...opt,
-                        content: await processEditorImages(opt.content)
-                    })));
-
-                    const questionPayload = {
-                        content: cleanContent,
-                        question_options: cleanOptions,
-                        solution: cleanSolution,
-                        question_type: q.question_type,
-                        difficulty_level: '1',
-                        class_level: newItem.class_level,
-                        subject: newItem.subject,
-                        chapter: newItem.chapter || null,
-                        topic: newItem.topic,
-                        exam_type: dppExamTypeId,
-                        target_exam: dppTargetExamId,
-                        solve_time: q.solve_time || 30
-                    };
-
-                    const qRes = await axios.post(`${apiUrl}/api/questions/`, questionPayload, {
-                        headers: { 'Authorization': `Bearer ${token}` }
+                // Video Links
+                if (data.multi_video_links && data.multi_video_links.length > 0) {
+                    formData.append('multi_video_links_data', JSON.stringify(data.multi_video_links.map(v => ({ name: v.name, link: v.link, description: v.description }))));
+                    data.multi_video_links.forEach((v, i) => {
+                        if (v.thumbnail) formData.append(`link_${i}_thumb`, v.thumbnail);
                     });
-                    questionIds.push(qRes.data.id || qRes.data._id);
                 }
 
-                // Link questions to library item
-                if (questionIds.length > 0) {
-                    questionIds.forEach(id => formData.append('questions', id));
-                }
-            }
+                // DPP Questions
+                if (data.content_type === 'dpp' && data.questions.length > 0) {
+                    const dppExamTypeId = (examTypes || []).find(ex => ex.name.toUpperCase() === 'DPP')?.id;
+                    const dppTargetExamId = (targetExams || []).find(tx => tx.name.toUpperCase() === 'DPP')?.id;
 
-            // Handle Granular DPPs
-            if (newItem.multi_dpps && newItem.multi_dpps.length > 0) {
-                newItem.multi_dpps.forEach((item, i) => {
-                    if (item.file) {
-                        formData.append('multi_dpps', item.file);
-                        formData.append(`dpp_${i}_title`, item.name);
-                        formData.append(`dpp_${i}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`dpp_${i}_thumb`, item.thumbnail);
+                    const questionIds = [];
+                    for (const q of data.questions) {
+                        const cleanContent = await processEditorImages(q.question);
+                        const cleanSolution = await processEditorImages(q.solution);
+                        const cleanOptions = await Promise.all(q.options.map(async opt => ({
+                            ...opt,
+                            content: await processEditorImages(opt.content)
+                        })));
+
+                        const questionPayload = {
+                            content: cleanContent,
+                            question_options: cleanOptions,
+                            solution: cleanSolution,
+                            question_type: q.question_type,
+                            difficulty_level: '1',
+                            class_level: newItem.class_level,
+                            subject: newItem.subject,
+                            chapter: newItem.chapter || null,
+                            topic: topicId,
+                            exam_type: dppExamTypeId,
+                            target_exam: dppTargetExamId,
+                            solve_time: q.solve_time || 30
+                        };
+
+                        const qRes = await axios.post(`${apiUrl}/api/questions/`, questionPayload, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        questionIds.push(qRes.data.id || qRes.data._id);
                     }
+                    if (questionIds.length > 0) {
+                        questionIds.forEach(id => formData.append('questions', id));
+                    }
+                }
+
+                await axios.post(`${apiUrl}/api/master-data/library/`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
                 });
+                successCount++;
             }
 
-            await axios.post(`${apiUrl}/api/master-data/library/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
-            });
-
-            toast.success("Item added successfully");
+            toast.success(`Resources saved for ${successCount} topic(s)!`);
             setIsAddModalOpen(false);
             resetForm();
+            setTopicDataMap({});
             fetchLibraryItems();
-        } catch (error) {
-            console.error("Failed to add item", error);
-            const errorMsg = error.response?.data?.error || error.response?.data?.message || error.response?.data?.detail || "Failed to add library item";
-            if (error.response?.status === 413) {
-                toast.error("File size rejected by server. Increase Nginx client_max_body_size.");
-            } else {
-                toast.error(errorMsg);
-            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Error batch saving items.");
         } finally {
             setIsActionLoading(false);
         }
@@ -668,6 +740,12 @@ const LibraryRegistry = () => {
             formData.append('class_level', newItem.class_level || '');
             formData.append('subject', newItem.subject || '');
             formData.append('chapter', newItem.chapter || '');
+            
+            if (newItem.topic && String(newItem.topic).startsWith('dummy-')) {
+                toast.error("Cannot update with a dummy topic. Please create a real topic in Master Data first.");
+                setIsActionLoading(false);
+                return;
+            }
             formData.append('topic', newItem.topic || '');
             // Handle Granular DPPs
             if (newItem.multi_dpps && newItem.multi_dpps.length > 0) {
@@ -797,8 +875,9 @@ const LibraryRegistry = () => {
 
     const resetForm = () => {
         setThumbnailError(null);
-        setPdfError(null);
+        setThumbnailPreview(null);
         setShowQuestionEditor(false);
+        setTopicDataMap({});
         setNewItem({
             multi_pdfs: [],
             multi_videos: [],
@@ -992,11 +1071,11 @@ const LibraryRegistry = () => {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <span className="px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-emerald-500/20">
+                                <span className="px-3 py-1 bg-[#E67E22] text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-[#E67E22]/20">
                                     Content Management
                                 </span>
                                 <h2 className={`text-3xl font-black tracking-tight uppercase ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                                    Study <span className="text-emerald-500">Library</span>
+                                    Study <span className="text-[#E67E22]">Library</span>
                                 </h2>
                             </div>
                             <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -1018,13 +1097,13 @@ const LibraryRegistry = () => {
                             <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Videos</span>
-                                <span className="text-xl font-black text-emerald-500">{stats.videos}</span>
+                                <span className="text-xl font-black text-[#E67E22]">{stats.videos}</span>
                             </div>
                         </div>
 
                         <button
                             onClick={() => { resetForm(); setIsAddModalOpen(true); }}
-                            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center gap-2 group"
+                            className="px-8 py-4 bg-[#E67E22] hover:bg-[#D35400] text-white rounded-[5px] font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-[#E67E22]/20 active:scale-95 flex items-center gap-2 group"
                         >
                             <Plus size={20} strokeWidth={3} className="group-hover:rotate-90 transition-all duration-300" />
                             <span>Add New File</span>
@@ -1034,21 +1113,21 @@ const LibraryRegistry = () => {
                     <div className="flex flex-col gap-6">
                         <div className="flex flex-col md:flex-row gap-4">
                             <div className="relative group flex-1">
-                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
+                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#E67E22] transition-colors" size={20} />
                                 <input
                                     type="text"
                                     placeholder="Search by book name..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className={`w-full pl-14 pr-6 py-4 rounded-[5px] border-2 outline-none font-bold transition-colors text-sm ${isDarkMode
-                                        ? 'bg-white/1 border-white/5 text-white focus:border-emerald-500/50'
-                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500/50'
+                                        ? 'bg-white/1 border-white/5 text-white focus:border-[#E67E22]/50'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-[#E67E22]/50'
                                         }`}
                                 />
                             </div>
                             <button
                                 onClick={() => { fetchLibraryItems(); fetchMasterData(); }}
-                                className={`p-4 rounded-[5px] transition-colors ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-emerald-400 border border-white/5' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100'}`}
+                                className={`p-4 rounded-[5px] transition-colors ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-[#E67E22] border border-white/5' : 'bg-[#E67E22]/10 hover:bg-[#E67E22]/20 text-[#E67E22] border border-[#E67E22]/20'}`}
                             >
                                 <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                             </button>
@@ -1187,43 +1266,20 @@ const LibraryRegistry = () => {
                                     </tr>
                                 ))
                             ) : paginatedItems.length > 0 ? (
-                                paginatedItems.map((item, index) => {
-                                    const showChapterHeader = sortOrder === 'chapter' && (
-                                        index === 0 || 
-                                        paginatedItems[index - 1].class_name !== item.class_name || 
-                                        paginatedItems[index - 1].chapter !== item.chapter
-                                    );
-                                    
-                                    return (
-                                        <React.Fragment key={item.id}>
-                                            {showChapterHeader && (
-                                                <tr className={`${isDarkMode ? 'bg-white/5' : 'bg-slate-50/50'}`}>
-                                                    <td colSpan={8} className="py-2.5 px-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
-                                                                {item.class_name || 'General Group'}
-                                                            </span>
-                                                            <div className="w-1 h-3 bg-slate-500/20 mx-2" />
-                                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">
-                                                                {item.chapter_name || 'General Materials'}
-                                                            </span>
-                                                            <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/20 to-transparent ml-2" />
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                            <tr className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
+                                paginatedItems.map((item, index) => (
+                                    <tr key={item.id} className={`group transition-colors duration-200 ${isDarkMode ? 'hover:bg-white/1' : 'hover:bg-slate-50'}`}>
                                         <td className="py-5 px-6 text-center">
                                             <span className={`text-xs font-black ${isDarkMode ? 'text-slate-600' : 'text-slate-500'}`}>
                                                 {((currentPage - 1) * itemsPerPage) + index + 1}
                                             </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <span className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">{item.session_name || '-'}</span>
+                                            <span className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">
+                                                {item.session_name || (activeFilters.session ? sessions.find(s => String(s.id) === String(activeFilters.session))?.name : '-') || '-'}
+                                            </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <span className="font-bold text-sm tracking-tight text-slate-700 dark:text-slate-300">{item.class_name || '-'}</span>
+                                            <span className="font-black text-xs tracking-widest text-[#E67E22] uppercase">{item.class_name || '-'}</span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             {item.subject_name ? (
@@ -1232,7 +1288,7 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6">
                                             <div className="flex flex-col">
-                                                <span className="font-extrabold text-sm uppercase text-emerald-500 tracking-tight">{item.name}</span>
+                                                <span className="font-extrabold text-sm uppercase text-[#E67E22] tracking-tight">{item.name}</span>
                                                 {item.chapter_name && item.chapter_name !== item.name && (
                                                     <span className="text-[10px] font-bold text-amber-500/60 uppercase mt-0.5 opacity-60">CH: {item.chapter_name}</span>
                                                 )}
@@ -1249,7 +1305,7 @@ const LibraryRegistry = () => {
                                                             setIsViewModalOpen(true);
                                                             setIsFullScreen(false);
                                                         }}
-                                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 ${item.pdf_file ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-600' : 'bg-amber-500/10 text-amber-600 hover:bg-amber-600'} hover:text-white border ${item.pdf_file ? 'border-emerald-500/20' : 'border-amber-500/20 shadow-sm'}`}
+                                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 ${item.pdf_file ? 'bg-[#E67E22]/10 text-[#E67E22] hover:bg-[#E67E22]' : 'bg-amber-500/10 text-amber-600 hover:bg-amber-600'} hover:text-white border ${item.pdf_file ? 'border-[#E67E22]/20' : 'border-amber-500/20 shadow-sm'}`}
                                                         title={item.pdf_file ? 'View PDF' : 'Watch Video'}
                                                     >
                                                         {item.pdf_file ? <Eye size={16} strokeWidth={3} /> : <PlayCircle size={16} strokeWidth={3} />}
@@ -1292,8 +1348,8 @@ const LibraryRegistry = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                </React.Fragment>
-                            )})
+                                    )
+                                )
                         ) : (
                                 <tr><td colSpan={8} className="py-20 text-center text-slate-500 font-bold uppercase tracking-[0.2em] text-xs opacity-40 italic">No resources found</td></tr>
                             )}
@@ -1317,7 +1373,7 @@ const LibraryRegistry = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-[#E67E22] hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronLeft size={18} strokeWidth={2.5} /></button>
 
                         <div className="flex items-center gap-1.5">
                             {getPageNumbers().map(pageNum => (
@@ -1325,7 +1381,7 @@ const LibraryRegistry = () => {
                                     key={pageNum}
                                     onClick={() => setCurrentPage(pageNum)}
                                     className={`w-9 h-9 rounded-[5px] font-black text-xs transition-all active:scale-90 ${currentPage === pageNum
-                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                                        ? 'bg-[#E67E22] text-white shadow-lg shadow-[#E67E22]/20'
                                         : (isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-sm')}`}
                                 >
                                     {pageNum}
@@ -1344,7 +1400,7 @@ const LibraryRegistry = () => {
                             )}
                         </div>
 
-                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-emerald-500 hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
+                        <button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className={`p-2 rounded-[5px] bg-white/5 hover:bg-[#E67E22] hover:text-white disabled:opacity-10 transition-all active:scale-90 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}><ChevronRight size={18} strokeWidth={2.5} /></button>
                     </div>
 
                     <form onSubmit={handleJumpToPage} className="flex items-center gap-2">
@@ -1353,9 +1409,9 @@ const LibraryRegistry = () => {
                             placeholder="Jump..."
                             value={jumpToPage}
                             onChange={(e) => setJumpToPage(e.target.value)}
-                            className={`w-20 px-4 py-2 rounded-[5px] text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-emerald-500/50' : 'bg-white border-slate-200 text-slate-800'}`}
+                            className={`w-20 px-4 py-2 rounded-[5px] text-xs font-bold outline-none border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white focus:border-[#E67E22]/50' : 'bg-white border-slate-200 text-slate-800'}`}
                         />
-                        <button type="submit" className={`p-2 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-emerald-500' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'}`}>Go</button>
+                        <button type="submit" className={`p-2 rounded-[5px] transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-[#E67E22]' : 'bg-[#E67E22]/10 hover:bg-[#E67E22]/20 text-[#E67E22]'}`}>Go</button>
                     </form>
                 </div>
             </div>
@@ -1364,7 +1420,7 @@ const LibraryRegistry = () => {
             {(isAddModalOpen || isEditModalOpen) && createPortal(
                 <div className="fixed inset-0 z-[9999] flex justify-center items-start overflow-y-auto bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4 py-2 custom-scrollbar">
                     <div className={`w-full max-w-6xl my-auto flex flex-col rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
-                        <div className={`p-4 border-b border-white/10 flex justify-between items-center text-white sticky top-0 z-10 ${isEditModalOpen ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                        <div className={`p-4 border-b border-white/10 flex justify-between items-center text-white sticky top-0 z-10 ${isEditModalOpen ? 'bg-blue-600' : 'bg-[#E67E22]'}`}>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-[5px]"><FileText size={20} /></div>
                                 <h2 className="text-xl font-black uppercase tracking-tight">{isAddModalOpen ? 'Add To' : 'Edit'} <span className="opacity-70">Library</span></h2>
@@ -1381,20 +1437,20 @@ const LibraryRegistry = () => {
                             <div className={`p-4 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="flex items-center justify-between mb-6">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-1 h-4 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 text-emerald-500">Resource Categorization</span>
+                                        <div className="w-1 h-4 bg-[#E67E22] rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 text-[#E67E22]">Resource Categorization</span>
                                     </div>
                                     
                                     <button 
                                         type="button"
                                         onClick={() => setIsIndependentMode(!isIndependentMode)}
-                                        className={`flex items-center gap-3 px-4 py-2 rounded-full border-2 transition-all ${isIndependentMode ? 'border-orange-500 bg-orange-500/10' : 'border-emerald-500/20 bg-emerald-500/5'}`}
+                                        className={`flex items-center gap-3 px-4 py-2 rounded-full border-2 transition-all ${isIndependentMode ? 'border-orange-500 bg-orange-500/10' : 'border-[#E67E22]/20 bg-[#E67E22]/5'}`}
                                     >
-                                        <Layers size={14} className={isIndependentMode ? 'text-orange-500' : 'text-emerald-500'} />
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isIndependentMode ? 'text-orange-500' : 'text-emerald-500'}`}>
+                                        <Layers size={14} className={isIndependentMode ? 'text-orange-500' : 'text-[#E67E22]'} />
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isIndependentMode ? 'text-orange-500' : 'text-[#E67E22]'}`}>
                                             {isIndependentMode ? 'Independent Mode' : 'Linked Mode (Smart)'}
                                         </span>
-                                        <div className={`w-8 h-4 rounded-full relative transition-all ${isIndependentMode ? 'bg-orange-500' : 'bg-emerald-500'}`}>
+                                        <div className={`w-8 h-4 rounded-full relative transition-all ${isIndependentMode ? 'bg-orange-500' : 'bg-[#E67E22]'}`}>
                                             <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${isIndependentMode ? 'left-4.5' : 'left-0.5'}`} style={{ left: isIndependentMode ? '1.1rem' : '0.125rem' }} />
                                         </div>
                                     </button>
@@ -1416,8 +1472,11 @@ const LibraryRegistry = () => {
                                         { 
                                             label: 'Topic', 
                                             field: 'topic', 
-                                            options: isIndependentMode ? topics : topics.filter(t =>
-                                                (!newItem.chapter || String(t.chapter) === String(newItem.chapter))
+                                            options: isIndependentMode ? topics : (
+                                                (() => {
+                                                    const filtered = topics.filter(t => (!newItem.chapter || String(t.chapter) === String(newItem.chapter)));
+                                                    return filtered.length > 0 ? filtered : DUMMY_TOPICS;
+                                                })()
                                             )
                                         },
                                         { label: 'Section', field: 'section', options: sections }
@@ -1446,23 +1505,116 @@ const LibraryRegistry = () => {
                                         />
                                     ))}
                                 </div>
+
+                                {/* Dynamic Topic Quick-Selection (Marked Place) */}
+                                <div className={`mt-8 p-6 rounded-[10px] border-2 border-dashed transition-all animate-in slide-in-from-top-2 duration-500 ${isDarkMode ? 'bg-white/2 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                                    <div className="flex items-center justify-between mb-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)] animate-pulse" />
+                                            <div className="flex flex-col">
+                                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">Target Topic Selection</span>
+                                                <span className={`text-[8px] font-bold uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-400'}`}>
+                                                    {newItem.chapter ? 'Select a specific topic to associate with these resources' : 'Select a chapter above to view topics'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {newItem.chapter && (
+                                            <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                                                {safeArray(topics.filter(t => String(t.chapter) === String(newItem.chapter))).length > 0 ? 'Live Data' : 'Dummy Preview Mode'}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div 
+                                        ref={scrollContainerRef}
+                                        className="flex items-center gap-3 overflow-x-auto pb-4 custom-scrollbar flex-nowrap -mx-2 px-2 cursor-grab active:cursor-grabbing select-none"
+                                    >
+                                        {newItem.chapter ? (
+                                            (() => {
+                                                const filteredTopics = topics.filter(t => String(t.chapter) === String(newItem.chapter));
+                                                const displayTopics = filteredTopics.length > 0 ? filteredTopics : DUMMY_TOPICS;
+                                                return displayTopics.map((t, idx) => (
+                                                    <button
+                                                        key={t.id || idx}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            // SMARTER: Switch context per topic
+                                                            const oldTopic = newItem.topic;
+                                                            if (oldTopic) {
+                                                                setTopicDataMap(prev => ({
+                                                                    ...prev,
+                                                                    [oldTopic]: {
+                                                                        multi_pdfs: [...newItem.multi_pdfs],
+                                                                        multi_videos: [...newItem.multi_videos],
+                                                                        multi_video_links: [...newItem.multi_video_links],
+                                                                        questions: [...newItem.questions],
+                                                                        content_type: newItem.content_type
+                                                                    }
+                                                                }));
+                                                            }
+
+                                                            // Load data for new topic if exists
+                                                            const existing = topicDataMap[t.id] || {
+                                                                multi_pdfs: [],
+                                                                multi_videos: [],
+                                                                multi_video_links: [],
+                                                                questions: [],
+                                                                content_type: 'pdf'
+                                                            };
+
+                                                            setNewItem({ 
+                                                                ...newItem, 
+                                                                topic: t.id,
+                                                                multi_pdfs: existing.multi_pdfs,
+                                                                multi_videos: existing.multi_videos,
+                                                                multi_video_links: existing.multi_video_links,
+                                                                questions: existing.questions,
+                                                                content_type: existing.content_type
+                                                            });
+                                                        }}
+                                                        className={`px-4 py-2 rounded-[6px] text-[9px] font-black uppercase tracking-wider transition-all border-2 relative flex-shrink-0 whitespace-nowrap
+                                                            ${String(newItem.topic) === String(t.id)
+                                                                ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.05] z-10'
+                                                                : isDarkMode 
+                                                                    ? 'bg-black/20 border-white/5 text-slate-400 hover:border-orange-500/50 hover:text-orange-500' 
+                                                                    : 'bg-white border-slate-100 text-slate-600 hover:border-orange-500 hover:text-orange-500 shadow-sm'}`}
+                                                    >
+                                                        {t.name}
+                                                        {filteredTopics.length === 0 && <span className="ml-2 opacity-30 italic text-[8px]">(D)</span>}
+                                                        {String(newItem.topic) === String(t.id) && (
+                                                            <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                                                                <Check size={10} strokeWidth={4} />
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                ));
+                                            })()
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center w-full py-8 opacity-20">
+                                                <Layers size={32} className="mb-2" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">Select Chapter To Load Topics</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Content Type Selection Tabs */}
                             <div className="flex items-center gap-2 p-1.5 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 mb-8 mt-8">
                                 {[
-                                    { id: 'pdf', label: 'PDF Library', icon: FileText, color: 'text-blue-500', bg: 'bg-blue-500' },
-                                    { id: 'video', label: 'Video Library', icon: Video, color: 'text-amber-500', bg: 'bg-amber-500' },
-                                    { id: 'dpp', label: 'DPP / Questions', icon: HelpCircle, color: 'text-orange-500', bg: 'bg-orange-500' }
+                                    { id: 'pdf', label: 'PDF Library', icon: FileText },
+                                    { id: 'video', label: 'Video Library', icon: Video },
+                                    { id: 'dpp', label: 'DPP / Questions', icon: HelpCircle }
                                 ].map(tab => (
                                     <button
                                         key={tab.id}
                                         type="button"
                                         onClick={() => setNewItem({ ...newItem, content_type: tab.id })}
-                                        className={`flex-1 py-4 px-4 rounded-[10px] flex items-center justify-center gap-3 transition-all font-black uppercase tracking-widest text-[11px]
-                                            ${newItem.content_type === tab.id 
-                                                ? `${tab.bg} text-white shadow-xl scale-[1.02]` 
-                                                : 'hover:bg-white/10 text-slate-400 dark:text-slate-500'}`}
+                                        className={`flex-1 py-4 px-4 rounded-[10px] flex items-center justify-center gap-3 transition-all font-black uppercase tracking-widest text-[11px] ${
+                                            newItem.content_type === tab.id 
+                                                ? 'bg-[#E67E22] text-white shadow-xl scale-[1.02]' 
+                                                : 'hover:bg-white/10 text-slate-400 dark:text-slate-500'
+                                        }`}
                                     >
                                         <tab.icon size={18} strokeWidth={3} />
                                         {tab.label}
@@ -1487,7 +1639,7 @@ const LibraryRegistry = () => {
                                             <button 
                                                 type="button"
                                                 onClick={() => setNewItem({ ...newItem, multi_pdfs: [...newItem.multi_pdfs, { name: '', description: '', file: null, thumbnail: null }] })}
-                                                className="flex items-center gap-2 px-6 py-2 bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                                                className="flex items-center gap-2 px-6 py-2 bg-[#E67E22] text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#E67E22]/20 active:scale-95 transition-all"
                                             >
                                                 <Plus size={16} strokeWidth={4} />
                                                 Add PDF Material
@@ -1564,7 +1716,7 @@ const LibraryRegistry = () => {
                                                                             />
                                                                         </div>
                                                                         <div className="flex flex-col">
-                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-indigo-500 mb-1">Pick File *</label>
+                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-[#E67E22] mb-1">Pick File *</label>
                                                                             <div className="relative group/file">
                                                                                 <input type="file" accept=".pdf" onChange={(e) => {
                                                                                     const file = e.target.files[0];
@@ -1575,14 +1727,14 @@ const LibraryRegistry = () => {
                                                                                         setNewItem({ ...newItem, multi_pdfs: updated });
                                                                                     }
                                                                                 }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
-                                                                                <div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${item.file ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-200 dark:border-white/10'}`}>
+                                                                                <div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${item.file ? 'border-[#E67E22] bg-[#E67E22]/5' : 'border-slate-200 dark:border-white/10'}`}>
                                                                                     <div className="flex items-center gap-3 overflow-hidden">
-                                                                                        <FileText size={16} className={item.file ? 'text-indigo-500' : 'opacity-20'} />
+                                                                                        <FileText size={16} className={item.file ? 'text-[#E67E22]' : 'opacity-20'} />
                                                                                         <span className={`text-[10px] font-bold truncate max-w-[120px] ${item.file ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>
                                                                                             {item.file ? item.file.name : 'Select PDF...'}
                                                                                         </span>
                                                                                     </div>
-                                                                                    <div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
+                                                                                    <div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-[#E67E22] text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
                                                                                         {item.file ? 'Picked' : 'Add'}
                                                                                     </div>
                                                                                 </div>
@@ -2168,7 +2320,7 @@ const LibraryRegistry = () => {
                         <button
                             type="submit"
                                 disabled={isActionLoading}
-                                className={`w-full py-3 rounded-[5px] font-black font-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : (isAddModalOpen ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 text-white' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white')}`}
+                                className={`w-full py-3 rounded-[5px] font-black font-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : (isAddModalOpen ? 'bg-[#E67E22] hover:bg-[#D35400] shadow-[#E67E22]/20 text-white' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white')}`}
                             >
                                 {isActionLoading ? <Loader2 className="animate-spin" size={20} /> : (isAddModalOpen ? 'Save to Library' : 'Update Library Record')}
                             </button>
@@ -2223,7 +2375,7 @@ const LibraryRegistry = () => {
                                                 </div>
                                             </div>
                                         ) : (selectedItemForView.video_link || selectedItemForView.video_file) ? (
-                                            <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-4 text-emerald-500">
+                                            <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-4 text-[#E67E22]">
                                                 <PlayCircle size={100} strokeWidth={1} />
                                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Video Content</span>
                                             </div>
@@ -2239,7 +2391,7 @@ const LibraryRegistry = () => {
                                         <h4 className="text-3xl lg:text-5xl font-black uppercase tracking-tight mb-6 leading-tight text-white">{selectedItemForView.name}</h4>
                                         <p className="text-base font-medium leading-relaxed mb-10 text-white/60">{selectedItemForView.description || "No description available."}</p>
                                         {(selectedItemForView.pdf_file || selectedItemForView.video_link || selectedItemForView.video_file) && (
-                                            <button onClick={() => setViewPage(2)} className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-4">
+                                            <button onClick={() => setViewPage(2)} className="px-10 py-5 bg-[#E67E22] hover:bg-[#D35400] text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-[#E67E22]/20 transition-all active:scale-95 flex items-center gap-4">
                                                 {selectedItemForView.pdf_file ? <FileText size={24} strokeWidth={3} /> : <PlayCircle size={24} strokeWidth={3} />}
                                                 <span>{selectedItemForView.pdf_file ? 'Open Reader' : 'Play Video'}</span>
                                             </button>
@@ -2260,7 +2412,7 @@ const LibraryRegistry = () => {
                                                     title="Video Player"
                                                 />
                                             ) : (
-                                                <a href={selectedItemForView.video_link} target="_blank" rel="noopener noreferrer" className="text-emerald-500 font-bold hover:underline py-10 flex flex-col items-center gap-4">
+                                                <a href={selectedItemForView.video_link} target="_blank" rel="noopener noreferrer" className="text-[#E67E22] font-bold hover:underline py-10 flex flex-col items-center gap-4">
                                                     <ExternalLink size={48} />
                                                     <span>Open Video in External Tab</span>
                                                 </a>
