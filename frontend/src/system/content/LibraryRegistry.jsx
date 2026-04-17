@@ -64,18 +64,6 @@ const LibraryRegistry = () => {
             return cleanup;
         }
     }, [isAddModalOpen]);
-    const DUMMY_TOPICS = [
-        { id: 'dummy-1', name: 'Chapter Introduction' },
-        { id: 'dummy-2', name: 'Main Concepts & Theory' },
-        { id: 'dummy-3', name: 'Step-by-Step Examples' },
-        { id: 'dummy-4', name: 'Practice Exercises' },
-        { id: 'dummy-5', name: 'Advanced Problem Solving' },
-        { id: 'dummy-6', name: 'Previous Year Questions' },
-        { id: 'dummy-7', name: 'Quick Revision Notes' },
-        { id: 'dummy-8', name: 'Case Study Analysis' },
-        { id: 'dummy-9', name: 'Final Assessment' },
-        { id: 'dummy-10', name: 'Additional Resources' }
-    ];
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
@@ -86,6 +74,7 @@ const LibraryRegistry = () => {
     const [showQuestionEditor, setShowQuestionEditor] = useState(false);
     const [isIndependentMode, setIsIndependentMode] = useState(false);
     const [isFilterIndependentMode, setIsFilterIndependentMode] = useState(true);
+    const [previewData, setPreviewData] = useState(null); // { url, type, title }
 
     const safeArray = (arr) => Array.isArray(arr) ? arr : [];
 
@@ -875,7 +864,6 @@ const LibraryRegistry = () => {
 
     const resetForm = () => {
         setThumbnailError(null);
-        setThumbnailPreview(null);
         setShowQuestionEditor(false);
         setTopicDataMap({});
         setNewItem({
@@ -1288,10 +1276,7 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6">
                                             <div className="flex flex-col">
-                                                <span className="font-extrabold text-sm uppercase text-[#E67E22] tracking-tight">{item.name}</span>
-                                                {item.chapter_name && item.chapter_name !== item.name && (
-                                                    <span className="text-[10px] font-bold text-amber-500/60 uppercase mt-0.5 opacity-60">CH: {item.chapter_name}</span>
-                                                )}
+                                                <span className="font-extrabold text-sm uppercase text-[#E67E22] tracking-tight">{item.chapter_name || '-'}</span>
                                             </div>
                                         </td>
                                         <td className="py-5 px-6 text-center">
@@ -1469,16 +1454,6 @@ const LibraryRegistry = () => {
                                                 (!newItem.subject || String(c.subject) === String(newItem.subject))
                                             )
                                         },
-                                        { 
-                                            label: 'Topic', 
-                                            field: 'topic', 
-                                            options: isIndependentMode ? topics : (
-                                                (() => {
-                                                    const filtered = topics.filter(t => (!newItem.chapter || String(t.chapter) === String(newItem.chapter)));
-                                                    return filtered.length > 0 ? filtered : DUMMY_TOPICS;
-                                                })()
-                                            )
-                                        },
                                         { label: 'Section', field: 'section', options: sections }
                                     ].map((meta, idx) => (
                                         <CustomSelect
@@ -1518,27 +1493,22 @@ const LibraryRegistry = () => {
                                                 </span>
                                             </div>
                                         </div>
-                                        {newItem.chapter && (
-                                            <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
-                                                {safeArray(topics.filter(t => String(t.chapter) === String(newItem.chapter))).length > 0 ? 'Live Data' : 'Dummy Preview Mode'}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div 
-                                        ref={scrollContainerRef}
-                                        className="flex items-center gap-3 overflow-x-auto pb-4 custom-scrollbar flex-nowrap -mx-2 px-2 cursor-grab active:cursor-grabbing select-none"
-                                    >
-                                        {newItem.chapter ? (
-                                            (() => {
-                                                const filteredTopics = topics.filter(t => String(t.chapter) === String(newItem.chapter));
-                                                const displayTopics = filteredTopics.length > 0 ? filteredTopics : DUMMY_TOPICS;
-                                                return displayTopics.map((t, idx) => (
-                                                    <button
-                                                        key={t.id || idx}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            // SMARTER: Switch context per topic
+                                        <div className="flex items-center gap-6">
+                                            {newItem.chapter && (
+                                                <div className="w-[180px] scale-90 origin-right relative z-[200]">
+                                                    <CustomSelect
+                                                        label="Jump to Topic"
+                                                        value={newItem.topic}
+                                                        options={isIndependentMode ? topics : (
+                                                            (() => {
+                                                                const filtered = topics.filter(t => (!newItem.chapter || String(t.chapter) === String(newItem.chapter)));
+                                                                return filtered.map(t => ({ ...t, label: t.name, id: t.id }));
+                                                            })()
+                                                        )}
+                                                        placeholder="Select Topic"
+                                                        isDarkMode={isDarkMode}
+                                                        required
+                                                        onChange={(val) => {
                                                             const oldTopic = newItem.topic;
                                                             if (oldTopic) {
                                                                 setTopicDataMap(prev => ({
@@ -1552,42 +1522,133 @@ const LibraryRegistry = () => {
                                                                     }
                                                                 }));
                                                             }
-
-                                                            // Load data for new topic if exists
-                                                            const existing = topicDataMap[t.id] || {
+                                                            const existing = topicDataMap[val] || {
                                                                 multi_pdfs: [],
                                                                 multi_videos: [],
                                                                 multi_video_links: [],
                                                                 questions: [],
                                                                 content_type: 'pdf'
                                                             };
-
                                                             setNewItem({ 
                                                                 ...newItem, 
-                                                                topic: t.id,
+                                                                topic: val,
                                                                 multi_pdfs: existing.multi_pdfs,
                                                                 multi_videos: existing.multi_videos,
                                                                 multi_video_links: existing.multi_video_links,
                                                                 questions: existing.questions,
                                                                 content_type: existing.content_type
                                                             });
+                                                            setTimeout(() => {
+                                                                const el = document.getElementById(`topic-btn-${val}`);
+                                                                if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                                                            }, 100);
                                                         }}
-                                                        className={`px-4 py-2 rounded-[6px] text-[9px] font-black uppercase tracking-wider transition-all border-2 relative flex-shrink-0 whitespace-nowrap
-                                                            ${String(newItem.topic) === String(t.id)
-                                                                ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.05] z-10'
-                                                                : isDarkMode 
-                                                                    ? 'bg-black/20 border-white/5 text-slate-400 hover:border-orange-500/50 hover:text-orange-500' 
-                                                                    : 'bg-white border-slate-100 text-slate-600 hover:border-orange-500 hover:text-orange-500 shadow-sm'}`}
-                                                    >
-                                                        {t.name}
-                                                        {filteredTopics.length === 0 && <span className="ml-2 opacity-30 italic text-[8px]">(D)</span>}
-                                                        {String(newItem.topic) === String(t.id) && (
-                                                            <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                                                                <Check size={10} strokeWidth={4} />
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                ));
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div 
+                                        ref={scrollContainerRef}
+                                        className="flex items-center gap-3 overflow-x-auto pb-24 pt-4 custom-scrollbar flex-nowrap -mx-2 px-8 cursor-grab active:cursor-grabbing select-none"
+                                    >
+                                        {(newItem.chapter || isIndependentMode) ? (
+                                            (() => {
+                                                const displayTopics = isIndependentMode ? topics : topics.filter(t => String(t.chapter) === String(newItem.chapter));
+                                                return displayTopics.map((t, idx) => {
+                                                    const records = libraryItems.filter(li => String(li.topic) === String(t.id));
+                                                    const hasContent = records.length > 0;
+                                                    const summary = hasContent ? {
+                                                        pdfs: records.reduce((acc, r) => acc + (r.pdfs?.length || 0) + (r.pdf_file ? 1 : 0), 0),
+                                                        videos: records.reduce((acc, r) => acc + (r.videos?.length || 0) + (r.video_link ? 1 : 0), 0),
+                                                        questions: records.reduce((acc, r) => acc + (r.questions?.length || 0), 0)
+                                                    } : null;
+
+                                                    return (
+                                                        <div key={t.id || idx} className="relative group/topic">
+                                                            <button
+                                                                id={`topic-btn-${t.id}`}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const oldTopic = newItem.topic;
+                                                                    if (oldTopic) {
+                                                                        setTopicDataMap(prev => ({
+                                                                            ...prev,
+                                                                            [oldTopic]: {
+                                                                                multi_pdfs: [...newItem.multi_pdfs],
+                                                                                multi_videos: [...newItem.multi_videos],
+                                                                                multi_video_links: [...newItem.multi_video_links],
+                                                                                questions: [...newItem.questions],
+                                                                                content_type: newItem.content_type
+                                                                            }
+                                                                        }));
+                                                                    }
+
+                                                                    const existing = topicDataMap[t.id] || {
+                                                                        multi_pdfs: [],
+                                                                        multi_videos: [],
+                                                                        multi_video_links: [],
+                                                                        questions: [],
+                                                                        content_type: 'pdf'
+                                                                    };
+
+                                                                    setNewItem({ 
+                                                                        ...newItem, 
+                                                                        topic: t.id,
+                                                                        multi_pdfs: existing.multi_pdfs,
+                                                                        multi_videos: existing.multi_videos,
+                                                                        multi_video_links: existing.multi_video_links,
+                                                                        questions: existing.questions,
+                                                                        content_type: existing.content_type
+                                                                    });
+                                                                }}
+                                                                className={`px-4 py-2 rounded-[6px] text-[9px] font-black uppercase tracking-wider transition-all border-2 relative flex-shrink-0 whitespace-nowrap
+                                                                    ${String(newItem.topic) === String(t.id)
+                                                                        ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.05] z-10'
+                                                                        : isDarkMode 
+                                                                            ? 'bg-black/20 border-white/5 text-slate-400 hover:border-orange-500/50 hover:text-orange-500' 
+                                                                            : 'bg-white border-slate-100 text-slate-600 hover:border-orange-500 hover:text-orange-500 shadow-sm'}`}
+                                                            >
+                                                                {t.name}
+                                                                {String(newItem.topic) === String(t.id) && (
+                                                                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-white text-orange-500 rounded-full flex items-center justify-center shadow-xl border border-orange-500/10 z-[30]">
+                                                                        <Check size={12} strokeWidth={4} />
+                                                                    </div>
+                                                                )}
+                                                                {hasContent && (
+                                                                    <div className={`absolute -top-1.5 -left-1.5 w-3 h-3 rounded-full shadow-lg z-[30] border-2 ${String(newItem.topic) === String(t.id) ? 'bg-white border-orange-500' : 'bg-emerald-500 border-white'}`} />
+                                                                )}
+                                                            </button>
+
+                                                            {summary && (
+                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-48 p-4 bg-slate-900 border border-white/10 rounded-[8px] shadow-2xl opacity-0 group-hover/topic:opacity-100 pointer-events-none transition-all z-[100] transform -translate-y-2 group-hover/topic:translate-y-0">
+                                                                    <div className="flex flex-col gap-2">
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#E67E22] border-b border-white/5 pb-2 mb-1">Existing Content</span>
+                                                                        <div className="grid grid-cols-3 gap-2">
+                                                                            <div className="flex flex-col items-center gap-1">
+                                                                                <FileText size={12} className="text-blue-400" />
+                                                                                <span className="text-[9px] font-black text-white">{summary.pdfs}</span>
+                                                                                <span className="text-[7px] font-bold text-slate-500 uppercase">PDF</span>
+                                                                            </div>
+                                                                            <div className="flex flex-col items-center gap-1">
+                                                                                <Video size={12} className="text-amber-400" />
+                                                                                <span className="text-[9px] font-black text-white">{summary.videos}</span>
+                                                                                <span className="text-[7px] font-bold text-slate-500 uppercase">VID</span>
+                                                                            </div>
+                                                                            <div className="flex flex-col items-center gap-1">
+                                                                                <HelpCircle size={12} className="text-emerald-400" />
+                                                                                <span className="text-[9px] font-black text-white">{summary.questions}</span>
+                                                                                <span className="text-[7px] font-bold text-slate-500 uppercase">QUES</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-b-slate-900" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                });
                                             })()
                                         ) : (
                                             <div className="flex flex-col items-center justify-center w-full py-8 opacity-20">
@@ -1685,9 +1746,14 @@ const LibraryRegistry = () => {
                                                                                 setNewItem({ ...newItem, multi_pdfs: updated });
                                                                             }
                                                                         }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
-                                                                        {item.thumbnail ? (
+                                                                         {item.thumbnail ? (
                                                                             <>
                                                                                 <img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="Thumb" />
+                                                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black uppercase">Change Cover</div>
+                                                                            </>
+                                                                        ) : item.existing_thumb ? (
+                                                                            <>
+                                                                                <img src={item.existing_thumb} className="w-full h-full object-cover" alt="Thumb" />
                                                                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black uppercase">Change Cover</div>
                                                                             </>
                                                                         ) : (
@@ -1705,7 +1771,7 @@ const LibraryRegistry = () => {
                                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-blue-500 mb-1">Document Name *</label>
                                                                             <input 
                                                                                 type="text"
-                                                                                value={item.name}
+                                                                                value={item.name || ''}
                                                                                 onChange={(e) => {
                                                                                     const updated = [...newItem.multi_pdfs];
                                                                                     updated[i].name = e.target.value;
@@ -1730,12 +1796,23 @@ const LibraryRegistry = () => {
                                                                                 <div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${item.file ? 'border-[#E67E22] bg-[#E67E22]/5' : 'border-slate-200 dark:border-white/10'}`}>
                                                                                     <div className="flex items-center gap-3 overflow-hidden">
                                                                                         <FileText size={16} className={item.file ? 'text-[#E67E22]' : 'opacity-20'} />
-                                                                                        <span className={`text-[10px] font-bold truncate max-w-[120px] ${item.file ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>
-                                                                                            {item.file ? item.file.name : 'Select PDF...'}
+                                                                                        <span className={`text-[10px] font-bold truncate max-w-[120px] ${(item.file || item.existing_file) ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>
+                                                                                            {item.file ? item.file.name : (item.existing_file ? 'Existing PDF' : 'Select PDF...')}
                                                                                         </span>
                                                                                     </div>
-                                                                                    <div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-[#E67E22] text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
-                                                                                        {item.file ? 'Picked' : 'Add'}
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        {item.existing_file && !item.file && (
+                                                                                            <button 
+                                                                                                type="button"
+                                                                                                onClick={(e) => { e.stopPropagation(); setPreviewData({ url: item.existing_file, type: 'pdf', title: item.name }); }}
+                                                                                                className="px-2 py-0.5 rounded-[3px] bg-blue-500 text-white text-[7px] font-black uppercase hover:bg-blue-600 transition-colors z-30"
+                                                                                            >
+                                                                                                View
+                                                                                            </button>
+                                                                                        )}
+                                                                                        <div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-[#E67E22] text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
+                                                                                            {item.file ? 'Picked' : 'Add'}
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -1745,7 +1822,7 @@ const LibraryRegistry = () => {
                                                                     <div>
                                                                         <label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Brief Description</label>
                                                                         <textarea 
-                                                                            value={item.description}
+                                                                            value={item.description || ''}
                                                                             onChange={(e) => {
                                                                                 const updated = [...newItem.multi_pdfs];
                                                                                 updated[i].description = e.target.value;
@@ -1811,15 +1888,17 @@ const LibraryRegistry = () => {
                                                                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_videos]; updated[i].thumbnail = file; setNewItem({ ...newItem, multi_videos: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
                                                                         {item.thumbnail ? (
                                                                             <><img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
+                                                                        ) : item.existing_thumb ? (
+                                                                            <><img src={item.existing_thumb} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
                                                                         ) : <div className="flex flex-col items-center gap-2 opacity-30"><Upload size={24} /><span className="text-[8px] font-black uppercase text-center px-2">Video Thumb</span></div>}
                                                                     </div>
                                                                 </div>
                                                                 <div className="md:col-span-9 space-y-4">
                                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-amber-500 mb-1">Video Title *</label><input type="text" value={item.name} onChange={(e) => { const updated = [...newItem.multi_videos]; updated[i].name = e.target.value; setNewItem({ ...newItem, multi_videos: updated }); }} placeholder="e.g. Introduction to Force" className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-amber-500/50 text-white' : 'bg-white border-slate-100 focus:border-amber-500 text-slate-800 shadow-sm'}`} /></div>
-                                                                        <div className="flex flex-col"><label className="block text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">Video File (.mp4) *</label><div className="relative group/file"><input type="file" accept="video/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_videos]; updated[i].file = file; if(!updated[i].name) updated[i].name = file.name.substring(0, file.name.lastIndexOf('.')).replace(/_/g, ' '); setNewItem({ ...newItem, multi_videos: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" /><div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${item.file ? 'border-orange-500 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}><div className="flex items-center gap-3 overflow-hidden"><Video size={16} className={item.file ? 'text-orange-500' : 'opacity-20'} /><span className={`text-[10px] font-bold truncate max-w-[120px] ${item.file ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>{item.file ? item.file.name : 'Select File...'}</span></div><div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>{item.file ? 'Picked' : 'Add'}</div></div></div></div>
+                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-amber-500 mb-1">Video Title *</label><input type="text" value={item.name || ''} onChange={(e) => { const updated = [...newItem.multi_videos]; updated[i].name = e.target.value; setNewItem({ ...newItem, multi_videos: updated }); }} placeholder="e.g. Introduction to Force" className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-amber-500/50 text-white' : 'bg-white border-slate-100 focus:border-amber-500 text-slate-800 shadow-sm'}`} /></div>
+                                                                         <div className="flex flex-col"><label className="block text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">Video File (.mp4) *</label><div className="relative group/file"><input type="file" accept="video/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_videos]; updated[i].file = file; if(!updated[i].name) updated[i].name = file.name.substring(0, file.name.lastIndexOf('.')).replace(/_/g, ' '); setNewItem({ ...newItem, multi_videos: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" /><div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${(item.file || item.existing_file) ? 'border-orange-500 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}><div className="flex items-center gap-3 overflow-hidden"><Video size={16} className={(item.file || item.existing_file) ? 'text-orange-500' : 'opacity-20'} /><span className={`text-[10px] font-bold truncate max-w-[120px] ${(item.file || item.existing_file) ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>{item.file ? item.file.name : (item.existing_file ? 'Existing Video' : 'Select File...')}</span></div><div className="flex items-center gap-2">{item.existing_file && !item.file && (<button type="button" onClick={(e) => { e.stopPropagation(); setPreviewData({ url: item.existing_file, type: 'video', title: item.name }); }} className="px-2 py-0.5 rounded-[3px] bg-blue-500 text-white text-[7px] font-black uppercase hover:bg-blue-600 transition-colors z-30">Play</button>)}<div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${(item.file || item.existing_file) ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>{item.file ? 'Picked' : (item.existing_file ? 'Cloud' : 'Add')}</div></div></div></div></div>
                                                                     </div>
-                                                                    <div><label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Description</label><textarea value={item.description} onChange={(e) => { const updated = [...newItem.multi_videos]; updated[i].description = e.target.value; setNewItem({ ...newItem, multi_videos: updated }); }} placeholder="Describe the video content..." className={`w-full px-4 py-2.5 rounded-[5px] outline-none border-2 font-bold text-[10px] transition-all min-h-[50px] resize-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-amber-500/50 text-white' : 'bg-white border-slate-100 focus:border-amber-500 text-slate-800 shadow-sm'}`} /></div>
+                                                                    <div><label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Description</label><textarea value={item.description || ''} onChange={(e) => { const updated = [...newItem.multi_videos]; updated[i].description = e.target.value; setNewItem({ ...newItem, multi_videos: updated }); }} placeholder="Describe the video content..." className={`w-full px-4 py-2.5 rounded-[5px] outline-none border-2 font-bold text-[10px] transition-all min-h-[50px] resize-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-amber-500/50 text-white' : 'bg-white border-slate-100 focus:border-amber-500 text-slate-800 shadow-sm'}`} /></div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1834,15 +1913,17 @@ const LibraryRegistry = () => {
                                                                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_video_links]; updated[i].thumbnail = file; setNewItem({ ...newItem, multi_video_links: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
                                                                         {item.thumbnail ? (
                                                                             <><img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
+                                                                        ) : item.existing_thumb ? (
+                                                                            <><img src={item.existing_thumb} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
                                                                         ) : <div className="flex flex-col items-center gap-2 opacity-30"><Youtube size={24} className="text-red-500" /><span className="text-[8px] font-black uppercase text-center px-2">Link Thumb</span></div>}
                                                                     </div>
                                                                 </div>
                                                                 <div className="md:col-span-9 space-y-4">
                                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-red-500 mb-1">Resource Title *</label><input type="text" value={item.name} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].name = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="e.g. Masterclass by S. Sir" className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
-                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-red-500/60 mb-1">Youtube URL *</label><input type="text" value={item.link} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].link = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="https://youtube.com/..." className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
+                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-red-500 mb-1">Resource Title *</label><input type="text" value={item.name || ''} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].name = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="e.g. Masterclass by S. Sir" className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
+                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-red-500/60 mb-1">Youtube URL *</label><input type="text" value={item.link || ''} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].link = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="https://youtube.com/..." className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
                                                                     </div>
-                                                                    <div><label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Brief Description</label><textarea value={item.description} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].description = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="Link details..." className={`w-full px-4 py-2.5 rounded-[5px] outline-none border-2 font-bold text-[10px] transition-all min-h-[50px] resize-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
+                                                                    <div><label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Brief Description</label><textarea value={item.description || ''} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].description = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="Link details..." className={`w-full px-4 py-2.5 rounded-[5px] outline-none border-2 font-bold text-[10px] transition-all min-h-[50px] resize-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1885,7 +1966,7 @@ const LibraryRegistry = () => {
                                                             </div>
                                                         ) : (
                                                             <div className="space-y-4">
-                                                                {newItem.multi_dpps.map((item, i) => (
+                                                                 {newItem.multi_dpps.map((item, i) => (
                                                                     <div key={i} className={`p-6 rounded-[12px] border-2 transition-all relative group animate-in slide-in-from-right-4 duration-300 ${isDarkMode ? 'bg-[#1a1f2e] border-white/5' : 'bg-white border-slate-100 shadow-md shadow-slate-200/50'}`}>
                                                                         <button 
                                                                             type="button" 
@@ -1935,7 +2016,7 @@ const LibraryRegistry = () => {
                                                                                         <label className="block text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">DPP Name *</label>
                                                                                         <input 
                                                                                             type="text"
-                                                                                            value={item.name}
+                                                                                            value={item.name || ''}
                                                                                             onChange={(e) => {
                                                                                                 const updated = [...newItem.multi_dpps];
                                                                                                 updated[i].name = e.target.value;
@@ -1964,8 +2045,19 @@ const LibraryRegistry = () => {
                                                                                                         {item.file ? item.file.name : (item.existing_file ? 'Existing PDF' : 'Select PDF...')}
                                                                                                     </span>
                                                                                                 </div>
-                                                                                                <div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
-                                                                                                    {item.file ? 'Picked' : 'Add'}
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    {item.existing_file && !item.file && (
+                                                                                                        <button 
+                                                                                                            type="button"
+                                                                                                            onClick={(e) => { e.stopPropagation(); setPreviewData({ url: item.existing_file, type: 'pdf', title: item.name }); }}
+                                                                                                            className="px-2 py-0.5 rounded-[3px] bg-blue-500 text-white text-[7px] font-black uppercase hover:bg-blue-600 transition-colors z-30"
+                                                                                                        >
+                                                                                                            View
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                    <div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${item.file ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
+                                                                                                        {item.file ? 'Picked' : 'Add'}
+                                                                                                    </div>
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>
@@ -1975,7 +2067,7 @@ const LibraryRegistry = () => {
                                                                                 <div>
                                                                                     <label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Brief Description</label>
                                                                                     <textarea 
-                                                                                        value={item.description}
+                                                                                        value={item.description || ''}
                                                                                         onChange={(e) => {
                                                                                             const updated = [...newItem.multi_dpps];
                                                                                             updated[i].description = e.target.value;
@@ -2271,7 +2363,7 @@ const LibraryRegistry = () => {
                                                             </div>
                                                             <SmartEditor
                                                                 key={`opt-${q.tempId}-${optIndex}`}
-                                                                value={opt.content}
+                                                                value={opt.content || ''}
                                                                 onChange={(val) => {
                                                                     const updated = [...newItem.questions];
                                                                     updated[qIdx].options[optIndex].content = val;
@@ -2429,7 +2521,80 @@ const LibraryRegistry = () => {
                     </div>
                 </div>
                 , document.body)}
-        </div >
+            
+            {previewData && createPortal(
+                <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-300">
+                    <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setPreviewData(null)} />
+                    
+                    <div className={`relative w-full h-full max-w-6xl flex flex-col rounded-[20px] overflow-hidden border-2 shadow-2xl animate-in zoom-in-95 duration-500 ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+                        {/* Header */}
+                        <div className={`px-6 py-4 flex items-center justify-between border-b ${isDarkMode ? 'border-white/5 bg-[#10141D]' : 'border-slate-100 bg-slate-50'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`p-2.5 rounded-[12px] ${previewData.type === 'pdf' ? 'bg-orange-500/10 text-orange-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    {previewData.type === 'pdf' ? <FileText size={20} strokeWidth={2.5} /> : <PlayCircle size={20} strokeWidth={2.5} />}
+                                </div>
+                                <div>
+                                    <h3 className="text-xs font-black uppercase tracking-widest leading-none mb-1 text-[#E67E22]">{previewData.title || 'Resource Preview'}</h3>
+                                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-tighter">{previewData.type === 'pdf' ? 'PDF Document' : 'Video Content'}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setPreviewData(null)}
+                                className={`p-2 rounded-full transition-all active:scale-95 ${isDarkMode ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-800'}`}
+                            >
+                                <X size={20} strokeWidth={3} />
+                            </button>
+                        </div>
+
+                        {/* Content Viewer */}
+                        <div className="flex-1 bg-black/20 flex items-center justify-center p-4 overflow-hidden">
+                            {previewData.type === 'pdf' ? (
+                                <iframe 
+                                    src={`${previewData.url}#toolbar=0`} 
+                                    className="w-full h-full rounded-[10px] border-none shadow-2xl"
+                                    title="PDF Preview"
+                                />
+                            ) : previewData.type === 'video' ? (
+                                <video 
+                                    controls 
+                                    autoPlay 
+                                    className="max-w-full max-h-full rounded-[10px] shadow-2xl"
+                                    src={previewData.url}
+                                />
+                            ) : previewData.type === 'link' ? (
+                                <iframe 
+                                    src={previewData.url.includes('youtube.com') ? previewData.url.replace('watch?v=', 'embed/') : previewData.url}
+                                    className="w-full h-full rounded-[10px] border-none shadow-2xl"
+                                    allowFullScreen
+                                    title="Video Preview"
+                                />
+                            ) : (
+                                <div className="text-center space-y-4">
+                                    <AlertCircle size={48} className="mx-auto text-orange-500 opacity-20" />
+                                    <p className="text-xs font-black uppercase tracking-widest opacity-40">Preview not available for this type</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer / Controls */}
+                        <div className={`px-6 py-4 border-t flex items-center justify-between ${isDarkMode ? 'border-white/5 bg-[#10141D]' : 'border-slate-100 bg-slate-50'}`}>
+                            <div className="flex items-center gap-2">
+                                <Settings size={14} className="opacity-20" />
+                                <span className="text-[9px] font-bold opacity-30 uppercase tracking-widest">End-to-End Encrypted Preview</span>
+                            </div>
+                            <button 
+                                onClick={() => window.open(previewData.url, '_blank')}
+                                className="flex items-center gap-2 px-5 py-2 rounded-full bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+                            >
+                                <ExternalLink size={14} strokeWidth={3} />
+                                Open in Full Tab
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+        </div>
     );
 };
 

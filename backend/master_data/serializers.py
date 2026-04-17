@@ -128,7 +128,7 @@ class LibraryItemSerializer(serializers.ModelSerializer):
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
     section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
-    questions_count = serializers.SerializerMethodField()
+    questions = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     pdfs = LibraryPDFSerializer(many=True, read_only=True)
     videos = LibraryVideoSerializer(many=True, read_only=True)
     dpps = LibraryDPPSerializer(many=True, read_only=True)
@@ -138,7 +138,10 @@ class LibraryItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_questions_count(self, obj):
-        return obj.questions.count()
+        try:
+            return obj.questions.count()
+        except:
+            return 0
 
 class SolutionItemSerializer(serializers.ModelSerializer):
     session_name = serializers.CharField(source='session.name', read_only=True)

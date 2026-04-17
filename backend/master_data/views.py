@@ -467,7 +467,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
             'session', 'class_level', 'subject', 'chapter', 'topic', 
             'exam_type', 'target_exam', 'section'
         ).prefetch_related(
-            'pdfs', 'videos', 'dpps', 'questions'
+            'pdfs', 'videos', 'dpps'
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
