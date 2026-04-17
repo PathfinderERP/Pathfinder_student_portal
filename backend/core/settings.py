@@ -279,7 +279,7 @@ else:
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+CORS_ALLOWED_ORIGINS = [o for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o]
 _prod_origins = ['https://www.studypathportal.in', 'https://studypathportal.in']
 for origin in _prod_origins:
     if origin not in CORS_ALLOWED_ORIGINS:
