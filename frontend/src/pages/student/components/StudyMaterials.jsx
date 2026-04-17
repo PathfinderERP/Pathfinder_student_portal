@@ -186,6 +186,27 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
     const subjectsList = Object.keys(subjectsHierarchy).sort();
 
+    // ── AUTO-NAVIGATION LOGIC ───────────────────────────────────────────
+    // 1. Auto-select first subject on initial load
+    useEffect(() => {
+        if (!activeSubject && subjectsList.length > 0) {
+            setActiveSubject(subjectsList[0]);
+        }
+    }, [subjectsList, activeSubject]);
+
+    // 2. Handle hierarchy changes (e.g., switching from Videos to Notes)
+    useEffect(() => {
+        if (activeSubject && activeSubjectData) {
+            const chapters = Object.keys(activeSubjectData.chapters).sort();
+            // If the currently selected chapter no longer exists in the new content type (hierarchy), reset to first
+            if (activeChapter && !chapters.includes(activeChapter)) {
+                setActiveChapter(chapters[0] || null);
+            } else if (!activeChapter && chapters.length > 0) {
+                setActiveChapter(chapters[0]);
+            }
+        }
+    }, [activeSubject, activeSubjectData, activeChapter]);
+
     return (
         <>
             {/* View Modal - Positioned absolutely at top level */}
@@ -365,7 +386,9 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                 key={subName}
                                 onClick={() => {
                                     setActiveSubject(subName);
-                                    setActiveChapter(null);
+                                    // Instantly select first chapter to avoid flicker
+                                    const chaps = Object.keys(subjectsHierarchy[subName].chapters).sort();
+                                    setActiveChapter(chaps[0] || null);
                                     setActiveTopic(null);
                                 }}
                                 className={`flex items-center gap-5 px-8 py-5 rounded-[20px] transition-all duration-300 relative border-2 flex-shrink-0
