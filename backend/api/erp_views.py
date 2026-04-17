@@ -853,11 +853,12 @@ def _proxy_class_endpoint(request, tail, studentId=None):
 
         debug_log(f"[CLASSES-{tail.upper()}] ERP Proxy Response: {resp.status_code}")
 
-        if resp.status_code == 200:
-            return Response(resp.json(), status=200)
-            
         # Return empty list for 404s/Errors to keep frontend stable
-        return Response([] if resp.status_code >= 400 else resp.json(), status=resp.status_code)
+        if resp.status_code >= 400:
+            debug_log(f"[CLASSES-{tail.upper()}] ERP Error {resp.status_code}: {resp.text[:100]}")
+            return Response([], status=200)
+
+        return Response(resp.json(), status=200)
     except Exception as e:
         debug_log(f"[CLASSES-{tail.upper()}] Proxy Exception: {str(e)}")
-        return Response([], status=500)
+        return Response([], status=200)

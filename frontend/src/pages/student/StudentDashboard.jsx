@@ -38,12 +38,12 @@ const StudentDashboard = () => {
     const [error, setError] = useState(null);
 
     // Data Caching for Tabs
-    const [classesCache, setClassesCache] = useState({ 
-        data: [], 
-        ongoing: [], 
-        upcoming: [], 
+    const [classesCache, setClassesCache] = useState({
+        data: [],
+        ongoing: [],
+        upcoming: [],
         history: [],
-        loaded: false 
+        loaded: false
     });
     const [attendanceCache, setAttendanceCache] = useState({ data: null, loaded: false });
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
@@ -126,7 +126,7 @@ const StudentDashboard = () => {
             setSilentLoading(false);
         }
     }, [authLoading, user, getApiUrl, token, refreshUser]);
-    
+
     // Fetch Attendance Stats for Dashboard Cards
     const fetchAttendanceStats = useCallback(async () => {
         if (!token || !getApiUrl) return;
@@ -135,17 +135,17 @@ const StudentDashboard = () => {
             const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             const data = response.data;
             const records = Array.isArray(data) ? data : (data.data || []);
-            
+
             if (records.length > 0) {
                 const present = records.filter(r => (r.attendanceStatus || r.status) === 'Present').length;
                 const absent = records.filter(r => (r.attendanceStatus || r.status) === 'Absent').length;
                 const total = records.length;
                 const marked = present + absent;
                 const percentage = marked > 0 ? Math.round((present / marked) * 100) : 0;
-                
+
                 setStatsData(prev => ({
                     ...prev,
                     attendance: {
@@ -170,7 +170,7 @@ const StudentDashboard = () => {
 
             const data = await fetchStudentData(false);
             fetchAttendanceStats(); // Fetch attendance stats immediately
-            
+
             // If data is offline/mock and we haven't tried syncing yet this mount, do it now
             if (data?.is_offline && !hasAutoSynced.current) {
                 hasAutoSynced.current = true;
@@ -193,12 +193,13 @@ const StudentDashboard = () => {
         { name: 'Performance', icon: TrendingUp },
         { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
-        { 
-            name: 'Study Materials', 
+        {
+            name: 'Study Materials',
             icon: BookOpen,
             subItems: [
                 { name: 'Video Content', icon: PlayCircle },
-                { name: 'Notes', icon: FileText }
+                { name: 'Notes', icon: FileText },
+                { name: 'DPP Questions', icon: Target }
             ]
         },
         { name: 'Scholarlab', icon: Beaker },
@@ -311,6 +312,8 @@ const StudentDashboard = () => {
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Notes':
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="STUDY_MATERIAL" />;
+            case 'DPP Questions':
+                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="DPP" />;
             case 'Study Materials':
                 // Default to Video Content if parent is clicked
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
@@ -368,11 +371,11 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
     const isActuallySyncing = isPending || silentLoading;
 
     const stats = useMemo(() => [
-        { 
-            label: 'ATTENDANCE RATE', 
-            value: dashboardStats?.attendance?.value || '92%', 
-            subtext: dashboardStats?.attendance?.subtext || '37 of 40 classes | 3 absences', 
-            trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance' 
+        {
+            label: 'ATTENDANCE RATE',
+            value: dashboardStats?.attendance?.value || '92%',
+            subtext: dashboardStats?.attendance?.subtext || '37 of 40 classes | 3 absences',
+            trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance'
         },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
         { label: 'NEXT EXAM', value: 'PHYSICS', subtext: '5 days | 10:00 AM - 1:00 PM', pill: 'Preparation: 75%', color: 'orange', icon: CalendarDays },
@@ -393,7 +396,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                                 {isActuallySyncing ? 'Synchronization in Progress' : 'Profile Optimization Recommended'}
                             </p>
                             <p className={`text-xs font-bold ${isDarkMode ? 'text-white/60' : 'text-slate-600'}`}>
-                                {isActuallySyncing 
+                                {isActuallySyncing
                                     ? "We're currently enriching your profile with the latest school records. This will happen silently in the background."
                                     : "Some advanced details are currently simplified. Tap sync to refresh from school servers."}
                             </p>
@@ -413,17 +416,17 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
 
             {/* Premium Dynamic Header - Midnight Navy Edition */}
             <div className={`relative overflow-hidden rounded-[5px] border shadow-2xl transition-all duration-700 p-8 sm:p-12 mb-10
-                ${isDarkMode 
-                    ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40' 
+                ${isDarkMode
+                    ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40'
                     : 'bg-gradient-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200 shadow-slate-900/10'}`}>
-                
+
                 {/* Decorative Background Elements */}
                 <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
                 <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
-                
+
                 {/* Subtle Grid Pattern Overlay */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-                
+
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
                     <div className="max-w-2xl">
                         <div className="flex items-center gap-3 mb-6">
@@ -436,7 +439,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                         <p className="text-sm sm:text-base md:text-lg font-medium text-white/70 max-w-xl leading-relaxed">
                             Your comprehensive learning snapshot is ready. We've analyzed your progress and prepared <span className="text-white font-bold underline decoration-orange-500/50 underline-offset-4">AI-powered insights</span> for your goals today.
                         </p>
-                        
+
                         <div className="flex flex-wrap items-center gap-4 mt-8">
                             <button
                                 onClick={() => onSync(true)}
@@ -466,7 +469,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                                         <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-white font-black text-lg tracking-tight">{(student?.studentName || "Student")}</span>
                                     <div className="flex items-center gap-2 text-white/50">
@@ -488,8 +491,8 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             {/* Stats Row 1 */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
                 {stats.map((stat, i) => (
-                    <div 
-                        key={i} 
+                    <div
+                        key={i}
                         onClick={() => stat.tab && onTabChange(stat.tab)}
                         className={`p-4 sm:p-6 rounded-[5px] border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden group
                         ${stat.tab ? 'cursor-pointer' : ''}
@@ -591,7 +594,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                         <p className="text-[10px] font-bold text-emerald-500 mt-1 uppercase tracking-widest">+12% Mastery Growth</p>
                     </div>
                 </div>
-                
+
                 {/* Visual Premium Area Chart */}
                 <div className="relative h-48 w-full">
                     <svg viewBox="0 0 1000 200" className="w-full h-full overflow-visible">
@@ -601,37 +604,37 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                                 <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
                             </linearGradient>
                         </defs>
-                        
+
                         {/* Grid Lines */}
                         {[0, 50, 100].map(val => (
-                            <line 
+                            <line
                                 key={val}
-                                x1="0" y1={200 - (val * 2)} 
-                                x2="1000" y2={200 - (val * 2)} 
-                                stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 
+                                x1="0" y1={200 - (val * 2)}
+                                x2="1000" y2={200 - (val * 2)}
+                                stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}
                                 strokeDasharray="4 4"
                             />
                         ))}
 
                         {/* Dummy Data Area */}
-                        <motion.path 
+                        <motion.path
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 1, delay: 0.5 }}
-                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40 L 1000 200 L 0 200 Z" 
-                            fill="url(#perfDashboardGradient)" 
+                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40 L 1000 200 L 0 200 Z"
+                            fill="url(#perfDashboardGradient)"
                         />
-                        
+
                         {/* Main Line */}
-                        <motion.path 
+                        <motion.path
                             initial={{ pathLength: 0 }}
                             animate={{ pathLength: 1 }}
                             transition={{ duration: 2, ease: "easeInOut" }}
-                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40" 
-                            fill="none" 
-                            stroke="#6366f1" 
-                            strokeWidth="4" 
-                            strokeLinecap="round" 
+                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40"
+                            fill="none"
+                            stroke="#6366f1"
+                            strokeWidth="4"
+                            strokeLinecap="round"
                             strokeLinejoin="round"
                         />
 
@@ -641,12 +644,12 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                             const val = [20, 25, 15, 35, 30, 45, 40, 60, 55, 70, 80][i];
                             return (
                                 <g key={i} className="group cursor-pointer">
-                                    <motion.circle 
+                                    <motion.circle
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
                                         transition={{ delay: 2 + (i * 0.1) }}
                                         whileHover={{ scale: 1.8, strokeWidth: 4 }}
-                                        cx={x} cy={y} r="5" 
+                                        cx={x} cy={y} r="5"
                                         className="fill-white stroke-indigo-500 stroke-[3px]"
                                     />
                                     {/* Tooltip on hover */}
@@ -660,7 +663,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                         })}
                     </svg>
                 </div>
-                
+
                 <div className="flex justify-between mt-6 px-1">
                     {['10 Mar', '20 Mar', '30 Mar', 'Today'].map(date => (
                         <span key={date} className="text-[9px] font-black uppercase opacity-30 tracking-[0.2em]">{date}</span>

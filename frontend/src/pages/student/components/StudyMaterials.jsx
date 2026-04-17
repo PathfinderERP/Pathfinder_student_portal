@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, Filter, BookOpen, Download, Eye, FileText, ChevronRight, GraduationCap, Loader2, X, Maximize2, Minimize2, RefreshCw, PlayCircle, ExternalLink } from 'lucide-react';
+import { Search, Filter, BookOpen, Download, Eye, FileText, ChevronRight, GraduationCap, Loader2, X, Maximize2, Minimize2, RefreshCw, PlayCircle, ExternalLink, Compass } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { toast } from 'react-hot-toast';
 
 const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }) => {
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, user } = useAuth();
     const { isDarkMode } = useTheme();
 
     // Determine the student's class level for filtering
@@ -19,8 +19,16 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
     const [isLoading, setIsLoading] = useState(!cache?.loaded);
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeSubject, setActiveSubject] = useState('All');
     const [activeContentType, setActiveContentType] = useState(initialType); // 'VIDEO' | 'STUDY_MATERIAL'
+    const [selectedLevel, setSelectedLevel] = useState('SUBJECT'); // SUBJECT -> CHAPTER -> TOPIC
+    const [activeSubject, setActiveSubject] = useState(null);
+    const [activeChapter, setActiveChapter] = useState(null);
+    const [activeTopic, setActiveTopic] = useState(null);
+
+    // Filter materials by Session, Class, and Section
+    // (In a real app, these would come from Auth/Student context)
+    const studentSession = user?.academic_session || ''; 
+    const studentSection = user?.section || '';
 
     // Sync with sidebar navigation
     useEffect(() => {
@@ -112,32 +120,71 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
         }
     }, [fetchMaterials, cache?.loaded]);
 
-    const subjects = useMemo(() => {
-        return ['All', ...new Set(materials.map(m => m.subject_name).filter(Boolean))];
-    }, [materials]);
-
-    const filteredMaterials = useMemo(() => {
-        return materials.filter(item => {
-            // Class filter
-            if (assignedClass) {
-                const itemClass = item.class_name || '';
-                const classMatches = itemClass === assignedClass ||
-                    itemClass.replace(/\D/g, '') === assignedClass.replace(/\D/g, '');
-                if (!classMatches) return false;
+    const subjectsHierarchy = useMemo(() => {
+        const hierarchy = {};
+        
+        materials.forEach(item => {
+            const normalize = (val) => String(val || '').toLowerCase().trim().replace(/class\s*/g, '');
+            
+            // Apply student context filtering (Normalization for fuzzy matching)
+            if (assignedClass && item.class_name) {
+                if (normalize(item.class_name) !== normalize(assignedClass)) return;
             }
-            // Content type filter
+            if (studentSession && item.session_name) {
+                if (normalize(item.session_name) !== normalize(studentSession)) return;
+            }
+            if (studentSection && item.section_name) {
+                if (normalize(item.section_name) !== normalize(studentSection)) return;
+            }
+
+            const subName = item.subject_name || 'Unsorted';
+            const chapName = item.chapter_name || 'General';
+            const topName = item.topic_name || item.name || 'Intro';
+
+            // SMART BIOLOGY FILTERING: 
+            // 5-10: Only Biology (Hide Botany/Zoology)
+            // 11-12: Only Botany/Zoology (Hide general Biology)
+            const classMatch = assignedClass?.match(/\d+/);
+            const classNum = classMatch ? parseInt(classMatch[0]) : 0;
+
+            if (classNum >= 5 && classNum <= 10) {
+                if (subName.toLowerCase().includes('botany') || subName.toLowerCase().includes('zoology')) return;
+            } else if (classNum >= 11) {
+                if (subName.toLowerCase() === 'biology') return;
+            }
+
+            if (!hierarchy[subName]) hierarchy[subName] = { name: subName, chapters: {} };
+            if (!hierarchy[subName].chapters[chapName]) hierarchy[subName].chapters[chapName] = { name: chapName, topics: {} };
+            if (!hierarchy[subName].chapters[chapName].topics[topName]) {
+                hierarchy[subName].chapters[chapName].topics[topName] = { 
+                    name: topName, 
+                    materials: [] 
+                };
+            }
+            
+            // Check content type
             const isVideo = !!(item.video_link || item.video_file);
-            if (activeContentType === 'STUDY_MATERIAL' && isVideo) return false;
-            if (activeContentType === 'VIDEO' && !isVideo) return false;
+            const isDPP = item.resource_type === 'DPP';
 
-            const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesSubject = activeSubject === 'All' || item.subject_name === activeSubject;
-            return matchesSearch && matchesSubject;
+            if (activeContentType === 'DPP') {
+                if (!isDPP) return;
+            } else if (activeContentType === 'STUDY_MATERIAL') {
+                if (isVideo || isDPP) return;
+            } else if (activeContentType === 'VIDEO') {
+                if (!isVideo) return;
+            }
+
+            hierarchy[subName].chapters[chapName].topics[topName].materials.push(item);
         });
-    }, [materials, searchQuery, activeSubject, assignedClass, activeContentType]);
 
-    const pdfCount = useMemo(() => filteredMaterials.filter(i => !i.video_link && !i.video_file).length, [filteredMaterials]);
-    const videoCount = useMemo(() => filteredMaterials.filter(i => !!(i.video_link || i.video_file)).length, [filteredMaterials]);
+        return hierarchy;
+    }, [materials, assignedClass, activeContentType]);
+
+    const activeSubjectData = activeSubject ? subjectsHierarchy[activeSubject] : null;
+    const activeChapterData = (activeSubjectData && activeChapter) ? activeSubjectData.chapters[activeChapter] : null;
+    const activeTopicData = (activeChapterData && activeTopic) ? activeChapterData.topics[activeTopic] : null;
+
+    const subjectsList = Object.keys(subjectsHierarchy).sort();
 
     return (
         <>
@@ -263,157 +310,205 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 </div>
             )}
 
-            <div className="space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-in-up">
-                {/* Row 1: Filter and Search Bar */}
-                <div className="flex flex-col xl:flex-row gap-4 mb-4">
-                    <div className="relative flex-1 group">
-                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-600 group-focus-within:text-orange-500' : 'text-slate-400 group-focus-within:text-orange-500'}`} size={16} />
-                        <input
-                            type="text"
-                            placeholder={`Search in ${activeContentType === 'VIDEO' ? 'Videos' : 'PDFs'}...`}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-[5px] border-2 outline-none font-bold text-xs sm:text-sm transition-all
-                            ${isDarkMode ? 'bg-white/[0.02] border-white/5 text-white focus:border-orange-500/50' : 'bg-white border-slate-100 text-slate-800 focus:border-orange-500'}`}
-                        />
+            <div className="flex flex-col gap-10 animate-fade-in-up">
+                {/* 1. HERO HEADER */}
+                <div className={`relative overflow-hidden rounded-[20px] border shadow-2xl transition-all duration-700 p-8 sm:p-12
+                    ${isDarkMode 
+                        ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40' 
+                        : 'bg-gradient-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200 shadow-slate-900/10'}`}>
+                    
+                    <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-orange-500/5 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
+                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+                    
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-0.5 w-12 bg-orange-500 rounded-full"></div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-400 font-brand">Learning Nexus</span>
+                        </div>
+                        <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tighter leading-none mb-4 antialiased font-brand">
+                            Study <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
+                                {activeContentType === 'VIDEO' ? 'Videos' : activeContentType === 'DPP' ? 'Practice' : 'Notes'}
+                            </span>
+                        </h1>
+                        <p className="text-sm sm:text-base md:text-lg font-medium text-white/70 max-w-xl leading-relaxed">
+                            Your comprehensive curriculum, organized by Subject, Chapter, and Topic. <br/> 
+                            <span className="text-orange-400 font-bold">Class: {assignedClass || 'Enrolled'}</span>
+                        </p>
+                    </div>
+                </div>
+
+                {/* 2. SUBJECT TOP TABS */}
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Academic Subjects</h3>
+                        <div className="flex items-center gap-4">
+                             <div className="relative group w-[250px] hidden md:block">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={14} />
+                                <input
+                                    type="text"
+                                    placeholder="Quick search..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className={`w-full pl-10 pr-4 py-2 rounded-full border-2 outline-none font-bold text-[10px] transition-all
+                                    ${isDarkMode ? 'bg-[#10141D] border-white/5 text-white' : 'bg-white border-slate-100 text-slate-800 focus:border-orange-500'}`}
+                                />
+                            </div>
+                            <button onClick={() => fetchMaterials(false)} className={`p-2 rounded-full border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400' : 'bg-white border-slate-100 text-slate-400 hover:text-orange-500 shadow-sm'}`}>
+                                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex gap-2 items-center overflow-x-auto no-scrollbar">
-                        {subjects.map(subject => (
+                    <div className="flex items-center gap-4 overflow-x-auto pb-4 custom-scrollbar-hide px-2">
+                        {subjectsList.map(subName => (
                             <button
-                                key={subject}
-                                onClick={() => setActiveSubject(subject)}
-                                className={`px-5 py-2.5 rounded-[5px] font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap border-2
-                                ${activeSubject === subject
-                                        ? 'bg-white border-white text-orange-500 shadow-xl scale-105 active:scale-95'
-                                        : (isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:border-orange-200 hover:text-orange-600')}`}
+                                key={subName}
+                                onClick={() => {
+                                    setActiveSubject(subName);
+                                    setActiveChapter(null);
+                                    setActiveTopic(null);
+                                }}
+                                className={`flex items-center gap-5 px-8 py-5 rounded-[20px] transition-all duration-300 relative border-2 flex-shrink-0
+                                    ${activeSubject === subName 
+                                        ? 'bg-orange-500 border-orange-500 text-white shadow-[0_20px_40px_-10px_rgba(249,115,22,0.4)] scale-105 z-10' 
+                                        : isDarkMode 
+                                            ? 'bg-[#10141D] border-white/5 text-slate-400 hover:border-white/20' 
+                                            : 'bg-white border-slate-50 text-slate-600 hover:border-orange-500/20 shadow-sm'}`}
                             >
-                                {subject}
+                                <div className={`p-2.5 rounded-[12px] ${activeSubject === subName ? 'bg-white/20' : 'bg-orange-500/10 text-orange-500 shadow-inner'}`}>
+                                    <GraduationCap size={20} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex flex-col items-start gap-0.5">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{subName}</span>
+                                    <span className={`text-[8px] font-bold ${activeSubject === subName ? 'text-white/60' : 'text-slate-400'}`}>
+                                        {Object.keys(subjectsHierarchy[subName].chapters).length} Chapters
+                                    </span>
+                                </div>
+                                {activeSubject === subName && (
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full shadow-lg"></div>
+                                )}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Row 2: Compact Dynamic Stats Card & Sync */}
-                <div className="flex flex-wrap gap-4 items-center">
-                    <div className={`px-5 py-3.5 rounded-[5px] border flex items-center gap-4 transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm hover:shadow-md'}`}>
-                        <div className={`w-10 h-10 rounded-[5px] flex items-center justify-center flex-shrink-0 ${activeContentType === 'VIDEO' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'}`}>
-                            {activeContentType === 'VIDEO' ? <PlayCircle size={18} strokeWidth={2.5} /> : <FileText size={18} strokeWidth={2.5} />}
+                {/* 3. CHAPTER NAVIGATION & CONTENT */}
+                <div className="space-y-8">
+                    {!activeSubject ? (
+                        <div className={`flex flex-col items-center justify-center min-h-[400px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="w-24 h-24 rounded-full bg-orange-500/5 flex items-center justify-center mb-6 animate-pulse">
+                                <Compass size={48} className="text-orange-500 opacity-20" />
+                            </div>
+                            <h3 className={`text-2xl font-black tracking-tight uppercase mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Choose a Subject</h3>
+                            <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.3em]">Select a library category above to begin learning</p>
                         </div>
-                        <div>
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-0.5 leading-none">
-                                {activeContentType === 'VIDEO' ? 'Total Videos' : 'Total Notes'}
-                            </p>
-                            <p className={`text-2xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                {activeContentType === 'VIDEO' ? videoCount : pdfCount}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex-1"></div>
-                    <button
-                        onClick={() => fetchMaterials(false)}
-                        disabled={isLoading}
-                        className={`px-6 py-4 rounded-[5px] flex items-center gap-3 transition-all active:scale-95 border font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'}`}
-                    >
-                        <RefreshCw size={18} className={isLoading ? "animate-spin text-orange-500" : "text-orange-500"} />
-                        Sync content
-                    </button>
-                </div>
-
-                {/* Large 4-Column Grid Materials Layout */}
-                {isLoading ? (
-                    <div className="py-20 flex flex-col items-center justify-center gap-4">
-                        <Loader2 size={40} className="animate-spin text-orange-500" />
-                        <p className="font-bold opacity-50 uppercase tracking-widest">Loading Resources...</p>
-                    </div>
-                ) : filteredMaterials.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                        {filteredMaterials.map((item) => (
-                            <div
-                                key={item.id}
-                                className={`group p-5 rounded-[5px] border transition-all duration-300 hover:shadow-2xl hover:-translate-y-3
-                                ${isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200'}`}
-                            >
-                                <div className="relative aspect-video rounded-[5px] overflow-hidden mb-6 bg-slate-50 dark:bg-white/5 border border-white/5 shadow-inner">
-                                    {item.thumbnail ? (
-                                        <img src={item.thumbnail} alt={item.name} className={`w-full h-full ${(item.video_link || item.video_file) ? 'object-cover' : 'object-contain'} transition-transform duration-700 group-hover:scale-110`} />
-                                    ) : (item.video_link && getYouTubeThumbnail(item.video_link)) ? (
-                                        <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center opacity-30 group-hover:opacity-50 transition-opacity">
-                                            <div className={`w-16 h-16 rounded-[5px] mb-4 flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)}`}>
-                                                {(item.video_link || item.video_file) ? <PlayCircle size={32} className="text-white" /> : <FileText size={32} className="text-white" />}
+                    ) : (
+                        <div className="space-y-12 animate-in fade-in duration-700">
+                             {/* Chapter Row */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-0.5 w-8 bg-blue-600 rounded-full"></div>
+                                    <h4 className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Curriculum Chapters</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    {Object.keys(activeSubjectData.chapters).sort().map(chapName => (
+                                        <button
+                                            key={chapName}
+                                            onClick={() => {
+                                                setActiveChapter(chapName);
+                                                setActiveTopic(null);
+                                            }}
+                                            className={`px-6 py-4 rounded-[15px] transition-all duration-300 border-2 active:scale-95
+                                                ${activeChapter === chapName 
+                                                    ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20 scale-105' 
+                                                    : isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-400 hover:border-blue-500/30' : 'bg-white border-slate-100 text-slate-600 hover:border-blue-500/30 shadow-sm'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${activeChapter === chapName ? 'bg-white' : 'bg-blue-500'}`}></div>
+                                                <span className="font-black text-xs uppercase tracking-tight">{chapName}</span>
                                             </div>
-                                            <p className="text-[12px] font-black uppercase tracking-[0.2em]">{item.subject_name}</p>
-                                        </div>
-                                    )}
-
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-sm">
-                                        <div className="flex flex-col gap-2 px-4 w-full">
-                                            <button
-                                                onClick={() => { setSelectedItem(item); setViewPage(1); }}
-                                                className="w-full py-2 bg-white text-black rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
-                                            >
-                                                <Eye size={14} strokeWidth={3} /> {(item.video_link || item.video_file) ? 'Watch Video' : 'View PDF'}
-                                            </button>
-                                            {item.pdf_file && (
-                                                <a
-                                                    href={item.pdf_file}
-                                                    download
-                                                    className="w-full py-2 bg-orange-500 text-white rounded-[5px] font-black text-[9px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
-                                                >
-                                                    <Download size={14} strokeWidth={3} /> Download
-                                                </a>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest border
-                                        ${isDarkMode ? 'bg-white/5 border-white/5 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-600'}`}>
-                                            {item.subject_name}
-                                        </span>
-                                        {/* Content type badge — PDF (red) vs Video (blue) */}
-                                        {(item.video_link || item.video_file) ? (
-                                            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-blue-500/10 border border-blue-500/20 text-blue-500">
-                                                <PlayCircle size={12} strokeWidth={3} /> Video
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[5px] bg-red-500/10 border border-red-500/20 text-red-500">
-                                                <FileText size={12} strokeWidth={3} /> PDF
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h3 className={`font-black text-xl sm:text-2xl leading-tight uppercase tracking-tight group-hover:text-orange-500 transition-colors line-clamp-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                        {item.name}
-                                    </h3>
-                                    <p className={`text-xs font-semibold line-clamp-2 opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        {item.description || 'No description available'}
-                                    </p>
-
-                                    <button
-                                        onClick={() => { setSelectedItem(item); setViewPage(1); }}
-                                        className={`flex items-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all group-hover:translate-x-1 ${isDarkMode ? 'text-orange-500' : 'text-orange-600'}`}
-                                    >
-                                        Learn More <ChevronRight size={14} strokeWidth={3} />
-                                    </button>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className={`py-20 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
-                        <div className="flex flex-col items-center gap-4 opacity-30">
-                            <BookOpen size={60} />
-                            <div className="space-y-1">
-                                <p className="font-black uppercase tracking-[0.2em] text-sm">No materials found</p>
-                                <p className="text-xs font-bold">Try adjusting your filters or search query</p>
-                            </div>
+
+                            {/* Topics & Content */}
+                            {!activeChapter ? (
+                                <div className={`flex flex-col items-center justify-center min-h-[300px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                    <h3 className={`text-xl font-black tracking-tight uppercase mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pick a Chapter</h3>
+                                    <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.2em]">Explore {activeSubject} in depth</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-10">
+                                    {Object.keys(activeChapterData.topics).sort().map(topName => {
+                                        const topicItems = activeChapterData.topics[topName].materials;
+                                        if (topicItems.length === 0) return null;
+
+                                        return (
+                                            <div key={topName} className="space-y-8 animate-in slide-in-from-bottom-5 duration-700">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-[14px] font-black uppercase tracking-tight mb-0.5 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{topName}</span>
+                                                        <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-transparent rounded-full"></div>
+                                                    </div>
+                                                    <div className="flex-1 h-[1px] bg-slate-200 dark:bg-white/5"></div>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{topicItems.length} Resources</span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                                                    {topicItems.map((item) => (
+                                                        <div
+                                                            key={item.id}
+                                                            onClick={() => { setSelectedItem(item); setViewPage(1); }}
+                                                            className={`group p-1 rounded-[25px] border transition-all duration-500 hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] hover:-translate-y-3
+                                                            ${isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-orange-200'}`}
+                                                        >
+                                                            <div className="relative aspect-video rounded-[20px] overflow-hidden bg-slate-100 dark:bg-black/40 flex items-center justify-center">
+                                                                {item.thumbnail ? (
+                                                                    <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" />
+                                                                ) : (item.video_link && getYouTubeThumbnail(item.video_link)) ? (
+                                                                    <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" />
+                                                                ) : (
+                                                                    <div className={`w-20 h-20 rounded-[15px] flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)} shadow-2xl`}>
+                                                                        {(item.video_link || item.video_file) ? <PlayCircle size={36} className="text-white" /> : <FileText size={36} className="text-white" />}
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-md">
+                                                                    <div className="flex flex-col items-center gap-3">
+                                                                         <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/50 backdrop-blur-xl flex items-center justify-center text-white transform scale-50 group-hover:scale-100 transition-transform duration-500">
+                                                                            <Eye size={30} strokeWidth={2.5} />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-black uppercase tracking-tighter text-white">Open Reader</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="p-5 space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-1.5 h-1.5 rounded-full ${(item.video_link || item.video_file) ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                            {activeContentType === 'DPP' ? 'Daily Practice' : (item.video_link || item.video_file) ? 'Video Player' : 'PDF Document'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-[8px] font-black text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20 uppercase">
+                                                                        Vault Item
+                                                                    </span>
+                                                                </div>
+                                                                <h3 className={`font-black text-sm uppercase tracking-tight line-clamp-2 group-hover:text-orange-500 transition-colors duration-300 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{item.name}</h3>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </>
     );
