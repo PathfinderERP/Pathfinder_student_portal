@@ -1,618 +1,497 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Calendar as CalendarIcon, Clock, CheckCircle2, Circle,
-    Plus, ChevronLeft, ChevronRight, Filter,
-    LayoutGrid, List, MoreVertical, Star,
-    Zap, AlertCircle, BookOpen, GraduationCap, X,
-    Edit2, Timer, Play, Pause, Square
+    Brain, Target, GraduationCap, ChevronRight, Activity, Clock, CheckCircle2,
+    BookOpen, Calculator, Atom, Orbit, Sparkles, Loader2, ArrowRight, Dna,
+    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 
-// Mock data generator for study planner tasks
-const getMockTasks = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0];
-    
-    return [
-        {
-            id: 'mock-1',
-            topic: 'Integration by Parts - Advanced Practice',
-            subject: 'Maths',
-            date: today,
-            time: '09:00',
-            duration: '1.5h',
-            priority: 'High',
-            completed: true
-        },
-        {
-            id: 'mock-2',
-            topic: 'Electromagnetic Induction Revision',
-            subject: 'Physics',
-            date: today,
-            time: '11:30',
-            duration: '1h',
-            priority: 'Medium',
-            completed: false
-        },
-        {
-            id: 'mock-3',
-            topic: 'Periodic Table Mastery (NCERT)',
-            subject: 'Chemistry',
-            date: today,
-            time: '15:00',
-            duration: '2h',
-            priority: 'High',
-            completed: false
-        },
-        {
-            id: 'mock-4',
-            topic: 'Coordinate Geometry Mock Test',
-            subject: 'Maths',
-            date: tomorrow,
-            time: '09:00',
-            duration: '3h',
-            priority: 'High',
-            completed: false
-        }
-    ];
+const COLLEGES = {
+    engineering: ["IIT Bombay", "IIT Delhi", "IIT Madras", "IIT Kharagpur", "NIT Trichy", "NIT Surathkal", "Jadavpur University", "BITS Pilani", "Other Eng. College"],
+    medical: ["AIIMS New Delhi", "CMC Vellore", "JIPMER", "KGMU Lucknow", "AFMC Pune", "MAMC Delhi", "Other Medical College"],
+    other: ["Delhi University", "Presidency University", "Christ University", "Other College"]
 };
 
-// ... (SessionTimer remains the same) ...
+const EXAMS = ["JEE Main", "JEE Advanced", "NEET UG", "WBJEE", "BITSAT", "CUET"];
+const CLASSES = ["Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "Dropper (Eng)", "Dropper (Med)"];
 
 const StudyPlanner = ({ isDarkMode }) => {
     const { getApiUrl, token } = useAuth();
-    const [view, setView] = useState('Weekly');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [tasks, setTasks] = useState(getMockTasks());
-    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    
+    // Application Flow State: 1: Setup, 2: Test, 3: College/Review, 4: AI Plan
+    const [currentStep, setCurrentStep] = useState(1);
 
-    // Modals
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [activeSessionTask, setActiveSessionTask] = useState(null);
-    const [editingTask, setEditingTask] = useState(null);
+    // Form / Data States
+    const [profile, setProfile] = useState({ classLevel: 'Class 12', targetExam: 'JEE Main' });
+    
+    const [tests, setTests] = useState([]);
+    const [loadingTests, setLoadingTests] = useState(false);
+    
+    const [testScores, setTestScores] = useState(null); 
+    
+    const [planConfig, setPlanConfig] = useState({
+        targetCollege: 'IIT Bombay',
+        dailyHours: 6
+    });
 
-    const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiPlan, setAiPlan] = useState('');
 
-    const initialFormState = useMemo(() => ({
-        topic: '',
-        subject: 'Maths',
-        date: selectedDate,
-        time: '10:00',
-        duration: '1h',
-        priority: 'Medium'
-    }), [selectedDate]);
+    const isMedical = profile.targetExam.includes('NEET') || profile.classLevel.includes('Med');
+    const availableColleges = isMedical ? COLLEGES.medical : (profile.targetExam === 'CUET' || profile.targetExam === 'Boards' ? COLLEGES.other : COLLEGES.engineering);
 
-    const [formData, setFormData] = useState(initialFormState);
-
-    useEffect(() => {
-        if (!editingTask) {
-            setFormData(prev => ({ ...prev, date: selectedDate }));
-        }
-    }, [selectedDate, editingTask]);
-
-    const fetchTasks = useCallback(async () => {
+    const fetchTests = async () => {
+        setLoadingTests(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/study-tasks/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const [testsRes, resultsRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
+            ]);
+            
+            const testsData = testsRes.data || [];
+            const resultsData = resultsRes.data || [];
+
+            const mergedData = testsData.map(test => {
+                const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                if (result) {
+                    return {
+                        ...test,
+                        submission: {
+                            ...(test.submission || {}),
+                            score: result.marks != null && result.total > 0 
+                                ? (result.marks / result.total) * 100 
+                                : (test.submission?.score ?? 0),
+                            rank: result.rank || test.submission?.rank || null,
+                            is_finalized: result.is_finalized ?? true
+                        }
+                    };
+                }
+                return test;
             });
-            let data = response.data;
-            
-            // Inject mock tasks if none exist for demonstration
-            if (!data || (Array.isArray(data) && data.length === 0)) {
-                console.log("No study tasks found, using mock agenda");
-                data = getMockTasks();
-            }
-            
-            setTasks(data);
+            setTests(mergedData);
         } catch (error) {
-            console.error('Failed to fetch tasks:', error);
+            console.error('Failed to load real exams:', error);
         } finally {
-            setLoading(false);
+            setLoadingTests(false);
         }
-    }, [getApiUrl, token]);
+    };
 
-    useEffect(() => {
-        fetchTasks();
-    }, [fetchTasks]);
+    const startTest = () => {
+        setCurrentStep(2);
+        fetchTests();
+    };
 
-    const handleCreateOrUpdate = useCallback(async (e) => {
-        e.preventDefault();
-        try {
-            const apiUrl = getApiUrl();
-            if (editingTask) {
-                await axios.patch(`${apiUrl}/api/study-tasks/${editingTask.id}/`, formData, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-            } else {
-                await axios.post(`${apiUrl}/api/study-tasks/`, formData, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-            }
-            setIsCreateModalOpen(false);
-            setEditingTask(null);
-            setFormData(initialFormState);
-            fetchTasks();
-        } catch (error) {
-            console.error('Failed to save task:', error);
-            alert('Failed to save task');
-        }
-    }, [getApiUrl, token, editingTask, formData, initialFormState, fetchTasks]);
-
-    const openEditModal = useCallback((task) => {
-        setEditingTask(task);
-        setFormData({
-            topic: task.topic,
-            subject: task.subject,
-            date: task.date,
-            time: task.time, // Ensure this matches "HH:MM:SS" or "HH:MM" format
-            duration: task.duration,
-            priority: task.priority
+    const analyzeCompletedTest = (test) => {
+        const score = Math.floor(test.submission?.score || 0);
+        setTestScores({
+            total: score,
+            q1Score: score, 
+            q2Score: score, 
+            q3Score: score
         });
-        setIsCreateModalOpen(true);
-    }, []);
+        setPlanConfig(prev => ({...prev, targetCollege: availableColleges[0]}));
+        setCurrentStep(3);
+    };
 
-    const toggleTask = useCallback(async (id, currentStatus) => {
+    const generateAIPlan = async () => {
+        setAiLoading(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/study-tasks/${id}/`, {
-                completed: !currentStatus
-            }, {
+            const payload = {
+                target_college: planConfig.targetCollege,
+                class: profile.classLevel,
+                exam_name: profile.targetExam,
+                total_score: testScores.total.toString(),
+                math_score: isMedical ? "N/A" : testScores.q3Score.toString(),
+                physics_score: testScores.q1Score.toString(),
+                chemistry_score: testScores.q2Score.toString(),
+                weak_topics: "Concepts requiring accuracy improvement",
+                strong_topics: "Foundational conceptual grasp",
+                daily_time_hours: planConfig.dailyHours.toString()
+            };
+
+            const response = await axios.post(`${apiUrl}/api/student/ai-mentor/study-plan/`, payload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchTasks();
+            
+            if (response.data && response.data.ai_plan) {
+                setAiPlan(response.data.ai_plan);
+                setCurrentStep(4);
+            }
         } catch (error) {
-            console.error('Failed to toggle task:', error);
+            console.error('Failed to generate AI plan:', error);
+            alert("Error generating plan. Please ensure Gemini API Key is configured.");
+        } finally {
+            setAiLoading(false);
         }
-    }, [getApiUrl, token, fetchTasks]);
+    };
 
-    const deleteTask = useCallback(async (id) => {
-        if (!window.confirm('Are you sure you want to delete this task?')) return;
-        try {
-            const apiUrl = getApiUrl();
-            await axios.delete(`${apiUrl}/api/study-tasks/${id}/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            fetchTasks();
-        } catch (error) {
-            console.error('Failed to delete task:', error);
-        }
-    }, [getApiUrl, token, fetchTasks]);
+    const resetPlanner = () => {
+        setCurrentStep(1);
+        setAiPlan('');
+    };
 
-    const startSession = useCallback((task) => {
-        // Parse dates
-        const now = new Date();
-        const taskDate = new Date(task.date);
-        const [hours, minutes] = task.time.split(':');
-        taskDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    // Shared Static Side Panel
+    const renderSidePanel = () => (
+        <div className={`hidden lg:flex flex-col w-[300px] shrink-0 p-6 border-r ${isDarkMode ? 'border-white/5 bg-[#0a0d14]' : 'border-slate-200 bg-slate-50'} min-h-full`}>
+            <div className="flex items-center gap-3 mb-10">
+                <div className="w-10 h-10 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white">
+                    <Brain size={20} />
+                </div>
+                <div>
+                    <h2 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Strategy</h2>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">v2.0 Beta Engine</p>
+                </div>
+            </div>
 
-        // Allow start if within 10 minutes before
-        const timeDiff = (taskDate - now) / 1000 / 60; // difference in minutes
+            <div className="space-y-8 flex-1">
+                <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-500/20 pb-2">Evaluation Core</h3>
+                    <ul className="space-y-3">
+                        <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
+                            <Database size={14} className="text-indigo-500" /> Deep Analytics Engine
+                        </li>
+                        <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
+                            <Cpu size={14} className="text-orange-500" /> Gemini Pro Processing
+                        </li>
+                        <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
+                            <Network size={14} className="text-emerald-500" /> Neural Gap Detection
+                        </li>
+                    </ul>
+                </div>
 
-        if (timeDiff > 10) {
-            alert(`Session cannot be started yet. Please wait until ${task.time}.`);
-            return;
-        }
-
-        setActiveSessionTask(task);
-    }, []);
-
-    // Calendar Helper Functions
-    const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
-    const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
-
-    const monthDays = useMemo(() => {
-        const days = [];
-        const daysCount = getDaysInMonth(currentMonth, currentYear);
-        const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
-
-        for (let i = 0; i < firstDay; i++) {
-            days.push(null);
-        }
-        for (let i = 1; i <= daysCount; i++) {
-            days.push(i);
-        }
-        return days;
-    }, [currentMonth, currentYear]);
-
-    const prevMonth = useCallback(() => {
-        if (currentMonth === 0) {
-            setCurrentMonth(11);
-            setCurrentYear(prev => prev - 1);
-        } else {
-            setCurrentMonth(prev => prev - 1);
-        }
-    }, [currentMonth]);
-
-    const nextMonth = useCallback(() => {
-        if (currentMonth === 11) {
-            setCurrentMonth(0);
-            setCurrentYear(prev => prev + 1);
-        } else {
-            setCurrentMonth(prev => prev + 1);
-        }
-    }, [currentMonth]);
-
-    const completedTasks = tasks.filter(t => t.completed).length;
-    const totalTasks = tasks.length;
-    const progressWidth = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-
-    // Calculate today's stats specifically
-    const todTasks = tasks.filter(t => t.date === selectedDate);
-    const todTotal = todTasks.length;
-    const todCompleted = todTasks.filter(t => t.completed).length;
-    const todProgress = todTotal > 0 ? (todCompleted / todTotal) * 100 : 0;
-
-    return (
-        <div className="space-y-8 animate-fade-in-up pb-10">
-            {/* Session Timer Overlay */}
-            <AnimatePresence>
-                {activeSessionTask && (
-                    <SessionTimer
-                        task={activeSessionTask}
-                        onClose={() => setActiveSessionTask(null)}
-                        isDarkMode={isDarkMode}
-                    />
-                )}
-            </AnimatePresence>
-
-            {/* Planner Header */}
-            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="px-3 py-1 rounded-[5px] bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                                Time Management
-                            </div>
+                <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-500/20 pb-2">Global Stats</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+                            <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>1.2M+</div>
+                            <div className="text-[9px] font-black uppercase text-slate-500">Plans</div>
                         </div>
-                        <h2 className={`text-3xl font-black uppercase tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            Study Planner
-                        </h2>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Organize your learning schedule, track assignments, and optimize your study windows.
-                        </p>
+                        <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+                            <div className={`text-lg font-black text-emerald-500`}>98%</div>
+                            <div className="text-[9px] font-black uppercase text-slate-500">Success</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-500/20 flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
+                <ShieldCheck size={14} className="text-indigo-500" /> End-to-end encrypted
+            </div>
+        </div>
+    );
+
+    const renderStep1 = () => (
+        <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar relative">
+            {/* Subtle Grid Background */}
+            <div className={`absolute inset-0 pointer-events-none ${isDarkMode ? 'bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]' : 'bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px]'}`}></div>
+            
+            <div className="max-w-5xl mx-auto space-y-10 relative z-10">
+                {/* Header Sequence Tracker */}
+                <div className="flex items-center justify-between mb-12">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-[4px] bg-indigo-600 text-white flex items-center justify-center font-black text-xs">01</div>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Configuration</span>
+                    </div>
+                    <div className={`flex-1 h-[1px] mx-4 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    <div className="flex items-center gap-2 opacity-40">
+                        <div className={`w-8 h-8 rounded-[4px] border border-dashed flex items-center justify-center font-black text-xs ${isDarkMode ? 'border-white/20 text-white' : 'border-slate-300 text-slate-500'}`}>02</div>
+                        <span className={`text-[10px] font-black hidden md:block uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-500'}`}>Exam</span>
+                    </div>
+                    <div className={`flex-1 h-[1px] mx-4 opacity-40 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    <div className="flex items-center gap-2 opacity-40">
+                        <div className={`w-8 h-8 rounded-[4px] border border-dashed flex items-center justify-center font-black text-xs ${isDarkMode ? 'border-white/20 text-white' : 'border-slate-300 text-slate-500'}`}>03</div>
+                        <span className={`text-[10px] font-black hidden md:block uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-500'}`}>Profiling</span>
+                    </div>
+                    <div className={`flex-1 h-[1px] mx-4 opacity-40 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    <div className="flex items-center gap-2 opacity-40">
+                        <div className={`w-8 h-8 rounded-[4px] border border-dashed flex items-center justify-center font-black text-xs ${isDarkMode ? 'border-white/20 text-white' : 'border-slate-300 text-slate-500'}`}>04</div>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-500'}`}>Master Plan</span>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <h1 className={`text-3xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        Configure Academic Vector
+                    </h1>
+                    <p className={`text-sm font-bold tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Provide your current standing and objective to initialize the exam sequence.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-4">
+                            <GraduationCap size={16} /> Select Stage
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {CLASSES.map(cls => (
+                                <button key={cls} onClick={() => setProfile({...profile, classLevel: cls})} className={`p-3 rounded-[4px] border text-[11px] md:text-xs font-bold text-left transition-all ${profile.classLevel === cls ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : isDarkMode ? 'bg-white/5 border-white/5 hover:border-white/20 text-slate-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
+                                    {cls}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
+                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-orange-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500 mb-4">
+                            <Target size={16} /> Primary Objective
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {EXAMS.map(exam => (
+                                <button key={exam} onClick={() => setProfile({...profile, targetExam: exam})} className={`p-3 rounded-[4px] border text-[11px] md:text-xs font-bold text-left transition-all ${profile.targetExam === exam ? 'bg-orange-500 text-white border-orange-500 shadow-md' : isDarkMode ? 'bg-white/5 border-white/5 hover:border-white/20 text-slate-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
+                                    {exam}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                        <Zap size={16} className="text-orange-500 mb-3" />
+                        <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Take Assessment Exam</h4>
+                        <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>A short evaluation exam across core subjects to instantly map your current cognitive baseline.</p>
+                    </div>
+                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                        <Crosshair size={16} className="text-emerald-500 mb-3" />
+                        <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Gap Detection</h4>
+                        <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>The AI precisely measures the distance between your baseline and your target institution's threshold.</p>
+                    </div>
+                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                        <GitBranch size={16} className="text-indigo-500 mb-3" />
+                        <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Strategy Synthesis</h4>
+                        <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Generates a granular 1-year and 1-month trajectory specifically engineered for your explicit goal.</p>
+                    </div>
+                </div>
+
+                <div className="pt-8 flex justify-end pb-10 border-t border-slate-500/20">
+                    <button onClick={startTest} className="px-10 py-5 bg-indigo-600 text-white rounded-[4px] font-black text-xs uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-[0_0_30px_rgba(79,70,229,0.2)] hover:shadow-[0_0_40px_rgba(79,70,229,0.4)] flex items-center gap-4 group">
+                        Start Assessment Exam <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+
+    const renderStep2 = () => {
+        return (
+            <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex items-center justify-between mb-8 border-b pb-4 border-slate-500/20">
+                        <div className="flex items-center gap-3">
+                            <Activity className="text-orange-500" />
+                            <h3 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Evaluate Real Exams</h3>
+                        </div>
+                    </div>
+
+                    <p className={`text-xs font-bold leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Choose an active exam set by the institution to establish your baseline, or analyze a previously completed exam to synthesize your master strategy. 
+                        No exam codes are required for processing.
+                    </p>
+
+                    <div className={`rounded-[4px] border overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        {loadingTests ? (
+                            <div className="p-12 flex justify-center flex-col items-center gap-4">
+                                <Loader2 size={32} className="animate-spin text-indigo-500" />
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Synchronizing Master Database</p>
+                            </div>
+                        ) : tests.length === 0 ? (
+                            <div className="p-12 text-center text-xs font-bold text-slate-500 uppercase">
+                                No exams configured by administration
+                            </div>
+                        ) : (
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className={`text-[9px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                        <th className="py-4 px-6">Available Assessments</th>
+                                        <th className="py-4 px-6 text-center">Status</th>
+                                        <th className="py-4 px-6 text-center">Your Score</th>
+                                        <th className="py-4 px-6 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y text-xs font-bold ${isDarkMode ? 'divide-white/5 text-slate-300' : 'divide-slate-50 text-slate-600'}`}>
+                                    {tests.map(test => {
+                                        const now = new Date();
+                                        const isCompleted = test.submission?.is_finalized;
+                                        const end = test.end_time ? new Date(test.end_time) : null;
+                                        const isExpired = end && now > end;
+                                        const isAvailable = !isCompleted && !isExpired;
+                                        const isMissed = isExpired && !isCompleted;
+
+                                        return (
+                                            <tr key={test.id} className="transition-all hover:bg-white/5">
+                                                <td className="py-4 px-6">
+                                                    <span className="block text-[11px] font-black uppercase tracking-tight">{test.name}</span>
+                                                    <span className="block text-[9px] font-bold text-slate-500 mt-1 uppercase">Code: {test.code}</span>
+                                                </td>
+                                                <td className="py-4 px-6 text-center">
+                                                    {isCompleted ? <span className="text-emerald-500">Completed</span> : isMissed ? <span className="text-red-500">Expired</span> : <span className="text-blue-500">Active</span>}
+                                                </td>
+                                                <td className="py-4 px-6 text-center">
+                                                    {isCompleted ? `${Math.round(test.submission?.score || 0)}%` : '--'}
+                                                </td>
+                                                <td className="py-4 px-6 text-center">
+                                                    {isCompleted ? (
+                                                        <button onClick={() => analyzeCompletedTest(test)} className="px-4 py-2 bg-indigo-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md hover:shadow-indigo-500/50">
+                                                            Analyze Result
+                                                        </button>
+                                                    ) : isAvailable ? (
+                                                        <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-orange-500 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow-md hover:shadow-orange-500/50">
+                                                            Launch Exam
+                                                        </button>
+                                                    ) : (
+                                                        <button disabled className="px-4 py-2 bg-slate-500 opacity-50 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest cursor-not-allowed">
+                                                            Unavailable
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+        );
+    };
+
+    const renderStep3 = () => (
+        <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+            <div className="max-w-4xl mx-auto space-y-8">
+                {/* Results Header */}
+                <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'} relative overflow-hidden`}>
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
+                    
+                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline outline-2 outline-offset-4 outline-indigo-500/50">
+                            <span className="text-4xl font-black">{testScores?.total}%</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Accuracy</span>
+                        </div>
+                        <div className="flex-1 space-y-4">
+                            <div>
+                                <h2 className={`text-2xl font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    <CheckCircle2 className="text-emerald-500" /> Profiling Complete
+                                </h2>
+                                <p className={`text-xs font-bold leading-relaxed mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Exam baseline established. Structural gaps identified. Master Plan ready for synthesis.
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 p-4 rounded-[4px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[0].subject}</span><span className="text-base font-black text-white">{testScores?.q1Score}%</span></div>
+                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[1].subject}</span><span className="text-base font-black text-white">{testScores?.q2Score}%</span></div>
+                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[2].subject}</span><span className="text-base font-black text-white">{testScores?.q3Score}%</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Configurations */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            <Target size={18} className="text-orange-500" /> Target Destination
+                        </h3>
+                        <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-2">
+                            {availableColleges.map(college => (
+                                <button
+                                    key={college}
+                                    onClick={() => setPlanConfig({...planConfig, targetCollege: college})}
+                                    className={`w-full p-4 rounded-[4px] text-left text-xs font-bold border transition-all ${planConfig.targetCollege === college ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : isDarkMode ? 'border-white/10 hover:border-white/20 text-slate-400' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600'}`}
+                                >
+                                    {college}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className={`p-6 rounded-[4px] border flex flex-col justify-between ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div>
+                            <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                <Clock size={18} className="text-indigo-500" /> Daily Capacity
+                            </h3>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Self-study hours per day</p>
+                        </div>
+                        
+                        <div className={`p-6 rounded-[4px] border flex flex-col items-center justify-center flex-1 my-4 ${isDarkMode ? 'bg-[#0a0d14] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                            <span className={`text-5xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{planConfig.dailyHours}</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Hours</span>
+                            <input 
+                                type="range" min="1" max="16" step="0.5" 
+                                value={planConfig.dailyHours}
+                                onChange={(e) => setPlanConfig({...planConfig, dailyHours: e.target.value})}
+                                className="w-full max-w-[200px] mt-6 accent-indigo-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-500/20">
                     <button
-                        onClick={() => {
-                            setEditingTask(null);
-                            setFormData(initialFormState);
-                            setIsCreateModalOpen(true);
-                        }}
-                        className="px-6 py-4 bg-gradient-to-r from-orange-500 to-indigo-600 text-white rounded-[5px] font-black text-xs uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-2 group">
-                        <Plus size={18} strokeWidth={3} className="group-hover:rotate-90 transition-all duration-300" />
-                        <span>Create Schedule</span>
+                        onClick={generateAIPlan}
+                        disabled={aiLoading}
+                        className="px-8 py-4 bg-white text-slate-900 rounded-[4px] font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all flex justify-center items-center gap-3 disabled:opacity-50"
+                    >
+                        {aiLoading ? <Loader2 className="animate-spin text-indigo-600" /> : <Sparkles className="text-orange-500" />}
+                        {aiLoading ? 'Synthesizing Trajectory...' : 'Generate AI Master Strategy'}
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+
+    const renderStep4 = () => (
+        <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+            <div className="max-w-5xl mx-auto">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-slate-500/20 gap-4">
+                    <div>
+                        <h1 className={`text-2xl md:text-3xl font-black uppercase tracking-tight flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            <Brain className="text-indigo-500" size={32} /> Master Strategy Vector
+                        </h1>
+                        <div className="flex items-center gap-4 mt-3">
+                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
+                            <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest bg-orange-500/10 px-2 py-1 rounded-[2px]">{planConfig.dailyHours} Hours/Day</span>
+                        </div>
+                    </div>
+                    <button onClick={resetPlanner} className={`px-6 py-3 rounded-[4px] border text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-800 bg-slate-900 text-white hover:bg-slate-800'}`}>
+                        Reset System
                     </button>
                 </div>
 
-                <CalendarIcon size={200} className="absolute -right-10 -bottom-10 opacity-[0.03] rotate-12" />
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-                {/* Left Column: Calendar & Filters */}
-                <div className="xl:col-span-1 space-y-8">
-                    {/* Functional Calendar */}
-                    <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-                        <div className="flex items-center justify-between mb-6">
-                            <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                {monthNames[currentMonth]} {currentYear}
-                            </h4>
-                            <div className="flex gap-2">
-                                <button onClick={prevMonth} className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-[5px] transition-colors"><ChevronLeft size={16} /></button>
-                                <button onClick={nextMonth} className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-[5px] transition-colors"><ChevronRight size={16} /></button>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-7 gap-2 text-center mb-4">
-                            {weekDays.map(d => <span key={d} className="text-[10px] font-black opacity-30 uppercase">{d[0]}</span>)}
-                        </div>
-                        <div className="grid grid-cols-7 gap-2">
-                            {monthDays.map((d, idx) => {
-                                if (d === null) return <div key={`empty-${idx}`} />;
-                                const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-                                const isSelected = selectedDate === dateStr;
-                                const isToday = new Date().toISOString().split('T')[0] === dateStr;
-                                const hasTask = tasks.some(t => t.date === dateStr);
-
-                                return (
-                                    <button
-                                        key={idx}
-                                        onClick={() => setSelectedDate(dateStr)}
-                                        className={`aspect-square rounded-[5px] text-xs font-bold flex flex-col items-center justify-center transition-all relative ${isSelected
-                                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                            : isToday
-                                                ? 'bg-indigo-500/10 text-indigo-500'
-                                                : 'hover:bg-slate-100 dark:hover:bg-white/5 opacity-60'
-                                            }`}
-                                    >
-                                        {d}
-                                        {hasTask && !isSelected && (
-                                            <div className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-500" />
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Stats Summary */}
-                    <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'} space-y-6`}>
-                        <div className="flex items-center gap-3">
-                            <Zap size={18} className="text-orange-500" />
-                            <h4 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Load Analysis</h4>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="font-bold opacity-60 uppercase tracking-tighter">Tasks for Date</span>
-                                <span className="font-black">{todTotal.toString().padStart(2, '0')}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="font-bold opacity-60 uppercase tracking-tighter">Completion</span>
-                                <span className="font-black text-indigo-500">{todProgress.toFixed(0)}%</span>
-                            </div>
-                        </div>
-                        <div className={`h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
-                            <div className="h-full bg-orange-500 transition-all duration-500" style={{ width: `${todProgress}%` }} />
-                        </div>
-                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-tight text-center">{todCompleted} of {todTotal} blocks completed</p>
-                    </div>
-                </div>
-
-                {/* Right Column: Schedule / Tasks */}
-                <div className="xl:col-span-3 space-y-6">
-                    {/* View Controls */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                                <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                    {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Agenda" : "Planned Agenda"}
-                                </h3>
-                                <div className="px-2 py-0.5 rounded-[5px] bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase">
-                                    {new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-[5px]">
-                            <button
-                                onClick={() => setView('Weekly')}
-                                className={`p-2 rounded-[5px] transition-all ${view === 'Weekly' ? 'bg-white dark:bg-white/10 shadow-sm text-orange-500' : 'opacity-40'}`}
-                            >
-                                <List size={18} />
-                            </button>
-                            <button
-                                onClick={() => setView('Grid')}
-                                className={`p-2 rounded-[5px] transition-all ${view === 'Grid' ? 'bg-white dark:bg-white/10 shadow-sm text-orange-500' : 'opacity-40'}`}
-                            >
-                                <LayoutGrid size={18} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Task List */}
-                    <div className="space-y-4 min-h-[400px]">
-                        {tasks.filter(t => t.date === selectedDate).length > 0 ? (
-                            tasks.filter(t => t.date === selectedDate).map((task, i) => (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.1 }}
-                                    key={task.id}
-                                    className={`group p-6 rounded-[5px] border transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-6 ${task.completed
-                                        ? (isDarkMode ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100')
-                                        : (isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-indigo-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-indigo-200 shadow-slate-200/50')
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-6">
-                                        <button
-                                            onClick={() => toggleTask(task.id, task.completed)}
-                                            className={`shrink-0 w-8 h-8 rounded-[5px] flex items-center justify-center transition-all ${task.completed ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'border-2 border-slate-300 dark:border-white/10 hover:border-orange-500 text-transparent'
-                                                }`}
-                                        >
-                                            <CheckCircle2 size={20} strokeWidth={3} />
-                                        </button>
-
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-[5px] ${task.subject === 'Maths' ? 'bg-blue-500/10 text-blue-500' :
-                                                    task.subject === 'Physics' ? 'bg-purple-500/10 text-purple-600' :
-                                                        task.subject === 'Chemistry' ? 'bg-orange-500/10 text-orange-500' :
-                                                            'bg-slate-500/10 text-slate-500'
-                                                    }`}>
-                                                    {task.subject}
-                                                </span>
-                                                {task.priority === 'High' && !task.completed && (
-                                                    <div className="flex items-center gap-1 text-[9px] font-bold text-red-500 uppercase">
-                                                        <AlertCircle size={10} strokeWidth={3} /> Priority
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <h4 className={`text-base font-black uppercase tracking-tight ${task.completed ? 'line-through opacity-40' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}>
-                                                {task.topic}
-                                            </h4>
-                                            <div className="flex items-center gap-4 opacity-40 font-bold uppercase text-[10px]">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Clock size={12} /> {task.time}
-                                                </div>
-                                                <div className="flex items-center gap-1.5 text-indigo-500">
-                                                    <Zap size={12} /> {task.duration}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 ml-14 md:ml-0">
-                                        {!task.completed && (
-                                            <button
-                                                onClick={() => startSession(task)}
-                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'}`}
-                                            >
-                                                Start Session
-                                            </button>
-                                        )}
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => openEditModal(task)}
-                                                className="p-2 opacity-20 hover:opacity-100 hover:text-indigo-500 transition-all">
-                                                <Edit2 size={20} />
-                                            </button>
-                                            <button
-                                                onClick={() => deleteTask(task.id)}
-                                                className="p-2 opacity-20 hover:opacity-100 hover:text-red-500 transition-all">
-                                                <X size={20} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))
-                        ) : (
-                            <div className={`flex flex-col items-center justify-center p-20 border border-dashed rounded-[5px] ${isDarkMode ? 'border-white/5 opacity-20' : 'border-slate-200 opacity-40'}`}>
-                                <CalendarIcon size={48} className="mb-4" />
-                                <p className="font-black uppercase tracking-widest text-xs">No tasks for this day</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* AI Motivation Card */}
-                    <div className={`p-8 rounded-[5px] border overflow-hidden relative ${isDarkMode ? 'bg-indigo-900/20 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 shadow-sm'}`}>
-                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-                            <div className="w-16 h-16 shrink-0 rounded-[5px] bg-gradient-to-br from-orange-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-orange-500/20">
-                                <Star size={32} strokeWidth={2.5} />
-                            </div>
-                            <div className="space-y-2">
-                                <h5 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Smart Suggestions</h5>
-                                <p className={`text-sm font-medium leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                    You've identified <span className="text-orange-500 font-extrabold underline tracking-tighter uppercase">Calculus</span> as your strength. I suggest adding a 30 min 'Advanced Practice' block tonight to maintain your 92% retention rate.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="absolute top-0 right-0 p-4 opacity-[0.05] grayscale brightness-0">
-                            <GraduationCap size={160} />
-                        </div>
+                <div className={`p-8 md:p-12 rounded-[4px] border relative ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
+                    
+                    <div className={`prose prose-sm md:prose-base max-w-none relative z-10 
+                        ${isDarkMode ? 'prose-invert prose-headings:text-white prose-p:text-slate-400 prose-strong:text-white prose-li:text-slate-400 prose-hr:border-white/10' : 'prose-headings:text-slate-900 prose-p:text-slate-700 prose-strong:text-slate-900 prose-li:text-slate-700 prose-hr:border-slate-200'}
+                        prose-h2:font-black prose-h2:text-2xl prose-h2:uppercase prose-h2:tracking-tight prose-h2:mt-12 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b prose-h2:border-slate-500/20
+                        prose-h3:font-bold prose-h3:text-lg prose-h3:text-indigo-500 prose-h3:uppercase prose-h3:tracking-wide
+                        prose-a:text-orange-500
+                        prose-blockquote:border-l-4 prose-blockquote:border-l-indigo-500 prose-blockquote:bg-indigo-500/5 prose-blockquote:p-4 prose-blockquote:rounded-r-[4px] prose-blockquote:font-medium prose-blockquote:not-italic
+                        prose-ul:list-square
+                    `}>
+                        <ReactMarkdown>{aiPlan}</ReactMarkdown>
                     </div>
                 </div>
             </div>
+        </motion.div>
+    );
 
-            {/* Create/Edit Task Modal */}
-            <AnimatePresence>
-                {isCreateModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm shadow-[0_0_100px_rgba(30,41,59,0.5)]"
-                            onClick={() => setIsCreateModalOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className={`relative w-full max-w-lg p-8 rounded-[5px] border shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-100'}`}
-                        >
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                    {editingTask ? 'Edit Schedule' : 'Create Schedule'}
-                                </h3>
-                                <button onClick={() => setIsCreateModalOpen(false)} className="p-2 hover:bg-white/5 rounded-full opacity-50 hover:opacity-100 transition-all"><X size={20} /></button>
-                            </div>
-
-                            <form onSubmit={handleCreateOrUpdate} className="space-y-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black uppercase opacity-40">Topic / Task Name</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        value={formData.topic}
-                                        onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                                        className={`w-full p-4 rounded-[5px] border outline-none font-bold ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}
-                                        placeholder="e.g. Calculus Practice"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase opacity-40">Subject</label>
-                                        <select
-                                            value={formData.subject}
-                                            onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                                            className={`w-full p-4 rounded-[5px] border outline-none font-bold ${isDarkMode ? 'bg-slate-800 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}
-                                        >
-                                            <option>Maths</option>
-                                            <option>Physics</option>
-                                            <option>Chemistry</option>
-                                            {/* <option>English</option> */}
-                                            <option>Others</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase opacity-40">Priority</label>
-                                        <select
-                                            value={formData.priority}
-                                            onChange={e => setFormData({ ...formData, priority: e.target.value })}
-                                            className={`w-full p-4 rounded-[5px] border outline-none font-bold ${isDarkMode ? 'bg-slate-800 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}
-                                        >
-                                            <option>High</option>
-                                            <option>Medium</option>
-                                            <option>Low</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase opacity-40">Date</label>
-                                        <input
-                                            required
-                                            type="date"
-                                            value={formData.date}
-                                            onChange={e => setFormData({ ...formData, date: e.target.value })}
-                                            className={`w-full p-4 rounded-[5px] border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase opacity-40">Time</label>
-                                        <input
-                                            required
-                                            type="time"
-                                            value={formData.time}
-                                            onChange={e => setFormData({ ...formData, time: e.target.value })}
-                                            className={`w-full p-4 rounded-[5px] border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase opacity-40">Duration</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formData.duration}
-                                            onChange={e => setFormData({ ...formData, duration: e.target.value })}
-                                            className={`w-full p-4 rounded-[5px] border outline-none font-bold text-xs ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-slate-50 border-slate-100'}`}
-                                            placeholder="e.g. 2h"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="pt-8 flex gap-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsCreateModalOpen(false)}
-                                        className={`flex-1 py-4 rounded-[5px] font-black text-xs uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} transition-all`}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 py-4 bg-orange-500 text-white rounded-[5px] font-black text-xs uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 hover:bg-orange-600 transition-all"
-                                    >
-                                        {editingTask ? 'Update Task' : 'Save Task'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
+    return (
+        <div className={`flex flex-col lg:flex-row h-full min-h-[800px] rounded-[4px] border overflow-hidden ${isDarkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-slate-200'}`}>
+            {renderSidePanel()}
+            <AnimatePresence mode="wait">
+                {currentStep === 1 && <motion.div key="s1" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep1()}</motion.div>}
+                {currentStep === 2 && <motion.div key="s2" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep2()}</motion.div>}
+                {currentStep === 3 && <motion.div key="s3" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep3()}</motion.div>}
+                {currentStep === 4 && <motion.div key="s4" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep4()}</motion.div>}
             </AnimatePresence>
         </div>
     );
