@@ -55,6 +55,20 @@ class TestViewSet(viewsets.ModelViewSet):
             from api.db_utils import parse_section, get_db
             db = get_db()
             
+            # PASSIVE SYNC: Update user sections from the global ERP index if available.
+            # This ensures that if an admin refreshed the ERP index, students get updated instantly 
+            # without needing to re-login.
+            try:
+                from api.erp_views import get_student_lookup_index, _sync_user_to_erp
+                index = get_student_lookup_index(force_refresh=False)
+                if index:
+                    search_email = (user.email or user.username).strip().lower()
+                    match = index.get(f"email_{search_email}") or index.get(f"adm_{user.username.upper().strip()}")
+                    if match:
+                        _sync_user_to_erp(user, match)
+            except Exception as e:
+                print(f"Passive Sync Error: {e}")
+
             # Prep student metadata (Include both casings to bypass DB case-sensitivity in __in filter)
             s_exams = [s.strip() for s in parse_section(getattr(user, 'exam_section', ''))]
             s_studies = [s.strip() for s in parse_section(getattr(user, 'study_section', ''))]
