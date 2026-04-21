@@ -765,26 +765,31 @@ const ExamEngine = () => {
             <div className="bg-[#EF6C00] px-4 py-3 flex flex-wrap gap-2 border-t border-white/10 z-10">
                 <span className="text-white font-bold text-sm mr-2 self-center">Sections</span>
                 {paperData.sections.map((section, idx) => {
-                    const currentQ = activeSectionIdx === idx 
-                        ? activeQuestionIdx + 1 
-                        : (lastViewedPerSection[idx] !== undefined ? lastViewedPerSection[idx] + 1 : 1);
+                        const attemptedCount = section.questions_detail.reduce((count, q) => {
+                            const qId = q.id;
+                            const resp = responses[qId];
+                            if (resp?.status === 'ANSWERED' || resp?.status === 'MARKED_ANSWERED') {
+                                return count + 1;
+                            }
+                            return count;
+                        }, 0);
 
-                    return (
-                        <button
-                            key={idx}
-                            onClick={() => { 
-                                setLastViewedPerSection(prev => ({...prev, [activeSectionIdx]: activeQuestionIdx}));
-                                setActiveSectionIdx(idx); 
-                                setActiveQuestionIdx(lastViewedPerSection[idx] || 0); 
-                            }}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-[2px] transition-all uppercase
-                            ${activeSectionIdx === idx 
-                                ? 'bg-[#1565C0] text-white shadow-lg border-b-2 border-white' 
-                                : 'bg-[#1976D2] text-white hover:bg-[#1565C0] border border-blue-400/30'}`}
-                        >
-                            {section.name} ({currentQ}/{section.questions_detail.length})
-                        </button>
-                    );
+                        return (
+                            <button
+                                key={idx}
+                                onClick={() => { 
+                                    setLastViewedPerSection(prev => ({...prev, [activeSectionIdx]: activeQuestionIdx}));
+                                    setActiveSectionIdx(idx); 
+                                    setActiveQuestionIdx(lastViewedPerSection[idx] || 0); 
+                                }}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-[2px] transition-all uppercase
+                                ${activeSectionIdx === idx 
+                                    ? 'bg-[#1565C0] text-white shadow-lg border-b-2 border-white' 
+                                    : 'bg-[#1976D2] text-white hover:bg-[#1565C0] border border-blue-400/30'}`}
+                            >
+                                {section.name} ({attemptedCount}/{section.questions_detail.length})
+                            </button>
+                        );
                 })}
             </div>
 
