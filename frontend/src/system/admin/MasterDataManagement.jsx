@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import axios from 'axios';
 import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
-    Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen,
+    Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen, RefreshCw,
     Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle,
     Download, FileSpreadsheet, Upload
 } from 'lucide-react';
@@ -242,11 +242,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     }, [token]);
 
     // Function to fetch master data with caching (defined after getAuthConfig)
-    const fetchMasterData = useCallback(async () => {
+    const fetchMasterData = useCallback(async (force = false) => {
         const now = Date.now();
 
         // Return cached data if available and not stale
-        if (masterDataCacheRef.current &&
+        if (!force && masterDataCacheRef.current &&
             masterDataTimestampRef.current &&
             (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
             Object.keys(masterDataCacheRef.current).length > 0) {
@@ -267,14 +267,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
         try {
             const apiUrl = getApiUrl();
+            const query = force ? '?refresh=true' : '';
             const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
-                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
-                axios.get(`${apiUrl}/api/master-data/classes/`, config),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
-                axios.get(`${apiUrl}/api/master-data/subjects/`, config),
-                axios.get(`${apiUrl}/api/master-data/topics/`, config),
-                axios.get(`${apiUrl}/api/master-data/chapters/`, config),
+                axios.get(`${apiUrl}/api/master-data/sessions/${query}`, config),
+                axios.get(`${apiUrl}/api/master-data/exam-types/${query}`, config),
+                axios.get(`${apiUrl}/api/master-data/classes/${query}`, config),
+                axios.get(`${apiUrl}/api/master-data/target-exams/${query}`, config),
+                axios.get(`${apiUrl}/api/master-data/subjects/${query}`, config),
+                axios.get(`${apiUrl}/api/master-data/topics/${query}`, config),
+                axios.get(`${apiUrl}/api/master-data/chapters/${query}`, config),
             ]);
 
             // Cache the data
@@ -331,6 +332,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             queryParams.append('page', pageNumber);
             queryParams.append('limit', ITEMS_PER_PAGE);
             if (topicFilterId) queryParams.append('topic', topicFilterId);
+            if (force) queryParams.append('refresh', 'true');
 
             const paramsString = queryParams.toString() ? `?${queryParams.toString()}` : '';
             const response = await axios.get(`${apiUrl}/api/${endpoint}/${paramsString}`, config);
@@ -339,7 +341,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
             // Load master data from cache instead of making repeated API calls
             if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
-                await fetchMasterData();
+                await fetchMasterData(force);
             }
         } catch (err) {
             console.error(`Failed to fetch ${activeSubTab} data:`, err);
@@ -689,6 +691,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             }
             setIsModalOpen(false);
             toast.success(`${modalMode === 'create' ? 'Created' : 'Updated'} successfully!`);
+
+            // Clear cache and refetch to reflect changes everywhere
+            masterDataCacheRef.current = {};
+            fetchData(true);
 
             // Automatically navigate to Library for newly created Chapters
             if (modalMode === 'create' && activeSubTab === 'Chapter' && result.data) {
@@ -1402,6 +1408,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 </>
                             )}
                         </div>
+
+                        <button
+                            onClick={() => fetchData(true)}
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-[5px] border font-black text-[10px] uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                            title="Fast Refresh (Bypass Cache)"
+                        >
+                            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                        </button>
 
                         <button
                             onClick={handleCreate}

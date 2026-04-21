@@ -4,6 +4,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import HttpResponse
 import csv
 import io
+import time
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
 
@@ -90,22 +91,30 @@ class CachedListViewSetMixin(object):
         return base_key
 
     def list(self, request, *args, **kwargs):
-        # 1. Try Local Server Memory (Fastest - 0ms)
-        from time import time
+        # 1. Check for Force Refresh (Frontend requested bypass)
+        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
         cache_key = self.get_cache_key()
-        now = time()
-        
+        now = time.time()
+
+        if force_refresh:
+            print(f"⚡ Force Refresh: Bypassing cache for {self.__class__.__name__}")
+            res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
+            cache.set(cache_key, res.data, timeout=86400)
+            self.__class__._local_cache[cache_key] = {'data': res.data, 'time': now}
+            return res
+
+        # 2. Try Local Server Memory (Fastest - 0ms)
         local_entry = self.__class__._local_cache.get(cache_key)
         if local_entry and (now - local_entry['time'] < 5): # 5 second burst protection
             return response.Response(local_entry['data'])
 
-        # 2. Try Redis/Cache (Fast - 50ms)
+        # 3. Try Redis/Cache (Fast - 50ms)
         cached_data = cache.get(cache_key)
         if cached_data is not None and isinstance(cached_data, (list, dict)):
             self.__class__._local_cache[cache_key] = {'data': cached_data, 'time': now}
             return response.Response(cached_data)
         
-        # 3. DB Fallback (Slow - 500ms+)
+        # 4. DB Fallback (Slow - 500ms+)
         res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
         timeout = 86400 if not isinstance(self, StudentSectionFilterMixin) else 3600
         cache.set(cache_key, res.data, timeout=timeout)
@@ -343,8 +352,11 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 
 
     def list(self, request, *args, **kwargs):
-        # Only use cache when fetching ALL topics (no filter applied)
-        if request.query_params.get('chapter'):
+        # 1. Check for Force Refresh
+        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
+        
+        # Only use cache when fetching ALL topics (no filter applied) and NO force refresh
+        if not force_refresh and request.query_params.get('chapter'):
             queryset = self.filter_queryset(self.get_queryset())
             page = self.paginate_queryset(queryset)
             if page is not None:
@@ -352,6 +364,7 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                 return self.get_paginated_response(serializer.data)
             serializer = self.get_serializer(queryset, many=True)
             return response.Response(serializer.data)
+            
         return super().list(request, *args, **kwargs)
 
 class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
@@ -359,7 +372,12 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     serializer_class = SubTopicSerializer
 
     def get_queryset(self):
-        queryset = SubTopic.objects.select_related('topic').all().order_by('-created_at')
+        queryset = SubTopic.objects.select_related(
+            'topic', 
+            'topic__chapter', 
+            'topic__class_level', 
+            'topic__subject'
+        ).all().order_by('-created_at')
         topic_id = self.request.query_params.get('topic', None)
         chapter_id = self.request.query_params.get('chapter', None)
         if topic_id:
@@ -440,8 +458,11 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 
 
     def list(self, request, *args, **kwargs):
-        # Only use cache when fetching ALL subtopics (no filter applied)
-        if request.query_params.get('topic') or request.query_params.get('chapter'):
+        # 1. Check for Force Refresh
+        force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
+        
+        # Only use cache when fetching ALL subtopics (no filter applied) and NO force refresh
+        if not force_refresh and (request.query_params.get('topic') or request.query_params.get('chapter')):
             queryset = self.filter_queryset(self.get_queryset())
             page = self.paginate_queryset(queryset)
             if page is not None:
@@ -449,6 +470,7 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                 return self.get_paginated_response(serializer.data)
             serializer = self.get_serializer(queryset, many=True)
             return response.Response(serializer.data)
+            
         return super().list(request, *args, **kwargs)
 
 class TeacherViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):

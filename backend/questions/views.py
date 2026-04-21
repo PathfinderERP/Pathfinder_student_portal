@@ -329,7 +329,9 @@ class QuestionImageViewSet(viewsets.ModelViewSet):
         return super().get_object()
 
     def get_queryset(self):
-        queryset = QuestionImage.objects.all()
+        queryset = QuestionImage.objects.select_related(
+            'class_level', 'subject', 'topic', 'exam_type', 'target_exam'
+        ).all()
         class_id = self.request.query_params.get('class_level', None)
         subject_id = self.request.query_params.get('subject', None)
         topic_id = self.request.query_params.get('topic', None)
