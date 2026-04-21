@@ -252,7 +252,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                                     </td>
                                 </tr>
                             ) : paginatedTests.length > 0 ? paginatedTests.map((test) => (
-                                <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                                <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'}`}>
                                     <td className="py-8 px-8">
                                         <div className="flex items-center gap-4">
                                             <div className={`p-3 rounded-[5px] ${isDarkMode ? 'bg-white/5 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
@@ -336,7 +336,7 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                 </div>
 
                 {/* Pagination Controls */}
-                <div className={`p-6 border-t flex flex-col md:flex-row justify-between items-center gap-6 ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
+                <div className={`p-6 border-t flex flex-col md:flex-row justify-between items-center gap-6 ${isDarkMode ? 'border-white/5 bg-white/2' : 'border-slate-100 bg-slate-50/50'}`}>
                     <div className="flex items-center gap-4">
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Rows per page:</span>
                         <select

@@ -340,7 +340,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
                 </div>
 
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-2000 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className={`w-full max-w-lg rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
                             <div className="bg-orange-500 p-8 flex justify-between items-center text-white">
                                 <h3 className="text-xl font-black uppercase tracking-tight">{isEditing ? 'Edit Test' : 'Add New Test'}</h3>
@@ -430,7 +430,7 @@ const TestManagement = ({ packageData, examTypes, onBack }) => {
 
                 {/* Test Picker Modal */}
                 {isPickerOpen && (
-                    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-2000 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className={`w-full max-w-2xl rounded-[5px] shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#1A1F2B]' : 'bg-white'}`}>
                             <div className="bg-green-600 p-8 flex justify-between items-center text-white">
                                 <h3 className="text-xl font-black uppercase tracking-tight">Assign Existing Test</h3>

@@ -21,18 +21,18 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
             {/* Profile Hero - Premium Edition */}
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`p-10 rounded-2xl border relative overflow-hidden shadow-2xl transition-all duration-700
-                    ${isDarkMode 
-                        ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40' 
-                        : 'bg-gradient-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200'}`}
+                    ${isDarkMode
+                        ? 'bg-linear-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40'
+                        : 'bg-linear-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200'}`}
             >
                 {/* Decorative Background Elements */}
                 <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
                 <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-orange-500/5 rounded-full blur-3xl pointer-events-none"></div>
-                
+
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-center gap-3">
@@ -53,8 +53,8 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                             Secured digital identity for academic access and administration. All records are cryptographically verified by the central ERP system.
                         </p>
                     </div>
-                    
-                    <button 
+
+                    <button
                         onClick={handleRefresh}
                         disabled={isActuallyRefreshing}
                         className={`group p-4 rounded-2xl border backdrop-blur-xl transition-all active:scale-95 flex items-center gap-3
@@ -69,7 +69,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
             </motion.div>
 
             {/* Enhanced Profile Header Card */}
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={`p-10 rounded-2xl border shadow-2xl relative overflow-hidden transition-all duration-500 group
@@ -78,14 +78,14 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
                 <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                     <div className="relative">
-                        <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-5xl shadow-2xl ring-4 ring-indigo-500/20 group-hover:scale-105 transition-transform duration-700">
+                        <div className="w-32 h-32 rounded-2xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-5xl shadow-2xl ring-4 ring-indigo-500/20 group-hover:scale-105 transition-transform duration-700">
                             {(details.studentName || 'S').charAt(0).toUpperCase()}
                         </div>
                         <div className="absolute -bottom-2 -right-2 bg-emerald-500 p-2 rounded-xl shadow-lg border-4 border-white dark:border-[#10141D]">
                             <ShieldCheck size={20} className="text-white" />
                         </div>
                     </div>
-                    
+
                     <div className="flex-1 text-center md:text-left space-y-4">
                         <h2 className={`text-3xl md:text-4xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
                             {details.studentName || 'Student Name'}
@@ -111,7 +111,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
             {/* Grid for Personal & Guardian Info */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {/* Personal Information */}
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
@@ -142,8 +142,8 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                 {/* Guardian & Support Information */}
                 <div className="space-y-8 flex flex-col">
                     {guardians.length > 0 ? guardians.map((guardian, idx) => (
-                        <motion.div 
-                            key={idx} 
+                        <motion.div
+                            key={idx}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 + (idx * 0.1) }}
@@ -156,7 +156,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                                 </div>
                                 Guardian Protocol
                             </h3>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
                                 <InfoField label="Full Name" value={guardian.guardianName} icon={User} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                                 <InfoField label="Relationship" value={guardian.relation || 'Parent / Guardian'} icon={Users} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
@@ -170,8 +170,8 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                         </motion.div>
                     )) : (
                         <div className={`p-10 rounded-2xl border border-dashed flex flex-col items-center justify-center opacity-20 ${isDarkMode ? 'border-white/10' : 'border-slate-300'}`}>
-                             <ShieldCheck size={48} className="mb-4" />
-                             <p className="text-xs font-black uppercase tracking-widest text-center px-4">No Guardian Protocols Detected in Core Database</p>
+                            <ShieldCheck size={48} className="mb-4" />
+                            <p className="text-xs font-black uppercase tracking-widest text-center px-4">No Guardian Protocols Detected in Core Database</p>
                         </div>
                     )}
 
@@ -201,7 +201,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
 
             {/* Academic Records High-End Table */}
             {examSchema.length > 0 && (
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
@@ -215,7 +215,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                     </h3>
                     <div className="grid grid-cols-1 gap-6">
                         {examSchema.map((exam, idx) => (
-                            <div key={idx} className={`group p-8 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:border-emerald-500/30' : 'bg-slate-50 border-slate-100 hover:border-emerald-200 shadow-sm'}`}>
+                            <div key={idx} className={`group p-8 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/2 border-white/5 hover:border-emerald-500/30' : 'bg-slate-50 border-slate-100 hover:border-emerald-200 shadow-sm'}`}>
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
                                     <InfoField label="Exam Instance" value={exam.examName} icon={BookOpen} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="emerald" />
                                     <InfoField label="Classification" value={exam.class === 'ALL CLASS' ? 'N/A' : exam.class} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="emerald" />
@@ -230,7 +230,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
             )}
 
             {/* Course & Admission Section */}
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
@@ -260,7 +260,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
             </motion.div>
 
             {/* Financial Ledger Section */}
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
@@ -278,14 +278,14 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                         <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${isDarkMode ? 'text-white/40' : 'text-slate-500'}`}>Cumulative Fees</p>
                         <p className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>₹{Math.round(studentData?.totalFees || 0).toLocaleString()}</p>
                     </div>
-                    <div className={`p-8 rounded-2xl border relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-xl shadow-emerald-500/20`}>
+                    <div className={`p-8 rounded-2xl border relative overflow-hidden bg-linear-to-br from-emerald-500 to-teal-700 text-white shadow-xl shadow-emerald-500/20`}>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Secured Payments</p>
                         <p className="text-3xl font-black">₹{Math.round(studentData?.totalPaidAmount || 0).toLocaleString()}</p>
                         <div className="absolute -right-8 -bottom-8 opacity-10 rotate-12">
                             <CheckCircle size={100} />
                         </div>
                     </div>
-                    <div className={`p-8 rounded-2xl border relative overflow-hidden bg-gradient-to-br from-rose-500 to-red-700 text-white shadow-xl shadow-red-500/20`}>
+                    <div className={`p-8 rounded-2xl border relative overflow-hidden bg-linear-to-br from-rose-500 to-red-700 text-white shadow-xl shadow-red-500/20`}>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-70">Outstanding Dues</p>
                         <p className="text-3xl font-black">₹{Math.round(studentData?.remainingAmount || 0).toLocaleString()}</p>
                         <div className="absolute -right-8 -bottom-8 opacity-10 rotate-12">
@@ -326,7 +326,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
 
 const InfoField = ({ label, value, icon: Icon, isDark, isFullWidth = false, isSyncing = false, accent = 'indigo' }) => {
     const showSkeleton = value === 'Syncing...' || (isSyncing && (!value || value === '—'));
-    
+
     const accentColors = {
         indigo: 'text-indigo-500 bg-indigo-500/10',
         orange: 'text-orange-500 bg-orange-500/10',

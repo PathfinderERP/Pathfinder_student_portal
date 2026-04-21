@@ -417,8 +417,8 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             {/* Premium Dynamic Header - Midnight Navy Edition */}
             <div className={`relative overflow-hidden rounded-[5px] border shadow-2xl transition-all duration-700 p-8 sm:p-12 mb-10
                 ${isDarkMode
-                    ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40'
-                    : 'bg-gradient-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200 shadow-slate-900/10'}`}>
+                    ? 'bg-linear-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40'
+                    : 'bg-linear-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200 shadow-slate-900/10'}`}>
 
                 {/* Decorative Background Elements */}
                 <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
@@ -434,7 +434,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-400 font-brand">Student Intelligence Hub</span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-[1.05] mb-4 antialiased font-brand">
-                            Welcome Back, <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{(student?.studentName || "Student").split(' ')[0]}!</span>
+                            Welcome Back, <span className="bg-linear-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{(student?.studentName || "Student").split(' ')[0]}!</span>
                         </h1>
                         <p className="text-sm sm:text-base md:text-lg font-medium text-white/70 max-w-xl leading-relaxed">
                             Your comprehensive learning snapshot is ready. We've analyzed your progress and prepared <span className="text-white font-bold underline decoration-orange-500/50 underline-offset-4">AI-powered insights</span> for your goals today.
@@ -462,7 +462,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                             <div className={`flex items-center gap-4 px-6 py-4 rounded-[4px] min-w-[280px]
                                 ${isDarkMode ? 'bg-slate-900/40' : 'bg-white/5'}`}>
                                 <div className="relative">
-                                    <div className="w-16 h-16 rounded-[5px] bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-black text-white shadow-lg ring-4 ring-white/10">
+                                    <div className="w-16 h-16 rounded-[5px] bg-linear-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-black text-white shadow-lg ring-4 ring-white/10">
                                         {(student?.studentName || "S").match(/\b(\w)/g)?.join('').slice(0, 2) || "S"}
                                     </div>
                                     <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-[#1E3A8A] flex items-center justify-center shadow-md">

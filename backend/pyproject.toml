@@ -3,7 +3,7 @@ name = "backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9,<3.10"
+requires-python = ">=3.10"
 dependencies = [
     "django>=4.1.13",
     "django-cors-headers>=4.5.0",

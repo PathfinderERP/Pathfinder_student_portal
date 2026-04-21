@@ -22,7 +22,7 @@ class ERPStudentBackend(BaseBackend):
         if password:
             password = password.strip()
 
-        print(f"🔐 Attempting ERP Student Login for: {username}")
+        print(f"[AUTH] Attempting ERP Student Login for: {username}")
         erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in')
         
         # Check if local user exists (can be username or email)
@@ -31,15 +31,15 @@ class ERPStudentBackend(BaseBackend):
         try:
             local_user = CustomUser.objects.filter(Q(username=username) | Q(email=username)).first()
             if local_user:
-                print(f"✓ Found local user: {local_user.username}, type: {local_user.user_type}, active: {local_user.is_active}")
+                print(f"[OK] Found local user: {local_user.username}, type: {local_user.user_type}, active: {local_user.is_active}")
                 # If user exists but is NOT a student, skip ERP validation
                 if local_user.user_type != 'student':
-                    print(f"→ User {local_user.username} is not a student, skipping ERP validation (letting ModelBackend handle)")
+                    print(f"[->] User {local_user.username} is not a student, skipping ERP validation (letting ModelBackend handle)")
                     return None  # Let ModelBackend handle admin/staff
             else:
-                print(f"ℹ No local user found for {username}, will create if ERP validates")
+                print(f"[INFO] No local user found for {username}, will create if ERP validates")
         except Exception as e:
-            print(f"⚠ Error searching for local user: {e}")
+            print(f"[WARN] Error searching for local user: {e}")
             pass
 
         try:
@@ -54,7 +54,7 @@ class ERPStudentBackend(BaseBackend):
                 try:
                     user = CustomUser.objects.get(pk=cached_user_pk)
                     if user.is_active:
-                        print(f"✓ ERP Auth BYPASS: Found recent success cache for {username}")
+                        print(f"[OK] ERP Auth BYPASS: Found recent success cache for {username}")
                         return user
                 except:
                     pass
@@ -76,7 +76,7 @@ class ERPStudentBackend(BaseBackend):
                 student_data = data.get('student', {})
                 
                 if erp_token:
-                    print(f"✓ ERP Login Successful for {username}")
+                    print(f"[OK] ERP Login Successful for {username}")
                     
                     # Extract Name if available
                     first_name = 'Student'
@@ -112,7 +112,7 @@ class ERPStudentBackend(BaseBackend):
                     erp_sid = student_data.get('_id')
                     if erp_sid and user.erp_student_id != erp_sid:
                         user.erp_student_id = erp_sid
-                        print(f"✓ Saved ERP Student ID: {erp_sid}")
+                        print(f"[OK] Saved ERP Student ID: {erp_sid}")
 
                     # Perform full sync from student_data
                     try:
@@ -134,9 +134,9 @@ class ERPStudentBackend(BaseBackend):
                                 user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
                         
                         user.save()
-                        print(f"✓ Fully synced {username} from ERP login response")
+                        print(f"[OK] Fully synced {username} from ERP login response")
                     except Exception as e:
-                        print(f"⚠ Minor error during login sync for {username}: {e}")
+                        print(f"[WARN] Minor error during login sync for {username}: {e}")
 
                     # CACHE THE FULL ERP RESPONSE for the profile view
                     # IMPORTANT: We must reshape the login response to perfectly match 
@@ -155,12 +155,12 @@ class ERPStudentBackend(BaseBackend):
                     
                     student_cache_key = f"erp_student_data_v6_{user.pk}"
                     cache.set(student_cache_key, formatted_cache, timeout=3600)  # 1 hour
-                    print(f"✓ Cached reshaped rich ERP profile data for {username}")
+                    print(f"[OK] Cached reshaped rich ERP profile data for {username}")
 
                     # CACHE THE TOKEN for use in other views
                     cache_key = f"erp_token_{user.pk}"
                     cache.set(cache_key, erp_token, timeout=604800)  # 7 days (to survive long sessions)
-                    print(f"✓ Cached ERP token for user {user.pk}")
+                    print(f"[OK] Cached ERP token for user {user.pk}")
                     
                     # Cache the success to avoid hitting ERP repeatedly within 5 mins
                     import hashlib
@@ -178,7 +178,7 @@ class ERPStudentBackend(BaseBackend):
                 except:
                     error_message = resp.text[:200] if resp.text else f"HTTP {resp.status_code}"
                 
-                print(f"✗ ERP Login Failed: {resp.status_code} - {error_message}")
+                print(f"[FAIL] ERP Login Failed: {resp.status_code} - {error_message}")
                 
                 # Determine the reason for failure
                 is_deactivated = False
@@ -193,24 +193,24 @@ class ERPStudentBackend(BaseBackend):
                 if 'account has been deactivated' in error_lower or 'contact administration' in error_lower:
                     is_deactivated = True
                     user_facing_message = error_message  # Use ERP's exact message
-                    print(f"⚠ Student {username} is DEACTIVATED in ERP (account deactivated by admin)")
+                    print(f"[WARN] Student {username} is DEACTIVATED in ERP (account deactivated by admin)")
                 elif 'inactive' in error_lower or 'disabled' in error_lower or 'suspended' in error_lower:
                     is_deactivated = True
                     user_facing_message = "Your account has been deactivated. Please contact administration."
-                    print(f"⚠ Student {username} is DEACTIVATED in ERP")
+                    print(f"[WARN] Student {username} is DEACTIVATED in ERP")
                 elif 'not found' in error_lower or 'does not exist' in error_lower or resp.status_code == 404:
                     is_deleted = True
                     user_facing_message = "No active account found with the given credentials"
-                    print(f"⚠ Student {username} NOT FOUND in ERP (deleted)")
+                    print(f"[WARN] Student {username} NOT FOUND in ERP (deleted)")
                 elif 'invalid' in error_lower and ('password' in error_lower or 'credential' in error_lower):
                     is_wrong_password = True
                     user_facing_message = "No active account found with the given credentials"
-                    print(f"⚠ Invalid credentials for {username}")
+                    print(f"[WARN] Invalid credentials for {username}")
                 elif resp.status_code == 401:
                     # Generic 401 - likely wrong password
                     is_wrong_password = True
                     user_facing_message = "No active account found with the given credentials"
-                    print(f"⚠ Authentication failed for {username} (likely wrong password)")
+                    print(f"[WARN] Authentication failed for {username} (likely wrong password)")
                 
                 # Cache the error message for the serializer to retrieve
                 # Only cache if this was actually a student attempting ERP login
@@ -224,12 +224,12 @@ class ERPStudentBackend(BaseBackend):
                     if is_deactivated or is_deleted:
                         # Student is deactivated or deleted in ERP - deactivate locally
                         reason = "deactivated by ERP admin" if is_deactivated else "deleted from ERP"
-                        print(f"⚠ Deactivating local student account {username} ({reason})")
+                        print(f"[WARN] Deactivating local student account {username} ({reason})")
                         local_user.is_active = False
                         local_user.save()
                     elif is_wrong_password:
                         # Just wrong password - don't deactivate account
-                        print(f"ℹ Wrong password for {username}, account remains active")
+                        print(f"[INFO] Wrong password for {username}, account remains active")
                         # Could implement login attempt tracking here
                 
                 return None
@@ -242,7 +242,7 @@ class ERPStudentBackend(BaseBackend):
                 cache_key = f"erp_token_{local_user.pk}"
                 cached_token = cache.get(cache_key)
                 if cached_token:
-                    print(f"⚠ ERP unreachable, allowing login with cached credentials")
+                    print(f"[WARN] ERP unreachable, allowing login with cached credentials")
                     return local_user
             return None
             
@@ -270,16 +270,16 @@ class ERPTeacherBackend(BaseBackend):
         if password:
             password = password.strip()
 
-        print(f"👨‍🏫 Attempting ERP Teacher Login for: {username}")
+        print(f"[TEACHER] Attempting ERP Teacher Login for: {username}")
         erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in')
 
         local_user = None
         try:
             local_user = CustomUser.objects.filter(Q(username=username) | Q(email=username)).first()
             if local_user and local_user.user_type not in ['teacher', 'faculty']:
-                print(f"→ User {username} exists as {local_user.user_type}. Proceeding with ERP teacher validation.")
+                print(f"[->] User {username} exists as {local_user.user_type}. Proceeding with ERP teacher validation.")
         except Exception as e:
-            print(f"⚠ Error searching for local teacher: {e}")
+            print(f"[WARN] Error searching for local teacher: {e}")
 
         try:
             # Payload for standard Teacher Login
@@ -301,7 +301,7 @@ class ERPTeacherBackend(BaseBackend):
                 data = resp.json()
                 erp_token = data.get('token')
                 employee_data = data.get('employee') or data.get('user') or {}
-                print(f"✓ ERP Teacher Login Successful for {username}")
+                print(f"[OK] ERP Teacher Login Successful for {username}")
             
             # Step 2: Presence-Based Authentication (Verification via Admin Token)
             # If standard login fails, we check if the teacher exists with Email and Employee ID
@@ -334,7 +334,7 @@ class ERPTeacherBackend(BaseBackend):
                                     
                                     if t_email == username and t_code == password:
                                         found_teacher = t
-                                        print(f"✓ ERP Presence Match: Found {username} with code {password}")
+                                        print(f"[OK] ERP Presence Match: Found {username} with code {password}")
                                         break
                             if found_teacher: break
                         except Exception as e:
@@ -345,7 +345,7 @@ class ERPTeacherBackend(BaseBackend):
                         # We use the admin token as a fallback or simply create a local token
                         erp_token = admin_token 
                     else:
-                        print(f"✗ Teacher {username} not found in ERP with the provided ID.")
+                        print(f"[FAIL] Teacher {username} not found in ERP with the provided ID.")
             
             if erp_token and employee_data:
                 # Update or Create Local User
@@ -393,7 +393,7 @@ class ERPTeacherBackend(BaseBackend):
                 except:
                     pass
                 
-                print(f"✗ ERP Teacher Login Failed for {username}: {error_message}")
+                print(f"[FAIL] ERP Teacher Login Failed for {username}: {error_message}")
                 
                 # Cache error for display
                 error_cache_key = f"auth_error_{username}"
@@ -434,13 +434,13 @@ class LocalUserBackend(BaseBackend):
             if user and user.user_type != 'student':
                 if user.check_password(password):
                     if user.is_active:
-                        print(f"✓ Local Login Successful for {user.username} ({user.user_type})")
+                        print(f"[OK] Local Login Successful for {user.username} ({user.user_type})")
                         return user
                     else:
-                        print(f"✗ Local Login Failed: Account {user.username} is inactive")
+                        print(f"[FAIL] Local Login Failed: Account {user.username} is inactive")
             return None
         except Exception as e:
-            print(f"⚠ Local Auth Error: {e}")
+            print(f"[WARN] Local Auth Error: {e}")
             return None
 
     def get_user(self, user_id):

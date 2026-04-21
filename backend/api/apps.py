@@ -13,9 +13,8 @@ class ApiConfig(AppConfig):
         try:
             from djongo_patch import apply_djongo_patches
             apply_djongo_patches()
-            print("[PATCH] Djongo cursor patches applied in api.apps.ready()")
-        except Exception as e:
-            print(f"[PATCH ERROR] Failed to apply Djongo patches: {e}")
+        except Exception:
+            pass
 
         # Database connection check for local development
         if 'runserver' in sys.argv or 'gunicorn' in sys.argv:
@@ -38,7 +37,7 @@ class ApiConfig(AppConfig):
             
             # Use filter().all() to avoid any potential MultipleObjectsReturned during the lookup itself
             # Though .all() is safe.
-            print("[CLEANUP] Checking for duplicate users...")
+            # print("[CLEANUP] Checking for duplicate users...")
             all_usernames = list(CustomUser.objects.values_list('username', flat=True))
             counts = Counter(all_usernames)
             duplicates = [name for name, count in counts.items() if count > 1 and name]
@@ -54,7 +53,7 @@ class ApiConfig(AppConfig):
                         print(f"  [CLEANUP] Deleting duplicate user: {username} (ID: {dupe.pk})")
                         dupe.delete()
                 print("[CLEANUP] Deduplication finished.")
-            else:
-                print("[CLEANUP] No duplicate users found.")
+            # else:
+            #     print("[CLEANUP] No duplicate users found.")
         except Exception as e:
             print(f"[CLEANUP ERROR] Proactive cleanup failed: {e}")

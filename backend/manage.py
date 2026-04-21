@@ -2,6 +2,11 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+import warnings
+
+# Suppress FutureWarnings from third-party libraries (Google, etc.)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*google.generativeai.*")
 
 # Fixed DNS SRV resolution for MongoDB Atlas
 try:

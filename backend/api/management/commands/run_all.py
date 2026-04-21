@@ -24,12 +24,25 @@ class Command(BaseCommand):
         
         current_python = venv_path if os.path.exists(venv_path) else sys.executable
 
-        self.stdout.write(self.style.SUCCESS('🚀 Initiating Pathfinder Multi-Server Launch Sequence...'))
+        self.stdout.write(self.style.SUCCESS('[*] Initiating Pathfinder Multi-Server Launch Sequence...'))
         self.stdout.write(self.style.MIGRATE_LABEL(f'Python: {current_python}'))
 
         # 2. Launch Node.js Server
         def run_node():
             self.stdout.write(self.style.MIGRATE_LABEL(f'Starting Chat Server in {chat_server_dir}...'))
+            
+            # Auto-clear port 4000 to prevent EADDRINUSE
+            if sys.platform == 'win32':
+                try:
+                    # Find PID on port 4000 and kill it
+                    result = subprocess.check_output('netstat -ano | findstr :4000', shell=True).decode()
+                    pids = {line.split()[-1] for line in result.strip().split('\n') if 'LISTENING' in line}
+                    for pid in pids:
+                        self.stdout.write(self.style.WARNING(f'[FIX] Clearing port 4000 (PID {pid})...'))
+                        subprocess.run(f'taskkill /F /PID {pid}', shell=True, capture_output=True)
+                except Exception:
+                    pass
+
             try:
                 # Use shell=True for Windows compatibility with npm
                 subprocess.run(['npm', 'start'], cwd=chat_server_dir, shell=True)

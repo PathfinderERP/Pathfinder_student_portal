@@ -359,7 +359,7 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                                 const allottedTestsCount = localCentre ? tests.filter(t => t.centres?.includes(localCentre.id)).length : 0;
 
                                 return (
-                                    <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-white shadow-sm'} transition-all duration-300`}>
+                                    <tr key={i} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-white shadow-sm'} transition-all duration-300`}>
                                         <td className="py-6 px-4"><span className="text-[10px] font-black opacity-30">{(i + 1).toString().padStart(2, '0')}</span></td>
                                         <td className="py-6 px-4">
                                             <div className="flex items-center gap-4">

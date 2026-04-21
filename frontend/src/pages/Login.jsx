@@ -58,7 +58,7 @@ const Login = () => {
             <div className="flex h-full relative">
 
                 {/* Left Side - Branding & Info */}
-                <div className={`hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#FF6B35] via-[#FF8C42] to-[#FFA500] transition-transform duration-700 ease-in-out z-20 ${isSwapped ? 'translate-x-full' : 'translate-x-0'}`}>
+                <div className={`hidden lg:flex lg:w-1/2 relative overflow-hidden bg-linear-to-br from-[#FF6B35] via-[#FF8C42] to-[#FFA500] transition-transform duration-700 ease-in-out z-20 ${isSwapped ? 'translate-x-full' : 'translate-x-0'}`}>
                     {/* Background Image */}
                     <div
                         className="absolute inset-0 bg-cover bg-center opacity-20"
@@ -177,14 +177,14 @@ const Login = () => {
                     {/* Form Container - Glassmorphism Edition */}
                     <div className="relative z-10 w-full max-w-[400px] animate-fade-in-up">
                         {/* Interactive Glow Behind Card */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-[#FF6B35] to-[#FFA500] rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                        <div className="absolute -inset-1 bg-linear-to-r from-[#FF6B35] to-[#FFA500] rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
 
-                        <div className="relative bg-white/70 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-8 border border-white/40 transition-all duration-500 hover:shadow-[0_20px_60px_rgba(255,107,53,0.15)] group">
+                        <div className="relative bg-white/70 backdrop-blur-2xl rounded-4xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] p-8 border border-white/40 transition-all duration-500 hover:shadow-[0_20px_60px_rgba(255,107,53,0.15)] group">
 
                             {/* Header with Icon */}
                             <div className="text-center mb-6 relative">
-                                <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-xl shadow-orange-500/10 border border-white/50 mb-3 transform hover:rotate-[360deg] hover:scale-110 transition-all duration-700 overflow-hidden p-3 relative group/logo">
-                                    <div className="absolute inset-0 bg-gradient-to-tr from-orange-50 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity"></div>
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-xl shadow-orange-500/10 border border-white/50 mb-3 transform hover:rotate-360 hover:scale-110 transition-all duration-700 overflow-hidden p-3 relative group/logo">
+                                    <div className="absolute inset-0 bg-linear-to-tr from-orange-50 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity"></div>
                                     <img
                                         src="/images/icon/favicon.svg"
                                         alt="Pathfinder Logo"
@@ -193,7 +193,7 @@ const Login = () => {
                                 </div>
                                 <h2 className="text-2xl font-black tracking-tight text-[#5C2E1F] mb-1">Sign In</h2>
                                 <div className="flex justify-center">
-                                    <div className="h-1 w-10 bg-gradient-to-r from-[#FF6B35] to-transparent rounded-full mb-1"></div>
+                                    <div className="h-1 w-10 bg-linear-to-r from-[#FF6B35] to-transparent rounded-full mb-1"></div>
                                 </div>
                                 <p className="text-slate-500 text-xs font-semibold mt-1">Ready to continue your journey?</p>
                             </div>
@@ -270,7 +270,7 @@ const Login = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full group/btn relative overflow-hidden bg-gradient-to-r from-[#FF6B35] to-[#FF8C42] p-3 rounded-xl shadow-xl shadow-orange-500/30 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-500/40 active:scale-[0.99] disabled:opacity-70 mt-3"
+                                    className="w-full group/btn relative overflow-hidden bg-linear-to-r from-[#FF6B35] to-[#FF8C42] p-3 rounded-xl shadow-xl shadow-orange-500/30 transform transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-500/40 active:scale-[0.99] disabled:opacity-70 mt-3"
                                 >
                                     <div className="relative z-10 flex items-center justify-center gap-2">
                                         {isLoading ? (
@@ -282,7 +282,7 @@ const Login = () => {
                                             </>
                                         )}
                                     </div>
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shine"></div>
+                                    <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shine"></div>
                                 </button>
                             </form>
 

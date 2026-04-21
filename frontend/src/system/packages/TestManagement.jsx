@@ -119,7 +119,7 @@ const TestManagement = ({ packageData, onBack }) => {
                         </thead>
                         <tbody className="divide-y divide-transparent">
                             {filteredTests.length > 0 ? filteredTests.map((test, index) => (
-                                <tr key={test.id || test._id} className={`group transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                                <tr key={test.id || test._id} className={`group transition-colors ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'}`}>
                                     <td className="py-4 px-4 text-sm font-bold opacity-40">{index + 1}</td>
                                     <td className="py-4 px-4 text-sm font-black text-center">{test.name}</td>
                                     <td className="py-4 px-4 text-sm font-bold opacity-70 text-center">{test.code}</td>

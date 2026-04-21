@@ -89,15 +89,15 @@ const LiveClassRegistry = () => {
                 axios.get(`${apiUrl}/api/master-data/master-sections/`),
                 axios.get(`${apiUrl}/api/packages/`)
             ]);
-            
+
             // Handle MasterSection API (Array, {results: []}, or {sections: []})
             const secData = secRes.data;
             setSections(
-                Array.isArray(secData) ? secData : 
-                (Array.isArray(secData?.results) ? secData.results : 
-                (Array.isArray(secData?.sections) ? secData.sections : []))
+                Array.isArray(secData) ? secData :
+                    (Array.isArray(secData?.results) ? secData.results :
+                        (Array.isArray(secData?.sections) ? secData.sections : []))
             );
-            
+
             setSessions(sessRes.data);
             setClasses(classRes.data);
             setSubjects(subRes.data);
@@ -632,7 +632,7 @@ const LiveClassRegistry = () => {
 
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
                     <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center">
                             <div className="flex items-center gap-3">

@@ -188,9 +188,9 @@ def apply_djongo_patches():
             encoders.JSONEncoder._is_patched = True
     except ImportError: pass
 
-    # 7. Final initialization success log
-    if sys.stdout and sys.stdout.isatty():
-        print("[PATCH] Djongo cursor patches applied.")
+    # 7. Final initialization success log (silenced)
+    # if sys.stdout and sys.stdout.isatty():
+    #     print("[PATCH] Djongo cursor patches applied.")
 
 if __name__ == "__main__":
     apply_djongo_patches()
