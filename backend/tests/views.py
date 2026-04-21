@@ -343,9 +343,10 @@ class TestViewSet(viewsets.ModelViewSet):
                         })
             except Exception as e:
                 print(f"PyMongo bypass error in 'centres': {e}")
-        
+        # +++
         # Build ERP index EARLY for O(1) performance
-        erp_index = get_student_lookup_index(force_refresh=force_refresh)
+        # PERFORMANCE: We never force synchronous ERP refresh here as it takes 13s+
+        erp_index = get_student_lookup_index(force_refresh=False)
 
         # 3. Identify Extra Centres (not allotted but have submissions)
         extra_centres = []
@@ -405,8 +406,17 @@ class TestViewSet(viewsets.ModelViewSet):
             else:
                 unassigned_sub_count += 1
 
-        # B. Assign Remaining Local Students (SINGLE BATCH LOOKUP to void N+1 issues)
-        all_students = CustomUser.objects.filter(user_type='student')
+        # B. Assign Remaining Local Students (Optimization: Filter by relevant centres to avoid O(N) scan)
+        target_codes = [str(c.code).strip() for c in all_target_centres if c.code]
+        target_names = [str(c.name).strip() for c in all_target_centres if c.name]
+        
+        # Build search lists with multiple casings just in case (for robustness)
+        search_codes = set(target_codes + [c.lower() for c in target_codes] + [c.upper() for c in target_codes])
+        search_names = set(target_names + [n.lower() for n in target_names] + [n.upper() for n in target_names])
+        
+        all_students = CustomUser.objects.filter(user_type='student').filter(
+            Q(centre_code__in=search_codes) | Q(centre_name__in=search_names)
+        )
         for s in all_students:
             s_c_code = (s.centre_code or '').lower().strip()
             s_c_name = (s.centre_name or '').lower().strip()
@@ -636,7 +646,8 @@ class TestViewSet(viewsets.ModelViewSet):
         sub_map = {str(s['pk']): s['doc'] for s in all_subs_list}
 
         # Build ERP index EARLY for O(1) performance
-        erp_index = get_student_lookup_index(force_refresh=force_refresh)
+        # PERFORMANCE: We never force synchronous ERP refresh here as it takes 13s+
+        erp_index = get_student_lookup_index(force_refresh=False)
 
         # Step A: Assigned Submitted Students
         for sub in all_subs_list:
@@ -1085,7 +1096,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
         from sections.models import Section
         # Use fresh query instead of prefetch to avoid caching/limit issues
-        sections = list(Section.objects.filter(allotted_tests=test).order_by('priority'))
+        sections = list(Section.objects.filter(test=test).order_by('priority'))
         # Build flat q_map and accumulation of max marks
         q_map = {} 
         sections_max = {}
@@ -2376,6 +2387,12 @@ class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
                 break
         allotment.access_code = code
         allotment.save()
+        
+        # Invalidate related test's centre allotment cache
+        from django.core.cache import cache
+        cache.delete(f"test_{allotment.test_id}_centers_full_v3")
+        cache.delete("admin_test_list") # Broad refresh as count might change
+        
         return Response({'code': code, 'history': allotment.code_history})
 
     @action(detail=True, methods=['post'])
@@ -2424,3 +2441,17 @@ Pathfinder Test Management System
             return Response({'message': f'Access code sent to {email}'})
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        from django.core.cache import cache
+        cache.delete(f"test_{instance.test_id}_centers_full_v3")
+        cache.delete("admin_test_list")
+
+    def perform_destroy(self, instance):
+        test_id = instance.test_id
+        instance.delete()
+        from django.core.cache import cache
+        cache.delete(f"test_{test_id}_centers_full_v3")
+        cache.delete("admin_test_list")
+

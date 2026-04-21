@@ -337,7 +337,8 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                             score: result.marks != null && result.total > 0 
                                 ? (result.marks / result.total) * 100 
                                 : (test.submission?.score ?? 0),
-                            rank: result.rank || test.submission?.rank || null
+                            rank: result.rank || test.submission?.rank || null,
+                            is_finalized: true
                         }
                     };
                 }

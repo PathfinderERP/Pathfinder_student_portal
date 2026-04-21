@@ -70,8 +70,8 @@ const TestAllotment = () => {
         try {
             const apiUrl = getApiUrl();
             const [testsRes, sessionsRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/tests/`, getAuthConfig()),
-                axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig())
+                axios.get(`${apiUrl}/api/tests/?${force ? 'refresh=true&' : ''}t=${new Date().getTime()}`, getAuthConfig()),
+                axios.get(`${apiUrl}/api/master-data/sessions/?t=${new Date().getTime()}`, getAuthConfig())
             ]);
 
             const testsData = Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []);
@@ -156,7 +156,7 @@ const TestAllotment = () => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/centres/`, getAuthConfig());
+            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/centres/?refresh=true&t=${new Date().getTime()}`, getAuthConfig());
             setModalAllotments(res.data || []);
         } catch (err) {
             console.error(err);

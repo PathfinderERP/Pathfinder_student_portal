@@ -263,7 +263,10 @@ class TestSerializer(serializers.ModelSerializer):
         view = self.context.get('view')
         action = getattr(view, 'action', None) if view else None
         if action in ['list', 'create', 'update', 'partial_update']:
-            return None
+            # PERFORMANCE: Staff see thousands of tests, so we omit submission info in list views.
+            # Students only see a few tests allotted to them, so we allow it for UI state.
+            if request.user.is_staff or getattr(request.user, 'user_type', '') != 'student':
+                return None
             
         # Optimization: Use PyMongo directly to bypass Djongo's SQL parser RecursionError (500)
         from api.db_utils import get_db

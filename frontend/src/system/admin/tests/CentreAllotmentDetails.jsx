@@ -48,7 +48,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/tests/${test.id}/centres/`, getAuthConfig());
+            const response = await axios.get(`${apiUrl}/api/tests/${test.id}/centres/?refresh=true&t=${new Date().getTime()}`, getAuthConfig());
             setAllotments(response.data);
         } catch (err) {
             console.error('Error fetching allotments:', err);
