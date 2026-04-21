@@ -324,7 +324,7 @@ const StudentDashboard = () => {
             case 'AI Insights':
                 return <AIInsights isDarkMode={isDarkMode} />;
             case 'Study Planner':
-                return <StudyPlanner isDarkMode={isDarkMode} />;
+                return <StudyPlanner isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Notice Board':
                 return <NoticeBoard isDarkMode={isDarkMode} />;
             case 'Nexus Hub':

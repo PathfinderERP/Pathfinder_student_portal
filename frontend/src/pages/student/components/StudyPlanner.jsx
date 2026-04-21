@@ -16,24 +16,34 @@ const COLLEGES = {
     other: ["Delhi University", "Presidency University", "Christ University", "Other College"]
 };
 
-const EXAMS = ["JEE Main", "JEE Advanced", "NEET UG", "WBJEE", "BITSAT", "CUET"];
-const CLASSES = ["Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "Dropper (Eng)", "Dropper (Med)"];
+const EXAMS = ["JEE Main", "JEE Advanced", "NEET UG", "WBJEE"];
 
-const StudyPlanner = ({ isDarkMode }) => {
+const StudyPlanner = ({ isDarkMode, studentData }) => {
     const { getApiUrl, token } = useAuth();
     const navigate = useNavigate();
-    
+
+    const studentClass = studentData?.class?.name || "N/A";
+
+    const CLASSES = [studentClass];
+
     // Application Flow State: 1: Setup, 2: Test, 3: College/Review, 4: AI Plan
     const [currentStep, setCurrentStep] = useState(1);
 
     // Form / Data States
-    const [profile, setProfile] = useState({ classLevel: 'Class 12', targetExam: 'JEE Main' });
-    
+    const [profile, setProfile] = useState({ classLevel: 'N/A', targetExam: 'JEE Main' });
+
+    // Auto-sync profile with student metadata on load
+    useEffect(() => {
+        if (studentData?.class?.name) {
+            setProfile(prev => ({ ...prev, classLevel: studentData.class.name }));
+        }
+    }, [studentData]);
+
     const [tests, setTests] = useState([]);
     const [loadingTests, setLoadingTests] = useState(false);
-    
-    const [testScores, setTestScores] = useState(null); 
-    
+
+    const [testScores, setTestScores] = useState(null);
+
     const [planConfig, setPlanConfig] = useState({
         targetCollege: 'IIT Bombay',
         dailyHours: 6
@@ -53,7 +63,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                 axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
             ]);
-            
+
             const testsData = testsRes.data || [];
             const resultsData = resultsRes.data || [];
 
@@ -64,8 +74,8 @@ const StudyPlanner = ({ isDarkMode }) => {
                         ...test,
                         submission: {
                             ...(test.submission || {}),
-                            score: result.marks != null && result.total > 0 
-                                ? (result.marks / result.total) * 100 
+                            score: result.marks != null && result.total > 0
+                                ? (result.marks / result.total) * 100
                                 : (test.submission?.score ?? 0),
                             rank: result.rank || test.submission?.rank || null,
                             is_finalized: result.is_finalized ?? true
@@ -91,11 +101,11 @@ const StudyPlanner = ({ isDarkMode }) => {
         const score = Math.floor(test.submission?.score || 0);
         setTestScores({
             total: score,
-            q1Score: score, 
-            q2Score: score, 
+            q1Score: score,
+            q2Score: score,
             q3Score: score
         });
-        setPlanConfig(prev => ({...prev, targetCollege: availableColleges[0]}));
+        setPlanConfig(prev => ({ ...prev, targetCollege: availableColleges[0] }));
         setCurrentStep(3);
     };
 
@@ -119,7 +129,7 @@ const StudyPlanner = ({ isDarkMode }) => {
             const response = await axios.post(`${apiUrl}/api/student/ai-mentor/study-plan/`, payload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (response.data && response.data.ai_plan) {
                 setAiPlan(response.data.ai_plan);
                 setCurrentStep(4);
@@ -158,7 +168,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                             <Database size={14} className="text-indigo-500" /> Deep Analytics Engine
                         </li>
                         <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            <Cpu size={14} className="text-orange-500" /> Gemini Pro Processing
+                            <Cpu size={14} className="text-emerald-500" /> Gemini Pro Processing
                         </li>
                         <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
                             <Network size={14} className="text-emerald-500" /> Neural Gap Detection
@@ -188,10 +198,10 @@ const StudyPlanner = ({ isDarkMode }) => {
     );
 
     const renderStep1 = () => (
-        <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar relative">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar relative">
             {/* Subtle Grid Background */}
             <div className={`absolute inset-0 pointer-events-none ${isDarkMode ? 'bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]' : 'bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px]'}`}></div>
-            
+
             <div className="max-w-5xl mx-auto space-y-10 relative z-10">
                 {/* Header Sequence Tracker */}
                 <div className="flex items-center justify-between mb-12">
@@ -227,25 +237,36 @@ const StudyPlanner = ({ isDarkMode }) => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-4">
+                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-6">
                             <GraduationCap size={16} /> Select Stage
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {CLASSES.map(cls => (
-                                <button key={cls} onClick={() => setProfile({...profile, classLevel: cls})} className={`p-3 rounded-[4px] border text-[11px] md:text-xs font-bold text-left transition-all ${profile.classLevel === cls ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : isDarkMode ? 'bg-white/5 border-white/5 hover:border-white/20 text-slate-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
-                                    {cls}
-                                </button>
-                            ))}
+                        
+                        <div className={`p-5 rounded-[4px] border relative overflow-hidden transition-all ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 flex-1 shadow-inner'}`}>
+                            <div className="absolute top-0 right-0 p-2">
+                                <div className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter shadow-lg">Verified Profile</div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white shadow-xl">
+                                    <span className="text-xl font-black">{profile.classLevel.split(' ').pop()}</span>
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                        {profile.classLevel}
+                                    </h4>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">Current Standing</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-orange-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500 mb-4">
+                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-emerald-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-4">
                             <Target size={16} /> Primary Objective
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                             {EXAMS.map(exam => (
-                                <button key={exam} onClick={() => setProfile({...profile, targetExam: exam})} className={`p-3 rounded-[4px] border text-[11px] md:text-xs font-bold text-left transition-all ${profile.targetExam === exam ? 'bg-orange-500 text-white border-orange-500 shadow-md' : isDarkMode ? 'bg-white/5 border-white/5 hover:border-white/20 text-slate-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
+                                <button key={exam} onClick={() => setProfile({ ...profile, targetExam: exam })} className={`p-3 rounded-[4px] border text-[11px] md:text-xs font-bold text-left transition-all ${profile.targetExam === exam ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : isDarkMode ? 'bg-white/5 border-white/5 hover:border-white/20 text-slate-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
                                     {exam}
                                 </button>
                             ))}
@@ -255,7 +276,7 @@ const StudyPlanner = ({ isDarkMode }) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                     <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
-                        <Zap size={16} className="text-orange-500 mb-3" />
+                        <Zap size={16} className="text-emerald-500 mb-3" />
                         <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Take Assessment Exam</h4>
                         <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>A short evaluation exam across core subjects to instantly map your current cognitive baseline.</p>
                     </div>
@@ -282,17 +303,17 @@ const StudyPlanner = ({ isDarkMode }) => {
 
     const renderStep2 = () => {
         return (
-            <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
                 <div className="max-w-4xl mx-auto">
                     <div className="flex items-center justify-between mb-8 border-b pb-4 border-slate-500/20">
                         <div className="flex items-center gap-3">
-                            <Activity className="text-orange-500" />
+                            <Activity className="text-emerald-500" />
                             <h3 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Evaluate Real Exams</h3>
                         </div>
                     </div>
 
                     <p className={`text-xs font-bold leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Choose an active exam set by the institution to establish your baseline, or analyze a previously completed exam to synthesize your master strategy. 
+                        Choose an active exam set by the institution to establish your baseline, or analyze a previously completed exam to synthesize your master strategy.
                         No exam codes are required for processing.
                     </p>
 
@@ -343,7 +364,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                                                             Analyze Result
                                                         </button>
                                                     ) : isAvailable ? (
-                                                        <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-orange-500 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow-md hover:shadow-orange-500/50">
+                                                        <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-emerald-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md hover:shadow-emerald-500/50">
                                                             Launch Exam
                                                         </button>
                                                     ) : (
@@ -365,12 +386,12 @@ const StudyPlanner = ({ isDarkMode }) => {
     };
 
     const renderStep3 = () => (
-        <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Results Header */}
                 <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'} relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
-                    
+
                     <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                         <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline outline-2 outline-offset-4 outline-indigo-500/50">
                             <span className="text-4xl font-black">{testScores?.total}%</span>
@@ -398,13 +419,13 @@ const StudyPlanner = ({ isDarkMode }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
                         <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            <Target size={18} className="text-orange-500" /> Target Destination
+                            <Target size={18} className="text-emerald-500" /> Target Destination
                         </h3>
                         <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-2">
                             {availableColleges.map(college => (
                                 <button
                                     key={college}
-                                    onClick={() => setPlanConfig({...planConfig, targetCollege: college})}
+                                    onClick={() => setPlanConfig({ ...planConfig, targetCollege: college })}
                                     className={`w-full p-4 rounded-[4px] text-left text-xs font-bold border transition-all ${planConfig.targetCollege === college ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : isDarkMode ? 'border-white/10 hover:border-white/20 text-slate-400' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-600'}`}
                                 >
                                     {college}
@@ -420,14 +441,14 @@ const StudyPlanner = ({ isDarkMode }) => {
                             </h3>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Self-study hours per day</p>
                         </div>
-                        
+
                         <div className={`p-6 rounded-[4px] border flex flex-col items-center justify-center flex-1 my-4 ${isDarkMode ? 'bg-[#0a0d14] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
                             <span className={`text-5xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{planConfig.dailyHours}</span>
                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Hours</span>
-                            <input 
-                                type="range" min="1" max="16" step="0.5" 
+                            <input
+                                type="range" min="1" max="16" step="0.5"
                                 value={planConfig.dailyHours}
-                                onChange={(e) => setPlanConfig({...planConfig, dailyHours: e.target.value})}
+                                onChange={(e) => setPlanConfig({ ...planConfig, dailyHours: e.target.value })}
                                 className="w-full max-w-[200px] mt-6 accent-indigo-500"
                             />
                         </div>
@@ -440,7 +461,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                         disabled={aiLoading}
                         className="px-8 py-4 bg-white text-slate-900 rounded-[4px] font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all flex justify-center items-center gap-3 disabled:opacity-50"
                     >
-                        {aiLoading ? <Loader2 className="animate-spin text-indigo-600" /> : <Sparkles className="text-orange-500" />}
+                        {aiLoading ? <Loader2 className="animate-spin text-indigo-600" /> : <Sparkles className="text-emerald-500" />}
                         {aiLoading ? 'Synthesizing Trajectory...' : 'Generate AI Master Strategy'}
                     </button>
                 </div>
@@ -449,7 +470,7 @@ const StudyPlanner = ({ isDarkMode }) => {
     );
 
     const renderStep4 = () => (
-        <motion.div initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
             <div className="max-w-5xl mx-auto">
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-slate-500/20 gap-4">
                     <div>
@@ -458,7 +479,7 @@ const StudyPlanner = ({ isDarkMode }) => {
                         </h1>
                         <div className="flex items-center gap-4 mt-3">
                             <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
-                            <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest bg-orange-500/10 px-2 py-1 rounded-[2px]">{planConfig.dailyHours} Hours/Day</span>
+                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-[2px]">{planConfig.dailyHours} Hours/Day</span>
                         </div>
                     </div>
                     <button onClick={resetPlanner} className={`px-6 py-3 rounded-[4px] border text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-800 bg-slate-900 text-white hover:bg-slate-800'}`}>
@@ -468,12 +489,12 @@ const StudyPlanner = ({ isDarkMode }) => {
 
                 <div className={`p-8 md:p-12 rounded-[4px] border relative ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
                     <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
-                    
+
                     <div className={`prose prose-sm md:prose-base max-w-none relative z-10 
                         ${isDarkMode ? 'prose-invert prose-headings:text-white prose-p:text-slate-400 prose-strong:text-white prose-li:text-slate-400 prose-hr:border-white/10' : 'prose-headings:text-slate-900 prose-p:text-slate-700 prose-strong:text-slate-900 prose-li:text-slate-700 prose-hr:border-slate-200'}
                         prose-h2:font-black prose-h2:text-2xl prose-h2:uppercase prose-h2:tracking-tight prose-h2:mt-12 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b prose-h2:border-slate-500/20
                         prose-h3:font-bold prose-h3:text-lg prose-h3:text-indigo-500 prose-h3:uppercase prose-h3:tracking-wide
-                        prose-a:text-orange-500
+                        prose-a:text-emerald-500
                         prose-blockquote:border-l-4 prose-blockquote:border-l-indigo-500 prose-blockquote:bg-indigo-500/5 prose-blockquote:p-4 prose-blockquote:rounded-r-[4px] prose-blockquote:font-medium prose-blockquote:not-italic
                         prose-ul:list-square
                     `}>
@@ -488,10 +509,10 @@ const StudyPlanner = ({ isDarkMode }) => {
         <div className={`flex flex-col lg:flex-row h-full min-h-[800px] rounded-[4px] border overflow-hidden ${isDarkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-slate-200'}`}>
             {renderSidePanel()}
             <AnimatePresence mode="wait">
-                {currentStep === 1 && <motion.div key="s1" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep1()}</motion.div>}
-                {currentStep === 2 && <motion.div key="s2" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep2()}</motion.div>}
-                {currentStep === 3 && <motion.div key="s3" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep3()}</motion.div>}
-                {currentStep === 4 && <motion.div key="s4" exit={{opacity: 0, x: -20}} className="flex-1 flex flex-col">{renderStep4()}</motion.div>}
+                {currentStep === 1 && <motion.div key="s1" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep1()}</motion.div>}
+                {currentStep === 2 && <motion.div key="s2" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep2()}</motion.div>}
+                {currentStep === 3 && <motion.div key="s3" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep3()}</motion.div>}
+                {currentStep === 4 && <motion.div key="s4" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep4()}</motion.div>}
             </AnimatePresence>
         </div>
     );
