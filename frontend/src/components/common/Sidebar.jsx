@@ -86,7 +86,8 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
     // Premium categorization logic
     const categories = [
         { label: 'MAIN MENU', items: ['Dashboard', 'Nexus Hub'] },
-        { label: 'ACADEMICS', items: ['My Profile', 'Classes', 'Attendance', 'Exams', 'Results', 'Study Materials', 'Scholarlab'] },
+        // { label: 'ACADEMICS', items: ['My Profile', 'Classes', 'Attendance', 'Exams', 'Results', 'Study Materials', 'Scholarlab'] },
+        { label: 'ACADEMICS', items: ['My Profile', 'Classes', 'Attendance', 'Exams', 'Results', 'Study Materials'] },
         { label: 'ANALYTICS & AI', items: ['Performance', 'SWOT Analysis', 'Advanced Analytics', 'AI Insights'] },
         { label: 'SYSTEM', items: ['Grievances', 'Study Planner', 'Notice Board'] }
     ];
