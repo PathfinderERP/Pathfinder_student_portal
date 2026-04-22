@@ -5,21 +5,6 @@ import { PieChart, Pie, Cell, AreaChart as RechartsAreaChart, Area, BarChart, Ba
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-// Toggle to enable dummy data for UI testing. Set to false to use live API.
-const USE_DUMMY_CLASSES = true;
-// Use static import for reliability in bundlers
-import * as CLASSES_DUMMY from './classesDummyData';
-const DUMMY = USE_DUMMY_CLASSES ? CLASSES_DUMMY : { DUMMY_CLASSES: [], DUMMY_ONGOING: [], DUMMY_UPCOMING: [], DUMMY_HISTORY: [] };
-// Debug: log dummy counts when development
-if (typeof window !== 'undefined' && USE_DUMMY_CLASSES) {
-    // eslint-disable-next-line no-console
-    console.info('[Classes] Dummy mode enabled:', {
-        classes: (DUMMY.DUMMY_CLASSES || []).length,
-        ongoing: (DUMMY.DUMMY_ONGOING || []).length,
-        upcoming: (DUMMY.DUMMY_UPCOMING || []).length,
-        history: (DUMMY.DUMMY_HISTORY || []).length
-    });
-}
 
 // Helper functions for history
 const formatLocalDate = (date) => {
@@ -633,11 +618,11 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     const { getApiUrl, token } = useAuth();
 
     // Initialize from cache to prevent flickering on tab switch
-    const classesRef = useRef(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_CLASSES || []) : (cache?.loaded ? cache.data : []));
+    const classesRef = useRef(cache?.loaded ? cache.data : []);
     const [classes, setClasses] = useState(classesRef.current);
-    const [ongoingClasses, setOngoingClasses] = useState(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_ONGOING || []) : (cache?.ongoing || []));
-    const [upcomingClasses, setUpcomingClasses] = useState(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_UPCOMING || []) : (cache?.upcoming || []));
-    const [history, setHistory] = useState(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_HISTORY || []) : (cache?.history || []));
+    const [ongoingClasses, setOngoingClasses] = useState(cache?.ongoing || []);
+    const [upcomingClasses, setUpcomingClasses] = useState(cache?.upcoming || []);
+    const [history, setHistory] = useState(cache?.history || []);
     
     const [loading, setLoading] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
@@ -646,7 +631,6 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     const [currentTab, setCurrentTab] = useState('upcoming');
 
     const fetchAttendanceHistory = useCallback(async (isBackground = false) => {
-        if (USE_DUMMY_CLASSES) return; // using dummy data for testing
         if (!token) return;
         try {
             if (!isBackground) setHistoryLoading(true);
@@ -679,7 +663,6 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     }, [getApiUrl, token, history, setCache]);
 
     const fetchClasses = useCallback(async (isBackground = false) => {
-        if (USE_DUMMY_CLASSES) return; // using dummy data for testing
         if (!token) return;
 
         try {
