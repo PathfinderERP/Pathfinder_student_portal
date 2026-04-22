@@ -327,12 +327,21 @@ const Results = ({ isDarkMode }) => {
                 res.code?.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
+
         if (activeTab === 'recent') {
             // Only show actual attempts (completed exams) in Recent Results
             return results.filter(res => !res.isMissed && !res.isPlanned && !res.isUpcoming).slice(0, 5);
         }
-        return results;
+
+        // For "View All" show only finished exams: either actual attempts or expired (missed) tests.
+        // This hides ongoing / available / upcoming tests from the results tab until the exam is over.
+        return results.filter(res => res.isMissed || (!res.isPlanned && !res.isUpcoming));
     }, [detailedResults, searchTerm, activeTab]);
+
+    // Only use finished exams (expired or actual attempts) for analytics and global summaries
+    const finishedResults = useMemo(() => {
+        return (detailedResults || []).filter(r => r.isMissed || (!r.isPlanned && !r.isUpcoming));
+    }, [detailedResults]);
 
     // If a report is selected, show the report view
     if (selectedReport) {
@@ -361,9 +370,9 @@ const Results = ({ isDarkMode }) => {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-8 pb-10 pt-4"
             >
-                {/* Embedded Premium Analytics Dashboard */}
+                {/* Embedded Premium Analytics Dashboard (only finished exams) */}
                 {!isLoading && (
-                    <ResultAnalytics results={detailedResults} isDarkMode={isDarkMode} />
+                    <ResultAnalytics results={finishedResults} isDarkMode={isDarkMode} />
                 )}
 
                 {/* Header Section */}
