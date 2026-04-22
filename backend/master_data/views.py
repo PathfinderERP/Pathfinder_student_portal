@@ -5,6 +5,7 @@ from django.http import HttpResponse
 import csv
 import io
 import time
+import logging
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
 
@@ -12,6 +13,7 @@ class StandardPagination(pagination.PageNumberPagination):
     page_size = 20
 from django.db.models import Q, Count
 from django.core.cache import cache
+import re
 
 class StudentSectionFilterMixin:
     """
@@ -200,7 +202,22 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            decoded_file = file_obj.read().decode('utf-8-sig')
+            raw = file_obj.read()
+            decoded_file = None
+            used_encoding = None
+            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
+                try:
+                    decoded_file = raw.decode(enc)
+                    used_encoding = enc
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if decoded_file is None:
+                decoded_file = raw.decode('latin-1', errors='replace')
+                used_encoding = 'latin-1-replace'
+
+            logging.getLogger(__name__).info(f"chapters bulk_upload: decoded file using encoding='{used_encoding}'")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
             
@@ -221,7 +238,19 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                         continue
                         
                     class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
+                    # Fallback heuristics when exact match fails (helps with CSV variations like 'Class 7')
+                    if not class_level:
+                        # try to match by digit (e.g., 'Class 7' -> '7')
+                        digits = re.findall(r"\d+", class_name)
+                        if digits:
+                            class_level = ClassLevel.objects.filter(name__icontains=digits[0]).first()
+                        # try contains match
+                        if not class_level:
+                            class_level = ClassLevel.objects.filter(name__icontains=class_name).first()
+
                     subject = Subject.objects.filter(name__iexact=subject_name).first()
+                    if not subject:
+                        subject = Subject.objects.filter(name__icontains=subject_name).first()
                     
                     if not class_level:
                         errors.append(f"Row {row_idx}: Class '{class_name}' not found")
@@ -298,7 +327,22 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            decoded_file = file_obj.read().decode('utf-8-sig')
+            raw = file_obj.read()
+            decoded_file = None
+            used_encoding = None
+            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
+                try:
+                    decoded_file = raw.decode(enc)
+                    used_encoding = enc
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if decoded_file is None:
+                decoded_file = raw.decode('latin-1', errors='replace')
+                used_encoding = 'latin-1-replace'
+
+            logging.getLogger(__name__).info(f"topics bulk_upload: decoded file using encoding='{used_encoding}'")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
             
@@ -413,7 +457,22 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            decoded_file = file_obj.read().decode('utf-8-sig')
+            raw = file_obj.read()
+            decoded_file = None
+            used_encoding = None
+            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
+                try:
+                    decoded_file = raw.decode(enc)
+                    used_encoding = enc
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if decoded_file is None:
+                decoded_file = raw.decode('latin-1', errors='replace')
+                used_encoding = 'latin-1-replace'
+
+            logging.getLogger(__name__).info(f"subtopics bulk_upload: decoded file using encoding='{used_encoding}'")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
             
