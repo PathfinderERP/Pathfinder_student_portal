@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Brain, Target, GraduationCap, ChevronRight, Activity, Clock, CheckCircle2,
+    Brain, Target, GraduationCap, ChevronLeft, ChevronRight, Activity, Clock, CheckCircle2,
     BookOpen, Calculator, Atom, Orbit, Sparkles, Loader2, ArrowRight, Dna,
     Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair
 } from 'lucide-react';
@@ -307,6 +307,9 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 <div className="max-w-4xl mx-auto">
                     <div className="flex items-center justify-between mb-8 border-b pb-4 border-slate-500/20">
                         <div className="flex items-center gap-3">
+                            <button onClick={() => setCurrentStep(1)} className={`mr-2 p-1 rounded-[4px] border transition-colors ${isDarkMode ? 'border-white/10 text-slate-400 hover:bg-white/10 hover:text-white' : 'border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`} title="Go Back">
+                                <ChevronLeft size={16} />
+                            </button>
                             <Activity className="text-emerald-500" />
                             <h3 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Evaluate Real Exams</h3>
                         </div>
@@ -388,6 +391,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const renderStep3 = () => (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
             <div className="max-w-4xl mx-auto space-y-8">
+                <div className="flex items-center">
+                    <button onClick={() => setCurrentStep(2)} className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}>
+                        <ChevronLeft size={14} /> Back to Exams
+                    </button>
+                </div>
                 {/* Results Header */}
                 <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'} relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
@@ -472,6 +480,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const renderStep4 = () => (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
             <div className="max-w-5xl mx-auto">
+                <div className="mb-4">
+                    <button onClick={() => setCurrentStep(3)} className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}>
+                        <ChevronLeft size={14} /> Back to Profiling
+                    </button>
+                </div>
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-slate-500/20 gap-4">
                     <div>
                         <h1 className={`text-2xl md:text-3xl font-black uppercase tracking-tight flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
