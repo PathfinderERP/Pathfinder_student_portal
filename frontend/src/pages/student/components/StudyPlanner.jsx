@@ -200,7 +200,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const renderStep1 = () => (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar relative">
             {/* Subtle Grid Background */}
-            <div className={`absolute inset-0 pointer-events-none ${isDarkMode ? 'bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]' : 'bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px]'}`}></div>
+            <div className={`absolute inset-0 pointer-events-none ${isDarkMode ? 'bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]' : 'bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[24px_24px]'}`}></div>
 
             <div className="max-w-5xl mx-auto space-y-10 relative z-10">
                 {/* Header Sequence Tracker */}
@@ -209,17 +209,17 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                         <div className="w-8 h-8 rounded-[4px] bg-indigo-600 text-white flex items-center justify-center font-black text-xs">01</div>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Configuration</span>
                     </div>
-                    <div className={`flex-1 h-[1px] mx-4 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    <div className={`flex-1 h-px mx-4 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
                     <div className="flex items-center gap-2 opacity-40">
                         <div className={`w-8 h-8 rounded-[4px] border border-dashed flex items-center justify-center font-black text-xs ${isDarkMode ? 'border-white/20 text-white' : 'border-slate-300 text-slate-500'}`}>02</div>
                         <span className={`text-[10px] font-black hidden md:block uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-500'}`}>Exam</span>
                     </div>
-                    <div className={`flex-1 h-[1px] mx-4 opacity-40 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    <div className={`flex-1 h-px mx-4 opacity-40 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
                     <div className="flex items-center gap-2 opacity-40">
                         <div className={`w-8 h-8 rounded-[4px] border border-dashed flex items-center justify-center font-black text-xs ${isDarkMode ? 'border-white/20 text-white' : 'border-slate-300 text-slate-500'}`}>03</div>
                         <span className={`text-[10px] font-black hidden md:block uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-500'}`}>Profiling</span>
                     </div>
-                    <div className={`flex-1 h-[1px] mx-4 opacity-40 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    <div className={`flex-1 h-px mx-4 opacity-40 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
                     <div className="flex items-center gap-2 opacity-40">
                         <div className={`w-8 h-8 rounded-[4px] border border-dashed flex items-center justify-center font-black text-xs ${isDarkMode ? 'border-white/20 text-white' : 'border-slate-300 text-slate-500'}`}>04</div>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-500'}`}>Master Plan</span>
@@ -240,12 +240,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                         <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-6">
                             <GraduationCap size={16} /> Select Stage
                         </label>
-                        
+
                         <div className={`p-5 rounded-[4px] border relative overflow-hidden transition-all ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 flex-1 shadow-inner'}`}>
                             <div className="absolute top-0 right-0 p-2">
                                 <div className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter shadow-lg">Verified Profile</div>
                             </div>
-                            
+
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white shadow-xl">
                                     <span className="text-xl font-black">{profile.classLevel.split(' ').pop()}</span>
@@ -401,7 +401,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
 
                     <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                        <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline outline-2 outline-offset-4 outline-indigo-500/50">
+                        <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline-2 outline-offset-4 outline-indigo-500/50">
                             <span className="text-4xl font-black">{testScores?.total}%</span>
                             <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Accuracy</span>
                         </div>
