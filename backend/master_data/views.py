@@ -101,8 +101,19 @@ class CachedListViewSetMixin(object):
         if force_refresh:
             print(f"⚡ Force Refresh: Bypassing cache for {self.__class__.__name__}")
             res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
-            cache.set(cache_key, res.data, timeout=86400)
-            self.__class__._local_cache[cache_key] = {'data': res.data, 'time': now}
+            
+            # Serialize ReturnList/ReturnDict before caching
+            data_to_cache = res.data
+            if isinstance(res.data, list):
+                data_to_cache = [dict(item) for item in res.data]
+            elif isinstance(res.data, dict):
+                data_to_cache = dict(res.data)
+                if 'results' in data_to_cache and isinstance(data_to_cache['results'], list):
+                    data_to_cache['results'] = [dict(item) for item in data_to_cache['results']]
+            
+            cache.set(cache_key, data_to_cache, timeout=86400)
+            self.__class__._local_cache[cache_key] = {'data': data_to_cache, 'time': now}
+            res.data = data_to_cache
             return res
 
         # 2. Try Local Server Memory (Fastest - 0ms)
@@ -119,10 +130,21 @@ class CachedListViewSetMixin(object):
         # 4. DB Fallback (Slow - 500ms+)
         res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
         timeout = 86400 if not isinstance(self, StudentSectionFilterMixin) else 3600
-        cache.set(cache_key, res.data, timeout=timeout)
+        
+        # Serialize ReturnList/ReturnDict before caching
+        data_to_cache = res.data
+        if isinstance(res.data, list):
+            data_to_cache = [dict(item) for item in res.data]
+        elif isinstance(res.data, dict):
+            data_to_cache = dict(res.data)
+            if 'results' in data_to_cache and isinstance(data_to_cache['results'], list):
+                data_to_cache['results'] = [dict(item) for item in data_to_cache['results']]
+
+        cache.set(cache_key, data_to_cache, timeout=timeout)
         
         # Populate local cache
-        self.__class__._local_cache[cache_key] = {'data': res.data, 'time': now}
+        self.__class__._local_cache[cache_key] = {'data': data_to_cache, 'time': now}
+        res.data = data_to_cache
         return res
 
     def perform_create(self, serializer):
@@ -173,6 +195,7 @@ class ClassLevelViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Chapter.objects.select_related('class_level', 'subject').all().order_by('-created_at')
     serializer_class = ChapterSerializer
+    pagination_class = None
 
     @action(detail=False, methods=['get'])
     def export(self, request):
@@ -290,6 +313,7 @@ class SubjectViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Topic.objects.all()
     serializer_class = TopicSerializer
+    pagination_class = None
 
     def get_queryset(self):
         queryset = Topic.objects.select_related('chapter', 'class_level', 'subject').all().order_by('-created_at')
@@ -414,6 +438,7 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = SubTopic.objects.all()
     serializer_class = SubTopicSerializer
+    pagination_class = None
 
     def get_queryset(self):
         queryset = SubTopic.objects.select_related(

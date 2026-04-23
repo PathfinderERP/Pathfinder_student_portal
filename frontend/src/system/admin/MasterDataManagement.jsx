@@ -785,7 +785,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 if (statusFilter === 'active') matchesStatus = item.is_active === true;
                 if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
 
-                return matchesSearch && matchesStatus;
+                const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
+                const matchesSubject = subjectFilter === 'all' || String(item.subject) === String(subjectFilter);
+
+                return matchesSearch && matchesStatus && matchesClass && matchesSubject;
             }
 
             if (activeSubTab === 'SubTopic') {
@@ -797,7 +800,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 if (statusFilter === 'active') matchesStatus = item.is_active === true;
                 if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
 
-                return matchesSearch && matchesStatus;
+                const matchesTopic = topicFilter === 'all' || String(item.topic) === String(topicFilter);
+
+                return matchesSearch && matchesStatus && matchesTopic;
             }
 
             if (activeSubTab === 'Topic') {
@@ -811,7 +816,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 if (statusFilter === 'active') matchesStatus = item.is_active === true;
                 if (statusFilter === 'inactive') matchesStatus = item.is_active === false;
 
-                return matchesSearch && matchesStatus;
+                const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
+                const matchesSubject = subjectFilter === 'all' || String(item.subject) === String(subjectFilter);
+
+                return matchesSearch && matchesStatus && matchesClass && matchesSubject;
             }
 
             if (activeSubTab === 'Image') {
