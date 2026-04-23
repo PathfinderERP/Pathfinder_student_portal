@@ -35,9 +35,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Pagination state (100 items per page for good UX)
+    // Pagination state
     const [pageNumber, setPageNumber] = useState(1);
-    const ITEMS_PER_PAGE = 100;
+    const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [jumpPage, setJumpPage] = useState('');
 
     // Tab Scrolling Ref and Drag State
     const scrollRef = useRef(null);
@@ -87,6 +88,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const [targetFilter, setTargetFilter] = useState('all');
     const [subjectFilter, setSubjectFilter] = useState('all');
     const [topicFilter, setTopicFilter] = useState('all');
+    const [chapterFilter, setChapterFilter] = useState('all');
+    const [sessionSearch, setSessionSearch] = useState('');
+    const [examTypeSearch, setExamTypeSearch] = useState('');
+    const [classSearch, setClassSearch] = useState('');
+    const [targetSearch, setTargetSearch] = useState('');
+    const [subjectSearch, setSubjectSearch] = useState('');
+    const [topicSearch, setTopicSearch] = useState('');
+    const [chapterSearch, setChapterSearch] = useState('');
 
     const [isSessionFilterOpen, setIsSessionFilterOpen] = useState(false);
     const [isExamTypeFilterOpen, setIsExamTypeFilterOpen] = useState(false);
@@ -94,6 +103,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const [isTargetFilterOpen, setIsTargetFilterOpen] = useState(false);
     const [isSubjectFilterOpen, setIsSubjectFilterOpen] = useState(false);
     const [isTopicFilterOpen, setIsTopicFilterOpen] = useState(false);
+    const [isChapterFilterOpen, setIsChapterFilterOpen] = useState(false);
+    const [isModalChapterFilterOpen, setIsModalChapterFilterOpen] = useState(false);
+    const [modalChapterSearch, setModalChapterSearch] = useState('');
 
     const [sessions, setSessions] = useState([]);
     const [examTypes, setExamTypes] = useState([]);
@@ -165,6 +177,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         if (subjectFilter === 'all') return 'Subjects';
         return subjects.find(s => String(s.id) === String(subjectFilter))?.name || 'Subjects';
     }, [subjectFilter, subjects]);
+
+    const chapterLabel = useMemo(() => {
+        if (chapterFilter === 'all') return 'Chapters';
+        return chapters.find(c => String(c.id) === String(chapterFilter))?.name || 'Chapters';
+    }, [chapterFilter, chapters]);
 
     const topicLabel = useMemo(() => {
         if (topicFilter === 'all') return 'Topics';
@@ -329,8 +346,6 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
             // Build parameters for pagination and filtering
             const queryParams = new URLSearchParams();
-            queryParams.append('page', pageNumber);
-            queryParams.append('limit', ITEMS_PER_PAGE);
             if (topicFilterId) queryParams.append('topic', topicFilterId);
             if (force) queryParams.append('refresh', 'true');
 
@@ -818,8 +833,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
                 const matchesClass = classFilter === 'all' || String(item.class_level) === String(classFilter);
                 const matchesSubject = subjectFilter === 'all' || String(item.subject) === String(subjectFilter);
+                const matchesChapter = chapterFilter === 'all' || String(item.chapter) === String(chapterFilter);
 
-                return matchesSearch && matchesStatus && matchesClass && matchesSubject;
+                return matchesSearch && matchesStatus && matchesClass && matchesSubject && matchesChapter;
             }
 
             if (activeSubTab === 'Image') {
@@ -845,7 +861,22 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
             return matchesSearch && matchesStatus;
         });
-    }, [data, debouncedSearch, statusFilter, activeSubTab, sessionFilter, classFilter, targetFilter, topicFilter, subjectFilter, examTypeFilter]);
+    }, [data, debouncedSearch, statusFilter, activeSubTab, sessionFilter, classFilter, targetFilter, topicFilter, subjectFilter, examTypeFilter, chapterFilter]);
+
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+    const paginatedData = useMemo(() => {
+        const start = (pageNumber - 1) * rowsPerPage;
+        return filteredData.slice(start, start + rowsPerPage);
+    }, [filteredData, pageNumber, rowsPerPage]);
+
+    const handleJumpPage = (e) => {
+        e.preventDefault();
+        const page = parseInt(jumpPage);
+        if (page >= 1 && page <= totalPages) {
+            setPageNumber(page);
+        }
+        setJumpPage('');
+    };
 
     const renderHeader = () => (
         <div className={`p-6 rounded-[5px] border shadow-xl mb-6 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
@@ -998,23 +1029,41 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     <ChevronDown size={14} className={`transition-transform ${isClassFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isClassFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                        <div
-                                            onClick={() => { setClassFilter('all'); setIsClassFilterOpen(false); }}
-                                            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                        >
-                                            All Classes
-                                        </div>
-                                        {classes.map(c => (
-                                            <div
-                                                key={c.id || c._id}
-                                                onClick={() => { setClassFilter(c.id || c._id); setIsClassFilterOpen(false); }}
-                                                className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${String(classFilter) === String(c.id || c._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                            >
-                                                {c.name}
+                                    <>
+                                        <div className="fixed inset-0 z-90" onClick={() => { setIsClassFilterOpen(false); setClassSearch(''); }} />
+                                        <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                <div className="relative">
+                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search classes..."
+                                                        value={classSearch}
+                                                        onChange={(e) => setClassSearch(e.target.value)}
+                                                        className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                <div
+                                                    onClick={() => { setClassFilter('all'); setIsClassFilterOpen(false); setClassSearch(''); }}
+                                                    className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    All Classes {classFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                </div>
+                                                {classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => (
+                                                    <div
+                                                        key={c.id || c._id}
+                                                        onClick={() => { setClassFilter(c.id || c._id); setIsClassFilterOpen(false); setClassSearch(''); }}
+                                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${String(classFilter) === String(c.id || c._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                    >
+                                                        {c.name} {String(classFilter) === String(c.id || c._id) && <Check size={14} strokeWidth={3} />}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
@@ -1028,23 +1077,41 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     <ChevronDown size={14} className={`transition-transform ${isSubjectFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isSubjectFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                        <div
-                                            onClick={() => { setSubjectFilter('all'); setIsSubjectFilterOpen(false); }}
-                                            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${subjectFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                        >
-                                            All Subjects
-                                        </div>
-                                        {subjects.map(s => (
-                                            <div
-                                                key={s.id || s._id}
-                                                onClick={() => { setSubjectFilter(s.id || s._id); setIsSubjectFilterOpen(false); }}
-                                                className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${String(subjectFilter) === String(s.id || s._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                            >
-                                                {s.name}
+                                    <>
+                                        <div className="fixed inset-0 z-90" onClick={() => { setIsSubjectFilterOpen(false); setSubjectSearch(''); }} />
+                                        <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                <div className="relative">
+                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search subjects..."
+                                                        value={subjectSearch}
+                                                        onChange={(e) => setSubjectSearch(e.target.value)}
+                                                        className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                <div
+                                                    onClick={() => { setSubjectFilter('all'); setIsSubjectFilterOpen(false); setSubjectSearch(''); }}
+                                                    className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${subjectFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    All Subjects {subjectFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                </div>
+                                                {subjects.filter(s => s.name.toLowerCase().includes(subjectSearch.toLowerCase())).map(s => (
+                                                    <div
+                                                        key={s.id || s._id}
+                                                        onClick={() => { setSubjectFilter(s.id || s._id); setIsSubjectFilterOpen(false); setSubjectSearch(''); }}
+                                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${String(subjectFilter) === String(s.id || s._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                    >
+                                                        {s.name} {String(subjectFilter) === String(s.id || s._id) && <Check size={14} strokeWidth={3} />}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
@@ -1058,23 +1125,45 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     <ChevronDown size={14} className={`transition-transform ${isTopicFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isTopicFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                        <div
-                                            onClick={() => { setTopicFilter('all'); setIsTopicFilterOpen(false); }}
-                                            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${topicFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                        >
-                                            All Topics
-                                        </div>
-                                        {topics.filter(t => (classFilter === 'all' || String(t.class_level || t.class_level_id) === String(classFilter)) && (subjectFilter === 'all' || String(t.subject || t.subject_id) === String(subjectFilter))).map(t => (
-                                            <div
-                                                key={t.id || t._id}
-                                                onClick={() => { setTopicFilter(t.id || t._id); setIsTopicFilterOpen(false); }}
-                                                className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${String(topicFilter) === String(t.id || t._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                            >
-                                                {t.name}
+                                    <>
+                                        <div className="fixed inset-0 z-90" onClick={() => { setIsTopicFilterOpen(false); setTopicSearch(''); }} />
+                                        <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                <div className="relative">
+                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search topics..."
+                                                        value={topicSearch}
+                                                        onChange={(e) => setTopicSearch(e.target.value)}
+                                                        className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                <div
+                                                    onClick={() => { setTopicFilter('all'); setIsTopicFilterOpen(false); setTopicSearch(''); }}
+                                                    className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${topicFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    All Topics {topicFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                </div>
+                                                {topics.filter(t => 
+                                                    (classFilter === 'all' || String(t.class_level || t.class_level_id) === String(classFilter)) && 
+                                                    (subjectFilter === 'all' || String(t.subject || t.subject_id) === String(subjectFilter)) &&
+                                                    (t.name.toLowerCase().includes(topicSearch.toLowerCase()))
+                                                ).map(t => (
+                                                    <div
+                                                        key={t.id || t._id}
+                                                        onClick={() => { setTopicFilter(t.id || t._id); setIsTopicFilterOpen(false); setTopicSearch(''); }}
+                                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${String(topicFilter) === String(t.id || t._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                    >
+                                                        {t.name} {String(topicFilter) === String(t.id || t._id) && <Check size={14} strokeWidth={3} />}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
@@ -1088,23 +1177,41 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     <ChevronDown size={14} className={`transition-transform ${isExamTypeFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isExamTypeFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                        <div
-                                            onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
-                                            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                        >
-                                            All Types
-                                        </div>
-                                        {examTypes.map(et => (
-                                            <div
-                                                key={et.id || et._id}
-                                                onClick={() => { setExamTypeFilter(et.id || et._id); setIsExamTypeFilterOpen(false); }}
-                                                className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${String(examTypeFilter) === String(et.id || et._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                            >
-                                                {et.name}
+                                    <>
+                                        <div className="fixed inset-0 z-90" onClick={() => { setIsExamTypeFilterOpen(false); setExamTypeSearch(''); }} />
+                                        <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                <div className="relative">
+                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search types..."
+                                                        value={examTypeSearch}
+                                                        onChange={(e) => setExamTypeSearch(e.target.value)}
+                                                        className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                <div
+                                                    onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); setExamTypeSearch(''); }}
+                                                    className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    All Types {examTypeFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                </div>
+                                                {examTypes.filter(et => et.name.toLowerCase().includes(examTypeSearch.toLowerCase())).map(et => (
+                                                    <div
+                                                        key={et.id || et._id}
+                                                        onClick={() => { setExamTypeFilter(et.id || et._id); setIsExamTypeFilterOpen(false); setExamTypeSearch(''); }}
+                                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${String(examTypeFilter) === String(et.id || et._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                    >
+                                                        {et.name} {String(examTypeFilter) === String(et.id || et._id) && <Check size={14} strokeWidth={3} />}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
@@ -1118,23 +1225,41 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     <ChevronDown size={14} className={`transition-transform ${isTargetFilterOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isTargetFilterOpen && (
-                                    <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                        <div
-                                            onClick={() => { setTargetFilter('all'); setIsTargetFilterOpen(false); }}
-                                            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                        >
-                                            All Targets
-                                        </div>
-                                        {targetExams.map(te => (
-                                            <div
-                                                key={te.id || te._id}
-                                                onClick={() => { setTargetFilter(te.id || te._id); setIsTargetFilterOpen(false); }}
-                                                className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${String(targetFilter) === String(te.id || te._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
-                                            >
-                                                {te.name}
+                                    <>
+                                        <div className="fixed inset-0 z-90" onClick={() => { setIsTargetFilterOpen(false); setTargetSearch(''); }} />
+                                        <div className={`absolute top-full left-0 right-0 mt-2 z-100 rounded-[5px] border shadow-2xl overflow-hidden py-2 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                <div className="relative">
+                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search targets..."
+                                                        value={targetSearch}
+                                                        onChange={(e) => setTargetSearch(e.target.value)}
+                                                        className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                <div
+                                                    onClick={() => { setTargetFilter('all'); setIsTargetFilterOpen(false); setTargetSearch(''); }}
+                                                    className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    All Targets {targetFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                </div>
+                                                {targetExams.filter(te => te.name.toLowerCase().includes(targetSearch.toLowerCase())).map(te => (
+                                                    <div
+                                                        key={te.id || te._id}
+                                                        onClick={() => { setTargetFilter(te.id || te._id); setIsTargetFilterOpen(false); setTargetSearch(''); }}
+                                                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex justify-between items-center ${String(targetFilter) === String(te.id || te._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                                                    >
+                                                        {te.name} {String(targetFilter) === String(te.id || te._id) && <Check size={14} strokeWidth={3} />}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
 
@@ -1194,23 +1319,38 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                         </button>
                                         {isSessionFilterOpen && (
                                             <>
-                                                <div className="fixed inset-0 z-140" onClick={() => setIsSessionFilterOpen(false)} />
+                                                <div className="fixed inset-0 z-140" onClick={() => { setIsSessionFilterOpen(false); setSessionSearch(''); }} />
                                                 <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                                    <button
-                                                        onClick={() => { setSessionFilter('all'); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); }}
-                                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${sessionFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                                    >
-                                                        All Sessions {sessionFilter === 'all' && <Check size={14} strokeWidth={3} />}
-                                                    </button>
-                                                    {availableSessionsForFilter.map(s => (
+                                                    <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                        <div className="relative">
+                                                            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search sessions..."
+                                                                value={sessionSearch}
+                                                                onChange={(e) => setSessionSearch(e.target.value)}
+                                                                className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                                         <button
-                                                            key={s.id}
-                                                            onClick={() => { setSessionFilter(s.id); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); }}
-                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(sessionFilter) === String(s.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                            onClick={() => { setSessionFilter('all'); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); setSessionSearch(''); }}
+                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${sessionFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                         >
-                                                            {s.name} {String(sessionFilter) === String(s.id) && <Check size={14} strokeWidth={3} />}
+                                                            All Sessions {sessionFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                         </button>
-                                                    ))}
+                                                        {availableSessionsForFilter.filter(s => s.name.toLowerCase().includes(sessionSearch.toLowerCase())).map(s => (
+                                                            <button
+                                                                key={s.id}
+                                                                onClick={() => { setSessionFilter(s.id); setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsSessionFilterOpen(false); setSessionSearch(''); }}
+                                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(sessionFilter) === String(s.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                            >
+                                                                {s.name} {String(sessionFilter) === String(s.id) && <Check size={14} strokeWidth={3} />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </>
                                         )}
@@ -1228,23 +1368,38 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     </button>
                                     {isClassFilterOpen && (
                                         <>
-                                            <div className="fixed inset-0 z-140" onClick={() => setIsClassFilterOpen(false)} />
+                                            <div className="fixed inset-0 z-140" onClick={() => { setIsClassFilterOpen(false); setClassSearch(''); }} />
                                             <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                                <button
-                                                    onClick={() => { setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); }}
-                                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                                >
-                                                    All Classes {classFilter === 'all' && <Check size={14} strokeWidth={3} />}
-                                                </button>
-                                                {(activeSubTab === 'Exam Details' ? availableClassesForFilter : classes).map(c => (
+                                                <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                    <div className="relative">
+                                                        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search classes..."
+                                                            value={classSearch}
+                                                            onChange={(e) => setClassSearch(e.target.value)}
+                                                            className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                                     <button
-                                                        key={c.id}
-                                                        onClick={() => { setClassFilter(c.id); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); }}
-                                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(classFilter) === String(c.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                        onClick={() => { setClassFilter('all'); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); setClassSearch(''); }}
+                                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${classFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                     >
-                                                        {c.name} {String(classFilter) === String(c.id) && <Check size={14} strokeWidth={3} />}
+                                                        All Classes {classFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                     </button>
-                                                ))}
+                                                    {(activeSubTab === 'Exam Details' ? availableClassesForFilter : classes).filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => (
+                                                        <button
+                                                            key={c.id}
+                                                            onClick={() => { setClassFilter(c.id); setTargetFilter('all'); setExamTypeFilter('all'); setIsClassFilterOpen(false); setClassSearch(''); }}
+                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(classFilter) === String(c.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                        >
+                                                            {c.name} {String(classFilter) === String(c.id) && <Check size={14} strokeWidth={3} />}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </>
                                     )}
@@ -1261,23 +1416,91 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                         </button>
                                         {isSubjectFilterOpen && (
                                             <>
-                                                <div className="fixed inset-0 z-140" onClick={() => setIsSubjectFilterOpen(false)} />
+                                                <div className="fixed inset-0 z-140" onClick={() => { setIsSubjectFilterOpen(false); setSubjectSearch(''); }} />
                                                 <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                                    <button
-                                                        onClick={() => { setSubjectFilter('all'); setIsSubjectFilterOpen(false); }}
-                                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${subjectFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                                    >
-                                                        All Subjects {subjectFilter === 'all' && <Check size={14} strokeWidth={3} />}
-                                                    </button>
-                                                    {subjects.map(s => (
+                                                    <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                        <div className="relative">
+                                                            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search subjects..."
+                                                                value={subjectSearch}
+                                                                onChange={(e) => setSubjectSearch(e.target.value)}
+                                                                className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                                         <button
-                                                            key={s.id || s._id}
-                                                            onClick={() => { setSubjectFilter(s.id || s._id); setIsSubjectFilterOpen(false); }}
-                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(subjectFilter) === String(s.id || s._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                            onClick={() => { setSubjectFilter('all'); setIsSubjectFilterOpen(false); setSubjectSearch(''); }}
+                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${subjectFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                         >
-                                                            {s.name} {String(subjectFilter) === String(s.id || s._id) && <Check size={14} strokeWidth={3} />}
+                                                            All Subjects {subjectFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                         </button>
-                                                    ))}
+                                                        {subjects.filter(s => s.name.toLowerCase().includes(subjectSearch.toLowerCase())).map(s => (
+                                                            <button
+                                                                key={s.id || s._id}
+                                                                onClick={() => { setSubjectFilter(s.id || s._id); setIsSubjectFilterOpen(false); setSubjectSearch(''); }}
+                                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(subjectFilter) === String(s.id || s._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                            >
+                                                                {s.name} {String(subjectFilter) === String(s.id || s._id) && <Check size={14} strokeWidth={3} />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
+                                {activeSubTab === 'Topic' && (
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setIsChapterFilterOpen(!isChapterFilterOpen)}
+                                            className={`pl-3 pr-7 py-2.5 rounded-[5px] border font-bold text-[10px] uppercase tracking-widest outline-none transition-all cursor-pointer flex items-center gap-2 ${chapterFilter !== 'all' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+                                        >
+                                            {chapterLabel}
+                                            <ChevronDown size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 transition-transform ${isChapterFilterOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        {isChapterFilterOpen && (
+                                            <>
+                                                <div className="fixed inset-0 z-140" onClick={() => { setIsChapterFilterOpen(false); setChapterSearch(''); }} />
+                                                <div className={`absolute left-0 top-full mt-2 w-56 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                    <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                        <div className="relative">
+                                                            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search chapters..."
+                                                                value={chapterSearch}
+                                                                onChange={(e) => setChapterSearch(e.target.value)}
+                                                                className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                        <button
+                                                            onClick={() => { setChapterFilter('all'); setIsChapterFilterOpen(false); setChapterSearch(''); }}
+                                                            className={`w-full flex items-center justify-between px-2 py-2 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${chapterFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                        >
+                                                            All Chapters {chapterFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                        </button>
+                                                        {chapters.filter(c => 
+                                                            (classFilter === 'all' || String(c.class_level) === String(classFilter)) && 
+                                                            (subjectFilter === 'all' || String(c.subject) === String(subjectFilter)) &&
+                                                            (c.name.toLowerCase().includes(chapterSearch.toLowerCase()))
+                                                        ).map(c => (
+                                                            <button
+                                                                key={c.id || c._id}
+                                                                onClick={() => { setChapterFilter(c.id || c._id); setIsChapterFilterOpen(false); setChapterSearch(''); }}
+                                                                className={`w-full flex items-center justify-between px-2 py-2 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all text-left ${String(chapterFilter) === String(c.id || c._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                            >
+                                                                <span className="truncate mr-2">{c.name}</span> {String(chapterFilter) === String(c.id || c._id) && <Check size={14} strokeWidth={3} className="shrink-0" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </>
                                         )}
@@ -1297,23 +1520,38 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             </button>
                                             {isTargetFilterOpen && (
                                                 <>
-                                                    <div className="fixed inset-0 z-140" onClick={() => setIsTargetFilterOpen(false)} />
+                                                    <div className="fixed inset-0 z-140" onClick={() => { setIsTargetFilterOpen(false); setTargetSearch(''); }} />
                                                     <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                                        <button
-                                                            onClick={() => { setTargetFilter('all'); setExamTypeFilter('all'); setIsTargetFilterOpen(false); }}
-                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                                        >
-                                                            All Targets {targetFilter === 'all' && <Check size={14} strokeWidth={3} />}
-                                                        </button>
-                                                        {availableTargetsForFilter.map(t => (
+                                                        <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                            <div className="relative">
+                                                                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Search targets..."
+                                                                    value={targetSearch}
+                                                                    onChange={(e) => setTargetSearch(e.target.value)}
+                                                                    className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                                             <button
-                                                                key={t.id}
-                                                                onClick={() => { setTargetFilter(t.id); setExamTypeFilter('all'); setIsTargetFilterOpen(false); }}
-                                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(targetFilter) === String(t.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                                onClick={() => { setTargetFilter('all'); setExamTypeFilter('all'); setIsTargetFilterOpen(false); setTargetSearch(''); }}
+                                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${targetFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                             >
-                                                                {t.name} {String(targetFilter) === String(t.id) && <Check size={14} strokeWidth={3} />}
+                                                                All Targets {targetFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                             </button>
-                                                        ))}
+                                                            {availableTargetsForFilter.filter(t => t.name.toLowerCase().includes(targetSearch.toLowerCase())).map(t => (
+                                                                <button
+                                                                    key={t.id}
+                                                                    onClick={() => { setTargetFilter(t.id); setExamTypeFilter('all'); setIsTargetFilterOpen(false); setTargetSearch(''); }}
+                                                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(targetFilter) === String(t.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                                >
+                                                                    {t.name} {String(targetFilter) === String(t.id) && <Check size={14} strokeWidth={3} />}
+                                                                </button>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </>
                                             )}
@@ -1330,23 +1568,38 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             </button>
                                             {isExamTypeFilterOpen && (
                                                 <>
-                                                    <div className="fixed inset-0 z-140" onClick={() => setIsExamTypeFilterOpen(false)} />
+                                                    <div className="fixed inset-0 z-140" onClick={() => { setIsExamTypeFilterOpen(false); setExamTypeSearch(''); }} />
                                                     <div className={`absolute left-0 top-full mt-2 w-48 z-150 p-3 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                                                        <button
-                                                            onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); }}
-                                                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
-                                                        >
-                                                            All Types {examTypeFilter === 'all' && <Check size={14} strokeWidth={3} />}
-                                                        </button>
-                                                        {availableTypesForFilter.map(et => (
+                                                        <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                            <div className="relative">
+                                                                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Search types..."
+                                                                    value={examTypeSearch}
+                                                                    onChange={(e) => setExamTypeSearch(e.target.value)}
+                                                                    className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                                             <button
-                                                                key={et.id}
-                                                                onClick={() => { setExamTypeFilter(et.id); setIsExamTypeFilterOpen(false); }}
-                                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(examTypeFilter) === String(et.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                                onClick={() => { setExamTypeFilter('all'); setIsExamTypeFilterOpen(false); setExamTypeSearch(''); }}
+                                                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${examTypeFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
                                                             >
-                                                                {et.name} {String(examTypeFilter) === String(et.id) && <Check size={14} strokeWidth={3} />}
+                                                                All Types {examTypeFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                             </button>
-                                                        ))}
+                                                            {availableTypesForFilter.filter(et => et.name.toLowerCase().includes(examTypeSearch.toLowerCase())).map(et => (
+                                                                <button
+                                                                    key={et.id}
+                                                                    onClick={() => { setExamTypeFilter(et.id); setIsExamTypeFilterOpen(false); setExamTypeSearch(''); }}
+                                                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${String(examTypeFilter) === String(et.id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                                >
+                                                                    {et.name} {String(examTypeFilter) === String(et.id) && <Check size={14} strokeWidth={3} />}
+                                                                </button>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </>
                                             )}
@@ -1357,21 +1610,63 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                         )}
                         {/* SubTopic: Topic Filter */}
                         {activeSubTab === 'SubTopic' && (
-                            <select
-                                value={topicFilter}
-                                onChange={e => {
-                                    setTopicFilter(e.target.value);
-                                    if (e.target.value && e.target.value !== 'all') {
-                                        fetchData(true, e.target.value);
-                                    } else {
-                                        setData([]);
-                                    }
-                                }}
-                                className={`pl-3 pr-7 py-2.5 rounded-[5px] border font-bold text-[10px] uppercase tracking-widest outline-none transition-all cursor-pointer ${topicFilter !== 'all' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
-                            >
-                                <option value="all">Select Topic...</option>
-                                {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsTopicFilterOpen(!isTopicFilterOpen)}
+                                    className={`pl-3 pr-7 py-2.5 rounded-[5px] border font-bold text-[10px] uppercase tracking-widest outline-none transition-all cursor-pointer flex items-center gap-2 ${topicFilter !== 'all' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+                                >
+                                    {topicFilter === 'all' ? 'Select Topic...' : topics.find(t => String(t.id) === String(topicFilter))?.name || 'Select Topic...'}
+                                    <ChevronDown size={14} className={`absolute right-4 top-1/2 -translate-y-1/2 transition-transform ${isTopicFilterOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isTopicFilterOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-140" onClick={() => { setIsTopicFilterOpen(false); setTopicSearch(''); }} />
+                                        <div className={`absolute left-0 top-full mt-2 w-56 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                <div className="relative">
+                                                    <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search topics..."
+                                                        value={topicSearch}
+                                                        onChange={(e) => setTopicSearch(e.target.value)}
+                                                        className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                <button
+                                                    onClick={() => {
+                                                        setTopicFilter('all');
+                                                        setIsTopicFilterOpen(false);
+                                                        setTopicSearch('');
+                                                        setData([]);
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-2 py-2 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${topicFilter === 'all' ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                >
+                                                    All Topics {topicFilter === 'all' && <Check size={14} strokeWidth={3} />}
+                                                </button>
+                                                {topics.filter(t => t.name.toLowerCase().includes(topicSearch.toLowerCase())).map(t => (
+                                                    <button
+                                                        key={t.id || t._id}
+                                                        onClick={() => {
+                                                            const id = t.id || t._id;
+                                                            setTopicFilter(id);
+                                                            setIsTopicFilterOpen(false);
+                                                            setTopicSearch('');
+                                                            fetchData(true, id);
+                                                        }}
+                                                        className={`w-full flex items-center justify-between px-2 py-2 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all text-left ${String(topicFilter) === String(t.id || t._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                    >
+                                                        <span className="truncate mr-2">{t.name}</span> {String(topicFilter) === String(t.id || t._id) && <Check size={14} strokeWidth={3} className="shrink-0" />}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         )}
                         {/* Filter Button & Dropdown */}
                         <div className="relative">
@@ -1597,9 +1892,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-transparent">
-                                {filteredData.length > 0 ? filteredData.map((item, index) => (
+                                {paginatedData.length > 0 ? paginatedData.map((item, index) => (
                                     <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
-                                        <td className="py-5 px-4 font-bold opacity-30 text-xs">{index + 1}</td>
+                                        <td className="py-5 px-4 font-bold opacity-30 text-xs">{index + 1 + (pageNumber - 1) * rowsPerPage}</td>
                                         {activeSubTab === 'Exam Details' ? (
                                             <>
                                                 <td className="py-5 px-4">
@@ -1814,6 +2109,67 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                         </table>
                     )}
                 </div>
+
+                {/* Pagination Controls */}
+                {!isLoading && !error && filteredData.length > 0 && (
+                    <div className={`p-4 border-t flex flex-col md:flex-row items-center justify-between gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Rows per page:</span>
+                                <select
+                                    value={rowsPerPage}
+                                    onChange={(e) => {
+                                        setRowsPerPage(Number(e.target.value));
+                                        setPageNumber(1);
+                                    }}
+                                    className={`p-1.5 rounded border text-xs font-bold outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-700'}`}
+                                >
+                                    {[10, 20, 50, 100].map(val => (
+                                        <option key={val} value={val}>{val}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Showing {(pageNumber - 1) * rowsPerPage + 1} to {Math.min(pageNumber * rowsPerPage, filteredData.length)} of {filteredData.length}
+                            </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                            <form onSubmit={handleJumpPage} className="flex items-center gap-2">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Jump to:</span>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max={totalPages}
+                                    value={jumpPage}
+                                    onChange={(e) => setJumpPage(e.target.value)}
+                                    placeholder={pageNumber}
+                                    className={`w-12 p-1.5 rounded border text-xs font-bold text-center outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500'}`}
+                                />
+                            </form>
+                            
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                                    disabled={pageNumber === 1}
+                                    className={`px-3 py-1.5 rounded border text-xs font-bold transition-all ${pageNumber === 1 ? 'opacity-50 cursor-not-allowed' : isDarkMode ? 'hover:bg-white/5 border-white/10' : 'hover:bg-slate-100 border-slate-200'}`}
+                                >
+                                    Prev
+                                </button>
+                                <div className={`px-3 py-1.5 rounded text-xs font-black ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                                    {pageNumber} / {totalPages}
+                                </div>
+                                <button
+                                    onClick={() => setPageNumber(p => Math.min(totalPages, p + 1))}
+                                    disabled={pageNumber === totalPages}
+                                    className={`px-3 py-1.5 rounded border text-xs font-bold transition-all ${pageNumber === totalPages ? 'opacity-50 cursor-not-allowed' : isDarkMode ? 'hover:bg-white/5 border-white/10' : 'hover:bg-slate-100 border-slate-200'}`}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };
@@ -2254,19 +2610,59 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             </div>
                                             <div className="space-y-1.5 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter</label>
-                                                <select
-                                                    value={formValues.chapter}
-                                                    onChange={e => setFormValues({ ...formValues, chapter: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                                >
-                                                    <option value="">Select Chapter</option>
-                                                    {chapters.filter(ch =>
-                                                        (!formValues.class_level || String(ch.class_level) === String(formValues.class_level)) &&
-                                                        (!formValues.subject || String(ch.subject) === String(formValues.subject))
-                                                    ).map(ch => (
-                                                        <option key={ch.id} value={ch.id}>{ch.name}</option>
-                                                    ))}
-                                                </select>
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsModalChapterFilterOpen(!isModalChapterFilterOpen)}
+                                                        className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all flex items-center justify-between ${formValues.chapter ? (isDarkMode ? 'bg-white/5 border-orange-500/50 text-white' : 'bg-orange-50 border-orange-500/50 text-orange-600') : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    >
+                                                        {formValues.chapter ? chapters.find(c => String(c.id || c._id) === String(formValues.chapter))?.name || 'Select Chapter' : 'Select Chapter'}
+                                                        <ChevronDown size={14} className={`transition-transform ${isModalChapterFilterOpen ? 'rotate-180' : ''}`} />
+                                                    </button>
+                                                    {isModalChapterFilterOpen && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-140" onClick={() => { setIsModalChapterFilterOpen(false); setModalChapterSearch(''); }} />
+                                                            <div className={`absolute left-0 right-0 top-full mt-2 z-150 p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                                <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+                                                                    <div className="relative">
+                                                                        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Search chapters..."
+                                                                            value={modalChapterSearch}
+                                                                            onChange={(e) => setModalChapterSearch(e.target.value)}
+                                                                            className={`w-full pl-7 pr-2 py-1.5 rounded-[3px] text-[10px] outline-none ${isDarkMode ? 'bg-white/5 text-white placeholder:text-slate-500' : 'bg-slate-100 text-slate-800 placeholder:text-slate-400'}`}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => { setFormValues({ ...formValues, chapter: '' }); setIsModalChapterFilterOpen(false); setModalChapterSearch(''); }}
+                                                                        className={`w-full flex items-center justify-between px-2 py-2 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${!formValues.chapter ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                                    >
+                                                                        Select Chapter {!formValues.chapter && <Check size={14} strokeWidth={3} />}
+                                                                    </button>
+                                                                    {chapters.filter(ch =>
+                                                                        (!formValues.class_level || String(ch.class_level) === String(formValues.class_level)) &&
+                                                                        (!formValues.subject || String(ch.subject) === String(formValues.subject)) &&
+                                                                        (ch.name.toLowerCase().includes(modalChapterSearch.toLowerCase()))
+                                                                    ).map(ch => (
+                                                                        <button
+                                                                            type="button"
+                                                                            key={ch.id || ch._id}
+                                                                            onClick={() => { setFormValues({ ...formValues, chapter: ch.id || ch._id }); setIsModalChapterFilterOpen(false); setModalChapterSearch(''); }}
+                                                                            className={`w-full flex items-center justify-between px-2 py-2 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all text-left ${String(formValues.chapter) === String(ch.id || ch._id) ? 'bg-orange-500 text-white' : isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                                                                        >
+                                                                            <span className="truncate mr-2">{ch.name}</span> {String(formValues.chapter) === String(ch.id || ch._id) && <Check size={14} strokeWidth={3} className="shrink-0" />}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="space-y-1.5 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic Name</label>
