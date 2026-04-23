@@ -1952,6 +1952,7 @@ class TestViewSet(viewsets.ModelViewSet):
             'test_name': test.name,
             'test_code': test.code,
             'duration': test.duration,
+            'instructions': test.instructions,
             'sections': sections_data
         }
         

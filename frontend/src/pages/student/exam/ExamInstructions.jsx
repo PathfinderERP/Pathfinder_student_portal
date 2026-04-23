@@ -23,9 +23,9 @@ const ExamInstructions = () => {
     const handleReturnToDashboard = () => {
         try {
             if (document.fullscreenElement) {
-                document.exitFullscreen().catch(() => {});
+                document.exitFullscreen().catch(() => { });
             }
-        } catch (err) {}
+        } catch (err) { }
         navigate('/student');
     };
 
@@ -77,7 +77,7 @@ const ExamInstructions = () => {
                     </div>
                     <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Initialization Error</h2>
                     <p className="text-gray-500 font-medium leading-relaxed">{error}</p>
-                    <button 
+                    <button
                         onClick={handleReturnToDashboard}
                         className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${isDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-black'}`}
                     >
@@ -113,7 +113,7 @@ const ExamInstructions = () => {
                             {lockReason}
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={handleReturnToDashboard}
                         className="px-12 py-4 bg-gray-900 text-white font-black rounded-xl uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
                     >
@@ -126,7 +126,7 @@ const ExamInstructions = () => {
 
     const handleReadyToBegin = async () => {
         if (!isChecked || isStarting) return;
-        
+
         // Step 1: Request Fullscreen Mode IMMEDIATELY to preserve user interaction token
         // Modern browsers block fullscreen requests if they happen after an async (await) delay.
         try {
@@ -156,12 +156,12 @@ const ExamInstructions = () => {
         } catch (err) {
             console.error("Failed to start session:", err);
             toast.error("Security Handshake Failed. Please refresh and try again.");
-            
+
             // If API fails, try to exit fullscreen to let user fix issues
             try {
                 if (document.fullscreenElement) await document.exitFullscreen();
-            } catch (exitErr) {}
-            
+            } catch (exitErr) { }
+
             setIsStarting(false);
         }
     };
@@ -169,7 +169,7 @@ const ExamInstructions = () => {
     if (!paperData) return null;
 
     const { test_name, duration, sections = [] } = paperData;
-    
+
     // Calculate totals for summary
     const totalQuestions = sections.reduce((acc, s) => acc + (s.questions_detail?.length || 0), 0);
     const totalMarks = sections.reduce((acc, s) => acc + ((s.questions_detail?.length || 0) * (parseFloat(s.correct_marks) || 0)), 0);
@@ -178,7 +178,7 @@ const ExamInstructions = () => {
     return (
         <div className={`min-h-screen pb-20 p-6 md:p-8 lg:p-12 ${isDarkMode ? 'bg-[#0B0F15] text-white' : 'bg-white text-[#333333]'} font-sans`}>
             <div className="max-w-6xl mx-auto space-y-6">
-                
+
                 {/* Test Info */}
                 <div className="space-y-1">
                     <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>
@@ -211,7 +211,7 @@ const ExamInstructions = () => {
                                             <span>2.</span>
                                             <div className="relative w-[34px] h-[34px]">
                                                 {/* Trapezoid type shape for 'Not Answered' */}
-                                                <div className="w-full h-full bg-[#E44D26] rounded-b-[4px] rounded-tl-[10px]" style={{clipPath: 'polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%)'}}></div>
+                                                <div className="w-full h-full bg-[#E44D26] rounded-b-[4px] rounded-tl-[10px]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%)' }}></div>
                                             </div>
                                             <span>You have not answered the question.</span>
                                         </div>
@@ -221,7 +221,7 @@ const ExamInstructions = () => {
                                             <span>3.</span>
                                             <div className="relative w-[34px] h-[34px]">
                                                 {/* Trapezoid type shape for 'Answered' */}
-                                                <div className="w-full h-full bg-[#39B54A] rounded-b-[4px] rounded-tr-[10px]" style={{clipPath: 'polygon(0 0, 100% 0, 100% 100%, 30% 100%, 0 70%)'}}></div>
+                                                <div className="w-full h-full bg-[#39B54A] rounded-b-[4px] rounded-tr-[10px]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 30% 100%, 0 70%)' }}></div>
                                             </div>
                                             <span>You have answered the question.</span>
                                         </div>
@@ -300,65 +300,78 @@ const ExamInstructions = () => {
                     </section>
                 </div>
 
-                {/* Sub-instructions (1, 2, 3) and Sections (A, B) */}
+                {/* Dynamic Admin Instructions (Custom) - Replacing specific summary/sections */}
                 <div className="mt-16 space-y-12 leading-relaxed">
-                    <div className="space-y-6">
-                        <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>Exam Instruction:- 1. The Test consists of {totalQuestions} questions. The maximum marks are {totalMarks}</p>
+                    {paperData.instructions ? (
+                        <div className="space-y-6">
+                            <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>Exam Instruction:-</p>
+                            <div
+                                className={`dynamic-instructions leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-slate-700'}`}
+                                dangerouslySetInnerHTML={{ __html: paperData.instructions }}
+                            />
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>Exam Instruction:- 1. The Test consists of {totalQuestions} questions. The maximum marks are {totalMarks}</p>
+
+                            <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>2. There are {sections.length > 2 ? 'three' : 'two'} Parts in the question paper consisting of {subjectList}, having questions in each part, in each subject,</p>
+
+                            <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>3. Each Part has two Sections containing 20(twenty) Single Choice Questions and 5 (Five) Numerical Type Questions candidates have to answer 5 (Five) questions in NUMERICAL type questions.</p>
+                        </div>
+                    )}
+
+                    {/* 
+                        PREVIOUS STATIC LOGIC (COMMENTED OUT FOR FUTURE USE)
                         
-                        <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>2. There are {sections.length > 2 ? 'three' : 'two'} Parts in the question paper consisting of {subjectList}, having questions in each part, in each subject,</p>
-                        
-                        <p className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>3. Each Part has two Sections containing 20(twenty) Single Choice Questions and 5 (Five) Numerical Type Questions candidates have to answer 5 (Five) questions in NUMERICAL type questions.</p>
-                    </div>
+                        {sections.map((section, idx) => {
+                            const qCount = section.questions_detail?.length || 0;
+                            const maxMarks = qCount * (parseFloat(section.correct_marks) || 0);
+                            const isNumerical = section.questions_detail?.[0]?.question_type === 'NUMERICAL' || section.questions_detail?.[0]?.question_type === 'INTEGER_TYPE';
 
-                    {/* Section Mapping */}
-                    {sections.map((section, idx) => {
-                        const qCount = section.questions_detail?.length || 0;
-                        const maxMarks = qCount * (parseFloat(section.correct_marks) || 0);
-                        const isNumerical = section.questions_detail?.[0]?.question_type === 'NUMERICAL' || section.questions_detail?.[0]?.question_type === 'INTEGER_TYPE';
+                            return (
+                                <div key={idx} className="space-y-8">
+                                    <h3 className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>SECTION {String.fromCharCode(65 + idx)} (Maximum Marks : {maxMarks})</h3>
+                                    
+                                    <div className="space-y-6">
+                                        <p>
+                                            <span className={`inline-block mr-2 ${isDarkMode ? 'text-gray-500' : 'text-[#CCCCCC]'}`}>⏵</span>
+                                            <span className="font-bold">This section contains {qCount === 20 ? 'TWENTY (20)' : qCount === 5 ? 'FIVE (05)' : qCount} questions.</span>
+                                            {isNumerical ? (
+                                                <> Candidates have to attempt FIVE (05) questions. <span className="font-bold">The answer to each question is a INTEGER VALUE.</span> ⏵ For each question, enter the correct numerical value of the answer using the mouse and on the on-screen virtual numeric keypad in the place designated to enter the answer. If the integer value has decimal places, <span className="font-bold underline">TRUNCATED/ROUND-OFF the value to Single Digit Integer value</span>. </>
+                                            ) : (
+                                                <> ⏵ Each question has FOUR options for correct answer(s). ONLY ONE of these four option is correct. ⏵ For each question, select the option(s) corresponding to the correct answer. ⏵ Answer to each question will be evaluated according to the following marking scheme :</>
+                                            )}
+                                            {isNumerical && <> ⏵ Answer to each question will be evaluated according to the following marking scheme :</>}
+                                        </p>
 
-                        return (
-                            <div key={idx} className="space-y-8">
-                                <h3 className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>SECTION {String.fromCharCode(65 + idx)} (Maximum Marks : {maxMarks})</h3>
-                                
-                                <div className="space-y-6">
-                                    <p>
-                                        <span className={`inline-block mr-2 ${isDarkMode ? 'text-gray-500' : 'text-[#CCCCCC]'}`}>⏵</span>
-                                        <span className="font-bold">This section contains {qCount === 20 ? 'TWENTY (20)' : qCount === 5 ? 'FIVE (05)' : qCount} questions.</span>
-                                        {isNumerical ? (
-                                            <> Candidates have to attempt FIVE (05) questions. <span className="font-bold">The answer to each question is a INTEGER VALUE.</span> ⏵ For each question, enter the correct numerical value of the answer using the mouse and on the on-screen virtual numeric keypad in the place designated to enter the answer. If the integer value has decimal places, <span className="font-bold underline">TRUNCATED/ROUND-OFF the value to Single Digit Integer value</span>. </>
-                                        ) : (
-                                            <> ⏵ Each question has FOUR options for correct answer(s). ONLY ONE of these four option is correct. ⏵ For each question, select the option(s) corresponding to the correct answer. ⏵ Answer to each question will be evaluated according to the following marking scheme :</>
-                                        )}
-                                        {isNumerical && <> ⏵ Answer to each question will be evaluated according to the following marking scheme :</>}
-                                    </p>
-
-                                    <div className="space-y-3 font-bold">
-                                        <p className="underline underline-offset-4">Full Marks : +{section.correct_marks} If ONLY the correct {isNumerical ? 'numerical value is entered as answer' : 'option is chosen'}.</p>
-                                        <p className="underline underline-offset-4">Zero Marks : 0 {isNumerical ? 'In all other cases.' : 'If none of the options is chosen (i.e. the question is unanswered).'}</p>
-                                        {!isNumerical && <p className="underline underline-offset-4">Negative Marks : {section.negative_marks} In all other cases.</p>}
-                                        {isNumerical && <p className="underline underline-offset-4 text-red-500">Negative Marks : {section.negative_marks} in all other cases.</p>}
+                                        <div className="space-y-3 font-bold">
+                                            <p className="underline underline-offset-4">Full Marks : +{section.correct_marks} If ONLY the correct {isNumerical ? 'numerical value is entered as answer' : 'option is chosen'}.</p>
+                                            <p className="underline underline-offset-4">Zero Marks : 0 {isNumerical ? 'In all other cases.' : 'If none of the options is chosen (i.e. the question is unanswered).'}</p>
+                                            {!isNumerical && <p className="underline underline-offset-4">Negative Marks : {section.negative_marks} In all other cases.</p>}
+                                            {isNumerical && <p className="underline underline-offset-4 text-red-500">Negative Marks : {section.negative_marks} in all other cases.</p>}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    */}
+                </div>
 
-                    {/* Red Rules */}
-                    <div className="text-[#FF0000] font-bold space-y-2 mt-8 border-2 border-[#FF0000]/20 p-6 rounded-xl bg-red-50/30">
-                        <p className="text-lg mb-2 underline">IMPORTANT SECURITY RULES:</p>
-                        <p>1. You will be entered into Full Screen Mode automatically.</p>
-                        <p>2. Exiting Full Screen Mode or switching tabs/windows (Alt+Tab) is strictly prohibited.</p>
-                        <p>3. If a violation is detected, you will have exactly 5 seconds to resume the exam.</p>
-                        <p>4. If 5 seconds pass without resuming, your session will be TERMINATED and submitted immediately due to security violation.</p>
-                        <p className="pt-2 italic">* Any attempt to bypass these security measures will result in disqualification.</p>
-                    </div>
+                {/* Red Rules */}
+                <div className="text-[#FF0000] font-bold space-y-2 mt-8 border-2 border-[#FF0000]/20 p-6 rounded-xl bg-red-50/30">
+                    <p className="text-lg mb-2 underline">IMPORTANT SECURITY RULES:</p>
+                    <p>1. You will be entered into Full Screen Mode automatically.</p>
+                    <p>2. Exiting Full Screen Mode or switching tabs/windows (Alt+Tab) is strictly prohibited.</p>
+                    <p>3. If a violation is detected, you will have exactly 5 seconds to resume the exam.</p>
+                    <p>4. If 5 seconds pass without resuming, your session will be TERMINATED and submitted immediately due to security violation.</p>
+                    <p className="pt-2 italic">* Any attempt to bypass these security measures will result in disqualification.</p>
                 </div>
 
                 {/* Accept Terms (If needed for flow) */}
                 <div className="mt-16 pt-8 border-t border-gray-100 dark:border-white/5 space-y-6">
                     <div className="flex items-start gap-4">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             id="accept_instructions"
                             checked={isChecked}
                             onChange={(e) => setIsChecked(e.target.checked)}
@@ -375,8 +388,8 @@ const ExamInstructions = () => {
                             onClick={handleReadyToBegin}
                             className={`px-8 py-2.5 font-semibold transition-all border rounded-[4px] text-[15px] flex items-center gap-2
                             ${(isChecked && !isStarting)
-                                ? 'bg-[#1976D2] text-white border-[#1976D2] hover:bg-[#1565C0] cursor-pointer shadow-md' 
-                                : 'bg-[#EEEEEE] text-[#777777] border-[#CCCCCC] cursor-not-allowed'}`}
+                                    ? 'bg-[#1976D2] text-white border-[#1976D2] hover:bg-[#1565C0] cursor-pointer shadow-md'
+                                    : 'bg-[#EEEEEE] text-[#777777] border-[#CCCCCC] cursor-not-allowed'}`}
                         >
                             {isStarting && <Loader2 size={16} className="animate-spin" />}
                             {isStarting ? 'Preparing Exam...' : 'Ready to Begin'}
