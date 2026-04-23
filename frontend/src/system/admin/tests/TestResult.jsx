@@ -365,18 +365,15 @@ const TestResult = () => {
                                         ) : (
                                             <button
                                                 onClick={() => handleForcePublish(test)}
-                                                disabled={togglingStatusId === test.id || (test.total_students === 0)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all mx-auto ${(test.total_students === 0)
-                                                        ? 'bg-slate-200 dark:bg-white/5 text-slate-400 cursor-not-allowed'
-                                                        : 'bg-linear-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95'
-                                                    }`}
+                                                disabled={togglingStatusId === test.id}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all mx-auto bg-linear-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95`}
                                             >
                                                 {togglingStatusId === test.id ? (
                                                     <Loader2 size={12} className="animate-spin" />
                                                 ) : (
                                                     <Zap size={12} fill="currentColor" />
                                                 )}
-                                                Force {test.total_students > 0 ? '' : ''}
+                                                Force
                                             </button>
                                         )}
                                     </td>
