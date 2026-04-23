@@ -753,14 +753,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             const res = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/bulk-upload/`, formData, {
                 headers: { ...config.headers, 'Content-Type': 'multipart/form-data' }
             });
-            
+
             if (res.data.errors && res.data.errors.length > 0) {
                 toast.success(`Imported with ${res.data.errors.length} errors. Check console.`);
                 console.warn("Import Errors:", res.data.errors);
             } else {
                 toast.success(res.data.message || "Import successful!");
             }
-            
+
             setShowBulkModal(false);
             setImportFile(null);
             fetchData(true);
@@ -1148,8 +1148,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 >
                                                     All Topics {topicFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                 </div>
-                                                {topics.filter(t => 
-                                                    (classFilter === 'all' || String(t.class_level || t.class_level_id) === String(classFilter)) && 
+                                                {topics.filter(t =>
+                                                    (classFilter === 'all' || String(t.class_level || t.class_level_id) === String(classFilter)) &&
                                                     (subjectFilter === 'all' || String(t.subject || t.subject_id) === String(subjectFilter)) &&
                                                     (t.name.toLowerCase().includes(topicSearch.toLowerCase()))
                                                 ).map(t => (
@@ -1487,8 +1487,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                         >
                                                             All Chapters {chapterFilter === 'all' && <Check size={14} strokeWidth={3} />}
                                                         </button>
-                                                        {chapters.filter(c => 
-                                                            (classFilter === 'all' || String(c.class_level) === String(classFilter)) && 
+                                                        {chapters.filter(c =>
+                                                            (classFilter === 'all' || String(c.class_level) === String(classFilter)) &&
                                                             (subjectFilter === 'all' || String(c.subject) === String(subjectFilter)) &&
                                                             (c.name.toLowerCase().includes(chapterSearch.toLowerCase()))
                                                         ).map(c => (
@@ -2133,13 +2133,13 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 Showing {(pageNumber - 1) * rowsPerPage + 1} to {Math.min(pageNumber * rowsPerPage, filteredData.length)} of {filteredData.length}
                             </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-4">
                             <form onSubmit={handleJumpPage} className="flex items-center gap-2">
                                 <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Jump to:</span>
-                                <input 
-                                    type="number" 
-                                    min="1" 
+                                <input
+                                    type="number"
+                                    min="1"
                                     max={totalPages}
                                     value={jumpPage}
                                     onChange={(e) => setJumpPage(e.target.value)}
@@ -2147,7 +2147,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     className={`w-12 p-1.5 rounded border text-xs font-bold text-center outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500'}`}
                                 />
                             </form>
-                            
+
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => setPageNumber(p => Math.max(1, p - 1))}
@@ -2177,16 +2177,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const renderBulkImportModal = () => {
         if (!showBulkModal) return null;
         return (
-            <div className="fixed inset-0 z-2000 flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
-                <div className={`relative w-full max-w-lg rounded-[15px] shadow-2xl animate-in zoom-in-95 fade-in duration-300 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white'}`}>
-                    <div className="p-8 space-y-6">
+            <div className="fixed inset-0 z-2000 flex items-start justify-center p-6 pt-32 backdrop-blur-md bg-black/60">
+                <div className={`relative w-full max-w-md rounded-[15px] shadow-2xl animate-in zoom-in-95 fade-in duration-300 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white'}`}>
+                    <div className="p-8 md:max-lg:p-4 space-y-6 md:max-lg:space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="p-3 bg-emerald-500 rounded-[10px] text-white">
+                                <div className="p-3 md:max-lg:p-2 bg-emerald-500 rounded-[10px] text-white">
                                     <CloudUpload size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black uppercase tracking-tight">Bulk Import {activeSubTab}s</h3>
+                                    <h3 className="text-xl md:max-lg:text-base font-black uppercase tracking-tight">Bulk Import {activeSubTab}s</h3>
                                     <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Upload CSV file to process records</p>
                                 </div>
                             </div>
@@ -2195,9 +2195,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                             </button>
                         </div>
 
-                        <div 
+                        <div
                             onClick={() => bulkFileInputRef.current?.click()}
-                            className={`p-10 border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center gap-4 cursor-pointer transition-all ${importFile ? 'bg-emerald-500/5 border-emerald-500/50' : isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-white hover:border-orange-500/30'}`}
+                            className={`p-10 md:max-lg:p-5 border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center gap-4 md:max-lg:gap-2 cursor-pointer transition-all ${importFile ? 'bg-emerald-500/5 border-emerald-500/50' : isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-white hover:border-orange-500/30'}`}
                         >
                             <input
                                 type="file"
@@ -2238,14 +2238,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowBulkModal(false)}
-                                className={`flex-1 py-4 rounded-[10px] font-black uppercase text-[11px] tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
+                                className={`flex-1 py-4 md:max-lg:py-2 rounded-[10px] font-black uppercase text-[11px] tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleBulkImport}
                                 disabled={!importFile || isImporting}
-                                className={`flex-[1.5] py-4 rounded-[10px] font-black uppercase text-[11px] tracking-widest text-white shadow-xl transition-all flex items-center justify-center gap-3 ${!importFile || isImporting ? 'bg-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30'}`}
+                                className={`flex-[1.5] py-4 md:max-lg:py-2 rounded-[10px] font-black uppercase text-[11px] tracking-widest text-white shadow-xl transition-all flex items-center justify-center gap-3 ${!importFile || isImporting ? 'bg-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30'}`}
                             >
                                 {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
                                 {isImporting ? 'Processing...' : 'Confirm Import'}
@@ -2261,7 +2261,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         return (
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
+                    <div style={{ zIndex: 1000 }} className="fixed inset-0 flex items-start justify-center p-4 pt-32 md:max-lg:p-2 md:max-lg:pt-20">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -2273,12 +2273,13 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                             initial={{ scale: 0.95, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className={`relative w-full max-w-xl rounded-3xl border shadow-2xl z-1001 max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
+                            style={{ zIndex: 1001 }}
+                            className={`relative w-full max-w-lg md:max-lg:max-w-sm rounded-3xl border shadow-2xl max-h-[75vh] md:max-lg:max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
                         >
-                            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                                <div className="flex justify-between items-center bg-linear-to-r from-orange-500/10 to-transparent -mx-6 -mt-6 p-6 border-b border-white/5 mb-2">
+                            <form onSubmit={handleSubmit} className="p-4 md:max-lg:p-3 space-y-4 md:max-lg:space-y-3">
+                                <div className="flex justify-between items-center bg-linear-to-r from-orange-500/10 to-transparent -mx-4 -mt-4 p-4 md:max-lg:-mx-3 md:max-lg:-mt-3 md:max-lg:p-3 border-b border-white/5 mb-2">
                                     <div>
-                                        <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                        <h2 className={`text-xl md:max-lg:text-base font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                             {modalMode === 'create' ? 'Add New' : 'Edit'} <span className="text-orange-500">{activeSubTab}</span>
                                         </h2>
                                         <div className="flex items-center gap-2 mt-1">
@@ -2291,9 +2292,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-4 md:max-lg:space-y-2">
                                     {activeSubTab === 'Exam Details' ? (
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 gap-4 md:max-lg:gap-2">
                                             <div className="space-y-1.5 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title</label>
                                                 <input
@@ -2302,7 +2303,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.name}
                                                     onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                                     placeholder="e.g. JEE Advanced Mock - 1"
-                                                    className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-3.5 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2313,7 +2314,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.code}
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                                                     placeholder="e.g. JEE_ADV_2026"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2321,7 +2322,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <select
                                                     value={formValues.session}
                                                     onChange={e => setFormValues({ ...formValues, session: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                                 </select>
@@ -2331,7 +2332,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <select
                                                     value={formValues.class_level}
                                                     onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                 </select>
@@ -2341,7 +2342,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <select
                                                     value={formValues.target_exam}
                                                     onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '' })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Target</option>
                                                     {targetExams.map(te => <option key={te.id} value={te.id}>{te.name}</option>)}
@@ -2353,7 +2354,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     disabled={!formValues.target_exam}
                                                     value={formValues.exam_type}
                                                     onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Type</option>
                                                     {(() => {
@@ -2373,7 +2374,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     type="number"
                                                     value={formValues.duration}
                                                     onChange={e => setFormValues({ ...formValues, duration: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5 text-left">
@@ -2382,7 +2383,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     type="number"
                                                     value={formValues.total_marks}
                                                     onChange={e => setFormValues({ ...formValues, total_marks: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                         </div>
@@ -2394,7 +2395,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <select
                                                         value={formValues.class_level}
                                                         onChange={e => setFormValues({ ...formValues, class_level: e.target.value, topic: '' })}
-                                                        className={`w-full p-3.5 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                        className={`w-full p-3.5 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                     >
                                                         <option value="">No Class</option>
                                                         {classes.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
@@ -2405,7 +2406,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <select
                                                         value={formValues.subject}
                                                         onChange={e => setFormValues({ ...formValues, subject: e.target.value, topic: '' })}
-                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                        className={`w-full p-2.5 md:max-lg:p-1.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                     >
                                                         <option value="">No Subject</option>
                                                         {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
@@ -2416,7 +2417,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <select
                                                         value={formValues.topic}
                                                         onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
-                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                        className={`w-full p-2.5 md:max-lg:p-1.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                     >
                                                         <option value="">No Topic</option>
                                                         {filteredTopicsForImage.map(t => <option key={t.id || t._id} value={t.id || t._id}>{t.name}</option>)}
@@ -2427,7 +2428,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <select
                                                         value={formValues.exam_type}
                                                         onChange={e => setFormValues({ ...formValues, exam_type: e.target.value })}
-                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                        className={`w-full p-2.5 md:max-lg:p-1.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                     >
                                                         <option value="">No Type</option>
                                                         {examTypes.map(et => <option key={et.id || et._id} value={et.id || et._id}>{et.name}</option>)}
@@ -2438,7 +2439,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <select
                                                         value={formValues.target_exam}
                                                         onChange={e => setFormValues({ ...formValues, target_exam: e.target.value })}
-                                                        className={`w-full p-2.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                        className={`w-full p-2.5 md:max-lg:p-1.5 rounded-[5px] border font-bold text-[10px] outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                     >
                                                         <option value="">No Target</option>
                                                         {targetExams.map(te => <option key={te.id || te._id} value={te.id || te._id}>{te.name}</option>)}
@@ -2486,7 +2487,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     required
                                                     value={formValues.topic}
                                                     onChange={e => setFormValues({ ...formValues, topic: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Topic</option>
                                                     {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -2500,7 +2501,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.name}
                                                     onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                                     placeholder="e.g. Introduction, Key Concepts"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2511,7 +2512,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.code}
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                                                     placeholder="CODE"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2520,7 +2521,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     type="number"
                                                     value={formValues.order}
                                                     onChange={e => setFormValues({ ...formValues, order: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                         </div>
@@ -2532,7 +2533,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     required
                                                     value={formValues.class_level}
                                                     onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Class</option>
                                                     {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -2544,7 +2545,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     required
                                                     value={formValues.subject}
                                                     onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Subject</option>
                                                     {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
@@ -2558,7 +2559,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.name}
                                                     onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                                     placeholder="e.g. Chemical Bonding, Linear Algebra"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2569,7 +2570,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.code}
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                                                     placeholder="CODE"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2578,7 +2579,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     type="number"
                                                     value={formValues.order}
                                                     onChange={e => setFormValues({ ...formValues, order: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                         </div>
@@ -2590,7 +2591,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     required
                                                     value={formValues.class_level}
                                                     onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Class</option>
                                                     {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -2602,7 +2603,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     required
                                                     value={formValues.subject}
                                                     onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Subject</option>
                                                     {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
@@ -2614,7 +2615,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <button
                                                         type="button"
                                                         onClick={() => setIsModalChapterFilterOpen(!isModalChapterFilterOpen)}
-                                                        className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all flex items-center justify-between ${formValues.chapter ? (isDarkMode ? 'bg-white/5 border-orange-500/50 text-white' : 'bg-orange-50 border-orange-500/50 text-orange-600') : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                        className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all flex items-center justify-between ${formValues.chapter ? (isDarkMode ? 'bg-white/5 border-orange-500/50 text-white' : 'bg-orange-50 border-orange-500/50 text-orange-600') : isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                     >
                                                         {formValues.chapter ? chapters.find(c => String(c.id || c._id) === String(formValues.chapter))?.name || 'Select Chapter' : 'Select Chapter'}
                                                         <ChevronDown size={14} className={`transition-transform ${isModalChapterFilterOpen ? 'rotate-180' : ''}`} />
@@ -2672,7 +2673,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.name}
                                                     onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                                     placeholder="e.g. Thermodynamics, Genetics"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -2682,7 +2683,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.sub_topic}
                                                     onChange={e => setFormValues({ ...formValues, sub_topic: e.target.value })}
                                                     placeholder="e.g. Laws of Motion"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1.5 text-left">
@@ -2693,7 +2694,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.code}
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                                                     placeholder="CODE"
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
                                         </div>
@@ -2707,7 +2708,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.name}
                                                     onChange={e => setFormValues({ ...formValues, name: e.target.value })}
                                                     placeholder="e.g. John Doe, Dr. Smith"
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1 col-span-2">
@@ -2715,7 +2716,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <select
                                                     value={formValues.subject}
                                                     onChange={e => setFormValues({ ...formValues, subject: e.target.value })}
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
                                                     <option value="">Select Subject</option>
                                                     {subjects.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
@@ -2728,7 +2729,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.email}
                                                     onChange={e => setFormValues({ ...formValues, email: e.target.value })}
                                                     placeholder="email@example.com"
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1">
@@ -2738,7 +2739,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.phone}
                                                     onChange={e => setFormValues({ ...formValues, phone: e.target.value })}
                                                     placeholder="+1 234 567 890"
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1">
@@ -2748,7 +2749,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.qualification}
                                                     onChange={e => setFormValues({ ...formValues, qualification: e.target.value })}
                                                     placeholder="e.g. PhD, MSc"
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1">
@@ -2758,7 +2759,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.experience}
                                                     onChange={e => setFormValues({ ...formValues, experience: e.target.value })}
                                                     placeholder="e.g. 5 Years"
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                             <div className="space-y-1 text-left col-span-2">
@@ -2769,7 +2770,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.code}
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                                                     placeholder="TEACHER_CODE"
-                                                    className={`w-full p-2 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
                                         </div>
@@ -2786,7 +2787,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                         setFormValues({ ...formValues, name: val });
                                                     }}
                                                     placeholder={activeSubTab === 'Subject' ? "e.g. Mathematics, Physics" : "e.g. JEE Mock"}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
 
@@ -2797,7 +2798,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     type="text"
                                                     value={formValues.code}
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
 
@@ -2847,7 +2848,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     value={formValues.description}
                                                     onChange={e => setFormValues({ ...formValues, description: e.target.value })}
                                                     placeholder="Optional details..."
-                                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                         </div>
@@ -2870,7 +2871,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 <button
                                     disabled={isActionLoading}
                                     type="submit"
-                                    className="w-full py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                    className="w-full py-3.5 md:max-lg:py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3"
                                 >
                                     {isActionLoading ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -2896,7 +2897,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             {/* Premium Confirm Modal */}
             <AnimatePresence>
                 {confirmDialog.isOpen && (
-                    <div className="fixed inset-0 z-1100 flex items-center justify-center p-4">
+                    <div style={{ zIndex: 1100 }} className="fixed inset-0 flex items-start justify-center p-4 pt-32">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
