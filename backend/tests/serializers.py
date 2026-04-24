@@ -45,7 +45,7 @@ class TestCentreAllotmentSerializer(serializers.ModelSerializer):
 class TestSerializer(serializers.ModelSerializer):
     # For GET requests, we might want nested details
     session_details = SessionSerializer(source='session', read_only=True)
-    target_exam_details = TargetExamSerializer(source='target_exam', read_only=True)
+    target_exam_details = TargetExamSerializer(source='target_exams', many=True, read_only=True)
     exam_type_details = ExamTypeSerializer(source='exam_type', read_only=True)
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
     package_name = serializers.ReadOnlyField(source='package.name')
@@ -63,6 +63,12 @@ class TestSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+
+    target_exams = ObjectIdRelatedField(
+        queryset=TargetExam.objects.all(),
+        many=True,
+        required=False
+    )
     
     # We can add a method to get count of allotted centres or details
     centres_count = serializers.SerializerMethodField()
@@ -76,7 +82,7 @@ class TestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Test
         fields = [
-            'id', 'name', 'code', 'session', 'session_details', 'target_exam', 'target_exam_details',
+            'id', 'name', 'code', 'session', 'session_details', 'target_exams', 'target_exam_details',
             'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details',
             'centres', 'centres_count', 'codes_sent_count', 'sections_count', 
             'duration', 'total_marks', 'description', 'instructions', 

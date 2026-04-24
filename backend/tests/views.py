@@ -30,14 +30,14 @@ class TestViewSet(viewsets.ModelViewSet):
         # Fetch only what's visible in the Table.
         if self.action == 'list':
             queryset = Test.objects.all().select_related(
-                'session', 'target_exam', 'exam_type', 'class_level', 'package'
+                'session', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'centre_allotments', 'centres', 'sections', 'exam_type__target_exams'
+                'target_exams'
             ).order_by('-created_at')
         else:
             # Full prefetch only for detail view or management tabs
             queryset = Test.objects.all().prefetch_related(
-                'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
+                'session', 'target_exams', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
                 'centres', 'sections', 'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
         
@@ -78,8 +78,19 @@ class TestViewSet(viewsets.ModelViewSet):
             # Centre Filter: Student's centre must be in the test's allotted centres
             centre_filter = Q(centres__code__iexact=c_code) | Q(centres__name__iexact=c_name)
             
+            # Academic Filter: Test must match student's Session, ClassLevel, and TargetExam
+            # We only apply these filters if they are set on the user to avoid blocking them if sync hasn't happened.
+            academic_filter = Q()
+            if user.session:
+                academic_filter &= Q(session=user.session)
+            if user.class_level:
+                academic_filter &= Q(class_level=user.class_level)
+            if user.target_exam:
+                academic_filter &= Q(target_exams=user.target_exam)
+            
+            # Combine filters: Show tests that are either already submitted OR match both centre and academic criteria
             queryset = queryset.filter(
-                Q(id__in=submission_test_ids) | centre_filter
+                Q(id__in=submission_test_ids) | (centre_filter & academic_filter)
             ).distinct()
         
         package_id = self.request.query_params.get('package', None)
@@ -1886,7 +1897,6 @@ class TestViewSet(viewsets.ModelViewSet):
         new_test = Test(
             name=f"{source_test.name} (Copy)",
             session=source_test.session,
-            target_exam=source_test.target_exam,
             exam_type=source_test.exam_type,
             package=source_test.package,
             class_level=source_test.class_level,
@@ -1908,9 +1918,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 break
         
         new_test.save()
+        new_test.target_exams.set(source_test.target_exams.all())
         
         # Set the section
-        new_test.allotted_sections.set([target_section])
         
         serializer = self.get_serializer(new_test)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

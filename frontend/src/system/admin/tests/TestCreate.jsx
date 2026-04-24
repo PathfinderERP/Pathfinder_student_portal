@@ -15,6 +15,154 @@ import TestSectionManager from './sections/TestSectionManager';
 import TestQuestionManager from './questions/TestQuestionManager';
 import QuestionPaperView from './questions/QuestionPaperView';
 
+// Custom Searchable Dropdown Component
+const SearchableSelect = ({
+    options = [],
+    value,
+    onChange,
+    placeholder = "Select Option",
+    isMulti = false,
+    isDarkMode,
+    disabled = false
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+                setSearchTerm('');
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredOptions = useMemo(() => {
+        return (options || []).filter(opt =>
+            opt && opt.name && opt.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [options, searchTerm]);
+
+    const selectedOptions = useMemo(() => {
+        if (isMulti) return Array.isArray(value) ? value.map(String) : [];
+        return value ? [String(value)] : [];
+    }, [value, isMulti]);
+
+    const handleSelect = (id) => {
+        const idStr = String(id);
+        if (isMulti) {
+            const newValue = selectedOptions.includes(idStr)
+                ? selectedOptions.filter(v => v !== idStr)
+                : [...selectedOptions, idStr];
+            onChange(newValue);
+        } else {
+            onChange(id);
+            setIsOpen(false);
+            setSearchTerm('');
+        }
+    };
+
+    const getDisplayValue = () => {
+        if (isMulti) {
+            if (selectedOptions.length === 0) return placeholder;
+            if (selectedOptions.length === 1) {
+                const opt = options.find(o => String(o.id) === selectedOptions[0]);
+                return opt ? opt.name : placeholder;
+            }
+            return `${selectedOptions.length} Selected`;
+        } else {
+            const opt = options.find(o => String(o.id) === String(value));
+            return opt ? opt.name : placeholder;
+        }
+    };
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <div
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm flex items-center justify-between cursor-pointer transition-all ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+            >
+                <span className="truncate">{getDisplayValue()}</span>
+                <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {isOpen && (
+                <div className={`absolute z-[200] mt-2 w-full p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1F2533] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10 space-y-2">
+                        <div className="relative">
+                            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                autoFocus
+                                placeholder="Search..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`w-full pl-8 pr-2 py-2 rounded-[3px] text-xs outline-none ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-800'}`}
+                            />
+                        </div>
+                        {isMulti && filteredOptions.length > 0 && (
+                            <div className="flex items-center gap-2 px-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const allIds = filteredOptions.map(opt => String(opt.id));
+                                        const uniqueNewIds = Array.from(new Set([...selectedOptions, ...allIds]));
+                                        onChange(uniqueNewIds);
+                                    }}
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20' : 'bg-orange-50 text-orange-600 hover:bg-orange-100'}`}
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const filteredIds = filteredOptions.map(opt => String(opt.id));
+                                        const remainingIds = selectedOptions.filter(id => !filteredIds.includes(id));
+                                        onChange(remainingIds);
+                                    }}
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[9px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-slate-500/10 text-slate-400 hover:bg-slate-500/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        {filteredOptions.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-slate-500">No results found</div>
+                        ) : (
+                            filteredOptions.map(opt => {
+                                const idStr = String(opt.id);
+                                const isSelected = selectedOptions.includes(idStr);
+                                return (
+                                    <div
+                                        key={opt.id}
+                                        onClick={() => handleSelect(opt.id)}
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-xs font-bold cursor-pointer transition-all mb-1 ${isSelected
+                                            ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
+                                            : (isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50')}`}
+                                    >
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected
+                                            ? 'bg-orange-500 border-orange-500'
+                                            : (isDarkMode ? 'border-white/20' : 'border-slate-300')}`}
+                                        >
+                                            {isSelected && <Check size={12} className="text-white" strokeWidth={4} />}
+                                        </div>
+                                        <span className="flex-1 truncate">{opt.name}</span>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // Helper component for live math preview
 const MathPreview = ({ tex, isDarkMode }) => {
     const containerRef = React.useRef();
@@ -85,7 +233,7 @@ const TestCreate = () => {
         name: '',
         code: '',
         session: '',
-        target_exam: '',
+        target_exams: [],
         exam_type: '',
         class_level: '',
         duration: 180,
@@ -200,7 +348,7 @@ const TestCreate = () => {
             const apiUrl = getApiUrl();
             const config = getAuthConfig();
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
-            setData(Array.isArray(response.data) ? response.data : response.data.results || response.data);
+            setData(Array.isArray(response.data) ? response.data : (response.data.results || []));
 
             // Use cached master data instead of repeated API calls
             await fetchMasterData();
@@ -246,7 +394,7 @@ const TestCreate = () => {
             name: '',
             code: '',
             session: sessions[0]?.id || '',
-            target_exam: '',
+            target_exams: [],
             exam_type: '',
             class_level: classes[0]?.id || '',
             duration: 180,
@@ -266,7 +414,7 @@ const TestCreate = () => {
             name: item.name,
             code: item.code,
             session: item.session || '',
-            target_exam: item.target_exam || '',
+            target_exams: item.target_exams || [],
             exam_type: item.exam_type || '',
             class_level: item.class_level || '',
             duration: item.duration,
@@ -472,7 +620,7 @@ const TestCreate = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-sm mb-1">{item.name}</span>
                                             <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
-                                                {item.session_details?.name} • {item.class_level_details?.name} • {item.target_exam_details?.name}
+                                                {item.session_details?.name} • {item.class_level_details?.name} • {Array.isArray(item.target_exam_details) ? item.target_exam_details.map(te => te.name).join(', ') : (item.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>
@@ -643,7 +791,9 @@ const TestCreate = () => {
                 d.name === formValues.name &&
                 String(d.session) === String(formValues.session) &&
                 String(d.class_level) === String(formValues.class_level) &&
-                String(d.target_exam) === String(formValues.target_exam) &&
+                (Array.isArray(d.target_exams) && formValues.target_exams.length > 0
+                    ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
+                    : true) &&
                 String(d.exam_type) === String(formValues.exam_type)
             );
             if (match) {
@@ -654,7 +804,7 @@ const TestCreate = () => {
                 }));
             }
         }
-    }, [formValues.name, formValues.session, formValues.class_level, formValues.target_exam, formValues.exam_type, examDetails]);
+    }, [formValues.name, formValues.session, formValues.class_level, formValues.target_exams, formValues.exam_type, examDetails]);
 
     // Cascading Filter Logic based on Exam Details Master
     const availableSessions = useMemo(() => {
@@ -677,35 +827,39 @@ const TestCreate = () => {
                 String(d.session) === String(formValues.session) &&
                 String(d.class_level) === String(formValues.class_level)
             )
-            .map(d => String(d.target_exam)))];
+            .flatMap(d => Array.isArray(d.target_exams) ? d.target_exams.map(String) : d.target_exam ? [String(d.target_exam)] : []))];
         return targetExams.filter(t => targetIds.includes(String(t.id)));
     }, [targetExams, examDetails, formValues.session, formValues.class_level]);
 
     const availableExamTypes = useMemo(() => {
-        if (!formValues.session || !formValues.class_level || !formValues.target_exam) return [];
+        if (!formValues.session || !formValues.class_level || formValues.target_exams.length === 0) return [];
         const typeIds = [...new Set(examDetails
             .filter(d =>
                 String(d.session) === String(formValues.session) &&
                 String(d.class_level) === String(formValues.class_level) &&
-                String(d.target_exam) === String(formValues.target_exam)
+                (Array.isArray(d.target_exams) 
+                    ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
+                    : false)
             )
             .map(d => String(d.exam_type)))];
         return examTypes.filter(et => typeIds.includes(String(et.id)));
-    }, [examTypes, examDetails, formValues.session, formValues.class_level, formValues.target_exam]);
+    }, [examTypes, examDetails, formValues.session, formValues.class_level, formValues.target_exams]);
 
     const availableTitles = useMemo(() => {
-        if (!formValues.session || !formValues.class_level || !formValues.target_exam || !formValues.exam_type) return [];
+        if (!formValues.session || !formValues.class_level || formValues.target_exams.length === 0 || !formValues.exam_type) return [];
         return examDetails
             .filter(d =>
                 String(d.session) === String(formValues.session) &&
                 String(d.class_level) === String(formValues.class_level) &&
-                String(d.target_exam) === String(formValues.target_exam) &&
+                (Array.isArray(d.target_exams) 
+                    ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
+                    : false) &&
                 String(d.exam_type) === String(formValues.exam_type)
             )
-            .map(d => d.name);
-    }, [examDetails, formValues.session, formValues.class_level, formValues.target_exam, formValues.exam_type]);
+            .map(d => ({ id: d.name, name: d.name }));
+    }, [examDetails, formValues.session, formValues.class_level, formValues.target_exams, formValues.exam_type]);
 
-    const isAllCriteriaSelected = !!(formValues.session && formValues.target_exam && formValues.exam_type && formValues.class_level);
+    const isAllCriteriaSelected = !!(formValues.session && formValues.target_exams.length > 0 && formValues.exam_type && formValues.class_level);
 
     const renderModal = () => {
         if (!isModalOpen) return null;
@@ -730,50 +884,47 @@ const TestCreate = () => {
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
-                                        <select
+                                        <SearchableSelect
+                                            options={availableSessions}
                                             value={formValues.session}
-                                            onChange={e => setFormValues({ ...formValues, session: e.target.value, class_level: '', target_exam: '', exam_type: '', name: '', code: '' })}
-                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                        >
-                                            <option value="">Select Session</option>
-                                            {availableSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
+                                            onChange={val => setFormValues({ ...formValues, session: val, class_level: '', target_exams: [], exam_type: '', name: '', code: '' })}
+                                            placeholder="Select Session"
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                        <select
+                                        <SearchableSelect
                                             disabled={!formValues.session}
+                                            options={availableClasses}
                                             value={formValues.class_level}
-                                            onChange={e => setFormValues({ ...formValues, class_level: e.target.value, target_exam: '', exam_type: '', name: '', code: '' })}
-                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.session ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                        >
-                                            <option value="">Select Class</option>
-                                            {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
+                                            onChange={val => setFormValues({ ...formValues, class_level: val, target_exams: [], exam_type: '', name: '', code: '' })}
+                                            placeholder="Select Class"
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
-                                        <select
+                                        <SearchableSelect
                                             disabled={!formValues.class_level}
-                                            value={formValues.target_exam}
-                                            onChange={e => setFormValues({ ...formValues, target_exam: e.target.value, exam_type: '', name: '', code: '' })}
-                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.class_level ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                        >
-                                            <option value="">Select Target</option>
-                                            {availableTargetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
+                                            options={availableTargetExams}
+                                            value={formValues.target_exams}
+                                            onChange={val => setFormValues({ ...formValues, target_exams: val, exam_type: '', name: '', code: '' })}
+                                            placeholder="Select Target"
+                                            isDarkMode={isDarkMode}
+                                            isMulti={true}
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                                        <select
-                                            disabled={!formValues.target_exam}
+                                        <SearchableSelect
+                                            disabled={formValues.target_exams.length === 0}
+                                            options={availableExamTypes}
                                             value={formValues.exam_type}
-                                            onChange={e => setFormValues({ ...formValues, exam_type: e.target.value, name: '', code: '' })}
-                                            className={`w-full px-4 py-3 rounded-[5px] border-none font-bold text-[10px] uppercase outline-none appearance-none transition-all ${!formValues.target_exam ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-100/50 text-slate-600 focus:bg-slate-100'}`}
-                                        >
-                                            <option value="">Select Type</option>
-                                            {availableExamTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
-                                        </select>
+                                            onChange={val => setFormValues({ ...formValues, exam_type: val, name: '', code: '' })}
+                                            placeholder="Select Type"
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                 </div>
 
@@ -781,18 +932,14 @@ const TestCreate = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title * {!isAllCriteriaSelected && '(Select Four Filters First)'}</label>
-                                        <select
+                                        <SearchableSelect
                                             disabled={!isAllCriteriaSelected}
-                                            required
+                                            options={availableTitles}
                                             value={formValues.name}
-                                            onChange={e => setFormValues({ ...formValues, name: e.target.value })}
-                                            className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all ${!isAllCriteriaSelected ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                        >
-                                            <option value="">Select Exam Title</option>
-                                            {availableTitles.map(title => (
-                                                <option key={title} value={title}>{title}</option>
-                                            ))}
-                                        </select>
+                                            onChange={val => setFormValues({ ...formValues, name: val })}
+                                            placeholder="Select Exam Title"
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code *</label>

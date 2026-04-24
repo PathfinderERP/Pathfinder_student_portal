@@ -116,7 +116,7 @@ class ExamDetail(models.Model):
     name = models.CharField(max_length=255, help_text="Exam Title", default='')
     code = models.CharField(max_length=100, help_text="Exam Code", unique=True, blank=True)
     session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='exam_details')
-    target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='exam_details')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='exam_details')
     exam_type = models.ForeignKey(ExamType, on_delete=models.CASCADE, related_name='exam_details')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='exam_details')
     duration = models.IntegerField(help_text="Duration in minutes")

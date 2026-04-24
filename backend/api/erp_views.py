@@ -7,6 +7,8 @@ import os
 import threading
 from django.core.cache import cache
 from django.db import close_old_connections
+from master_data.models import Session, ClassLevel, TargetExam
+
 
 def _get_erp_url():
     """Returns the cleaned ERP API URL from env or default."""
@@ -432,6 +434,46 @@ def _sync_user_to_erp(user, admission_data):
                 
             if user.centre_code != new_cc: user.centre_code = new_cc; has_changed = True
             if user.centre_name != new_cn: user.centre_name = new_cn; has_changed = True
+
+        # 5. Sync Academic Metadata (Session, Class, Target Exam)
+        # Session
+        erp_session_name = admission_data.get('course', {}).get('courseSession')
+        if erp_session_name:
+            session_obj = Session.objects.filter(name__iexact=erp_session_name).first()
+            if session_obj and user.session_id != session_obj.id:
+                user.session = session_obj; has_changed = True
+
+        # Class
+        class_info = admission_data.get('class', {})
+        erp_class_id = class_info.get('_id')
+        erp_class_name = class_info.get('name')
+        if erp_class_id or erp_class_name:
+            class_obj = None
+            if erp_class_id: class_obj = ClassLevel.objects.filter(erp_id=erp_class_id).first()
+            if not class_obj and erp_class_name: class_obj = ClassLevel.objects.filter(name__iexact=erp_class_name).first()
+            
+            if class_obj and user.class_level_id != class_obj.id:
+                user.class_level = class_obj; has_changed = True
+
+        # Target Exam (Exam Tag)
+        details = details_list[0] if details_list else {}
+        exam_tag_raw = details.get('examTag') or admission_data.get('examTag')
+        erp_tag_id = None
+        erp_tag_name = None
+        if isinstance(exam_tag_raw, dict):
+            erp_tag_id = exam_tag_raw.get('_id') or exam_tag_raw.get('id')
+            erp_tag_name = exam_tag_raw.get('name') or exam_tag_raw.get('tagName')
+        else:
+            erp_tag_id = exam_tag_raw
+            
+        if erp_tag_id or erp_tag_name:
+            tag_obj = None
+            if erp_tag_id: tag_obj = TargetExam.objects.filter(erp_id=erp_tag_id).first()
+            if not tag_obj and erp_tag_name: tag_obj = TargetExam.objects.filter(name__iexact=erp_tag_name).first()
+            
+            if tag_obj and user.target_exam_id != tag_obj.id:
+                user.target_exam = tag_obj; has_changed = True
+
 
         if has_changed:
             user.save()

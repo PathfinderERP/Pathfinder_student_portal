@@ -474,7 +474,7 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 
 
 class ExamDetailViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
-    queryset = ExamDetail.objects.select_related('session', 'target_exam', 'exam_type', 'class_level').all().order_by('-created_at')
+    queryset = ExamDetail.objects.select_related('session', 'exam_type', 'class_level').prefetch_related('target_exams').all().order_by('-created_at')
     serializer_class = ExamDetailSerializer
 
 class SubjectViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):

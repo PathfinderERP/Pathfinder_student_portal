@@ -42,6 +42,11 @@ class CustomUser(AbstractUser):
     # Centre identity
     centre_code = models.CharField(max_length=50, null=True, blank=True)
     centre_name = models.CharField(max_length=255, null=True, blank=True)
+    # Academic Context
+    session = models.ForeignKey('master_data.Session', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    class_level = models.ForeignKey('master_data.ClassLevel', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    target_exam = models.ForeignKey('master_data.TargetExam', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    
     admission_number = models.CharField(max_length=100, null=True, blank=True, help_text="Admission Number from ERP")
 
     def __str__(self):
