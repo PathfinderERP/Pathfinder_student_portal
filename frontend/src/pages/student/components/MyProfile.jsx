@@ -1,14 +1,52 @@
-import React from 'react';
-import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award, CreditCard, CheckCircle, Activity, RefreshCw, ShieldCheck, Sparkles, Star, AlertCircle, GraduationCap, Target, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Phone, MapPin, Calendar, BookOpen, Award, CreditCard, CheckCircle, Activity, RefreshCw, ShieldCheck, Sparkles, Star, AlertCircle, GraduationCap, Target, Users, Tag } from 'lucide-react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import { useAuth } from '../../../context/AuthContext';
 
 const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
+    const { token, getApiUrl } = useAuth();
     const [isRefreshing, setIsRefreshing] = React.useState(false);
+    const [examTagName, setExamTagName] = useState('—');
+    const [tagLoading, setTagLoading] = useState(false);
+
     const details = studentData?.student?.studentsDetails?.[0] || {};
     const guardians = studentData?.student?.guardians || [];
     const examSchema = studentData?.student?.examSchema || [];
     const batches = studentData?.student?.batches || [];
     const sections = studentData?.sectionAllotment || {};
+    const examTagRaw = details.examTag || studentData?.examTag || studentData?.student?.examTag;
+    const examTagId = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw._id || examTagRaw.id) : examTagRaw;
+    const preResolvedTagName = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw.name || examTagRaw.tagName) : null;
+
+    useEffect(() => {
+        const fetchExamTag = async () => {
+            if (preResolvedTagName) {
+                setExamTagName(preResolvedTagName);
+                return;
+            }
+
+            if (!examTagId || typeof examTagId !== 'string' || examTagId.length < 5 || !token) return;
+            
+            setTagLoading(true);
+            try {
+                const apiUrl = getApiUrl();
+                const response = await axios.get(`${apiUrl}/api/examTag/${examTagId}/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.data && (response.data.name || response.data.tagName)) {
+                    setExamTagName(response.data.name || response.data.tagName);
+                }
+            } catch (err) {
+                console.error("Error fetching exam tag:", err);
+                setExamTagName('Error');
+            } finally {
+                setTagLoading(false);
+            }
+        };
+
+        fetchExamTag();
+    }, [examTagId, preResolvedTagName, token, getApiUrl]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -103,6 +141,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                                 ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm'}`}>
                                 <Star size={12} className="text-indigo-500" /> Elite Rank
                             </div>
+                            {examTagId && (
+                                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border
+                                    ${isDarkMode ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-600 shadow-sm'}`}>
+                                    <Tag size={12} className="text-rose-500" /> {tagLoading ? 'Loading Tag...' : examTagName}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -252,7 +296,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                     <InfoField label="Level / Class" value={studentData?.class?.name} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Delivery Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Assigned Batch" value={batches.map(b => b.batchName).join(', ')} icon={Users} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
-                    <InfoField label="Study Section" value={Array.isArray(sections?.studySection) ? sections.studySection.join(', ') : sections?.studySection} icon={Target} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                    <InfoField label="Exam Tag" value={tagLoading ? 'Syncing...' : examTagName} icon={Tag} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="ERP Unique ID" value={studentData?.admissionNumber} icon={ShieldCheck} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Enrollment Date" value={studentData?.admissionDate ? new Date(studentData.admissionDate).toLocaleDateString() : 'N/A'} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="System Status" value={studentData?.admissionStatus} icon={CheckCircle} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="emerald" />

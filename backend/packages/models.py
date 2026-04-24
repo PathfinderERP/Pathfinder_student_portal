@@ -21,8 +21,6 @@ class Package(models.Model):
     is_published = models.BooleanField(default=False) # For student portal visibility
     is_active = models.BooleanField(default=True) # Soft delete (don't show in list if False)
     
-    # Allotment
-    allotted_sections = models.ManyToManyField('sections.Section', related_name='allotted_packages', blank=True)
     
     start_year = models.IntegerField(null=True, blank=True)
     end_year = models.IntegerField(null=True, blank=True)

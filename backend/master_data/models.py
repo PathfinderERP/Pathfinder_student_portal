@@ -38,7 +38,8 @@ def generate_unique_code(model_class, name):
     code = base_code
     counter = 1
     # Check for uniqueness and append counter if necessary
-    while model_class.objects.filter(code=code).exists():
+    # Use .first() instead of .exists() for better Djongo compatibility
+    while model_class.objects.filter(code=code).only('id').first():
         code = f"{base_code}_{counter}"
         counter += 1
     return code
@@ -46,6 +47,7 @@ def generate_unique_code(model_class, name):
 class Session(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50, unique=True, blank=True)
+    erp_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -62,6 +64,7 @@ class Session(models.Model):
 class TargetExam(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50, unique=True, blank=True)
+    erp_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -95,6 +98,7 @@ class ExamType(models.Model):
 class ClassLevel(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50, unique=True, blank=True)
+    erp_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

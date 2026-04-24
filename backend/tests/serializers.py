@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Test, TestCentreAllotment
-from master_data.models import Session, ExamType, ClassLevel, TargetExam, MasterSection
+from master_data.models import Session, ExamType, ClassLevel, TargetExam
 from master_data.serializers import SessionSerializer, ExamTypeSerializer, ClassLevelSerializer, TargetExamSerializer
 from sections.models import Section
 from centres.models import Centre
@@ -50,12 +50,6 @@ class TestSerializer(serializers.ModelSerializer):
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
     package_name = serializers.ReadOnlyField(source='package.name')
     
-    # Explicitly define allotted_sections to handle M2M with MasterSection (Integer pk)
-    allotted_sections = serializers.PrimaryKeyRelatedField(
-        queryset=MasterSection.objects.all(),
-        many=True,
-        required=False
-    )
     
     # Explicitly define centres to handle M2M with ObjectId pk
     centres = ObjectIdRelatedField(
@@ -74,7 +68,6 @@ class TestSerializer(serializers.ModelSerializer):
     centres_count = serializers.SerializerMethodField()
     codes_sent_count = serializers.SerializerMethodField()
     sections_count = serializers.SerializerMethodField()
-    allotted_master_count = serializers.SerializerMethodField()
     
     # Per-user schedule fields
     start_time = serializers.SerializerMethodField()
@@ -85,8 +78,8 @@ class TestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'code', 'session', 'session_details', 'target_exam', 'target_exam_details',
             'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details',
-            'centres', 'centres_count', 'codes_sent_count', 'allotted_sections', 'sections_count', 
-            'allotted_master_count', 'duration', 'total_marks', 'description', 'instructions', 
+            'centres', 'centres_count', 'codes_sent_count', 'sections_count', 
+            'duration', 'total_marks', 'description', 'instructions', 
             'is_completed', 'is_over', 'has_calculator', 'is_result_published', 'option_type_numeric', 'created_at', 'updated_at',
             'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count'
         ]
@@ -170,7 +163,6 @@ class TestSerializer(serializers.ModelSerializer):
                 return total_count
 
             # Fallback Logic (De-duplicated Global Roster)
-            allowed_sections = [s.name.strip().lower() for s in obj.allotted_sections.all()]
             
             # 1. Count Local Students (Global Deduplication)
             for centre in centres:
@@ -182,15 +174,6 @@ class TestSerializer(serializers.ModelSerializer):
                 for student in local_pool:
                     uid = (student.username or str(student.pk)).upper().strip()
                     if uid in seen_identifiers: continue
-                    
-                    # If they matched centre, we apply section filter (RESTRICTIVE)
-                    if not allowed_sections:
-                        continue # If no sections are allotted to test, no student can see it
-                        
-                    s_exams = [s.lower() for s in parse_section(student.exam_section)]
-                    s_studies = [s.lower() for s in parse_section(student.study_section)]
-                    if not any(sec in allowed_sections for sec in (s_exams + s_studies)):
-                        continue
                     
                     seen_identifiers.add(uid)
                     if student.admission_number: seen_identifiers.add(student.admission_number.upper().strip())
@@ -212,18 +195,7 @@ class TestSerializer(serializers.ModelSerializer):
                 if (e_adm and e_adm in seen_identifiers) or (e_email and e_email in seen_identifiers):
                     continue
 
-                # --- SHOW ALL STUDENTS MATCHING SECTIONS (IRRESPECTIVE OF SESSION) ---
-                # 1. Section Match (RESTRICTIVE)
-                if not allowed_sections:
-                    continue # No sections assigned = hidden from all students
-                    
-                sec_allot = erp_student.get('sectionAllotment', {})
-                if not isinstance(sec_allot, dict): continue
-                e_exams = [s.lower() for s in parse_section(sec_allot.get('examSection'))]
-                e_studies = [s.lower() for s in parse_section(sec_allot.get('studySection'))]
-                if not any(sec in allowed_sections for sec in (e_exams + e_studies)):
-                    continue
-                
+                # --- SHOW ALL STUDENTS MATCHING CENTRE ---
                 # 2. Centre Match
                 e_centre_raw = erp_student.get('centre')
                 if not e_centre_raw:
@@ -334,12 +306,5 @@ class TestSerializer(serializers.ModelSerializer):
         return sum(1 for a in obj.centre_allotments.all() if a.is_code_sent)
 
     def get_sections_count(self, obj):
-        # Total = Owned + Allotted
-        owned = len(obj.sections.all())
-        allotted = len(obj.allotted_sections.all())
-        return owned + allotted
-
-    def get_allotted_master_count(self, obj):
-        # Only count sections from Master Registry. Since allotted_sections points to MasterSection,
-        # all of them are considered master sections.
-        return len(obj.allotted_sections.all())
+        # Total = Owned
+        return len(obj.sections.all())

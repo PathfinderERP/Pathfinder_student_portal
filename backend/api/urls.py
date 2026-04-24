@@ -5,7 +5,7 @@ from .views import system_status, FileViewSet, CustomTokenObtainPairView, Profil
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
     get_student_classes, get_ongoing_classes, get_upcoming_classes,
-    get_all_centres_erp_data, get_all_teachers_erp_data
+    get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag
 )
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
 from .gemini_views import generate_ai_study_plan
@@ -43,6 +43,7 @@ urlpatterns = [
     path('student/scholarlab/initialize/', initialize_scholarlab_simulation, name='scholarlab-initialize'),
     path('student/ai-mentor/study-plan/', generate_ai_study_plan, name='ai-mentor-study-plan'),
     path('chat/search/', UserSearchView.as_view(), name='chat-search'),
+    path('examTag/<str:tagId>/', get_exam_tag, name='exam-tag'),
     path('admin/temp-cleanup/', include([
         path('grievances/', 
              __import__('api.views', fromlist=['temporary_cleanup_view']).temporary_cleanup_view),

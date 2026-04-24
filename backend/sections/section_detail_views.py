@@ -173,8 +173,8 @@ def list_master_sections(request):
         section_ids = [s.pk for s in sections]
 
         # 2. Bulk Fetch All Related Content
-        # Fetch ALL tests that have these master sections allotted
-        all_tests = list(Test.objects.filter(allotted_sections__in=section_ids).select_related('exam_type').prefetch_related('allotted_sections'))
+        # Fetch ALL tests (No longer filtered by allotted_sections)
+        all_tests = list(Test.objects.all().select_related('exam_type').prefetch_related('sections'))
         test_ids = [t.pk for t in all_tests]
         
         # Allotments for these tests
@@ -192,9 +192,14 @@ def list_master_sections(request):
             test_allotments_map[a.test_id].append(a)
 
         tests_by_section = defaultdict(list)
+        # Group tests by their internal sections matching the master section name
         for t in all_tests:
-            for s in t.allotted_sections.all():
-                tests_by_section[str(s.pk)].append(t)
+            for s in t.sections.all():
+                # Find matching master section by name
+                for ms in sections:
+                    if ms.name.strip().lower() == s.name.strip().lower():
+                        tests_by_section[str(ms.pk)].append(t)
+                        break
 
         pp_by_section = defaultdict(list)
         for ppt in all_pp_tests:
@@ -328,8 +333,8 @@ def section_full_detail(request, section_id):
         except Exception:
             return Response({'error': 'Section not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get all tests that have this section assigned
-        assigned_tests = Test.objects.filter(allotted_sections=section).order_by('-created_at')
+        # allotted_sections removed. We now filter by matching section names.
+        assigned_tests = Test.objects.filter(sections__name__iexact=section.name).distinct().order_by('-created_at')
 
         tests_data = []
         total_centres = 0
@@ -365,7 +370,7 @@ def section_tests(request, section_id):
         except Exception:
             return Response({'error': 'Section not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        assigned_tests = Test.objects.filter(allotted_sections=section).order_by('-created_at')
+        assigned_tests = Test.objects.filter(sections__name__iexact=section.name).distinct().order_by('-created_at')
         tests_data = [_serialize_test_full(t) for t in assigned_tests]
 
         return Response({
@@ -394,7 +399,7 @@ def section_centres(request, section_id):
         except Exception:
             return Response({'error': 'Section not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        assigned_tests = Test.objects.filter(allotted_sections=section)
+        assigned_tests = Test.objects.filter(sections__name__iexact=section.name).distinct()
 
         seen_centres = {}
         for test in assigned_tests:

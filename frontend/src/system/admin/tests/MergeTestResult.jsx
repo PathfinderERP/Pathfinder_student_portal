@@ -496,7 +496,9 @@ const MergeTestResult = () => {
                                     <td className="py-5 px-6">
                                         <div className="flex items-center gap-2 whitespace-nowrap">
                                             <span className="text-xs font-black uppercase tracking-tight">{test.name}</span>
-                                            <span className="text-[9px] font-bold opacity-40 px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap">{test.session_details?.name}</span>
+                                            <span className="text-[9px] font-bold opacity-40 px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap">
+                                                {test.session_details?.name} • {test.class_level_details?.name} • {test.target_exam_details?.name}
+                                            </span>
                                         </div>
                                     </td>
                                     <td className="py-5 px-6">
@@ -506,7 +508,7 @@ const MergeTestResult = () => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <span className={`px-3 py-1 rounded-[5px] text-[10px] font-bold ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
-                                            {test.session_details?.name || 'N/A'}
+                                            {test.session_details?.name} • {test.class_level_details?.name} • {test.target_exam_details?.name}
                                         </span>
                                     </td>
                                     <td className="py-5 px-6 text-center">

@@ -20,18 +20,8 @@ class PackageSerializer(serializers.ModelSerializer):
     exam_type_details = TargetExamSerializer(source='exam_type', read_only=True)
     session_details = SessionSerializer(source='session', read_only=True)
     
-    allotted_sections = ObjectIdRelatedField(
-        queryset=Section.objects.all(),
-        many=True,
-        required=False
-    )
-    
-    allotted_sections_details = serializers.SerializerMethodField()
-
     class Meta:
         model = Package
         fields = '__all__'
 
-    def get_allotted_sections_details(self, obj):
-        return [{"id": str(s.pk), "name": s.name, "code": s.subject_code} for s in obj.allotted_sections.all()]
 

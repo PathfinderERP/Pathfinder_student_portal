@@ -17,15 +17,6 @@ def clean_html(text):
     if not text: return ""
     return re.sub('<[^<]+?>', '', str(text)).strip().lower()
 
-def _get_student_sections(obj, is_erp=False):
-    from api.db_utils import parse_section
-    if is_erp:
-        sa = obj.get('sectionAllotment', {}) or {}
-        return [s.lower().strip() for s in parse_section(sa.get('examSection'))] + \
-               [s.lower().strip() for s in parse_section(sa.get('studySection'))]
-    else:
-        return [s.lower().strip() for s in parse_section(getattr(obj, 'exam_section', ''))] + \
-               [s.lower().strip() for s in parse_section(getattr(obj, 'study_section', ''))]
 
 
 class TestViewSet(viewsets.ModelViewSet):
@@ -41,13 +32,13 @@ class TestViewSet(viewsets.ModelViewSet):
             queryset = Test.objects.all().select_related(
                 'session', 'target_exam', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'allotted_sections', 'centre_allotments', 'centres', 'sections', 'exam_type__target_exams'
+                'centre_allotments', 'centres', 'sections', 'exam_type__target_exams'
             ).order_by('-created_at')
         else:
             # Full prefetch only for detail view or management tabs
             queryset = Test.objects.all().prefetch_related(
                 'session', 'target_exam', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
-                'allotted_sections', 'centres', 'sections', 'centre_allotments', 'centre_allotments__centre'
+                'centres', 'sections', 'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
         
         # If user is a student, enforce smart visibility rules
@@ -69,12 +60,6 @@ class TestViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 print(f"Passive Sync Error: {e}")
 
-            # Prep student metadata (Include both casings to bypass DB case-sensitivity in __in filter)
-            s_exams = [s.strip() for s in parse_section(getattr(user, 'exam_section', ''))]
-            s_studies = [s.strip() for s in parse_section(getattr(user, 'study_section', ''))]
-            raw_sects = s_exams + s_studies
-            student_sections = set([s.lower() for s in raw_sects] + [s.upper() for s in raw_sects])
-            
             c_code = str(getattr(user, 'centre_code', '')).lower().strip()
             c_name = str(getattr(user, 'centre_name', '')).lower().strip()
 
@@ -87,17 +72,14 @@ class TestViewSet(viewsets.ModelViewSet):
                 except: pass
 
             # Optimized Filtering: Use DB-level filtering as much as possible to avoid N+1
-            # Filter condition: (Submitted tests) OR (Matched Centre AND Matched Section)
+            # Filter condition: (Submitted tests) OR (Matched Centre)
             from django.db.models import Q
             
             # Centre Filter: Student's centre must be in the test's allotted centres
             centre_filter = Q(centres__code__iexact=c_code) | Q(centres__name__iexact=c_name)
             
-            # Section Filter: Student's section must be in allotted_sections, OR no sections allotted
-            section_filter = Q(allotted_sections__name__in=student_sections) | Q(allotted_sections__isnull=True)
-            
             queryset = queryset.filter(
-                Q(id__in=submission_test_ids) | (centre_filter & section_filter)
+                Q(id__in=submission_test_ids) | centre_filter
             ).distinct()
         
         package_id = self.request.query_params.get('package', None)
@@ -222,7 +204,7 @@ class TestViewSet(viewsets.ModelViewSet):
                         from .models import Test
                         
                         test_ids = [item.get('id') for item in data_items]
-                        all_tests = Test.objects.filter(id__in=test_ids).prefetch_related('allotted_sections', 'centres')
+                        all_tests = Test.objects.filter(id__in=test_ids).prefetch_related('centres')
                         test_map = {t.id: t for t in all_tests}
                         
                         # Pre-process test criteria for fast matching
@@ -231,7 +213,6 @@ class TestViewSet(viewsets.ModelViewSet):
                             t = test_map.get(t_id)
                             if not t: continue
                             test_criteria[t_id] = {
-                                'sections': set(s.name.strip().lower() for s in t.allotted_sections.all()),
                                 'centres': set(c.name.strip().upper() for c in t.centres.all())
                             }
                         
@@ -260,16 +241,9 @@ class TestViewSet(viewsets.ModelViewSet):
                             s_centre = str(c_raw or '').upper().strip()
                             if not s_centre: continue
                             
-                            # Get student's sections
-                            sa = erp.get('sectionAllotment', {})
-                            s_sects = set([s.strip().lower() for s in parse_section(sa.get('examSection'))] + 
-                                          [s.strip().lower() for s in parse_section(sa.get('studySection'))])
-                            
-                            if not s_sects: continue
-                            
                             # Check against every test in current page
                             for t_id, criteria in test_criteria.items():
-                                if s_centre in criteria['centres'] and (s_sects & criteria['sections']):
+                                if s_centre in criteria['centres']:
                                     # De-duplicate within the test's roster
                                     is_seen = (adm and adm in seen_students[t_id]) or (em and em in seen_students[t_id])
                                     if not is_seen:
@@ -378,39 +352,14 @@ class TestViewSet(viewsets.ModelViewSet):
         
         global_seen_uids = set()
         unassigned_sub_count = 0
-        allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
-
-        # Sub-Calculation Helper (O(1) where possible)
-        def _get_student_sections(s_obj_or_dict, is_erp=False):
-            if is_erp:
-                sa = s_obj_or_dict.get('sectionAllotment', {}) or {}
-                se = [sec.lower() for sec in parse_section(sa.get('examSection'))]
-                ss = [sec.lower() for sec in parse_section(sa.get('studySection'))]
-            else:
-                se = [sec.lower() for sec in parse_section(s_obj_or_dict.exam_section)]
-                ss = [sec.lower() for sec in parse_section(s_obj_or_dict.study_section)]
-            return se + ss
 
         # A. Assign Submitted Students
         for sub in all_subs_list:
             assigned = False
             for c in all_target_centres:
                 if sub['c_code'] == str(c.code).lower().strip() or sub['c_name'] == str(c.name).lower().strip():
-                    # Verification
-                    if not allowed_sections_list:
-                        is_mismatched = True
-                    else:
-                        erp_record = erp_index.get(f"email_{str(sub.get('email') or '').lower()}") or \
-                                     erp_index.get(f"adm_{str(sub.get('adm') or '').upper()}")
-                        sects = _get_student_sections(erp_record, True) if erp_record else []
-                        if not sects:
-                            u_tmp = CustomUser.objects.filter(pk=sub['pk']).first()
-                            sects = _get_student_sections(u_tmp) if u_tmp else []
-                        is_mismatched = not any(sec in allowed_sections_list for sec in sects)
-
-                    if not is_mismatched:
-                        centre_counts[str(c.pk)]['sub'] += 1
-                        centre_counts[str(c.pk)]['roster'] += 1
+                    centre_counts[str(c.pk)]['sub'] += 1
+                    centre_counts[str(c.pk)]['roster'] += 1
                     assigned = True; break
             
             if assigned:
@@ -440,15 +389,11 @@ class TestViewSet(viewsets.ModelViewSet):
                 if s_c_code == str(c.code).lower().strip() or s_c_name == str(c.name).lower().strip():
                     uid = (s.username or str(s.pk)).upper().strip()
                     if uid in global_seen_uids: break
-                    if not allowed_sections_list: break
                     
-                    erp_rec = erp_index.get(f"email_{str(s.email).lower()}") or erp_index.get(f"adm_{str(s.admission_number).upper()}")
-                    sects = _get_student_sections(erp_rec, True) if erp_rec else _get_student_sections(s)
-                    if any(sec in allowed_sections_list for sec in sects):
-                        centre_counts[str(c.pk)]['roster'] += 1
-                        global_seen_uids.add(uid)
-                        if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
-                        if s.email: global_seen_uids.add(s.email.lower().strip())
+                    centre_counts[str(c.pk)]['roster'] += 1
+                    global_seen_uids.add(uid)
+                    if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
+                    if s.email: global_seen_uids.add(s.email.lower().strip())
                     break
 
         # C. Assign Remaining ERP Students (Using O(1) Index for faster matching)
@@ -461,10 +406,6 @@ class TestViewSet(viewsets.ModelViewSet):
             email = str(details.get('studentEmail') or "").lower().strip()
             
             if (adm and adm in global_seen_uids) or (email and email in global_seen_uids): continue
-            if not allowed_sections_list: continue
-            
-            sects = _get_student_sections(erp, True)
-            if not any(sec in allowed_sections_list for sec in sects): continue
             
             e_centre_raw = erp.get('centre') or (erp.get('venue', {}) if isinstance(erp.get('venue'), dict) else {}).get('centreName')
             e_centre = str(e_centre_raw or '').upper().strip()
@@ -533,25 +474,6 @@ class TestViewSet(viewsets.ModelViewSet):
         user = request.user
         from .models import TestSubmission
 
-        # Validation: Ensure student matches the allotted section for this test
-        if user.user_type == 'student':
-            allowed_sections = [s.name.strip().lower() for s in test.allotted_sections.all()]
-            if allowed_sections:
-                from api.db_utils import parse_section
-                s_exams = [s.lower() for s in parse_section(user.exam_section)]
-                s_studies = [s.lower() for s in parse_section(user.study_section)]
-                s_all = set(s_exams + s_studies)
-                
-                # Check if student is in any allowed section
-                is_allotted = any(s in allowed_sections for s in s_all)
-                
-                # If they don't match, block entry UNLESS they already have an existing submission 
-                # (to avoid locking out students who might have had their section's name changed)
-                if not is_allotted:
-                    if not TestSubmission.objects.filter(test=test, student=user).first():
-                        return Response({
-                            'error': 'This test is not allotted to your section. Please contact your administrator.'
-                        }, status=status.HTTP_403_FORBIDDEN)
 
         # DJONGO WORKAROUND: Use update() to avoid duplicate key errors during save() for existing submissions
         # and handle race conditions during creation across parallel requests.
@@ -653,7 +575,6 @@ class TestViewSet(viewsets.ModelViewSet):
         # 4. Replicate Global Prioritized Mapping
         global_seen_uids = set()
         final_list = []
-        allowed_sections_list = [s.name.strip().lower() for s in test.allotted_sections.all()]
         
         # Tracking student submissions (for data enrichment)
         # We also need a fast map for finalized status etc.
@@ -678,17 +599,11 @@ class TestViewSet(viewsets.ModelViewSet):
             
             if captured:
                 u_obj = users_map.get(str(sub['pk']))
-                is_mismatched = False # Default to visible if we have a submission
-                if u_obj and allowed_sections_list:
-                    erp_rec = erp_index.get(f"email_{str(u_obj.email).lower()}") or erp_index.get(f"adm_{str(u_obj.admission_number).upper()}")
-                    sects = _get_student_sections(erp_rec, True) if erp_rec else _get_student_sections(u_obj)
-                    is_mismatched = not any(sec in allowed_sections_list for sec in sects)
                 
                 global_seen_uids.add(sub['uid'])
                 if sub['adm']: global_seen_uids.add(sub['adm'].upper().strip())
                 if sub['email']: global_seen_uids.add(sub['email'].lower().strip())
-                if not is_mismatched:
-                    final_list.append((u_obj, False))
+                final_list.append((u_obj, False))
 
         # Step B: Assign Local Students (Only those belonging to the target centre)
         if target_c_obj:
@@ -698,15 +613,11 @@ class TestViewSet(viewsets.ModelViewSet):
             for s in pool:
                 uid = (s.username or str(s.pk)).upper().strip()
                 if uid in global_seen_uids: continue
-                if not allowed_sections_list: continue
                 
-                erp_rec = erp_index.get(f"email_{str(s.email).lower()}") or erp_index.get(f"adm_{str(s.admission_number).upper()}")
-                sects = _get_student_sections(erp_rec, True) if erp_rec else _get_student_sections(s)
-                if any(sec in allowed_sections_list for sec in sects):
-                    final_list.append((s, False))
-                    global_seen_uids.add(uid)
-                    if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
-                    if s.email: global_seen_uids.add(s.email.lower().strip())
+                final_list.append((s, False))
+                global_seen_uids.add(uid)
+                if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
+                if s.email: global_seen_uids.add(s.email.lower().strip())
 
         # Step C: Assign ERP Mock Students (Only those belonging to target centre)
         if target_c_obj:
@@ -720,11 +631,6 @@ class TestViewSet(viewsets.ModelViewSet):
                 
                 # Check for existing local student or already processed ERP student
                 if (adm and adm in global_seen_uids) or (em and em in global_seen_uids): continue
-                if not allowed_sections_list: continue
-                
-                # 1. Section Matching (Must match one of the test's allotted sections)
-                sects = _get_student_sections(erp, True)
-                if not any(sec in allowed_sections_list for sec in (sects or [])): continue
                 
                 # 2. Centre Matching
                 ecr = erp.get('centre') or (erp.get('venue', {}) if isinstance(erp.get('venue'), dict) else {}).get('centreName')
@@ -772,9 +678,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 'is_finalized': sub.get('is_finalized', False) if sub else False
             })
 
-        cache_key = f'roster_count_{test.pk}_{centre_code}'
-        cache.set(cache_key, len(data), 600)
-        return Response({'allotted_sections': list(test.allotted_sections.values_list('name', flat=True)), 'data': data})
+        return Response({'allotted_sections': [], 'data': data})
 
     @action(detail=True, methods=['post'], url_path='force_publish')
     def force_publish(self, request, pk=None):
@@ -2470,3 +2374,4 @@ Pathfinder Test Management System
         cache.delete(f"test_{test_id}_centers_full_v3")
         cache.delete("admin_test_list")
 
+ 

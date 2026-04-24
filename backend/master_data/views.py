@@ -5,6 +5,8 @@ from django.http import HttpResponse
 import csv
 import io
 import time
+import requests
+from api.erp_views import _get_erp_url, _get_erp_admin_token
 import logging
 from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
@@ -180,9 +182,126 @@ class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Session.objects.all().order_by('-created_at')
     serializer_class = SessionSerializer
 
+    def list(self, request, *args, **kwargs):
+        # Auto-sync on list if requested
+        if request.query_params.get('sync') == 'true':
+            self.sync_erp(request)
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'], url_path='sync-erp')
+    def sync_erp(self, request):
+        """Syncs Sessions from ERP to local Session model."""
+        try:
+            erp_url = _get_erp_url()
+            token = _get_erp_admin_token()
+            if not token:
+                return response.Response({"error": "Failed to get ERP token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            resp = requests.get(
+                f"{erp_url}/api/session/list",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30
+            )
+
+            if resp.status_code == 200:
+                erp_sessions = resp.json()
+                synced_ids = []
+                
+                for s in erp_sessions:
+                    erp_id = s.get('_id')
+                    name = s.get('sessionName')
+                    
+                    if not erp_id or not name:
+                        continue
+                        
+                    # Update or create local session
+                    obj, created = Session.objects.update_or_create(
+                        erp_id=erp_id,
+                        defaults={
+                            'name': name,
+                            'is_active': True
+                        }
+                    )
+                    synced_ids.append(obj.id)
+                
+                # Delete local sessions that are no longer in ERP
+                Session.objects.filter(erp_id__isnull=False).exclude(id__in=synced_ids).delete()
+                
+                self.clear_cache()
+                return response.Response({"message": f"Successfully synced {len(synced_ids)} sessions"})
+            
+            return response.Response({"error": f"ERP returned {resp.status_code}"}, status=resp.status_code)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=500)
+
 class TargetExamViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = TargetExam.objects.all().order_by('-created_at')
     serializer_class = TargetExamSerializer
+
+    def list(self, request, *args, **kwargs):
+        # Auto-sync on list if requested or periodically
+        if request.query_params.get('sync') == 'true':
+            self.sync_erp(request)
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'], url_path='sync-erp')
+    def sync_erp(self, request):
+        """Syncs Exam Tags from ERP to local TargetExam model."""
+        try:
+            erp_url = _get_erp_url()
+            token = _get_erp_admin_token()
+            if not token:
+                return response.Response({"error": "ERP Token Failed"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+            print(f"[ERP-SYNC] Fetching Exam Tags from {erp_url}/api/examTag")
+            resp = requests.get(
+                f"{erp_url}/api/examTag",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30
+            )
+
+            if resp.status_code != 200:
+                return response.Response({"error": f"ERP Error: {resp.status_code}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            tags = resp.json()
+            if isinstance(tags, dict):
+                tags = tags.get('data') or tags.get('tags') or tags.get('examTags') or []
+            
+            if not isinstance(tags, list):
+                # If it's a single object, wrap it
+                if isinstance(tags, dict) and tags.get('_id'):
+                    tags = [tags]
+                else:
+                    return response.Response({"error": "Invalid response format from ERP"}, status=status.HTTP_400_BAD_REQUEST)
+
+            synced_ids = []
+            for tag_data in tags:
+                erp_id = str(tag_data.get('_id'))
+                name = tag_data.get('name') or tag_data.get('tagName')
+                if not erp_id or not name:
+                    continue
+
+                obj, created = TargetExam.objects.update_or_create(
+                    erp_id=erp_id,
+                    defaults={
+                        'name': name,
+                        'is_active': True
+                    }
+                )
+                synced_ids.append(obj.id)
+
+            # Remove local tags that are not in ERP
+            # WARNING: This may affect related objects if CASCADE is set.
+            TargetExam.objects.exclude(id__in=synced_ids).delete()
+
+            self.clear_cache()
+            return response.Response({
+                "message": f"Successfully synced {len(synced_ids)} tags",
+                "count": len(synced_ids)
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"[ERP-SYNC-ERROR] {e}")
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ExamTypeViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = ExamType.objects.prefetch_related('target_exams').all().order_by('-created_at')
@@ -191,6 +310,58 @@ class ExamTypeViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 class ClassLevelViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = ClassLevel.objects.all().order_by('-created_at')
     serializer_class = ClassLevelSerializer
+
+    def list(self, request, *args, **kwargs):
+        # Auto-sync on list if requested
+        if request.query_params.get('sync') == 'true':
+            self.sync_erp(request)
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'], url_path='sync-erp')
+    def sync_erp(self, request):
+        """Syncs Class Levels from ERP to local ClassLevel model."""
+        try:
+            erp_url = _get_erp_url()
+            token = _get_erp_admin_token()
+            if not token:
+                return response.Response({"error": "Failed to get ERP token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            resp = requests.get(
+                f"{erp_url}/api/class",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30
+            )
+
+            if resp.status_code == 200:
+                erp_classes = resp.json()
+                synced_ids = []
+                
+                for c in erp_classes:
+                    erp_id = c.get('_id')
+                    name = c.get('name')
+                    
+                    if not erp_id or not name:
+                        continue
+                        
+                    # Update or create local class
+                    obj, created = ClassLevel.objects.update_or_create(
+                        erp_id=erp_id,
+                        defaults={
+                            'name': name,
+                            'is_active': True
+                        }
+                    )
+                    synced_ids.append(obj.id)
+                
+                # Delete local classes that are no longer in ERP
+                ClassLevel.objects.filter(erp_id__isnull=False).exclude(id__in=synced_ids).delete()
+                
+                self.clear_cache()
+                return response.Response({"message": f"Successfully synced {len(synced_ids)} classes"})
+            
+            return response.Response({"error": f"ERP returned {resp.status_code}"}, status=resp.status_code)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=500)
 
 class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Chapter.objects.select_related('class_level', 'subject').all().order_by('-created_at')

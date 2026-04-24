@@ -33,12 +33,45 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [error, setError] = useState(null);
 
     // Pagination state
     const [pageNumber, setPageNumber] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(20);
     const [jumpPage, setJumpPage] = useState('');
+
+    const handleSyncERP = async () => {
+        setIsSyncing(true);
+        const config = getAuthConfig();
+        if (!config) return;
+
+        let endpoint, label;
+        if (activeSubTab === 'Session') {
+            endpoint = 'sessions';
+            label = 'Sessions';
+        } else if (activeSubTab === 'Class') {
+            endpoint = 'classes';
+            label = 'Classes';
+        } else {
+            endpoint = 'target-exams';
+            label = 'Exam Tags';
+        }
+
+        const loadToast = toast.loading(`Syncing ${label} with ERP...`);
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.post(`${apiUrl}/api/master-data/${endpoint}/sync-erp/`, {}, config);
+            toast.success(response.data.message || "Sync completed!", { id: loadToast });
+            fetchData(true); // Refresh list
+            fetchMasterData(true); // Refresh dropdowns
+        } catch (err) {
+            console.error("ERP Sync failed:", err);
+            toast.error(err.response?.data?.error || "Sync failed", { id: loadToast });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     // Tab Scrolling Ref and Drag State
     const scrollRef = useRef(null);
@@ -694,13 +727,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            let result;
             if (modalMode === 'create') {
-                const result = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/`, formValues, getAuthConfig());
+                result = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/`, formValues, getAuthConfig());
                 // Optimistic: add to local state
                 setData(prev => [result.data, ...prev]);
             } else {
                 const endpoint = activeSubTab === 'Image' ? `questions/images/${selectedItem.id}` : `master-data/${currentTabConfig.endpoint}/${selectedItem.id}`;
-                const result = await axios.patch(`${apiUrl}/api/${endpoint}/`, formValues, getAuthConfig());
+                result = await axios.patch(`${apiUrl}/api/${endpoint}/`, formValues, getAuthConfig());
                 // Optimistic: update in local state
                 setData(prev => prev.map(d => d.id === selectedItem.id ? result.data : d));
             }
@@ -720,6 +754,27 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         } finally {
             setIsActionLoading(false);
         }
+    };
+
+    const handleExamNameChange = (e) => {
+        const value = e.target.value;
+        const upperValue = value.toUpperCase();
+        
+        let newValues = { ...formValues, name: value };
+        
+        if (activeSubTab === 'Exam Details') {
+            const matchedTarget = targetExams.find(te => upperValue.includes(te.name.toUpperCase()));
+            if (matchedTarget && !formValues.target_exam) {
+                newValues.target_exam = matchedTarget.id || matchedTarget._id;
+            }
+            
+            const matchedClass = classes.find(c => upperValue.includes(c.name.toUpperCase()));
+            if (matchedClass && !formValues.class_level) {
+                newValues.class_level = matchedClass.id || matchedClass._id;
+            }
+        }
+        
+        setFormValues(newValues);
     };
 
     const handleExport = async () => {
@@ -1720,13 +1775,24 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                             <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
                         </button>
 
-                        <button
-                            onClick={handleCreate}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-orange-600/30 active:scale-95"
-                        >
-                            <Plus size={16} strokeWidth={3} />
-                            Add New {activeSubTab}
-                        </button>
+                        {(activeSubTab === 'Target Exam' || activeSubTab === 'Session' || activeSubTab === 'Class') ? (
+                            <button
+                                onClick={handleSyncERP}
+                                disabled={isSyncing}
+                                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/30 active:scale-95 ${isSyncing ? 'opacity-50' : ''}`}
+                            >
+                                {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                                Sync with ERP
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleCreate}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-orange-600/30 active:scale-95"
+                            >
+                                <Plus size={16} strokeWidth={3} />
+                                Add New {activeSubTab}
+                            </button>
+                        )}
 
                         {(activeSubTab === 'Chapter' || activeSubTab === 'Topic' || activeSubTab === 'SubTopic') && (
                             <div className="flex items-center gap-2">
@@ -2049,19 +2115,19 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="flex justify-center">
                                                 <button
                                                     onClick={() => handleToggleStatus(item)}
-                                                    disabled={isActionLoading}
-                                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-[9px] font-black uppercase border transition-all hover:scale-105 active:scale-95 ${item.is_active
+                                                    disabled={isActionLoading || activeSubTab === 'Target Exam' || activeSubTab === 'Session' || activeSubTab === 'Class'}
+                                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-[5px] text-[9px] font-black uppercase border transition-all ${activeSubTab !== 'Target Exam' && activeSubTab !== 'Session' && activeSubTab !== 'Class' ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'} ${item.is_active
                                                         ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                                                         : 'bg-red-500/10 text-red-500 border-red-500/20'
                                                         }`}
                                                 >
-                                                    <div className={`w-1 h-1 rounded-full ${item.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                                    {item.is_active ? <Check size={10} strokeWidth={3} /> : <X size={10} strokeWidth={3} />}
                                                     {item.is_active ? 'Active' : 'Inactive'}
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="py-5 px-4">
-                                            <div className="flex justify-end items-center gap-2">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
+                                            <div className="flex items-center justify-end gap-2">
                                                 {activeSubTab === 'Chapter' && (
                                                     <button
                                                         onClick={() => handleAddToLibrary(item)}
@@ -2071,19 +2137,23 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                         <Plus size={16} />
                                                     </button>
                                                 )}
-                                                <button
-                                                    onClick={() => handleEdit(item)}
-                                                    className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white'}`}
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(item.id)}
-                                                    disabled={isActionLoading}
-                                                    className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white'}`}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                {activeSubTab !== 'Target Exam' && activeSubTab !== 'Session' && activeSubTab !== 'Class' && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleEdit(item)}
+                                                            className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white'}`}
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(item.id)}
+                                                            disabled={isActionLoading}
+                                                            className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white'}`}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -2301,7 +2371,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     required
                                                     type="text"
                                                     value={formValues.name}
-                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    onChange={handleExamNameChange}
                                                     placeholder="e.g. JEE Advanced Mock - 1"
                                                     className={`w-full p-3.5 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
@@ -2324,6 +2394,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     onChange={e => setFormValues({ ...formValues, session: e.target.value })}
                                                     className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
+                                                    <option value="" disabled>Select Session</option>
                                                     {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                                 </select>
                                             </div>
@@ -2334,6 +2405,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     onChange={e => setFormValues({ ...formValues, class_level: e.target.value })}
                                                     className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none appearance-none transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 >
+                                                    <option value="" disabled>Select Class</option>
                                                     {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                 </select>
                                             </div>

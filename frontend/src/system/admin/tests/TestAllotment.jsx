@@ -32,12 +32,6 @@ const TestAllotment = () => {
     const [modalAllotments, setModalAllotments] = useState([]);
     const [bulkSchedule, setBulkSchedule] = useState({ start_time: '', end_time: '' });
 
-    // Section Allotment Modal State
-    const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
-    const [availableSections, setAvailableSections] = useState([]);
-    const [selectedSectionIds, setSelectedSectionIds] = useState([]);
-    const [sectionSearchTerm, setSectionSearchTerm] = useState('');
-
     // Custom Alert State
     const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
 
@@ -252,45 +246,6 @@ const TestAllotment = () => {
         }
     };
 
-    const handleManageSections = async (test) => {
-        setSelectedTest(test);
-        const sections = (test.allotted_sections || []).map(id => typeof id === 'object' ? (id.id || id._id || id) : id);
-        setSelectedSectionIds(sections.map(Number));
-        setIsActionLoading(true);
-
-        try {
-            const apiUrl = getApiUrl();
-            const sectionsRes = await axios.get(`${apiUrl}/api/master-data/master-sections/`, getAuthConfig());
-            // Support both direct array and {count, sections} object format
-            const masterSections = Array.isArray(sectionsRes.data) ? sectionsRes.data : (sectionsRes.data.results || []);
-            setAvailableSections(masterSections || []);
-            setIsSectionModalOpen(true);
-        } catch (err) {
-            console.error(err);
-            triggerAlert('Failed to load sections', 'error');
-        } finally {
-            setIsActionLoading(false);
-        }
-    };
-
-    const handleSaveSectionAllotment = async () => {
-        setIsActionLoading(true);
-        try {
-            const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/tests/${selectedTest.id}/`,
-                { allotted_sections: selectedSectionIds },
-                getAuthConfig()
-            );
-            setIsSectionModalOpen(false);
-            fetchData(true);
-            triggerAlert('Section allotment updated!', 'success');
-        } catch (err) {
-            triggerAlert('Failed to update section allotment', 'error');
-        } finally {
-            setIsActionLoading(false);
-        }
-    };
-
     const filteredRecords = useMemo(() => {
         return tests.filter(t => {
             const matchesSearch = t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -403,7 +358,7 @@ const TestAllotment = () => {
                                 <th className="py-6 px-6 text-center">#</th>
                                 <th className="py-6 px-6">Name</th>
                                 <th className="py-6 px-6">Test Code</th>
-                                <th className="py-6 px-6 text-center">Sections</th>
+
                                 <th className="py-6 px-6 text-center">Centres Allotted</th>
                                 <th className="py-6 px-6 text-center">Codes Sent</th>
                                 <th className="py-6 px-6 text-center">Manage Centres</th>
@@ -422,7 +377,7 @@ const TestAllotment = () => {
                                             </div>
                                         </td>
                                         <td className="py-5 px-6"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
@@ -443,18 +398,11 @@ const TestAllotment = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-xs mb-1 uppercase">{test.name}</span>
                                             <span className="text-[9px] opacity-40 font-bold uppercase tracking-wider">
-                                                {test.session_details?.name || 'No Session'}
+                                                {test.session_details?.name} • {test.class_level_details?.name} • {test.target_exam_details?.name}
                                             </span>
                                         </div>
                                     </td>
                                     <td className="py-5 px-6 font-black text-xs opacity-70">{test.code}</td>
-                                    <td className="py-5 px-6 text-center">
-                                        <button
-                                            onClick={() => handleManageSections(test)}
-                                            className="px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all cursor-pointer">
-                                            {test.allotted_master_count || 0} Sections
-                                        </button>
-                                    </td>
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleEditCentres(test, true)}
@@ -843,169 +791,9 @@ const TestAllotment = () => {
                     </div>
                 </div>
             )}
-            {/* Section Allotment Modal */}
-            {isSectionModalOpen && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSectionModalOpen(false)} />
-                    <div className={`relative w-full max-w-lg rounded-[5px] shadow-xl overflow-hidden border animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
-                        <div className="bg-orange-600 p-6 flex justify-between items-center text-white font-black">
-                            <div>
-                                <h3 className="text-lg uppercase tracking-tight">Select Sections</h3>
-                                <p className="text-[10px] font-medium opacity-80 mt-1 uppercase tracking-widest">{selectedTest?.name}</p>
-                            </div>
-                            <button onClick={() => setIsSectionModalOpen(false)} className="hover:rotate-90 transition-all text-white/90 hover:text-white">
-                                <X size={24} strokeWidth={3} />
-                            </button>
-                        </div>
-
-                        <div className={`p-6 pb-0 space-y-5 ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50'}`}>
-                            {/* Selected Packages Summary (Legend Style) */}
-                            <div className="relative group">
-                                <label className={`absolute -top-2.5 left-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] z-10 transition-all ${isDarkMode ? 'bg-[#10141D] text-blue-400' : 'bg-slate-50 text-blue-600'}`}>
-                                    Section List
-                                </label>
-                                <div className={`w-full p-4 rounded-[5px] border min-h-[58px] shadow-sm flex flex-wrap gap-2 transition-all ${isDarkMode ? 'bg-black/20 border-blue-500/50' : 'bg-white border-blue-400 shadow-blue-500/5'}`}>
-                                    {selectedSectionIds.length > 0 ? (
-                                        availableSections
-                                            .filter(s => selectedSectionIds.includes(Number(s.id)))
-                                            .map(s => (
-                                                <div
-                                                    key={`sel-sec-${s.id}`}
-                                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider animate-in zoom-in-95 duration-200 shadow-lg shadow-blue-600/20"
-                                                >
-                                                    <span>{s.name}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedSectionIds(prev => prev.filter(id => Number(id) !== Number(s.id)));
-                                                        }}
-                                                        className="p-0.5 hover:bg-white/20 rounded-[5px] transition-colors"
-                                                    >
-                                                        <X size={12} strokeWidth={4} />
-                                                    </button>
-                                                </div>
-                                            ))
-                                    ) : (
-                                        <div className="flex items-center h-full px-1">
-                                            <span className="text-slate-400 font-bold italic text-xs opacity-50">No Sections Selected...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Modal Search/Filter Option */}
-                            <div className="relative group pb-2 flex items-center justify-between gap-4">
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 ml-1">Available Sections</h4>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => {
-                                            setSelectedSectionIds(availableSections.map(s => s.id));
-                                            triggerAlert(`All ${availableSections.length} sections selected`, 'info');
-                                        }}
-                                        className="px-3 py-1.5 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border border-blue-500/20 whitespace-nowrap"
-                                    >
-                                        Select All
-                                    </button>
-                                    {selectedSectionIds.length > 0 && (
-                                        <button
-                                            onClick={() => {
-                                                setSelectedSectionIds([]);
-                                                triggerAlert("Section selection cleared", "warning");
-                                            }}
-                                            className="px-3 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border border-red-500/20 whitespace-nowrap"
-                                        >
-                                            Clear
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Section Modal Search */}
-                            <div className="relative group pb-2">
-                                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search sections by name or code..."
-                                    value={sectionSearchTerm}
-                                    onChange={(e) => setSectionSearchTerm(e.target.value)}
-                                    className={`w-full pl-11 pr-4 py-3 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-blue-500/50 text-white' : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
-                                />
-                                {sectionSearchTerm && (
-                                    <button
-                                        onClick={() => setSectionSearchTerm('')}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                                    >
-                                        <X size={14} strokeWidth={3} />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className={`p-0 max-h-[40vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#10141D]' : 'bg-slate-50 shadow-inner'}`}>
-                            <div className="px-6 pb-6 space-y-2">
-                                {availableSections.length === 0 ? (
-                                    <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">No sections found</div>
-                                ) : (
-                                    [...availableSections]
-                                        .filter(s =>
-                                            s.name?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
-                                            s.subject_code?.toLowerCase().includes(sectionSearchTerm.toLowerCase()) ||
-                                            s.code?.toLowerCase().includes(sectionSearchTerm.toLowerCase())
-                                        )
-                                        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-                                        .map(section => {
-                                            const isSelected = selectedSectionIds.includes(Number(section.id));
-                                            return (
-                                                <div
-                                                    key={section.id}
-                                                    onClick={() => {
-                                                        if (isSelected) setSelectedSectionIds(prev => prev.filter(id => Number(id) !== Number(section.id)));
-                                                        else setSelectedSectionIds(prev => [...prev, Number(section.id)]);
-                                                    }}
-                                                    className={`flex items-center gap-4 p-4 rounded-[5px] cursor-pointer border transition-all active:scale-[0.98] ${isSelected
-                                                        ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/50' : 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-500/5')
-                                                        : (isDarkMode ? 'bg-white/2 border-white/5 hover:border-white/10' : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-md hover:shadow-slate-200/50')}`}
-                                                >
-                                                    <div className={`w-6 h-6 rounded-[5px] border-2 flex items-center justify-center transition-all duration-300 ${isSelected
-                                                        ? 'bg-blue-600 border-blue-600 scale-110'
-                                                        : (isDarkMode ? 'border-white/20 bg-black/20' : 'border-slate-300 bg-white shadow-inner')}`}>
-                                                        {isSelected && <Check size={14} className="text-white" strokeWidth={4} />}
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className={`text-sm font-black uppercase tracking-tight ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>
-                                                            {section.name}
-                                                        </span>
-                                                        <span className="text-[9px] opacity-40 font-bold uppercase tracking-[0.2em]">{section.subject_code || section.code || 'NO CODE'}</span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                )}
-                            </div>
-                        </div>
-
-                        <div className={`p-6 border-t flex justify-end gap-4 ${isDarkMode ? 'border-white/5 bg-[#1A1F2B]' : 'border-slate-100 bg-white'}`}>
-                            <button
-                                onClick={() => setIsSectionModalOpen(false)}
-                                className={`px-6 py-2.5 rounded-[5px] text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveSectionAllotment}
-                                disabled={isActionLoading}
-                                className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-2"
-                            >
-                                {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* Premium Custom Alert */}
             {alert.show && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-999 animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
                     <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : alert.type === 'info' ? 'bg-blue-500/90 border-blue-400 text-white' : alert.type === 'warning' ? 'bg-amber-500/90 border-amber-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>
                         <div className="w-10 h-10 rounded-[5px] bg-white/20 flex items-center justify-center shadow-inner">
                             {alert.type === 'success' ? <ShieldCheck size={22} /> : <BellRing size={22} />}

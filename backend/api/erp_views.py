@@ -862,3 +862,29 @@ def _proxy_class_endpoint(request, tail, studentId=None):
     except Exception as e:
         debug_log(f"[CLASSES-{tail.upper()}] Proxy Exception: {str(e)}")
         return Response([], status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_exam_tag(request, tagId):
+    """Proxy for ERP exam tag lookup."""
+    try:
+        erp_url = _get_erp_url()
+        erp_token = _get_erp_admin_token()
+        if not erp_token:
+            return Response({"error": "ERP Authentication Failed"}, status=503)
+
+        debug_log(f"[EXAM-TAG] Fetching tag {tagId} from ERP")
+        resp = requests.get(
+            f"{erp_url}/api/examTag/{tagId}",
+            headers={"Authorization": f"Bearer {erp_token}"},
+            timeout=20
+        )
+
+        if resp.status_code == 200:
+            return Response(resp.json(), status=200)
+
+        debug_log(f"[EXAM-TAG] ERP Error: {resp.status_code} - {resp.text[:200]}")
+        return Response({"error": "Exam Tag not found"}, status=resp.status_code)
+    except Exception as e:
+        debug_log(f"[EXAM-TAG] Exception: {e}")
+        return Response({"error": str(e)}, status=500)
