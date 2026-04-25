@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import SmartEditor from './components/SmartEditor';
 import SectionRegistry from '../sections/SectionRegistry';
 
 const SearchableSelect = ({ 
@@ -319,6 +320,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         experience: '',
         duration: 180,
         total_marks: 0,
+        has_calculator: false,
+        option_type_numeric: false,
+        instructions: '',
         is_active: true
     });
 
@@ -709,6 +713,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             experience: '',
             duration: 180,
             total_marks: 0,
+            has_calculator: false,
+            option_type_numeric: false,
+            instructions: '',
             is_active: true
         };
 
@@ -737,6 +744,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 class_level: item.class_level_id || item.class_level || '',
                 duration: item.duration,
                 total_marks: item.total_marks || 0,
+                has_calculator: item.has_calculator || false,
+                option_type_numeric: item.option_type_numeric || false,
+                instructions: item.instructions || '',
                 is_active: item.is_active
             });
         } else if (activeSubTab === 'Chapter') {
@@ -2505,7 +2515,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
                             style={{ zIndex: 1001 }}
-                            className={`relative w-full max-w-lg md:max-lg:max-w-sm rounded-3xl border shadow-2xl max-h-[75vh] md:max-lg:max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
+                            className={`relative w-full ${activeSubTab === 'Exam Details' ? 'max-w-2xl' : 'max-w-lg md:max-lg:max-w-sm'} rounded-3xl border shadow-2xl max-h-[85vh] overflow-y-auto ${isDarkMode ? 'bg-[#0F1117] border-white/10' : 'bg-white border-slate-200'}`}
                         >
                             <form onSubmit={handleSubmit} className="p-4 md:max-lg:p-3 space-y-4 md:max-lg:space-y-3">
                                 <div className="flex justify-between items-center bg-linear-to-r from-orange-500/10 to-transparent -mx-4 -mt-4 p-4 md:max-lg:-mx-3 md:max-lg:-mt-3 md:max-lg:p-3 border-b border-white/5 mb-2">
@@ -2579,7 +2589,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     isDarkMode={isDarkMode}
                                                 />
                                             </div>
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1.5 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
                                                 <SearchableSelect
                                                     disabled={!formValues.target_exams || formValues.target_exams.length === 0}
@@ -2615,6 +2625,50 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     onChange={e => setFormValues({ ...formValues, total_marks: e.target.value })}
                                                     className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
+                                            </div>
+                                            
+                                            <div className="space-y-3 flex flex-col justify-end">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Calculator</label>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormValues({ ...formValues, has_calculator: !formValues.has_calculator })}
+                                                        className={`relative w-12 h-6 rounded-full transition-all duration-300 flex items-center ${formValues.has_calculator ? 'bg-orange-500 shadow-lg shadow-orange-500/30' : (isDarkMode ? 'bg-white/10' : 'bg-slate-200')}`}
+                                                    >
+                                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formValues.has_calculator ? 'right-1' : 'left-1'}`} />
+                                                    </button>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${formValues.has_calculator ? 'text-orange-500' : 'opacity-40'}`}>
+                                                        {formValues.has_calculator ? 'Enabled' : 'Disabled'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3 flex flex-col justify-end">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Option Style</label>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormValues({ ...formValues, option_type_numeric: !formValues.option_type_numeric })}
+                                                        className={`relative w-12 h-6 rounded-full transition-all duration-300 flex items-center ${formValues.option_type_numeric ? 'bg-orange-500 shadow-lg shadow-orange-500/30' : (isDarkMode ? 'bg-white/10' : 'bg-slate-200')}`}
+                                                    >
+                                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formValues.option_type_numeric ? 'right-1' : 'left-1'}`} />
+                                                    </button>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${formValues.option_type_numeric ? 'text-orange-500' : 'opacity-40'}`}>
+                                                        {formValues.option_type_numeric ? '1, 2, 3, 4' : 'A, B, C, D'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Test Instructions</label>
+                                                <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                                    <SmartEditor
+                                                        value={formValues.instructions}
+                                                        onChange={(val) => setFormValues({ ...formValues, instructions: val })}
+                                                        placeholder="Enter test instructions for students..."
+                                                        isDarkMode={isDarkMode}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ) : activeSubTab === 'Image' ? (
@@ -3001,17 +3055,19 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                         </div>
                                     )}
 
-                                    <div className="flex items-center gap-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormValues({ ...formValues, is_active: !formValues.is_active })}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-[5px] border transition-all font-black text-[10px] uppercase tracking-widest ${formValues.is_active
-                                                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
-                                                : isDarkMode ? 'bg-white/5 border-white/10 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-400'}`}
-                                        >
-                                            <div className={`w-2 h-2 rounded-full ${formValues.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                            {formValues.is_active ? 'Active' : 'Inactive'}
-                                        </button>
+                                    <div className="flex items-center gap-4 py-2">
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormValues({ ...formValues, is_active: !formValues.is_active })}
+                                                className={`relative w-12 h-6 rounded-full transition-all duration-300 flex items-center ${formValues.is_active ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : (isDarkMode ? 'bg-white/10' : 'bg-slate-200')}`}
+                                            >
+                                                <div className={`absolute w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formValues.is_active ? 'right-1' : 'left-1'}`} />
+                                            </button>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${formValues.is_active ? 'text-emerald-500' : 'opacity-40'}`}>
+                                                Status: {formValues.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 

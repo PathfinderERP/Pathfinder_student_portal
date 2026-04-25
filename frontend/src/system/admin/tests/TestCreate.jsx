@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
-    FileText, Plus, Search, Edit2, Trash2, Filter, Loader2,
+    FileText, Plus, Search, Edit2, Trash2, Filter, Loader2, Eye,
     Database, X, Check, ChevronDown, RefreshCw, Layers, Clock, ToggleLeft, ToggleRight,
     Bold, Italic, Underline, Type, Quote, Code, List, Superscript, Subscript, AlignLeft,
     AlignCenter, Link, Image, Sigma, Calculator, ChevronLeft, ChevronRight
@@ -52,6 +52,7 @@ const SearchableSelect = ({
     }, [value, isMulti]);
 
     const handleSelect = (id) => {
+        if (disabled) return;
         const idStr = String(id);
         if (isMulti) {
             const newValue = selectedOptions.includes(idStr)
@@ -72,6 +73,9 @@ const SearchableSelect = ({
                 const opt = options.find(o => String(o.id) === selectedOptions[0]);
                 return opt ? opt.name : placeholder;
             }
+            if (disabled) {
+                return options.filter(o => selectedOptions.includes(String(o.id))).map(o => o.name).join(', ');
+            }
             return `${selectedOptions.length} Selected`;
         } else {
             const opt = options.find(o => String(o.id) === String(value));
@@ -82,8 +86,8 @@ const SearchableSelect = ({
     return (
         <div className="relative" ref={dropdownRef}>
             <div
-                onClick={() => !disabled && setIsOpen(!isOpen)}
-                className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm flex items-center justify-between cursor-pointer transition-all ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm flex items-center justify-between cursor-pointer transition-all ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'} ${disabled ? 'border-orange-500/20' : ''}`}
             >
                 <span className="truncate">{getDisplayValue()}</span>
                 <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -91,6 +95,7 @@ const SearchableSelect = ({
 
             {isOpen && (
                 <div className={`absolute z-200 mt-2 w-full p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1F2533] border-white/10' : 'bg-white border-slate-200'}`}>
+                    {disabled && <div className="px-3 py-1 mb-2 text-[8px] font-black uppercase tracking-widest bg-orange-500/10 text-orange-500 rounded-full w-fit">Read Only View</div>}
                     <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10 space-y-2">
                         <div className="relative">
                             <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -103,7 +108,7 @@ const SearchableSelect = ({
                                 className={`w-full pl-8 pr-2 py-2 rounded-[3px] text-xs outline-none ${isDarkMode ? 'bg-white/5 text-white' : 'bg-slate-100 text-slate-800'}`}
                             />
                         </div>
-                        {isMulti && filteredOptions.length > 0 && (
+                        {isMulti && filteredOptions.length > 0 && !disabled && (
                             <div className="flex items-center gap-2 px-1">
                                 <button
                                     type="button"
@@ -140,10 +145,10 @@ const SearchableSelect = ({
                                 return (
                                     <div
                                         key={opt.id}
-                                        onClick={() => handleSelect(opt.id)}
-                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-xs font-bold cursor-pointer transition-all mb-1 ${isSelected
+                                        onClick={disabled ? undefined : () => handleSelect(opt.id)}
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-xs font-bold transition-all mb-1 ${disabled ? 'cursor-default' : 'cursor-pointer'} ${isSelected
                                             ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600')
-                                            : (isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-50')}`}
+                                            : (isDarkMode ? `text-slate-400 ${disabled ? '' : 'hover:bg-white/5'}` : `text-slate-600 ${disabled ? '' : 'hover:bg-slate-50'}`)}`}
                                     >
                                         <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected
                                             ? 'bg-orange-500 border-orange-500'
@@ -533,13 +538,6 @@ const TestCreate = () => {
                     >
                         <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                     </button>
-                    <button
-                        onClick={handleCreate}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-orange-600/30 active:scale-95"
-                    >
-                        <Plus size={16} strokeWidth={3} />
-                        Add Test
-                    </button>
                 </div>
             </div>
         </div>
@@ -589,7 +587,7 @@ const TestCreate = () => {
                             <th className="pb-4 px-4 font-black text-center">Question Paper</th>
                             <th className="pb-4 px-4 font-black text-center">Question Sections</th>
                             <th className="pb-4 px-4 font-black text-center">Questions</th>
-                            <th className="pb-4 px-4 text-right font-black">Actions</th>
+                            <th className="pb-4 px-4 text-right font-black">Details</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-transparent">
@@ -686,21 +684,14 @@ const TestCreate = () => {
                                             </button>
                                         </div>
                                     </td>
-                                    <td className="py-5 px-4">
-                                        <div className="flex justify-end items-center gap-2">
-                                            <button
-                                                onClick={() => handleEdit(item)}
-                                                className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white'}`}
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(item.id)}
-                                                className={`p-2 rounded-[5px] transition-all hover:scale-110 ${isDarkMode ? 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-500 hover:bg-red-600 hover:text-white'}`}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                    <td className="py-5 px-4 text-right">
+                                        <button
+                                            onClick={() => handleEdit(item)}
+                                            className={`p-2.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 hover:bg-orange-500/10' : 'bg-slate-100 text-slate-500 hover:text-orange-600 hover:bg-orange-50'}`}
+                                            title="View Details & Allotment"
+                                        >
+                                            <Eye size={18} strokeWidth={2.5} />
+                                        </button>
                                     </td>
                                 </tr>
                             ))
@@ -800,7 +791,10 @@ const TestCreate = () => {
                 setFormValues(prev => ({
                     ...prev,
                     code: match.code || prev.code,
-                    duration: match.duration || prev.duration
+                    duration: match.duration || prev.duration,
+                    has_calculator: match.has_calculator ?? prev.has_calculator,
+                    option_type_numeric: match.option_type_numeric ?? prev.option_type_numeric,
+                    instructions: match.instructions || prev.instructions
                 }));
             }
         }
@@ -870,7 +864,7 @@ const TestCreate = () => {
                     {/* Header */}
                     <div className="shrink-0 bg-orange-500 p-6 flex justify-between items-center z-10">
                         <h2 className="text-xl font-bold text-white tracking-tight">
-                            {modalMode === 'create' ? 'Add' : 'Edit'} Exam Details
+                            {modalMode === 'create' ? 'Add' : 'View'} Exam Details
                         </h2>
                         <button onClick={() => setIsModalOpen(false)} className="text-white hover:scale-110 transition-transform p-1">
                             <X size={24} strokeWidth={3} />
@@ -881,88 +875,146 @@ const TestCreate = () => {
                         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
                             <div className="space-y-6">
                                 {/* Relational Selects */}
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
-                                        <SearchableSelect
-                                            options={availableSessions}
-                                            value={formValues.session}
-                                            onChange={val => setFormValues({ ...formValues, session: val, class_level: '', target_exams: [], exam_type: '', name: '', code: '' })}
-                                            placeholder="Select Session"
-                                            isDarkMode={isDarkMode}
-                                        />
+                                {modalMode === 'edit' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
+                                            <div className={`px-4 py-3 rounded-[5px] border font-bold text-xs ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {availableSessions.find(s => String(s.id) === String(formValues.session))?.name || '-'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                            <div className={`px-4 py-3 rounded-[5px] border font-bold text-xs ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {availableClasses.find(c => String(c.id) === String(formValues.class_level))?.name || '-'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 col-span-1 md:col-span-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                            <div className={`px-4 py-2 min-h-[42px] rounded-[5px] border flex flex-wrap gap-1.5 ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-200'}`}>
+                                                {availableTargetExams.filter(te => formValues.target_exams.map(String).includes(String(te.id))).map(te => (
+                                                    <span key={te.id} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tight ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-white/80 text-orange-600 border border-orange-200'}`}>
+                                                        {te.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 col-span-1 md:col-span-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                            <div className={`px-4 py-3 rounded-[5px] border font-bold text-xs ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {availableExamTypes.find(et => String(et.id) === String(formValues.type || formValues.exam_type))?.name || '-'}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                        <SearchableSelect
-                                            disabled={!formValues.session}
-                                            options={availableClasses}
-                                            value={formValues.class_level}
-                                            onChange={val => setFormValues({ ...formValues, class_level: val, target_exams: [], exam_type: '', name: '', code: '' })}
-                                            placeholder="Select Class"
-                                            isDarkMode={isDarkMode}
-                                        />
+                                ) : (
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
+                                            <SearchableSelect
+                                                options={availableSessions}
+                                                value={formValues.session}
+                                                onChange={val => setFormValues({ ...formValues, session: val, class_level: '', target_exams: [], exam_type: '', name: '', code: '' })}
+                                                placeholder="Select Session"
+                                                isDarkMode={isDarkMode}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
+                                            <SearchableSelect
+                                                disabled={!formValues.session}
+                                                options={availableClasses}
+                                                value={formValues.class_level}
+                                                onChange={val => setFormValues({ ...formValues, class_level: val, target_exams: [], exam_type: '', name: '', code: '' })}
+                                                placeholder="Select Class"
+                                                isDarkMode={isDarkMode}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
+                                            <SearchableSelect
+                                                disabled={!formValues.class_level}
+                                                options={availableTargetExams}
+                                                value={formValues.target_exams}
+                                                onChange={val => setFormValues({ ...formValues, target_exams: val, exam_type: '', name: '', code: '' })}
+                                                placeholder="Select Target"
+                                                isDarkMode={isDarkMode}
+                                                isMulti={true}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
+                                            <SearchableSelect
+                                                disabled={formValues.target_exams.length === 0}
+                                                options={availableExamTypes}
+                                                value={formValues.exam_type}
+                                                onChange={val => setFormValues({ ...formValues, exam_type: val, name: '', code: '' })}
+                                                placeholder="Select Type"
+                                                isDarkMode={isDarkMode}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam</label>
-                                        <SearchableSelect
-                                            disabled={!formValues.class_level}
-                                            options={availableTargetExams}
-                                            value={formValues.target_exams}
-                                            onChange={val => setFormValues({ ...formValues, target_exams: val, exam_type: '', name: '', code: '' })}
-                                            placeholder="Select Target"
-                                            isDarkMode={isDarkMode}
-                                            isMulti={true}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Type</label>
-                                        <SearchableSelect
-                                            disabled={formValues.target_exams.length === 0}
-                                            options={availableExamTypes}
-                                            value={formValues.exam_type}
-                                            onChange={val => setFormValues({ ...formValues, exam_type: val, name: '', code: '' })}
-                                            placeholder="Select Type"
-                                            isDarkMode={isDarkMode}
-                                        />
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Title & Code */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title * {!isAllCriteriaSelected && '(Select Four Filters First)'}</label>
-                                        <SearchableSelect
-                                            disabled={!isAllCriteriaSelected}
-                                            options={availableTitles}
-                                            value={formValues.name}
-                                            onChange={val => setFormValues({ ...formValues, name: val })}
-                                            placeholder="Select Exam Title"
-                                            isDarkMode={isDarkMode}
-                                        />
+                                {modalMode === 'edit' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title</label>
+                                            <div className={`px-5 py-4 rounded-[5px] border font-bold text-sm ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {formValues.name || '-'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code</label>
+                                            <div className={`px-5 py-4 rounded-[5px] border font-bold text-sm ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {formValues.code || '-'}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code *</label>
-                                        <input
-                                            required
-                                            placeholder="Exam Code *"
-                                            value={formValues.code}
-                                            onChange={e => setFormValues({ ...formValues, code: e.target.value })}
-                                            className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                        />
-                                    </div>
-                                </div>
+                                ) : (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Title * {!isAllCriteriaSelected && '(Select Four Filters First)'}</label>
+                                                <SearchableSelect
+                                                    disabled={!isAllCriteriaSelected}
+                                                    options={availableTitles}
+                                                    value={formValues.name}
+                                                    onChange={val => setFormValues({ ...formValues, name: val })}
+                                                    placeholder="Select Exam Title"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code *</label>
+                                                <input
+                                                    required
+                                                    placeholder="Exam Code *"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value })}
+                                                    className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all placeholder:text-slate-500 ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins) (Auto-selected)</label>
-                                        <input
-                                            type="number"
-                                            readOnly
-                                            required
-                                            value={formValues.duration}
-                                            className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                                        />
+                                        {modalMode === 'edit' ? (
+                                            <div className={`px-5 py-4 rounded-[5px] border font-bold text-sm ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {formValues.duration || '0'}
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                readOnly
+                                                required
+                                                value={formValues.duration}
+                                                className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -971,8 +1023,8 @@ const TestCreate = () => {
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setFormValues({ ...formValues, is_completed: !formValues.is_completed })}
-                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.is_completed ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                            onClick={() => modalMode !== 'edit' && setFormValues({ ...formValues, is_completed: !formValues.is_completed })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${modalMode === 'edit' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${formValues.is_completed ? 'bg-orange-500' : 'bg-slate-300'}`}
                                         >
                                             <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.is_completed ? 'right-1' : 'left-1'}`} />
                                         </button>
@@ -982,8 +1034,8 @@ const TestCreate = () => {
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setFormValues({ ...formValues, has_calculator: !formValues.has_calculator })}
-                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.has_calculator ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                            onClick={() => modalMode !== 'edit' && setFormValues({ ...formValues, has_calculator: !formValues.has_calculator })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${modalMode === 'edit' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${formValues.has_calculator ? 'bg-orange-500' : 'bg-slate-300'}`}
                                         >
                                             <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.has_calculator ? 'right-1' : 'left-1'}`} />
                                         </button>
@@ -993,8 +1045,8 @@ const TestCreate = () => {
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setFormValues({ ...formValues, option_type_numeric: !formValues.option_type_numeric })}
-                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${formValues.option_type_numeric ? 'bg-orange-500' : 'bg-slate-300'}`}
+                                            onClick={() => modalMode !== 'edit' && setFormValues({ ...formValues, option_type_numeric: !formValues.option_type_numeric })}
+                                            className={`relative w-12 h-6 rounded-full transition-colors flex items-center ${modalMode === 'edit' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${formValues.option_type_numeric ? 'bg-orange-500' : 'bg-slate-300'}`}
                                         >
                                             <div className={`absolute w-4 h-4 bg-white rounded-full transition-all shadow-sm ${formValues.option_type_numeric ? 'right-1' : 'left-1'}`} />
                                         </button>
@@ -1014,24 +1066,27 @@ const TestCreate = () => {
                                 </div>
                                 <SmartEditor
                                     value={formValues.instructions}
-                                    onChange={(val) => setFormValues(prev => ({ ...prev, instructions: val }))}
+                                    onChange={(val) => modalMode !== 'edit' && setFormValues(prev => ({ ...prev, instructions: val }))}
                                     placeholder="Enter test instructions..."
                                     isDarkMode={isDarkMode}
+                                    readOnly={modalMode === 'edit'}
                                 />
                             </div>
 
                         </div>
 
                         {/* Sticky Footer */}
-                        <div className={`shrink-0 p-6 border-t flex justify-center ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
-                            <button
-                                type="submit"
-                                disabled={isActionLoading}
-                                className="px-10 py-3.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
-                            >
-                                {isActionLoading ? <Loader2 className="animate-spin" size={16} /> : <>{modalMode === 'create' ? 'Add Test' : 'Update Test'}</>}
-                            </button>
-                        </div>
+                        {modalMode !== 'edit' && (
+                            <div className={`shrink-0 p-6 border-t flex justify-center ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100'}`}>
+                                <button
+                                    type="submit"
+                                    disabled={isActionLoading}
+                                    className="px-10 py-3.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white rounded-[5px] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                                >
+                                    {isActionLoading ? <Loader2 className="animate-spin" size={16} /> : <>{modalMode === 'create' ? 'Add Test' : 'Update Test'}</>}
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div>
             </div>

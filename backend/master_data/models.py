@@ -1,5 +1,7 @@
 from django.db import models
 import re
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 
 class MasterSection(models.Model):
     name = models.CharField(max_length=255)
@@ -121,6 +123,9 @@ class ExamDetail(models.Model):
     class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='exam_details')
     duration = models.IntegerField(help_text="Duration in minutes")
     total_marks = models.IntegerField(default=0)
+    has_calculator = models.BooleanField(default=False)
+    option_type_numeric = models.BooleanField(default=False)
+    instructions = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -129,9 +134,61 @@ class ExamDetail(models.Model):
         if not self.code and self.name:
             self.code = generate_unique_code(ExamDetail, self.name)
         super().save(*args, **kwargs)
+        
+        # Auto-sync to Test model
+        try:
+            from tests.models import Test
+            # Find or create a Test with the same code
+            test, created = Test.objects.get_or_create(code=self.code)
+            
+            # Update all relevant fields
+            test.name = self.name
+            test.session = self.session
+            test.exam_type = self.exam_type
+            test.class_level = self.class_level
+            test.duration = self.duration
+            test.total_marks = self.total_marks
+            test.has_calculator = self.has_calculator
+            test.option_type_numeric = self.option_type_numeric
+            test.instructions = self.instructions
+            test.save()
+            
+            # Sync Many-to-Many targets
+            if self.pk:
+                test.target_exams.set(self.target_exams.all())
+                
+            # Clear admin test list cache if it exists
+            from django.core.cache import cache
+            cache.delete('admin_test_list')
+        except Exception as e:
+            print(f"Error syncing ExamDetail to Test: {e}")
+
+    def delete(self, *args, **kwargs):
+        # Auto-delete corresponding Test
+        try:
+            from tests.models import Test
+            Test.objects.filter(code=self.code).delete()
+            
+            # Clear admin test list cache
+            from django.core.cache import cache
+            cache.delete('admin_test_list')
+        except Exception as e:
+            print(f"Error deleting synced Test: {e}")
+        super().delete(*args, **kwargs)
 
     def __str__(self):
         return f"{self.exam_type.name} - {self.class_level.name} ({self.session.name})"
+
+@receiver(m2m_changed, sender=ExamDetail.target_exams.through)
+def sync_exam_detail_targets(sender, instance, action, **kwargs):
+    if action in ["post_add", "post_remove", "post_clear"]:
+        try:
+            from tests.models import Test
+            test = Test.objects.filter(code=instance.code).first()
+            if test:
+                test.target_exams.set(instance.target_exams.all())
+        except Exception as e:
+            print(f"Error syncing M2M target_exams: {e}")
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
