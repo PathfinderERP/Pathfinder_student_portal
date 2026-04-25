@@ -332,7 +332,7 @@ const TestResult = () => {
                                         <div className="flex items-center gap-2 whitespace-nowrap">
                                             <span className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{test.name}</span>
                                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap ${isDarkMode ? 'opacity-40 text-slate-400' : 'text-slate-600 opacity-80'}`}>
-                                                {test.session_details?.name} • {test.class_level_details?.name} • {test.target_exam_details?.name}
+                                                {test.session_details?.name} • {test.class_level_details?.name} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>

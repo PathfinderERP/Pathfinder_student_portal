@@ -398,7 +398,7 @@ const TestAllotment = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-xs mb-1 uppercase">{test.name}</span>
                                             <span className="text-[9px] opacity-40 font-bold uppercase tracking-wider">
-                                                {test.session_details?.name} • {test.class_level_details?.name} • {test.target_exam_details?.name}
+                                                {test.session_details?.name} • {test.class_level_details?.name} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>

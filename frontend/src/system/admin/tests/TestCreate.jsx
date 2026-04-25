@@ -90,7 +90,7 @@ const SearchableSelect = ({
             </div>
 
             {isOpen && (
-                <div className={`absolute z-[200] mt-2 w-full p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1F2533] border-white/10' : 'bg-white border-slate-200'}`}>
+                <div className={`absolute z-200 mt-2 w-full p-2 rounded-[5px] border shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#1F2533] border-white/10' : 'bg-white border-slate-200'}`}>
                     <div className="px-2 pb-2 mb-2 border-b border-slate-200 dark:border-white/10 space-y-2">
                         <div className="relative">
                             <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -620,7 +620,7 @@ const TestCreate = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-sm mb-1">{item.name}</span>
                                             <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
-                                                {item.session_details?.name} • {item.class_level_details?.name} • {Array.isArray(item.target_exam_details) ? item.target_exam_details.map(te => te.name).join(', ') : (item.target_exam_details?.name || '-')}
+                                                {item.session_details?.name} • {item.class_level_details?.name} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>
@@ -837,7 +837,7 @@ const TestCreate = () => {
             .filter(d =>
                 String(d.session) === String(formValues.session) &&
                 String(d.class_level) === String(formValues.class_level) &&
-                (Array.isArray(d.target_exams) 
+                (Array.isArray(d.target_exams)
                     ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
                     : false)
             )
@@ -851,7 +851,7 @@ const TestCreate = () => {
             .filter(d =>
                 String(d.session) === String(formValues.session) &&
                 String(d.class_level) === String(formValues.class_level) &&
-                (Array.isArray(d.target_exams) 
+                (Array.isArray(d.target_exams)
                     ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
                     : false) &&
                 String(d.exam_type) === String(formValues.exam_type)
