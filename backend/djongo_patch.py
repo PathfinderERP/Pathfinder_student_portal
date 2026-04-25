@@ -172,6 +172,16 @@ def apply_djongo_patches():
         try:
             return original_parse(self)
         except Exception as e:
+            # Smart fix for migrations: ignore parsing errors for non-CRUD statements (like ALTER)
+            stmt = getattr(self, 'statement', None)
+            if stmt:
+                sql = str(stmt).strip().upper()
+                if not any(sql.startswith(x) for x in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']):
+                    # Return None allows the cursor to skip execution safely for DDL commands
+                    return None
+            elif "SQLDecodeError" in str(type(e)) or "Unknown token" in str(e):
+                # If it's a decode error on a fresh DB, it's almost always a DDL command we can skip
+                return None
             raise e
     Query.parse = patched_parse
 

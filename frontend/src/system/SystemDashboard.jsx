@@ -316,15 +316,20 @@ const SystemDashboard = () => {
         }
     }, [token, getApiUrl, authLoading, fetchDashboardStats]);
 
+    const initialFetchDone = useRef(false);
     useEffect(() => {
+        if (authLoading || !token || initialFetchDone.current) return;
+        
         syncERP();
         fetchDashboardStats();
+        initialFetchDone.current = true;
+
         const interval = setInterval(() => {
             syncERP(false);
             fetchDashboardStats();
         }, 600000);
         return () => clearInterval(interval);
-    }, [syncERP, fetchDashboardStats]);
+    }, [authLoading, token, syncERP, fetchDashboardStats]);
 
     // 3. Permissions & Sidebar
     const hasPermission = (moduleId, subModuleId = null) => {
