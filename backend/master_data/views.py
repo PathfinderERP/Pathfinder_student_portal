@@ -219,7 +219,7 @@ class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                         erp_id=erp_id,
                         defaults={
                             'name': name,
-                            'is_active': True
+                            'is_active': s.get('isGlobalActive', s.get('isActive', True))
                         }
                     )
                     synced_ids.append(obj.id)
@@ -285,7 +285,7 @@ class TargetExamViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                     erp_id=erp_id,
                     defaults={
                         'name': name,
-                        'is_active': True
+                        'is_active': tag_data.get('isGlobalActive', tag_data.get('isActive', True))
                     }
                 )
                 synced_ids.append(obj.id)
@@ -348,7 +348,7 @@ class ClassLevelViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                         erp_id=erp_id,
                         defaults={
                             'name': name,
-                            'is_active': True
+                            'is_active': c.get('isGlobalActive', c.get('isActive', True))
                         }
                     )
                     synced_ids.append(obj.id)

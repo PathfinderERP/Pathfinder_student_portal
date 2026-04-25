@@ -193,7 +193,9 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
                                 }`}
                         >
                             <option value="">{masterLoading ? 'Loading...' : 'All Sessions'}</option>
-                            {sessions.map(s => <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>)}
+                            {sessions.filter(s => s.is_active || String(s.id) === String(filterSession)).map(s => (
+                                <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
+                            ))}
                         </select>
                     </div>
 

@@ -809,16 +809,16 @@ const TestCreate = () => {
     // Cascading Filter Logic based on Exam Details Master
     const availableSessions = useMemo(() => {
         const sessionIds = [...new Set(examDetails.map(d => String(d.session)))];
-        return sessions.filter(s => sessionIds.includes(String(s.id)));
-    }, [sessions, examDetails]);
+        return sessions.filter(s => sessionIds.includes(String(s.id)) && (s.is_active || String(s.id) === String(formValues.session)));
+    }, [sessions, examDetails, formValues.session]);
 
     const availableClasses = useMemo(() => {
         if (!formValues.session) return [];
         const classIds = [...new Set(examDetails
             .filter(d => String(d.session) === String(formValues.session))
             .map(d => String(d.class_level)))];
-        return classes.filter(c => classIds.includes(String(c.id)));
-    }, [classes, examDetails, formValues.session]);
+        return classes.filter(c => classIds.includes(String(c.id)) && (c.is_active || String(c.id) === String(formValues.class_level)));
+    }, [classes, examDetails, formValues.session, formValues.class_level]);
 
     const availableTargetExams = useMemo(() => {
         if (!formValues.session || !formValues.class_level) return [];
@@ -828,8 +828,8 @@ const TestCreate = () => {
                 String(d.class_level) === String(formValues.class_level)
             )
             .flatMap(d => Array.isArray(d.target_exams) ? d.target_exams.map(String) : d.target_exam ? [String(d.target_exam)] : []))];
-        return targetExams.filter(t => targetIds.includes(String(t.id)));
-    }, [targetExams, examDetails, formValues.session, formValues.class_level]);
+        return targetExams.filter(t => targetIds.includes(String(t.id)) && (t.is_active || (Array.isArray(formValues.target_exams) && formValues.target_exams.map(String).includes(String(t.id)))));
+    }, [targetExams, examDetails, formValues.session, formValues.class_level, formValues.target_exams]);
 
     const availableExamTypes = useMemo(() => {
         if (!formValues.session || !formValues.class_level || formValues.target_exams.length === 0) return [];

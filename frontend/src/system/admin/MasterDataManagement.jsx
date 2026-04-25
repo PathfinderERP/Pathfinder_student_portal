@@ -2551,7 +2551,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
                                                 <SearchableSelect
-                                                    options={sessions}
+                                                    options={sessions.filter(s => s.is_active || String(s.id) === String(formValues.session))}
                                                     value={formValues.session}
                                                     onChange={val => setFormValues({ ...formValues, session: val })}
                                                     placeholder="Select Session"
@@ -2561,7 +2561,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5 text-left">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
                                                 <SearchableSelect
-                                                    options={classes}
+                                                    options={classes.filter(c => c.is_active || String(c.id) === String(formValues.class_level))}
                                                     value={formValues.class_level}
                                                     onChange={val => setFormValues({ ...formValues, class_level: val })}
                                                     placeholder="Select Class"
@@ -2572,7 +2572,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target Exam (Multiple)</label>
                                                 <SearchableSelect
                                                     isMulti={true}
-                                                    options={targetExams}
+                                                    options={targetExams.filter(te => te.is_active || (Array.isArray(formValues.target_exams) && formValues.target_exams.map(String).includes(String(te.id))))}
                                                     value={formValues.target_exams}
                                                     onChange={vals => setFormValues({ ...formValues, target_exams: vals, exam_type: '' })}
                                                     placeholder="Select Targets"
@@ -2623,7 +2623,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
                                                     <SearchableSelect
-                                                        options={classes}
+                                                        options={classes.filter(c => c.is_active || String(c.id) === String(formValues.class_level))}
                                                         value={formValues.class_level}
                                                         onChange={val => setFormValues({ ...formValues, class_level: val, topic: '' })}
                                                         placeholder="No Class"
@@ -2633,7 +2633,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
                                                     <SearchableSelect
-                                                        options={subjects}
+                                                        options={subjects.filter(s => s.is_active || String(s.id) === String(formValues.subject))}
                                                         value={formValues.subject}
                                                         onChange={val => setFormValues({ ...formValues, subject: val, topic: '' })}
                                                         placeholder="No Subject"
@@ -2643,7 +2643,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
                                                     <SearchableSelect
-                                                        options={filteredTopicsForImage}
+                                                        options={filteredTopicsForImage.filter(t => t.is_active || String(t.id) === String(formValues.topic))}
                                                         value={formValues.topic}
                                                         onChange={val => setFormValues({ ...formValues, topic: val })}
                                                         placeholder="No Topic"
@@ -2663,7 +2663,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Target</label>
                                                     <SearchableSelect
-                                                        options={targetExams}
+                                                        options={targetExams.filter(t => t.is_active || String(t.id) === String(formValues.target_exam))}
                                                         value={formValues.target_exam}
                                                         onChange={val => setFormValues({ ...formValues, target_exam: val })}
                                                         placeholder="No Target"
@@ -2709,7 +2709,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Topic</label>
                                                 <SearchableSelect
-                                                    options={topics}
+                                                    options={topics.filter(t => t.is_active || String(t.id) === String(formValues.topic))}
                                                     value={formValues.topic}
                                                     onChange={val => setFormValues({ ...formValues, topic: val })}
                                                     placeholder="Select Topic"
@@ -2753,7 +2753,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
                                                 <SearchableSelect
-                                                    options={classes}
+                                                    options={classes.filter(c => c.is_active || String(c.id) === String(formValues.class_level))}
                                                     value={formValues.class_level}
                                                     onChange={val => setFormValues({ ...formValues, class_level: val })}
                                                     placeholder="Select Class"
@@ -2763,7 +2763,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
                                                 <SearchableSelect
-                                                    options={subjects}
+                                                    options={subjects.filter(s => s.is_active || String(s.id) === String(formValues.subject))}
                                                     value={formValues.subject}
                                                     onChange={val => setFormValues({ ...formValues, subject: val })}
                                                     placeholder="Select Subject"
@@ -2807,7 +2807,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
                                                 <SearchableSelect
-                                                    options={classes}
+                                                    options={classes.filter(c => c.is_active || String(c.id) === String(formValues.class_level))}
                                                     value={formValues.class_level}
                                                     onChange={val => setFormValues({ ...formValues, class_level: val })}
                                                     placeholder="Select Class"
@@ -2817,7 +2817,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
                                                 <SearchableSelect
-                                                    options={subjects}
+                                                    options={subjects.filter(s => s.is_active || String(s.id) === String(formValues.subject))}
                                                     value={formValues.subject}
                                                     onChange={val => setFormValues({ ...formValues, subject: val })}
                                                     placeholder="Select Subject"
@@ -2827,7 +2827,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Chapter</label>
                                                 <SearchableSelect
-                                                    options={chapters.filter(ch =>
+                                                    options={chapters.filter(ch => 
+                                                        (ch.is_active || String(ch.id) === String(formValues.chapter)) &&
                                                         (!formValues.class_level || String(ch.class_level) === String(formValues.class_level)) &&
                                                         (!formValues.subject || String(ch.subject) === String(formValues.subject))
                                                     )}
@@ -2886,7 +2887,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1 col-span-2">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Subject</label>
                                                 <SearchableSelect
-                                                    options={subjects}
+                                                    options={subjects.filter(s => s.is_active || String(s.id) === String(formValues.subject))}
                                                     value={formValues.subject}
                                                     onChange={val => setFormValues({ ...formValues, subject: val })}
                                                     placeholder="Select Subject"

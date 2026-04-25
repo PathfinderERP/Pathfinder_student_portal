@@ -239,7 +239,7 @@ const PackageAllotment = () => {
                                 }`}
                         >
                             <option value="">All Sessions</option>
-                            {sessions.map(session => (
+                            {sessions.filter(s => s.is_active || String(s.id) === String(filterSession)).map(session => (
                                 <option key={session.id} value={session.id} className={isDarkMode ? 'bg-[#1A1F2B] text-white' : ''}>{session.name}</option>
                             ))}
                         </select>
