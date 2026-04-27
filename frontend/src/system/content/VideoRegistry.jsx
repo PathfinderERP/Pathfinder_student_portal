@@ -34,8 +34,7 @@ const VideoRegistry = () => {
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        section: '',
+        target_exams: [],
         package: ''
     });
 
@@ -45,12 +44,11 @@ const VideoRegistry = () => {
         title: '',
         link: '',
         description: '',
-        session: '',
+        sessions: [],
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        section: '',
+        target_exams: [],
         is_general: false,
         packages: []
     });
@@ -93,7 +91,7 @@ const VideoRegistry = () => {
                 (Array.isArray(secData?.sections) ? secData.sections : []))
             );
             
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
@@ -126,12 +124,11 @@ const VideoRegistry = () => {
                 title: newItem.title,
                 link: newItem.link,
                 description: newItem.description,
-                session: newItem.is_general ? (newItem.session || null) : null,
+                sessions: newItem.is_general ? (newItem.sessions || []) : [],
                 class_level: newItem.is_general ? (newItem.class_level || null) : null,
                 subject: newItem.is_general ? (newItem.subject || null) : null,
                 exam_type: newItem.is_general ? (newItem.exam_type || null) : null,
-                target_exam: newItem.is_general ? (newItem.target_exam || null) : null,
-                section: newItem.is_general ? (newItem.section || null) : null,
+                target_exams: newItem.is_general ? (newItem.target_exams || []) : [],
                 is_general: newItem.is_general,
                 packages: !newItem.is_general ? (newItem.packages || []).filter(p => p !== null && p !== '' && p !== undefined) : [],
             };
@@ -150,18 +147,156 @@ const VideoRegistry = () => {
         }
     };
 
+    const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
+        const containerRef = React.useRef(null);
+
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (containerRef.current && !containerRef.current.contains(event.target)) {
+                    setIsOpen(false);
+                }
+            };
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }, []);
+
+        const safeValue = Array.isArray(value) ? value : [];
+
+        const filteredOptions = useMemo(() => {
+            if (!searchTerm) return options;
+            return options.filter(opt => {
+                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+                return text.includes(searchTerm.toLowerCase());
+            });
+        }, [options, searchTerm]);
+
+        const toggleOption = (id) => {
+            const newValue = safeValue.includes(id)
+                ? safeValue.filter(v => v !== id)
+                : [...safeValue, id];
+            onChange(newValue);
+        };
+
+        const handleSelectAll = () => {
+            if (safeValue.length === options.length) {
+                onChange([]);
+            } else {
+                onChange(options.map(opt => opt.id || opt.value));
+            }
+        };
+
+        return (
+            <div className={`relative group ${className}`} ref={containerRef}>
+                <div
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                        ${isOpen
+                            ? `border-amber-500 ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(245,158,11,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(245,158,11,0.1)]'}`
+                            : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
+                >
+                    <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
+                        ${isOpen ? `text-amber-500 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                        {label} {required && '*'}
+                    </label>
+
+                    <span className={`text-xs font-bold truncate ${safeValue.length === 0
+                        ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
+                        : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
+                        {safeValue.length > 0 
+                            ? `${safeValue.length} Selected` 
+                            : placeholder}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                        {safeValue.length > 0 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange([]);
+                                }}
+                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                            >
+                                <X size={12} strokeWidth={3} className="text-red-500" />
+                            </button>
+                        )}
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-amber-500' : 'opacity-40'}`} />
+                    </div>
+                </div>
+
+                {isOpen && (
+                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                        ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
+
+                        <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <button
+                                    onClick={handleSelectAll}
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                                >
+                                    {safeValue.length === options.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    placeholder={`Search ${label}...`}
+                                    className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-amber-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-amber-500 shadow-sm'}`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                                const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleOption(opt.id || opt.value);
+                                        }}
+                                        className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                            ${isSelected
+                                                ? 'bg-amber-500 text-white'
+                                                : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
+                                                {isSelected && <Check size={10} className="text-amber-500" strokeWidth={4} />}
+                                            </div>
+                                            {opt.label || opt.name || opt.value}
+                                        </div>
+                                    </div>
+                                );
+                            }) : (
+                                <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const handleEditClick = (item) => {
         setSelectedItemForEdit(item);
         setNewItem({
             title: item.title,
             link: item.link,
             description: item.description || '',
-            session: item.session || '',
+            sessions: item.sessions || [],
             class_level: item.class_level || '',
             subject: item.subject || '',
             exam_type: item.exam_type || '',
-            target_exam: item.target_exam || '',
-            section: item.section || '',
+            target_exams: item.target_exams || [],
             is_general: item.is_general || false,
             packages: item.packages || []
         });
@@ -185,12 +320,11 @@ const VideoRegistry = () => {
                 title: newItem.title,
                 link: newItem.link,
                 description: newItem.description,
-                session: newItem.is_general ? (newItem.session || null) : null,
+                sessions: newItem.is_general ? (newItem.sessions || []) : [],
                 class_level: newItem.is_general ? (newItem.class_level || null) : null,
                 subject: newItem.is_general ? (newItem.subject || null) : null,
                 exam_type: newItem.is_general ? (newItem.exam_type || null) : null,
-                target_exam: newItem.is_general ? (newItem.target_exam || null) : null,
-                section: newItem.is_general ? (newItem.section || null) : null,
+                target_exams: newItem.is_general ? (newItem.target_exams || []) : [],
                 is_general: newItem.is_general,
                 packages: !newItem.is_general ? (newItem.packages || []).filter(p => p !== null && p !== '' && p !== undefined) : [],
             };
@@ -224,26 +358,29 @@ const VideoRegistry = () => {
     };
 
     const resetForm = () => {
-        setNewItem({ title: '', link: '', description: '', session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '', is_general: false, packages: [] });
+        setNewItem({ title: '', link: '', description: '', sessions: [], class_level: '', subject: '', exam_type: '', target_exams: [], is_general: false, packages: [] });
     };
 
     const filteredVideos = useMemo(() => {
-        const safeVideos = Array.isArray(videos) ? videos : [];
-        return safeVideos.filter(n => {
+        return videos.filter(n => {
             const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase());
-
+            
             // View Mode Filter
             if (viewTargeting === 'packages') {
                 if (n.is_general) return false;
                 if (activeFilters.package && !n.packages.includes(activeFilters.package)) return false;
             } else if (viewTargeting === 'general') {
                 if (!n.is_general) return false;
-                if (activeFilters.session && n.session !== activeFilters.session) return false;
+                const matchesSession = !activeFilters.session || 
+                    String(n.session) === String(activeFilters.session) || 
+                    (n.sessions && n.sessions.some(s => String(s) === String(activeFilters.session)));
+                if (!matchesSession) return false;
                 if (activeFilters.class_level && n.class_level !== activeFilters.class_level) return false;
                 if (activeFilters.subject && n.subject !== activeFilters.subject) return false;
                 if (activeFilters.exam_type && n.exam_type !== activeFilters.exam_type) return false;
-                if (activeFilters.target_exam && n.target_exam !== activeFilters.target_exam) return false;
-                if (activeFilters.section && n.section !== activeFilters.section) return false;
+                const matchesTargetExam = activeFilters.target_exams.length === 0 || 
+                    (n.target_exams && n.target_exams.some(te => activeFilters.target_exams.includes(te)));
+                if (!matchesTargetExam) return false;
             }
 
             return matchesSearch;
@@ -256,7 +393,7 @@ const VideoRegistry = () => {
         const safeVideos = safeArray(videos);
 
         return {
-            sessions: safeArray(sessions).filter(s => safeVideos.some(n => n.session === s.id)),
+            sessions: safeArray(sessions).filter(s => safeVideos.some(n => n.session === s.id || (n.sessions && n.sessions.includes(s.id)))),
             classes: safeArray(classes).filter(c => safeVideos.some(n => n.class_level === c.id)),
             subjects: safeArray(subjects).filter(s => safeVideos.some(n => n.subject === s.id)),
             examTypes: safeArray(examTypes).filter(e => safeVideos.some(n => n.exam_type === e.id)),
@@ -404,6 +541,15 @@ const VideoRegistry = () => {
                                     <option value="">All Subjects</option>
                                     {dynamicFilterOptions.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
+                                <MultiSelect
+                                    label="Target Exam"
+                                    options={targetExams}
+                                    value={activeFilters.target_exams}
+                                    placeholder="All Target Exams"
+                                    isDarkMode={isDarkMode}
+                                    onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
+                                    className="min-w-[180px]"
+                                />
                             </>
                         )}
 
@@ -469,7 +615,18 @@ const VideoRegistry = () => {
                                     {paginatedVideos.map((item, index) => (
                                         <tr key={item.id} className={`border-t ${isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-100 hover:bg-slate-50'} transition-colors duration-200`}>
                                             <td className="py-5 px-6 text-sm font-bold">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                                            <td className="py-5 px-6 text-sm font-bold max-w-xs truncate">{item.title}</td>
+                                            <td className="py-5 px-6">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm block group-hover:text-amber-500 transition-colors uppercase tracking-tight">{item.title}</span>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        {(item.session_names && item.session_names.length > 0) ? (
+                                                            <span className="text-[10px] font-bold text-amber-500/60 uppercase">{item.session_names.join(', ')}</span>
+                                                        ) : item.session_name && (
+                                                            <span className="text-[10px] font-bold text-amber-500/60 uppercase">{item.session_name}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td className="py-5 px-6 text-xs max-w-xs truncate">
                                                 <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                                                     {item.link}
@@ -673,13 +830,20 @@ const VideoRegistry = () => {
                             ) : (
                                 /* Master Data Grid */
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="space-y-1.5">
+                                        <MultiSelect 
+                                            label="Sessions" 
+                                            options={sessions} 
+                                            value={newItem.sessions} 
+                                            onChange={(val) => setNewItem({ ...newItem, sessions: val })} 
+                                            placeholder="Select Sessions" 
+                                            isDarkMode={isDarkMode}
+                                        />
+                                    </div>
                                     {[
-                                        { label: 'Session', field: 'session', options: sessions },
                                         { label: 'Class', field: 'class_level', options: classes },
                                         { label: 'Subject', field: 'subject', options: subjects },
                                         { label: 'Exam Type', field: 'exam_type', options: examTypes },
-                                        { label: 'Target Exam', field: 'target_exam', options: targetExams },
-                                        { label: 'Section', field: 'section', options: sections }
                                     ].map(meta => (
                                         <div key={meta.field}>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
@@ -694,6 +858,16 @@ const VideoRegistry = () => {
                                             </select>
                                         </div>
                                     ))}
+                                    <div className="space-y-1.5">
+                                        <MultiSelect 
+                                            label="Target Exams" 
+                                            options={targetExams} 
+                                            value={newItem.target_exams} 
+                                            onChange={(val) => setNewItem({ ...newItem, target_exams: val })} 
+                                            placeholder="Select Target Exams" 
+                                            isDarkMode={isDarkMode}
+                                        />
+                                    </div>
                                 </div>
                             )}
 

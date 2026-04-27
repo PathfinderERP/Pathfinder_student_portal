@@ -38,7 +38,8 @@ const AssignExistingTest = ({ packageData, onBack, onAssigned }) => {
             const fetchSessions = async () => {
                 try {
                     const res = await axios.get(`${apiUrl}/api/master-data/sessions/`, config);
-                    setSessions(Array.isArray(res.data) ? res.data : (res.data.results || []));
+                    const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+                    setSessions(data.filter(s => s.is_active));
                 } catch (e) { console.error("Sessions fetch failed", e); }
             };
             const fetchClasses = async () => {

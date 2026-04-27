@@ -37,8 +37,7 @@ const NoticeRegistry = () => {
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        section: ''
+        target_exams: []
     });
 
     const [notices, setNotices] = useState([]);
@@ -51,11 +50,11 @@ const NoticeRegistry = () => {
         description: '',
         file_attachment: null,
         session: '',
+        sessions: [],
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        section: ''
+        target_exams: []
     });
 
     const fetchNotices = useCallback(async () => {
@@ -95,7 +94,7 @@ const NoticeRegistry = () => {
                 (Array.isArray(secData?.sections) ? secData.sections : []))
             );
             
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
@@ -135,12 +134,19 @@ const NoticeRegistry = () => {
             const formData = new FormData();
             formData.append('title', newItem.title);
             formData.append('description', newItem.description);
-            if (newItem.session) formData.append('session', newItem.session);
+            if (newItem.sessions && newItem.sessions.length > 0) {
+                newItem.sessions.forEach(sid => formData.append('sessions', sid));
+            } else if (newItem.session) {
+                formData.append('sessions', newItem.session);
+            }
             if (newItem.class_level) formData.append('class_level', newItem.class_level);
             if (newItem.subject) formData.append('subject', newItem.subject);
             if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
-            if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
-            if (newItem.section) formData.append('section', newItem.section);
+            if (newItem.target_exams && newItem.target_exams.length > 0) {
+                newItem.target_exams.forEach(teid => formData.append('target_exams', teid));
+            } else if (newItem.target_exam) {
+                formData.append('target_exams', newItem.target_exam);
+            }
             if (newItem.file_attachment) formData.append('file_attachment', newItem.file_attachment);
 
             await axios.post(`${apiUrl}/api/master-data/notices/`, formData, {
@@ -159,17 +165,156 @@ const NoticeRegistry = () => {
         }
     };
 
+    const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
+        const containerRef = React.useRef(null);
+
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (containerRef.current && !containerRef.current.contains(event.target)) {
+                    setIsOpen(false);
+                }
+            };
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }, []);
+
+        const safeValue = Array.isArray(value) ? value : [];
+
+        const filteredOptions = useMemo(() => {
+            if (!searchTerm) return options;
+            return options.filter(opt => {
+                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+                return text.includes(searchTerm.toLowerCase());
+            });
+        }, [options, searchTerm]);
+
+        const toggleOption = (id) => {
+            const newValue = safeValue.includes(id)
+                ? safeValue.filter(v => v !== id)
+                : [...safeValue, id];
+            onChange(newValue);
+        };
+
+        const handleSelectAll = () => {
+            if (safeValue.length === options.length) {
+                onChange([]);
+            } else {
+                onChange(options.map(opt => opt.id || opt.value));
+            }
+        };
+
+        return (
+            <div className={`relative group ${className}`} ref={containerRef}>
+                <div
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                        ${isOpen
+                            ? `border-amber-500 ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(245,158,11,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(245,158,11,0.1)]'}`
+                            : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
+                >
+                    <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
+                        ${isOpen ? `text-amber-500 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                        {label} {required && '*'}
+                    </label>
+
+                    <span className={`text-xs font-bold truncate ${safeValue.length === 0
+                        ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
+                        : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
+                        {safeValue.length > 0 
+                            ? `${safeValue.length} Selected` 
+                            : placeholder}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                        {safeValue.length > 0 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange([]);
+                                }}
+                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                            >
+                                <X size={12} strokeWidth={3} className="text-red-500" />
+                            </button>
+                        )}
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-amber-500' : 'opacity-40'}`} />
+                    </div>
+                </div>
+
+                {isOpen && (
+                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                        ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
+
+                        <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <button
+                                    onClick={handleSelectAll}
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                                >
+                                    {safeValue.length === options.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    placeholder={`Search ${label}...`}
+                                    className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-amber-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-amber-500 shadow-sm'}`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                                const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleOption(opt.id || opt.value);
+                                        }}
+                                        className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                            ${isSelected
+                                                ? 'bg-amber-500 text-white'
+                                                : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
+                                                {isSelected && <Check size={10} className="text-amber-500" strokeWidth={4} />}
+                                            </div>
+                                            {opt.label || opt.name || opt.value}
+                                        </div>
+                                    </div>
+                                );
+                            }) : (
+                                <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const handleEditClick = (item) => {
         setSelectedItemForEdit(item);
         setNewItem({
             title: item.title,
             description: item.description || '',
             session: item.session || '',
+            sessions: item.sessions || [],
             class_level: item.class_level || '',
             subject: item.subject || '',
             exam_type: item.exam_type || '',
-            target_exam: item.target_exam || '',
-            section: item.section || '',
+            target_exams: item.target_exams || [],
             file_attachment: null
         });
         const isImage = item.file_attachment && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(item.file_attachment);
@@ -188,12 +333,19 @@ const NoticeRegistry = () => {
             const formData = new FormData();
             formData.append('title', newItem.title);
             formData.append('description', newItem.description);
-            formData.append('session', newItem.session || '');
+            if (newItem.sessions && newItem.sessions.length > 0) {
+                newItem.sessions.forEach(sid => formData.append('sessions', sid));
+            } else if (newItem.session) {
+                formData.append('sessions', newItem.session);
+            }
             formData.append('class_level', newItem.class_level || '');
             formData.append('subject', newItem.subject || '');
             formData.append('exam_type', newItem.exam_type || '');
-            formData.append('target_exam', newItem.target_exam || '');
-            formData.append('section', newItem.section || '');
+            if (newItem.target_exams && newItem.target_exams.length > 0) {
+                newItem.target_exams.forEach(teid => formData.append('target_exams', teid));
+            } else if (newItem.target_exam) {
+                formData.append('target_exams', newItem.target_exam);
+            }
             if (newItem.file_attachment) formData.append('file_attachment', newItem.file_attachment);
 
             await axios.patch(`${apiUrl}/api/master-data/notices/${selectedItemForEdit.id}/`, formData, {
@@ -227,7 +379,7 @@ const NoticeRegistry = () => {
     };
 
     const resetForm = () => {
-        setNewItem({ title: '', description: '', file_attachment: null, session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' });
+        setNewItem({ title: '', description: '', file_attachment: null, session: '', class_level: '', subject: '', exam_type: '', target_exams: [] });
         setPreviews({ file_attachment: null });
     };
 
@@ -235,13 +387,15 @@ const NoticeRegistry = () => {
     const filteredNotices = useMemo(() => {
         return notices.filter(n => {
             const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesSession = !activeFilters.session || n.session === activeFilters.session;
+            const matchesSession = !activeFilters.session || 
+                String(n.session) === String(activeFilters.session) || 
+                (n.sessions && n.sessions.some(s => String(s) === String(activeFilters.session)));
             const matchesClass = !activeFilters.class_level || n.class_level === activeFilters.class_level;
             const matchesSubject = !activeFilters.subject || n.subject === activeFilters.subject;
             const matchesExamType = !activeFilters.exam_type || n.exam_type === activeFilters.exam_type;
-            const matchesTargetExam = !activeFilters.target_exam || n.target_exam === activeFilters.target_exam;
-            const matchesSection = !activeFilters.section || n.section === activeFilters.section;
-            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam && matchesSection;
+            const matchesTargetExam = activeFilters.target_exams.length === 0 || 
+                (n.target_exams && n.target_exams.some(te => activeFilters.target_exams.includes(te)));
+            return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesExamType && matchesTargetExam;
         });
     }, [notices, searchQuery, activeFilters]);
 
@@ -361,32 +515,23 @@ const NoticeRegistry = () => {
                                 <option value="">All Exam Types</option>
                                 {dynamicFilterOptions.examTypes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                             </select>
-                            <select
-                                value={activeFilters.target_exam}
-                                onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
-                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                        <MultiSelect
+                            label="Target Exam"
+                            options={targetExams}
+                            value={activeFilters.target_exams}
+                            placeholder="All Target Exams"
+                            isDarkMode={isDarkMode}
+                            onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
+                            className="min-w-[200px]"
+                        />
+                        {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exams.length > 0) && (
+                            <button
+                                onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exams: [] })}
+                                className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                             >
-                                <option value="">All Target Exams</option>
-                                {dynamicFilterOptions.targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                            <select
-                                value={activeFilters.section}
-                                onChange={(e) => setActiveFilters({ ...activeFilters, section: e.target.value })}
-                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                            >
-                                <option value="">All Sections</option>
-                                {dynamicFilterOptions.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exam || activeFilters.section) && (
-                                <button
-                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exam: '', section: '' })}
-                                    className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
-                                >
-                                    Clear All Filters
-                                </button>
-                            )}
+                                Clear All Filters
+                            </button>
+                        )}
                         </div>
                     </div>
                 </div>
@@ -451,7 +596,11 @@ const NoticeRegistry = () => {
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-sm block group-hover:text-amber-500 transition-colors uppercase tracking-tight">{notice.title}</span>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {notice.session_name && <span className="text-[10px] font-bold text-amber-500/60 uppercase">{notice.session_name}</span>}
+                                                    {(notice.session_names && notice.session_names.length > 0) ? (
+                                                        <span className="text-[10px] font-bold text-amber-500/60 uppercase">{notice.session_names.join(', ')}</span>
+                                                    ) : notice.session_name && (
+                                                        <span className="text-[10px] font-bold text-amber-500/60 uppercase">{notice.session_name}</span>
+                                                    )}
                                                     {notice.class_name && (
                                                         <>
                                                             <span className="w-1 h-1 bg-slate-500 rounded-full opacity-30" />
@@ -592,28 +741,56 @@ const NoticeRegistry = () => {
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80 text-amber-500">Academic Targeting</span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    <div className="space-y-2">
+                                        <MultiSelect 
+                                            label="Sessions" 
+                                            options={sessions} 
+                                            value={newItem.sessions} 
+                                            onChange={(val) => setNewItem({ ...newItem, sessions: val })} 
+                                            placeholder="Select Sessions" 
+                                            isDarkMode={isDarkMode}
+                                        />
+                                    </div>
                                     {[
-                                        { label: 'Session', field: 'session', options: sessions },
-                                        { label: 'Class Level', field: 'class_level', options: classes },
-                                        { label: 'Subject', field: 'subject', options: subjects },
-                                        { label: 'Exam Type', field: 'exam_type', options: examTypes },
-                                        { label: 'Target Exam', field: 'target_exam', options: targetExams },
-                                        { label: 'Section', field: 'section', options: sections }
-                                    ].map((meta, idx) => (
-                                        <div key={idx} className="space-y-1.5">
-                                            <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
-                                            <select
-                                                value={newItem[meta.field]}
-                                                onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
-                                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                                className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
-                                            >
-                                                <option value="">All {meta.label}s</option>
-                                                {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-                                            </select>
+                                        { label: 'Class', value: newItem.class_level, options: classes, field: 'class_level' },
+                                        { label: 'Subject', value: newItem.subject, options: subjects, field: 'subject' },
+                                        { label: 'Exam Type', value: newItem.exam_type, options: examTypes, field: 'exam_type' }
+                                    ].map((sel, idx) => (
+                                        <div key={idx} className="space-y-2">
+                                            <label className={`text-[9px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{sel.label}</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={sel.value}
+                                                    onChange={(e) => setNewItem({ ...newItem, [sel.field]: e.target.value })}
+                                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                                    className={`w-full pl-6 pr-12 py-3 rounded-[5px] border appearance-none outline-none font-bold text-sm transition-all focus:ring-4 focus:ring-amber-500/10 ${isDarkMode
+                                                        ? 'bg-[#1a1f2e] border-white/5 text-white'
+                                                        : 'bg-white border-slate-200 text-slate-800'
+                                                        }`}
+                                                >
+                                                    <option value="">Select {sel.label}</option>
+                                                    {sel.options.map(opt => (
+                                                        <option key={opt.id} value={opt.id}>
+                                                            {opt.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" size={16} />
+                                            </div>
                                         </div>
                                     ))}
+
+                                    <div className="space-y-2">
+                                        <MultiSelect 
+                                            label="Target Exams" 
+                                            options={targetExams} 
+                                            value={newItem.target_exams} 
+                                            onChange={(val) => setNewItem({ ...newItem, target_exams: val })} 
+                                            placeholder="Select Target Exams" 
+                                            isDarkMode={isDarkMode}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

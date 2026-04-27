@@ -55,7 +55,7 @@ const PackageRegistry = ({ onBack }) => {
             ]);
 
             setTargetExams(targetRes.data);
-            setSessions(sessionRes.data);
+            setSessions(sessionRes.data.filter(s => s.is_active));
         } catch (err) {
             console.error("Failed to fetch master data", err);
         }

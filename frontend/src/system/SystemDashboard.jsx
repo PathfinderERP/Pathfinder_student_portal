@@ -249,9 +249,9 @@ const SystemDashboard = () => {
         if (authLoading || !token) return;
         try {
             const apiUrl = getApiUrl();
-            const config = { 
+            const config = {
                 headers: { 'Authorization': `Bearer ${token}` },
-                params: { refresh: forceRefresh } 
+                params: { refresh: forceRefresh }
             };
             const [secResp, qResp] = await Promise.all([
                 axios.get(`${apiUrl}/api/sections/stats/`, config),
@@ -319,7 +319,7 @@ const SystemDashboard = () => {
     const initialFetchDone = useRef(false);
     useEffect(() => {
         if (authLoading || !token || initialFetchDone.current) return;
-        
+
         syncERP();
         fetchDashboardStats();
         initialFetchDone.current = true;

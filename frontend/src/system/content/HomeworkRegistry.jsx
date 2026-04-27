@@ -23,7 +23,6 @@ const HomeworkRegistry = () => {
     const [homeworkItems, setHomeworkItems] = useState([]);
 
     // Master Data States
-    const [sections, setSections] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [classes, setClasses] = useState([]);
     const [subjects, setSubjects] = useState([]);
@@ -32,9 +31,7 @@ const HomeworkRegistry = () => {
     const [packages, setPackages] = useState([]);
 
     // Custom Select States
-    const [isSectionDropdownOpen, setIsSectionDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
-    const sectionDropdownRef = useRef(null);
     const typeDropdownRef = useRef(null);
 
     const [previews, setPreviews] = useState({
@@ -44,12 +41,11 @@ const HomeworkRegistry = () => {
     const [newItem, setNewItem] = useState({
         name: '',
         homework_type: 'Must Do Questions',
-        session: '',
+        sessions: [],
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        selectedSections: [],
+        target_exams: [],
         pdf_file: null,
         is_general: true,
         packages: []
@@ -63,7 +59,7 @@ const HomeworkRegistry = () => {
         session: '',
         class_level: '',
         subject: '',
-        target_exam: '',
+        target_exams: [],
         homework_type: ''
     });
 
@@ -89,8 +85,7 @@ const HomeworkRegistry = () => {
         try {
             const apiUrl = getApiUrl();
             const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
-            const [secRes, sessRes, classRes, subRes, etRes, teRes, pkgRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/master-sections/`, config),
+            const [sessRes, classRes, subRes, etRes, teRes, pkgRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                 axios.get(`${apiUrl}/api/master-data/classes/`, config),
                 axios.get(`${apiUrl}/api/master-data/subjects/`, config),
@@ -99,15 +94,7 @@ const HomeworkRegistry = () => {
                 axios.get(`${apiUrl}/api/packages/`, config)
             ]);
             
-            // Handle MasterSection API (Array, {results: []}, or {sections: []})
-            const secData = secRes.data;
-            setSections(
-                Array.isArray(secData) ? secData : 
-                (Array.isArray(secData?.results) ? secData.results : 
-                (Array.isArray(secData?.sections) ? secData.sections : []))
-            );
-            
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
@@ -125,12 +112,9 @@ const HomeworkRegistry = () => {
         }
     }, [fetchHomeworkItems, fetchMasterData, authLoading]);
 
-    // Handle outside clicks for custom multiselect
+    // Handle outside clicks for custom dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(event.target)) {
-                setIsSectionDropdownOpen(false);
-            }
             if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target)) {
                 setIsTypeDropdownOpen(false);
             }
@@ -138,6 +122,145 @@ const HomeworkRegistry = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
+        const containerRef = React.useRef(null);
+
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (containerRef.current && !containerRef.current.contains(event.target)) {
+                    setIsOpen(false);
+                }
+            };
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }, []);
+
+        const safeValue = Array.isArray(value) ? value : [];
+
+        const filteredOptions = useMemo(() => {
+            if (!searchTerm) return options;
+            return options.filter(opt => {
+                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+                return text.includes(searchTerm.toLowerCase());
+            });
+        }, [options, searchTerm]);
+
+        const toggleOption = (id) => {
+            const newValue = safeValue.includes(id)
+                ? safeValue.filter(v => v !== id)
+                : [...safeValue, id];
+            onChange(newValue);
+        };
+
+        const handleSelectAll = () => {
+            if (safeValue.length === options.length) {
+                onChange([]);
+            } else {
+                onChange(options.map(opt => opt.id || opt.value));
+            }
+        };
+
+        return (
+            <div className={`relative group ${className}`} ref={containerRef}>
+                <div
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                        ${isOpen
+                            ? `border-orange-500 ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(249,115,22,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(249,115,22,0.1)]'}`
+                            : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
+                >
+                    <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
+                        ${isOpen ? `text-orange-500 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                        {label} {required && '*'}
+                    </label>
+
+                    <span className={`text-xs font-bold truncate ${safeValue.length === 0
+                        ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
+                        : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
+                        {safeValue.length > 0 
+                            ? `${safeValue.length} Selected` 
+                            : placeholder}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                        {safeValue.length > 0 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange([]);
+                                }}
+                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                            >
+                                <X size={12} strokeWidth={3} className="text-red-500" />
+                            </button>
+                        )}
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-orange-500' : 'opacity-40'}`} />
+                    </div>
+                </div>
+
+                {isOpen && (
+                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                        ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
+
+                        <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <button
+                                    onClick={handleSelectAll}
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                                >
+                                    {safeValue.length === options.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    placeholder={`Search ${label}...`}
+                                    className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-orange-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-orange-500 shadow-sm'}`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                                const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleOption(opt.id || opt.value);
+                                        }}
+                                        className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                            ${isSelected
+                                                ? 'bg-orange-500 text-white'
+                                                : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
+                                                {isSelected && <Check size={10} className="text-orange-500" strokeWidth={4} />}
+                                            </div>
+                                            {opt.label || opt.name || opt.value}
+                                        </div>
+                                    </div>
+                                );
+                            }) : (
+                                <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const handleFileChange = (e, field) => {
         const file = e.target.files[0];
@@ -155,17 +278,6 @@ const HomeworkRegistry = () => {
         setPreviews(prev => ({ ...prev, [field]: false }));
     };
 
-    const handleSectionToggle = (sectionId) => {
-        setNewItem(prev => {
-            const isSelected = prev.selectedSections.includes(sectionId);
-            if (isSelected) {
-                return { ...prev, selectedSections: prev.selectedSections.filter(id => id !== sectionId) };
-            } else {
-                return { ...prev, selectedSections: [...prev.selectedSections, sectionId] };
-            }
-        });
-    };
-
     const handleAddItem = async (e) => {
         e.preventDefault();
         setIsActionLoading(true);
@@ -177,15 +289,15 @@ const HomeworkRegistry = () => {
             formData.append('is_general', newItem.is_general);
 
             if (newItem.is_general) {
-                if (newItem.session) formData.append('session', newItem.session);
+                if (newItem.sessions && newItem.sessions.length > 0) {
+                    newItem.sessions.forEach(id => formData.append('sessions', id));
+                }
                 if (newItem.class_level) formData.append('class_level', newItem.class_level);
                 if (newItem.subject) formData.append('subject', newItem.subject);
                 if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
-                if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
-
-                newItem.selectedSections.forEach(sectionId => {
-                    formData.append('sections', sectionId);
-                });
+                if (newItem.target_exams && newItem.target_exams.length > 0) {
+                    newItem.target_exams.forEach(id => formData.append('target_exams', id));
+                }
             } else {
                 newItem.packages.forEach(pkgId => {
                     formData.append('packages', pkgId);
@@ -215,12 +327,11 @@ const HomeworkRegistry = () => {
         setNewItem({
             name: item.name || '',
             homework_type: item.homework_type || 'Must Do Questions',
-            session: item.session || '',
+            sessions: item.sessions || [],
             class_level: item.class_level || '',
             subject: item.subject || '',
             exam_type: item.exam_type || '',
-            target_exam: item.target_exam || '',
-            selectedSections: item.sections || [],
+            target_exams: item.target_exams || [],
             pdf_file: null,
             is_general: item.is_general !== undefined ? item.is_general : true,
             packages: item.packages || []
@@ -242,18 +353,18 @@ const HomeworkRegistry = () => {
             formData.append('is_general', newItem.is_general);
 
             if (newItem.is_general) {
-                formData.append('session', newItem.session || '');
+                if (newItem.sessions && newItem.sessions.length > 0) {
+                    newItem.sessions.forEach(id => formData.append('sessions', id));
+                } else {
+                    formData.append('sessions', '');
+                }
                 formData.append('class_level', newItem.class_level || '');
                 formData.append('subject', newItem.subject || '');
                 formData.append('exam_type', newItem.exam_type || '');
-                formData.append('target_exam', newItem.target_exam || '');
-
-                if (newItem.selectedSections.length === 0) {
-                    formData.append('sections', '');
+                if (newItem.target_exams && newItem.target_exams.length > 0) {
+                    newItem.target_exams.forEach(id => formData.append('target_exams', id));
                 } else {
-                    newItem.selectedSections.forEach(sectionId => {
-                        formData.append('sections', sectionId);
-                    });
+                    formData.append('target_exams', '');
                 }
             } else {
                 if (newItem.packages.length === 0) {
@@ -299,13 +410,12 @@ const HomeworkRegistry = () => {
 
     const resetForm = () => {
         setNewItem({
-            name: '', homework_type: 'Must Do Questions', session: '', class_level: '', subject: '', exam_type: '', target_exam: '',
-            selectedSections: [], pdf_file: null, is_general: true, packages: []
+            name: '', homework_type: 'Must Do Questions', sessions: [], class_level: '', subject: '', exam_type: '', target_exams: [],
+            pdf_file: null, is_general: true, packages: []
         });
         setPreviews({
             pdf_file: false
         });
-        setIsSectionDropdownOpen(false);
     };
 
     const dynamicFilterOptions = useMemo(() => {
@@ -337,10 +447,14 @@ const HomeworkRegistry = () => {
     const filteredItems = useMemo(() => {
         return homeworkItems.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesSession = !activeFilters.session || item.session_name === activeFilters.session;
+            const matchesSession = !activeFilters.session || 
+                item.session_name === activeFilters.session || 
+                (item.session_names && item.session_names.includes(activeFilters.session)) ||
+                (item.sessions && item.sessions.includes(activeFilters.session));
             const matchesClass = !activeFilters.class_level || item.class_name === activeFilters.class_level;
             const matchesSubject = !activeFilters.subject || item.subject_name === activeFilters.subject;
-            const matchesTargetExam = !activeFilters.target_exam || item.target_exam_name === activeFilters.target_exam;
+            const matchesTargetExam = !activeFilters.target_exams || activeFilters.target_exams.length === 0 ||
+                (item.target_exams && item.target_exams.some(te => activeFilters.target_exams.includes(te)));
             const matchesType = !activeFilters.homework_type || item.homework_type === activeFilters.homework_type;
 
             return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesTargetExam && matchesType;
@@ -453,6 +567,15 @@ const HomeworkRegistry = () => {
                                 <option value="">All Types</option>
                                 {dynamicFilterOptions.types.map((t, idx) => <option key={idx} value={t}>{t}</option>)}
                             </select>
+                            <MultiSelect
+                                label="Target Exam"
+                                options={targetExams}
+                                value={activeFilters.target_exams}
+                                placeholder="All Target Exams"
+                                isDarkMode={isDarkMode}
+                                onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
+                                className="min-w-[180px]"
+                            />
                         </div>
                     </div>
                 </div>
@@ -521,7 +644,11 @@ const HomeworkRegistry = () => {
                                         <td className="py-5 px-6">
                                             <span className="font-bold text-sm block text-orange-500 transition-colors uppercase tracking-tight">{item.name}</span>
                                             <div className="flex items-center gap-2 mt-1">
-                                                {item.session_name && <span className="text-[9px] font-bold text-orange-500/60 uppercase">{item.session_name}</span>}
+                                                {(item.session_names && item.session_names.length > 0) ? (
+                                                    <span className="text-[9px] font-bold text-orange-500/60 uppercase">{item.session_names.join(', ')}</span>
+                                                ) : item.session_name && (
+                                                    <span className="text-[9px] font-bold text-orange-500/60 uppercase">{item.session_name}</span>
+                                                )}
                                                 {item.class_name && (
                                                     <span className="text-[9px] font-bold text-slate-500 uppercase">{item.class_name}</span>
                                                 )}
@@ -673,17 +800,24 @@ const HomeworkRegistry = () => {
 
                                     {newItem.is_general ? (
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in duration-500">
+                                            <div className="space-y-1.5">
+                                                <MultiSelect 
+                                                    label="Sessions" 
+                                                    options={sessions} 
+                                                    value={newItem.sessions} 
+                                                    onChange={(val) => setNewItem({ ...newItem, sessions: val })} 
+                                                    placeholder="Select Sessions" 
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                            </div>
                                             {[
-                                                { label: 'Session', field: 'session', options: sessions },
                                                 { label: 'Class Level', field: 'class_level', options: classes },
                                                 { label: 'Subject', field: 'subject', options: subjects },
-                                                { label: 'Exam Type', field: 'exam_type', options: examTypes },
-                                                { label: 'Target Exam', field: 'target_exam', options: targetExams }
+                                                { label: 'Exam Type', field: 'exam_type', options: examTypes }
                                             ].map((meta, idx) => (
                                                 <div key={idx} className="space-y-1.5">
                                                     <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'text-slate-500'}`}>{meta.label}</label>
                                                     <select
-                                                        required
                                                         value={newItem[meta.field]}
                                                         onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
                                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
@@ -695,54 +829,15 @@ const HomeworkRegistry = () => {
                                                 </div>
                                             ))}
 
-                                            {/* Multi-Select for Sections */}
-                                            <div className="space-y-2 relative" ref={sectionDropdownRef}>
-                                                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'text-slate-500'}`}>Assign to Sections</label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsSectionDropdownOpen(!isSectionDropdownOpen)}
-                                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all text-left flex items-center justify-between ${isDarkMode
-                                                        ? 'bg-[#1a1f2e] border-white/5 text-white'
-                                                        : 'bg-white border-slate-200 text-slate-800'
-                                                        }`}
-                                                >
-                                                    <span className="truncate">
-                                                        {newItem.selectedSections.length === 0
-                                                            ? 'Select Sections'
-                                                            : `${newItem.selectedSections.length} Sections Selected`}
-                                                    </span>
-                                                    <ChevronDown size={16} className={`transition-transform duration-300 ${isSectionDropdownOpen ? 'rotate-180' : ''}`} />
-                                                </button>
-
-                                                {isSectionDropdownOpen && (
-                                                    <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
-                                                        ? 'bg-[#1e293b] border-white/10 shadow-black/40'
-                                                        : 'bg-white border-slate-100 shadow-slate-200'
-                                                        }`}>
-                                                        <div className="max-h-60 overflow-y-auto custom-scrollbar p-2">
-                                                            <div className="space-y-1">
-                                                                {sections.length > 0 ? sections.map(sec => {
-                                                                    const isSelected = newItem.selectedSections.includes(sec.id);
-                                                                    return (
-                                                                        <button
-                                                                            key={sec.id}
-                                                                            type="button"
-                                                                            onClick={() => handleSectionToggle(sec.id)}
-                                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] transition-all ${isSelected
-                                                                                ? 'bg-orange-500/10 text-orange-500'
-                                                                                : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-500'
-                                                                                }`}
-                                                                        >
-                                                                            {isSelected ? <CheckSquare size={16} strokeWidth={3} /> : <Square size={16} strokeWidth={2} />}
-                                                                            <span className="text-[11px] font-black uppercase tracking-tight">{sec.name}</span>
-                                                                            {isSelected && <Check size={14} className="ml-auto" strokeWidth={4} />}
-                                                                        </button>
-                                                                    );
-                                                                }) : <div className="p-4 text-center text-[10px] font-bold opacity-30">No sections found</div>}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                            <div className="space-y-1.5">
+                                                <MultiSelect
+                                                    label="Target Exams"
+                                                    options={targetExams}
+                                                    value={newItem.target_exams}
+                                                    onChange={(val) => setNewItem({ ...newItem, target_exams: val })}
+                                                    placeholder="Select Target Exams"
+                                                    isDarkMode={isDarkMode}
+                                                />
                                             </div>
                                         </div>
                                     ) : (

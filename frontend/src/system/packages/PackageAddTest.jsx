@@ -538,7 +538,7 @@ const PackageAddTest = () => {
             ]);
             setExamTypes(etRes.data);
             setTargetExams(txRes.data);
-            setSessions(sRes.data);
+            setSessions(sRes.data.filter(s => s.is_active));
         } catch (err) {
             console.error("Fetch master data failed", err);
         }

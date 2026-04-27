@@ -301,12 +301,14 @@ class LibraryItem(models.Model):
     
     # Master Data Links
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='library_items_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     chapter = models.ForeignKey(Chapter, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='library_items_multi')
     section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     questions = models.ManyToManyField('questions.Question', blank=True, related_name='library_items')
 
@@ -358,10 +360,12 @@ class SolutionItem(models.Model):
     
     # Master Data Links
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='solutions_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='solutions')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='solutions_multi')
     sections = models.ManyToManyField(MasterSection, related_name='solutions', blank=True)
 
     # Resource Categories (Stored as comma-separated or similar, handled in frontend)
@@ -398,10 +402,12 @@ class Notice(models.Model):
     
     # Master Data Links
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='notices_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='notices_multi')
     section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='notices')
 
     is_active = models.BooleanField(default=True)
@@ -421,10 +427,12 @@ class LiveClass(models.Model):
     
     # Master Data Targeting
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='live_classes_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='live_classes_multi')
     section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
 
     is_active = models.BooleanField(default=True)
@@ -445,10 +453,12 @@ class Video(models.Model):
     
     # Master Data Targeting
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='videos_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='videos_multi')
     section = models.ForeignKey(MasterSection, on_delete=models.SET_NULL, null=True, blank=True, related_name='videos')
 
     is_active = models.BooleanField(default=True)
@@ -482,10 +492,12 @@ class PenPaperTest(models.Model):
     
     # Master Data Targeting
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='pen_paper_tests_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='pen_paper_tests')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='pen_paper_tests_multi')
     sections = models.ManyToManyField(MasterSection, blank=True, related_name='pen_paper_tests')
 
     # Timestamps
@@ -513,10 +525,12 @@ class Homework(models.Model):
     
     # Master Data Targeting
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='homeworks_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='homeworks_multi')
     sections = models.ManyToManyField(MasterSection, related_name='homeworks', blank=True)
     is_general = models.BooleanField(default=True)
     packages = models.ManyToManyField('packages.Package', related_name='homeworks', blank=True)

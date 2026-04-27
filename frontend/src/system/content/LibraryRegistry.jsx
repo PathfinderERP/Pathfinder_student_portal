@@ -7,6 +7,252 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import SmartEditor from '../admin/components/SmartEditor';
 
+const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = React.useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const safeValue = Array.isArray(value) ? value : [];
+
+    const filteredOptions = useMemo(() => {
+        if (!searchTerm) return options;
+        return options.filter(opt => {
+            const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+            return text.includes(searchTerm.toLowerCase());
+        });
+    }, [options, searchTerm]);
+
+    const toggleOption = (id) => {
+        const newValue = safeValue.includes(id)
+            ? safeValue.filter(v => v !== id)
+            : [...safeValue, id];
+        onChange(newValue);
+    };
+
+    const handleSelectAll = () => {
+        if (safeValue.length === options.length) {
+            onChange([]);
+        } else {
+            onChange(options.map(opt => opt.id || opt.value));
+        }
+    };
+
+    return (
+        <div className={`relative group ${className}`} ref={containerRef}>
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                    ${isOpen
+                        ? `border-[#E67E22] ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(230,126,34,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(230,126,34,0.1)]'}`
+                        : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
+            >
+                <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
+                    ${isOpen ? `text-[#E67E22] ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                    {label} {required && '*'}
+                </label>
+
+                <span className={`text-xs font-bold truncate ${safeValue.length === 0
+                    ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
+                    : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
+                    {safeValue.length > 0 
+                        ? `${safeValue.length} Selected` 
+                        : placeholder}
+                </span>
+
+                <div className="flex items-center gap-2">
+                    {safeValue.length > 0 && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange([]);
+                            }}
+                            className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                        >
+                            <X size={12} strokeWidth={3} className="text-red-500" />
+                        </button>
+                    )}
+                    <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#E67E22]' : 'opacity-40'}`} />
+                </div>
+            </div>
+
+            {isOpen && (
+                <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                    ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
+
+                    <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                            <button
+                                onClick={handleSelectAll}
+                                className={`flex-1 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                            >
+                                {safeValue.length === options.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                        <div className="relative">
+                            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                            <input
+                                type="text"
+                                autoFocus
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder={`Search ${label}...`}
+                                className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                    ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-[#E67E22]' : 'bg-white border border-slate-200 text-slate-700 focus:border-[#E67E22] shadow-sm'}`}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                            const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                            return (
+                                <div
+                                    key={i}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleOption(opt.id || opt.value);
+                                    }}
+                                    className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                        ${isSelected
+                                            ? 'bg-[#E67E22] text-white'
+                                            : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
+                                            {isSelected && <Check size={10} className="text-[#E67E22]" strokeWidth={4} />}
+                                        </div>
+                                        {opt.label || opt.name || opt.value}
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CustomSelect = ({ label, options, value, onChange, placeholder, isDarkMode, required, className = '' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = React.useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedOption = options.find(opt => String(opt.id) === String(value) || opt.value === value);
+
+    const filteredOptions = useMemo(() => {
+        if (!searchTerm) return options;
+        return options.filter(opt => {
+            const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+            return text.includes(searchTerm.toLowerCase());
+        });
+    }, [options, searchTerm]);
+
+    return (
+        <div className={`relative group ${className}`} ref={containerRef}>
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                    ${isOpen
+                        ? `border-[#E67E22] ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(230,126,34,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(230,126,34,0.1)]'}`
+                        : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
+            >
+                <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
+                    ${isOpen ? `text-[#E67E22] ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                    {label} {required && '*'}
+                </label>
+
+                <span className={`text-xs font-bold truncate ${!selectedOption
+                    ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
+                    : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
+                    {selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
+                </span>
+
+                <div className="flex items-center gap-2">
+                    {value && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange('');
+                            }}
+                            className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                        >
+                            <X size={12} strokeWidth={3} className="text-red-500" />
+                        </button>
+                    )}
+                    <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#E67E22]' : 'opacity-40'}`} />
+                </div>
+            </div>
+
+            {isOpen && (
+                <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                    ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
+
+                    <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                        <div className="relative">
+                            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                            <input
+                                type="text"
+                                autoFocus
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder={`Search ${label}...`}
+                                className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                    ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-[#E67E22]' : 'bg-white border border-slate-200 text-slate-700 focus:border-[#E67E22] shadow-sm'}`}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => (
+                            <div
+                                key={i}
+                                onClick={() => {
+                                    onChange(opt.id || opt.value || "");
+                                    setIsOpen(false);
+                                }}
+                                className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                    ${(String(opt.id) === String(value) || opt.value === value)
+                                        ? 'bg-[#E67E22] text-white'
+                                        : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                            >
+                                {opt.label || opt.name || opt.value}
+                                {(String(opt.id) === String(value) || opt.value === value) && <Check size={14} />}
+                            </div>
+                        )) : (
+                            <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const LibraryRegistry = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token, loading: authLoading } = useAuth();
@@ -78,113 +324,6 @@ const LibraryRegistry = () => {
 
     const safeArray = (arr) => Array.isArray(arr) ? arr : [];
 
-    const CustomSelect = ({ label, options, value, onChange, placeholder, isDarkMode, required }) => {
-        const [isOpen, setIsOpen] = useState(false);
-        const [searchTerm, setSearchTerm] = useState('');
-        const containerRef = React.useRef(null);
-
-        useEffect(() => {
-            const handleClickOutside = (event) => {
-                if (containerRef.current && !containerRef.current.contains(event.target)) {
-                    setIsOpen(false);
-                }
-            };
-            document.addEventListener("mousedown", handleClickOutside);
-            return () => document.removeEventListener("mousedown", handleClickOutside);
-        }, []);
-
-        const selectedOption = options.find(opt => String(opt.id) === String(value) || opt.value === value);
-
-        const filteredOptions = useMemo(() => {
-            if (!searchTerm) return options;
-            return options.filter(opt => {
-                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
-                return text.includes(searchTerm.toLowerCase());
-            });
-        }, [options, searchTerm]);
-
-        return (
-            <div className="relative group" ref={containerRef}>
-                <div
-                    onClick={() => setIsOpen(!isOpen)}
-                    className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
-                        ${isOpen
-                            ? 'border-[#E67E22] bg-white shadow-[0_0_0_4px_rgba(16,185,129,0.1)]'
-                            : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
-                >
-                    <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
-                        ${isOpen ? 'text-[#E67E22] bg-white' : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
-                        {label} {required && '*'}
-                    </label>
-
-                    <span className={`text-xs font-bold truncate ${!selectedOption
-                        ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
-                        : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
-                        {selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                        {value && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onChange('');
-                                }}
-                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
-                            >
-                                <X size={12} strokeWidth={3} className="text-red-500" />
-                            </button>
-                        )}
-                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#E67E22]' : 'opacity-40'}`} />
-                    </div>
-                </div>
-
-                {isOpen && (
-                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
-                        ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
-
-                        <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
-                            <div className="relative">
-                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
-                                <input
-                                    type="text"
-                                    autoFocus
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    placeholder={`Search ${label}...`}
-                                    className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
-                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-[#E67E22]' : 'bg-white border border-slate-200 text-slate-700 focus:border-[#E67E22] shadow-sm'}`}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => (
-                                <div
-                                    key={i}
-                                    onClick={() => {
-                                        onChange(opt.id || opt.value || "");
-                                        setIsOpen(false);
-                                    }}
-                                    className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
-                                        ${(String(opt.id) === String(value) || opt.value === value)
-                                            ? 'bg-[#E67E22] text-white'
-                                            : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
-                                >
-                                    {opt.label || opt.name || opt.value}
-                                    {(String(opt.id) === String(value) || opt.value === value) && <Check size={14} />}
-                                </div>
-                            )) : (
-                                <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
     const getYouTubeThumbnail = (url) => {
         if (!url) return null;
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -230,13 +369,13 @@ const LibraryRegistry = () => {
     const [jumpToPage, setJumpToPage] = useState('');
     const [activeFilters, setActiveFilters] = useState({
         session: '',
+        sessions: [],
         class_level: '',
         subject: '',
         chapter: '',
         topic: '',
         exam_type: '',
-        target_exam: '',
-        section: '',
+        target_exams: [],
         contentType: ''
     });
     const [sortOrder, setSortOrder] = useState('chapter'); // chapter, newest, oldest, az, za
@@ -264,13 +403,13 @@ const LibraryRegistry = () => {
             solve_time: 30
         }],
         session: '',
+        sessions: [],
         class_level: '',
         subject: '',
         chapter: '',
         topic: '',
         exam_type: '',
-        target_exam: '',
-        section: ''
+        target_exams: []
     });
 
     const handleSaveDraft = () => {
@@ -347,7 +486,7 @@ const LibraryRegistry = () => {
                 return data.results || data.sections || data.chapters || data.topics || [];
             };
 
-            setSessions(extract(sessRes));
+            setSessions(extract(sessRes).filter(s => s.is_active));
             setClasses(extract(classRes));
             setSubjects(extract(subRes));
             setExamTypes(extract(etRes));
@@ -573,7 +712,17 @@ const LibraryRegistry = () => {
                 formData.append('name', firstResourceName);
                 formData.append('description', data.multi_pdfs[0]?.description || '');
 
-                formData.append('session', newItem.session || '');
+                if (newItem.sessions && newItem.sessions.length > 0) {
+                    newItem.sessions.forEach(sid => formData.append('sessions', sid));
+                } else if (newItem.session) {
+                    formData.append('sessions', newItem.session);
+                }
+
+                if (newItem.target_exams && newItem.target_exams.length > 0) {
+                    newItem.target_exams.forEach(teid => formData.append('target_exams', teid));
+                } else if (newItem.target_exam) {
+                    formData.append('target_exams', newItem.target_exam);
+                }
                 formData.append('class_level', newItem.class_level || '');
                 formData.append('subject', newItem.subject || '');
                 formData.append('chapter', newItem.chapter || '');
@@ -672,6 +821,7 @@ const LibraryRegistry = () => {
             name: item.name,
             description: item.description,
             session: item.session || '',
+            sessions: item.sessions || [],
             class_level: item.class_level || '',
             subject: item.subject || '',
             chapter: item.chapter || '',
@@ -725,7 +875,11 @@ const LibraryRegistry = () => {
                 if (newItem.multi_dpps[0]?.thumbnail) formData.append('thumbnail', newItem.multi_dpps[0].thumbnail);
             }
             
-            formData.append('session', newItem.session || '');
+            if (newItem.sessions && newItem.sessions.length > 0) {
+                newItem.sessions.forEach(sid => formData.append('sessions', sid));
+            } else if (newItem.session) {
+                formData.append('sessions', newItem.session);
+            }
             formData.append('class_level', newItem.class_level || '');
             formData.append('subject', newItem.subject || '');
             formData.append('chapter', newItem.chapter || '');
@@ -748,8 +902,11 @@ const LibraryRegistry = () => {
                 });
             }
             formData.append('exam_type', newItem.exam_type || '');
-            formData.append('target_exam', newItem.target_exam || '');
-            formData.append('section', newItem.section || '');
+            if (newItem.target_exams && newItem.target_exams.length > 0) {
+                newItem.target_exams.forEach(teid => formData.append('target_exams', teid));
+            } else if (newItem.target_exam) {
+                formData.append('target_exams', newItem.target_exam);
+            }
 
             // Handle Granular PDFs
             if (newItem.multi_pdfs && newItem.multi_pdfs.length > 0) {
@@ -941,14 +1098,18 @@ const LibraryRegistry = () => {
     const filteredItems = useMemo(() => {
         return mergedSource.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesSession = !activeFilters.session || String(item.session) === String(activeFilters.session) || item.is_virtual;
+            const matchesSession = !activeFilters.session || 
+                String(item.session) === String(activeFilters.session) || 
+                (item.sessions && item.sessions.some(s => String(s) === String(activeFilters.session))) || 
+                item.is_virtual;
             const matchesClass = !activeFilters.class_level || String(item.class_level) === String(activeFilters.class_level);
             const matchesSubject = !activeFilters.subject || String(item.subject) === String(activeFilters.subject);
             const matchesChapter = !activeFilters.chapter || String(item.chapter) === String(activeFilters.chapter);
             const matchesTopic = !activeFilters.topic || String(item.topic) === String(activeFilters.topic);
             const matchesExamType = !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
-            const matchesTargetExam = !activeFilters.target_exam || String(item.target_exam) === String(activeFilters.target_exam);
-            const matchesSection = !activeFilters.section || String(item.section) === String(activeFilters.section);
+            const matchesTargetExam = activeFilters.target_exams.length === 0 || 
+                (item.target_exams && item.target_exams.some(te => activeFilters.target_exams.includes(te)));
+            const matchesSection = true;
             const matchesContentType = !activeFilters.contentType ||
                 (activeFilters.contentType === 'pdf' && item.pdf_file) ||
                 (activeFilters.contentType === 'video' && (item.video_link || item.video_file));
@@ -977,36 +1138,26 @@ const LibraryRegistry = () => {
         });
     }, [mergedSource, searchQuery, activeFilters, sortOrder]);
 
-    // Dynamic Filter Options based on available data
+    // Dynamic Filter Options based on master data
     const dynamicFilterOptions = useMemo(() => {
-        const safeItems = safeArray(libraryItems);
-        
-        // Helper to filter items for a specific dropdown based on other active filters (Linked Mode)
-        const getFilteredSources = (excludeFields = []) => {
-            if (isFilterIndependentMode) return safeItems;
-            return safeItems.filter(item => {
-                const matchesSession = excludeFields.includes('session') || !activeFilters.session || String(item.session) === String(activeFilters.session);
-                const matchesClass = excludeFields.includes('class_level') || !activeFilters.class_level || String(item.class_level) === String(activeFilters.class_level);
-                const matchesSubject = excludeFields.includes('subject') || !activeFilters.subject || String(item.subject) === String(activeFilters.subject);
-                const matchesChapter = excludeFields.includes('chapter') || !activeFilters.chapter || String(item.chapter) === String(activeFilters.chapter);
-                const matchesExamType = excludeFields.includes('exam_type') || !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
-                const matchesTargetExam = excludeFields.includes('target_exam') || !activeFilters.target_exam || String(item.target_exam) === String(activeFilters.target_exam);
-                const matchesSection = excludeFields.includes('section') || !activeFilters.section || String(item.section) === String(activeFilters.section);
-                return matchesSession && matchesClass && matchesSubject && matchesChapter && matchesExamType && matchesTargetExam && matchesSection;
-            });
-        };
-
         return {
-            sessions: [...new Set(getFilteredSources(['session']).filter(i => i.session_name).map(i => JSON.stringify({ id: i.session, name: i.session_name })))].map(s => JSON.parse(s)),
-            classes: [...new Set(getFilteredSources(['class_level']).filter(i => i.class_name).map(i => JSON.stringify({ id: i.class_level, name: i.class_name })))].map(c => JSON.parse(c)),
-            subjects: [...new Set(getFilteredSources(['subject']).filter(i => i.subject_name).map(i => JSON.stringify({ id: i.subject, name: i.subject_name })))].map(s => JSON.parse(s)),
-            chapters: [...new Set(getFilteredSources(['chapter']).filter(i => i.chapter_name).map(i => JSON.stringify({ id: i.chapter, name: i.chapter_name })))].map(c => JSON.parse(c)),
-            topics: [...new Set(getFilteredSources(['topic']).filter(i => i.topic_name).map(i => JSON.stringify({ id: i.topic, name: i.topic_name })))].map(t => JSON.parse(t)),
-            examTypes: [...new Set(getFilteredSources(['exam_type']).filter(i => i.exam_type_name).map(i => JSON.stringify({ id: i.exam_type, name: i.exam_type_name })))].map(e => JSON.parse(e)),
-            targetExams: [...new Set(getFilteredSources(['target_exam']).filter(i => i.target_exam_name).map(i => JSON.stringify({ id: i.target_exam, name: i.target_exam_name })))].map(t => JSON.parse(t)),
-            sections: [...new Set(getFilteredSources(['section']).filter(i => i.section_name).map(i => JSON.stringify({ id: i.section, name: i.section_name })))].map(s => JSON.parse(s))
+            sessions: sessions,
+            classes: classes,
+            subjects: subjects,
+            chapters: chapters.filter(c => 
+                (!activeFilters.class_level || String(c.class_level) === String(activeFilters.class_level)) &&
+                (!activeFilters.subject || String(c.subject) === String(activeFilters.subject))
+            ),
+            topics: topics.filter(t => 
+                (!activeFilters.chapter || String(t.chapter) === String(activeFilters.chapter)) &&
+                (!activeFilters.subject || String(t.subject) === String(activeFilters.subject)) &&
+                (!activeFilters.class_level || String(t.class_level) === String(activeFilters.class_level))
+            ),
+            examTypes: examTypes,
+            targetExams: targetExams,
+            sections: sections
         };
-    }, [libraryItems, activeFilters, isFilterIndependentMode]);
+    }, [sessions, classes, subjects, chapters, topics, examTypes, targetExams, sections, activeFilters]);
 
     // Stats logic
     const stats = useMemo(() => {
@@ -1158,15 +1309,17 @@ const LibraryRegistry = () => {
                                 value={activeFilters.chapter}
                                 placeholder="All Chapters"
                                 isDarkMode={isDarkMode}
+                                className="min-w-[250px] max-w-[400px]"
                                 onChange={(val) => setActiveFilters({ ...activeFilters, chapter: val })}
                             />
-                            <CustomSelect
-                                label="Section"
-                                options={dynamicFilterOptions.sections}
-                                value={activeFilters.section}
-                                placeholder="All Sections"
+                            <MultiSelect
+                                label="Target Exam"
+                                options={targetExams}
+                                value={activeFilters.target_exams}
+                                placeholder="All Target Exams"
                                 isDarkMode={isDarkMode}
-                                onChange={(val) => setActiveFilters({ ...activeFilters, section: val })}
+                                className="min-w-[250px]"
+                                onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
                             />
                             <select
                                 value={activeFilters.contentType}
@@ -1178,9 +1331,9 @@ const LibraryRegistry = () => {
                                 <option value="pdf">PDF Documents</option>
                                 <option value="video">Video Content</option>
                             </select>
-                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.chapter || activeFilters.section || activeFilters.contentType) && (
+                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.chapter || activeFilters.target_exams.length > 0 || activeFilters.contentType) && (
                                 <button
-                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', chapter: '', topic: '', exam_type: '', target_exam: '', section: '', contentType: '' })}
+                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', chapter: '', topic: '', exam_type: '', target_exams: [], contentType: '' })}
                                     className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                                 >
                                     Clear All Filters
@@ -1263,7 +1416,7 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <span className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">
-                                                {item.session_name || (activeFilters.session ? sessions.find(s => String(s.id) === String(activeFilters.session))?.name : '-') || '-'}
+                                                {item.session_names?.length > 0 ? item.session_names.join(', ') : (item.session_name || (activeFilters.session ? sessions.find(s => String(s.id) === String(activeFilters.session))?.name : '-') || '-')}
                                             </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
@@ -1443,7 +1596,7 @@ const LibraryRegistry = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     {[
-                                        { label: 'Session', field: 'session', options: sessions },
+                                        { label: 'Session', field: 'sessions', options: sessions, isMulti: true },
                                         { label: 'Class Level', field: 'class_level', options: classes },
                                         { label: 'Subject', field: 'subject', options: subjects },
                                         { 
@@ -1454,31 +1607,34 @@ const LibraryRegistry = () => {
                                                 (!newItem.subject || String(c.subject) === String(newItem.subject))
                                             )
                                         },
-                                        { label: 'Section', field: 'section', options: sections }
-                                    ].map((meta, idx) => (
-                                        <CustomSelect
-                                            key={idx}
-                                            label={meta.label}
-                                            options={safeArray(meta.options)}
-                                            value={newItem[meta.field]}
-                                            placeholder={`Select ${meta.label}`}
-                                            isDarkMode={isDarkMode}
-                                            required={!['chapter', 'topic'].includes(meta.field)}
-                                            onChange={(val) => {
-                                                const updates = { [meta.field]: val };
-                                                // Only auto-reset if NOT in independent mode
-                                                if (!isIndependentMode) {
-                                                    if (meta.field === 'class_level' || meta.field === 'subject') {
-                                                        updates.chapter = '';
-                                                        updates.topic = '';
-                                                    } else if (meta.field === 'chapter') {
-                                                        updates.topic = '';
+                                        { label: 'Target Exam', field: 'target_exams', options: targetExams, isMulti: true }
+                                    ].map((meta, idx) => {
+                                        const SelectComponent = meta.isMulti ? MultiSelect : CustomSelect;
+                                        return (
+                                            <SelectComponent
+                                                key={idx}
+                                                label={meta.label}
+                                                options={safeArray(meta.options)}
+                                                value={newItem[meta.field]}
+                                                placeholder={`Select ${meta.label}`}
+                                                isDarkMode={isDarkMode}
+                                                required={!['chapter', 'topic'].includes(meta.field) && !meta.isMulti}
+                                                onChange={(val) => {
+                                                    const updates = { [meta.field]: val };
+                                                    // Only auto-reset if NOT in independent mode
+                                                    if (!isIndependentMode) {
+                                                        if (meta.field === 'class_level' || meta.field === 'subject') {
+                                                            updates.chapter = '';
+                                                            updates.topic = '';
+                                                        } else if (meta.field === 'chapter') {
+                                                            updates.topic = '';
+                                                        }
                                                     }
-                                                }
-                                                setNewItem({ ...newItem, ...updates });
-                                            }}
-                                        />
-                                    ))}
+                                                    setNewItem({ ...newItem, ...updates });
+                                                }}
+                                            />
+                                        );
+                                    })}
                                 </div>
 
                                 {/* Dynamic Topic Quick-Selection (Marked Place) */}

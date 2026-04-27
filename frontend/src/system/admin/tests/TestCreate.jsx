@@ -263,7 +263,7 @@ const TestCreate = () => {
             (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
             Object.keys(masterDataCacheRef.current).length > 0) {
             const cached = masterDataCacheRef.current;
-            setSessions(cached.sessions || []);
+            setSessions((cached.sessions || []).filter(s => s.is_active));
             setExamTypes(cached.examTypes || []);
             setClasses(cached.classes || []);
             setTargetExams(cached.targetExams || []);
@@ -293,7 +293,7 @@ const TestCreate = () => {
             };
             masterDataTimestampRef.current = now;
 
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
             setExamTypes(typeRes.data);
             setClasses(classRes.data);
             setTargetExams(targetRes.data);

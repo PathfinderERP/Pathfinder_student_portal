@@ -27,7 +27,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
             }
 
             if (!examTagId || typeof examTagId !== 'string' || examTagId.length < 5 || !token) return;
-            
+
             setTagLoading(true);
             try {
                 const apiUrl = getApiUrl();
@@ -304,7 +304,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
             </motion.div>
 
             {/* Financial Ledger Section */}
-            <motion.div
+            {/* <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
@@ -363,7 +363,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                         </div>
                     </div>
                 )}
-            </motion.div>
+            </motion.div> */}
         </div>
     );
 };

@@ -72,7 +72,7 @@ const TestAllotment = () => {
             const sessionsData = Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data.results || []);
 
             setTests(testsData);
-            setSessions(sessionsData);
+            setSessions(sessionsData.filter(s => s.is_active));
 
             // Compute available sessions from the freshly fetched tests
             const uniqueSessionIds = new Set(testsData.map(t => t.session || t.session_details?.id));

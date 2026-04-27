@@ -19,7 +19,7 @@ import {
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkMode = false }) => {
+const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkMode = false, readOnly = false }) => {
   const [showMathModal, setShowMathModal] = useState(false);
   const [mathValue, setMathValue] = useState('');
 
@@ -36,6 +36,7 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
       ImageResize,
     ],
     content: value,
+    editable: !readOnly,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -70,6 +71,12 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
     }
   }, [value, editor]);
 
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
   if (!editor) return null;
 
   const ToolbarButton = ({ onClick, isActive = false, icon: Icon, title }) => (
@@ -99,9 +106,12 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
 
   return (
     <div className={`rounded-[5px] border overflow-hidden transition-all duration-300 ${
-      isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'
-    } focus-within:border-blue-500`}>
+      readOnly 
+        ? (isDarkMode ? 'bg-white/5 border-white/10 opacity-60 cursor-not-allowed' : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed')
+        : (isDarkMode ? 'bg-[#10141D] border-white/10 focus-within:border-blue-500' : 'bg-white border-slate-200 focus-within:border-blue-500')
+    }`}>
       {/* Toolbar */}
+      {!readOnly && (
       <div className={`p-1 flex flex-wrap gap-1 border-b sticky top-0 z-10 ${
         isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-slate-50 border-slate-200'
       }`}>
@@ -208,6 +218,7 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
            />
         </div>
       </div>
+      )}
 
       {/* Editor Content */}
       <div className="relative">

@@ -19,7 +19,8 @@ import re
 
 class StudentSectionFilterMixin:
     """
-    Mixin to filter querysets based on student's ERP section.
+    Mixin to filter querysets based on student's Session, Class Level, and Target Exam.
+    Replaces legacy section-based filtering.
     """
     def filter_by_section(self, queryset, section_field='section'):
         user = self.request.user
@@ -27,24 +28,48 @@ class StudentSectionFilterMixin:
         if user.is_staff or user.is_superuser or getattr(user, 'user_type', None) != 'student':
             return queryset
             
-        from api.db_utils import parse_section
-        exam_sections = parse_section(getattr(user, 'exam_section', None))
-        study_sections = parse_section(getattr(user, 'study_section', None))
+        filter_q = Q()
         
-        # Filter by section name matching student's exam_section OR study_section OR null (general)
-        filter_q = Q(**{f"{section_field}__isnull": True})
-        
-        if exam_sections:
-            filter_q |= Q(**{f"{section_field}__name__in": exam_sections})
+        # 1. Session Filtering
+        if hasattr(queryset.model, 'sessions') or hasattr(queryset.model, 'session'):
+            session_q = Q()
+            if hasattr(user, 'session') and user.session:
+                if hasattr(queryset.model, 'sessions'):
+                    session_q |= Q(sessions=user.session)
+                if hasattr(queryset.model, 'session'):
+                    session_q |= Q(session=user.session)
             
-        if study_sections:
-            filter_q |= Q(**{f"{section_field}__name__in": study_sections})
+            # If item has NO session assigned, it's global
+            no_session_q = Q()
+            if hasattr(queryset.model, 'sessions'):
+                no_session_q &= Q(sessions__isnull=True)
+            if hasattr(queryset.model, 'session'):
+                no_session_q &= Q(session__isnull=True)
+            
+            filter_q &= (session_q | no_session_q)
 
-        # Check if the model has 'is_general' field
-        if hasattr(queryset.model, 'is_general'):
-            filter_q |= Q(is_general=True)
+        # 2. Class Level Filtering
+        if hasattr(queryset.model, 'class_level'):
+            class_q = Q(class_level__isnull=True)
+            if hasattr(user, 'class_level') and user.class_level:
+                class_q |= Q(class_level=user.class_level)
+            filter_q &= class_q
+
+        # 3. Target Exam Filtering
+        if hasattr(queryset.model, 'target_exams') or hasattr(queryset.model, 'target_exam'):
+            te_q = Q()
+            # Default: visible if no target exam is set
+            te_q |= (Q(target_exams__isnull=True) & Q(target_exam__isnull=True))
             
-        return queryset.filter(filter_q)
+            if hasattr(user, 'target_exam') and user.target_exam:
+                if hasattr(queryset.model, 'target_exams'):
+                    te_q |= Q(target_exams=user.target_exam)
+                if hasattr(queryset.model, 'target_exam'):
+                    te_q |= Q(target_exam=user.target_exam)
+            
+            filter_q &= te_q
+
+        return queryset.filter(filter_q).distinct()
 
 class CachedListViewSetMixin(object):
     """Mixin to cache the list response for master data and invalidate on change."""
@@ -85,12 +110,13 @@ class CachedListViewSetMixin(object):
         user = self.request.user
         base_key = f"md_v2_{self.__class__.__name__}_v{self.get_cache_version()}"
         
-        # If this viewset uses StudentSectionFilterMixin, we must include the section in the cache key
+        # If this viewset uses StudentSectionFilterMixin, we must include the targeting in the cache key
         if isinstance(self, StudentSectionFilterMixin) and user.is_authenticated:
-            # Use lower-case and normalize to avoid key issues
-            exam_section = str(getattr(user, 'exam_section', 'none')).lower()
-            study_section = str(getattr(user, 'study_section', 'none')).lower()
-            return f"{base_key}_E{exam_section}_S{study_section}"
+            # Normalize targeting params for the cache key
+            te = str(getattr(user, 'target_exam_id', getattr(user, 'target_exam', 'none'))).lower()
+            cl = str(getattr(user, 'class_level_id', getattr(user, 'class_level', 'none'))).lower()
+            sess = str(getattr(user, 'session_id', getattr(user, 'session', 'none'))).lower()
+            return f"{base_key}_TE{te}_CL{cl}_S{sess}"
             
         return base_key
 

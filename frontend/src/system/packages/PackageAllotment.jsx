@@ -53,7 +53,7 @@ const PackageAllotment = () => {
             ]);
             setTargetExams(teRes.data);
             setSections(sRes.data);
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
         } catch (err) {
             console.error("Fetch master data failed", err);
         }

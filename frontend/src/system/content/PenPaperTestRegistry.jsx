@@ -16,7 +16,6 @@ const PenPaperTestRegistry = () => {
     const [subjects, setSubjects] = useState([]);
     const [examTypes, setExamTypes] = useState([]);
     const [targetExams, setTargetExams] = useState([]);
-    const [sections, setSections] = useState([]);
 
     const [isLoading, setIsLoading] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -24,9 +23,7 @@ const PenPaperTestRegistry = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSectionDropdownOpen, setIsSectionDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
-    const sectionDropdownRef = useRef(null);
     const typeDropdownRef = useRef(null);
 
     // Pagination & Filter State
@@ -38,8 +35,7 @@ const PenPaperTestRegistry = () => {
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        section: '',
+        target_exams: [],
         package: ''
     });
 
@@ -59,12 +55,11 @@ const PenPaperTestRegistry = () => {
         pdf_link: '',
         is_active: true,
         show_solution: false,
-        session: '',
+        sessions: [],
         class_level: '',
         subject: '',
         exam_type: '',
-        target_exam: '',
-        selectedSections: [],
+        target_exams: [],
         is_general: false,
         packages: []
     });
@@ -86,25 +81,16 @@ const PenPaperTestRegistry = () => {
     const fetchMasterData = useCallback(async () => {
         try {
             const apiUrl = getApiUrl();
-            const [sessRes, classRes, subRes, etRes, teRes, secRes, pkgRes] = await Promise.all([
+            const [sessRes, classRes, subRes, etRes, teRes, pkgRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/sessions/`),
                 axios.get(`${apiUrl}/api/master-data/classes/`),
                 axios.get(`${apiUrl}/api/master-data/subjects/`),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`),
-                axios.get(`${apiUrl}/api/master-data/master-sections/`),
                 axios.get(`${apiUrl}/api/packages/`)
             ]);
             
-            // Handle MasterSection API (Array, {results: []}, or {sections: []})
-            const secData = secRes.data;
-            setSections(
-                Array.isArray(secData) ? secData : 
-                (Array.isArray(secData?.results) ? secData.results : 
-                (Array.isArray(secData?.sections) ? secData.sections : []))
-            );
-            
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
             setClasses(classRes.data);
             setSubjects(subRes.data);
             setExamTypes(etRes.data);
@@ -122,9 +108,6 @@ const PenPaperTestRegistry = () => {
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (sectionDropdownRef.current && !sectionDropdownRef.current.contains(event.target)) {
-                setIsSectionDropdownOpen(false);
-            }
             if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target)) {
                 setIsTypeDropdownOpen(false);
             }
@@ -132,6 +115,145 @@ const PenPaperTestRegistry = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const [searchTerm, setSearchTerm] = useState('');
+        const containerRef = React.useRef(null);
+
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (containerRef.current && !containerRef.current.contains(event.target)) {
+                    setIsOpen(false);
+                }
+            };
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }, []);
+
+        const safeValue = Array.isArray(value) ? value : [];
+
+        const filteredOptions = useMemo(() => {
+            if (!searchTerm) return options;
+            return options.filter(opt => {
+                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+                return text.includes(searchTerm.toLowerCase());
+            });
+        }, [options, searchTerm]);
+
+        const toggleOption = (id) => {
+            const newValue = safeValue.includes(id)
+                ? safeValue.filter(v => v !== id)
+                : [...safeValue, id];
+            onChange(newValue);
+        };
+
+        const handleSelectAll = () => {
+            if (safeValue.length === options.length) {
+                onChange([]);
+            } else {
+                onChange(options.map(opt => opt.id || opt.value));
+            }
+        };
+
+        return (
+            <div className={`relative group ${className}`} ref={containerRef}>
+                <div
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                        ${isOpen
+                            ? `border-amber-500 ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(245,158,11,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(245,158,11,0.1)]'}`
+                            : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
+                >
+                    <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
+                        ${isOpen ? `text-amber-500 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                        {label} {required && '*'}
+                    </label>
+
+                    <span className={`text-xs font-bold truncate ${safeValue.length === 0
+                        ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
+                        : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
+                        {safeValue.length > 0 
+                            ? `${safeValue.length} Selected` 
+                            : placeholder}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                        {safeValue.length > 0 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChange([]);
+                                }}
+                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                            >
+                                <X size={12} strokeWidth={3} className="text-red-500" />
+                            </button>
+                        )}
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-amber-500' : 'opacity-40'}`} />
+                    </div>
+                </div>
+
+                {isOpen && (
+                    <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                        ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
+
+                        <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <button
+                                    onClick={handleSelectAll}
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                                >
+                                    {safeValue.length === options.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    placeholder={`Search ${label}...`}
+                                    className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-amber-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-amber-500 shadow-sm'}`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                                const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleOption(opt.id || opt.value);
+                                        }}
+                                        className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                            ${isSelected
+                                                ? 'bg-amber-500 text-white'
+                                                : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
+                                                {isSelected && <Check size={10} className="text-amber-500" strokeWidth={4} />}
+                                            </div>
+                                            {opt.label || opt.name || opt.value}
+                                        </div>
+                                    </div>
+                                );
+                            }) : (
+                                <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const handleAddItem = async (e) => {
         e.preventDefault();
@@ -162,13 +284,15 @@ const PenPaperTestRegistry = () => {
             if (newItem.remove_thumbnail) formData.append('remove_thumbnail', 'true');
 
             if (newItem.is_general) {
-                if (newItem.session) formData.append('session', newItem.session);
+                if (newItem.sessions && newItem.sessions.length > 0) {
+                    newItem.sessions.forEach(id => formData.append('sessions', id));
+                }
                 if (newItem.class_level) formData.append('class_level', newItem.class_level);
                 if (newItem.subject) formData.append('subject', newItem.subject);
                 if (newItem.exam_type) formData.append('exam_type', newItem.exam_type);
-                if (newItem.target_exam) formData.append('target_exam', newItem.target_exam);
-
-                newItem.selectedSections.forEach(id => formData.append('sections', id));
+                if (newItem.target_exams && newItem.target_exams.length > 0) {
+                    newItem.target_exams.forEach(id => formData.append('target_exams', id));
+                }
             } else {
                 newItem.packages.forEach(id => formData.append('packages', id));
             }
@@ -218,16 +342,19 @@ const PenPaperTestRegistry = () => {
             if (newItem.remove_thumbnail) formData.append('remove_thumbnail', 'true');
 
             if (newItem.is_general) {
-                formData.append('session', newItem.session || '');
+                if (newItem.sessions && newItem.sessions.length > 0) {
+                    newItem.sessions.forEach(id => formData.append('sessions', id));
+                } else {
+                    formData.append('sessions', '');
+                }
                 formData.append('class_level', newItem.class_level || '');
                 formData.append('subject', newItem.subject || '');
                 formData.append('exam_type', newItem.exam_type || '');
-                formData.append('target_exam', newItem.target_exam || '');
-
-                if (newItem.selectedSections.length === 0) {
-                    formData.append('sections', '');
+                
+                if (newItem.target_exams && newItem.target_exams.length > 0) {
+                    newItem.target_exams.forEach(id => formData.append('target_exams', id));
                 } else {
-                    newItem.selectedSections.forEach(id => formData.append('sections', id));
+                    formData.append('target_exams', '');
                 }
             } else {
                 if (newItem.packages.length === 0) {
@@ -299,12 +426,11 @@ const PenPaperTestRegistry = () => {
             pdf_link: item.pdf_link,
             is_active: item.is_active,
             show_solution: item.show_solution,
-            session: item.session || '',
+            sessions: item.sessions || [],
             class_level: item.class_level || '',
             subject: item.subject || '',
             exam_type: item.exam_type || '',
-            target_exam: item.target_exam || '',
-            selectedSections: item.sections || [],
+            target_exams: item.target_exams || [],
             is_general: item.is_general || false,
             packages: item.packages || []
         });
@@ -317,8 +443,8 @@ const PenPaperTestRegistry = () => {
             start_date: '', end_date: '', question_paper: null, solution_file: null, thumbnail: null, remove_thumbnail: false,
             pdf_link: '',
             is_active: true, show_solution: false,
-            session: '', class_level: '', subject: '', exam_type: '', target_exam: '',
-            selectedSections: [], is_general: false, packages: []
+            sessions: [], class_level: '', subject: '', exam_type: '', target_exams: [],
+            is_general: false, packages: []
         });
     };
 
@@ -333,12 +459,16 @@ const PenPaperTestRegistry = () => {
                 if (activeFilters.package && !n.packages.includes(activeFilters.package)) return false;
             } else if (viewTargeting === 'general') {
                 if (!n.is_general) return false;
-                if (activeFilters.session && n.session !== activeFilters.session) return false;
+                const matchesSession = !activeFilters.session || 
+                    String(n.session) === String(activeFilters.session) || 
+                    (n.sessions && n.sessions.some(s => String(s) === String(activeFilters.session)));
+                if (!matchesSession) return false;
                 if (activeFilters.class_level && n.class_level !== activeFilters.class_level) return false;
                 if (activeFilters.subject && n.subject !== activeFilters.subject) return false;
                 if (activeFilters.exam_type && n.exam_type !== activeFilters.exam_type) return false;
-                if (activeFilters.target_exam && n.target_exam !== activeFilters.target_exam) return false;
-                if (activeFilters.section && n.section !== activeFilters.section) return false;
+                const matchesTargetExam = activeFilters.target_exams.length === 0 || 
+                    (n.target_exams && n.target_exams.some(te => activeFilters.target_exams.includes(te)));
+                if (!matchesTargetExam) return false;
             }
 
             return matchesSearch;
@@ -414,14 +544,17 @@ const PenPaperTestRegistry = () => {
                                 {packages.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                             </select>
                         ) : viewTargeting === 'general' && (
-                            <select
-                                value={activeFilters.target_exam}
-                                onChange={(e) => setActiveFilters({ ...activeFilters, target_exam: e.target.value })}
-                                className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white' : 'bg-slate-50 text-slate-700'}`}
-                            >
-                                <option value="">All Exams</option>
-                                {targetExams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <MultiSelect
+                                    label="Target Exam"
+                                    options={targetExams}
+                                    value={activeFilters.target_exams}
+                                    placeholder="All Target Exams"
+                                    isDarkMode={isDarkMode}
+                                    onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
+                                    className="min-w-[180px]"
+                                />
+                            </div>
                         )}
 
                         {(activeFilters.session || activeFilters.package || activeFilters.target_exam) && (
@@ -481,12 +614,17 @@ const PenPaperTestRegistry = () => {
                                 ) : paginatedTests.map((item, index) => (
                                     <tr key={item.id} className={`border-t ${isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-100 hover:bg-slate-50'} transition-colors`}>
                                         <td className="py-5 px-6 text-sm font-bold">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                                        <td className="py-5 px-6 text-sm font-bold max-w-xs">{item.name}</td>
-                                        <td className="py-5 px-6 text-xs font-mono opacity-70">{item.code || '-'}</td>
-                                        <td className="py-5 px-6 text-center text-sm font-bold">{item.duration}</td>
-                                        <td className="py-5 px-6 text-center text-xs font-bold uppercase text-amber-500">{item.target_exam_name || '-'}</td>
-                                        <td className="py-5 px-6 text-center text-xs font-bold opacity-70 truncate max-w-[150px]">
-                                            {(item.section_names || []).join(', ') || '-'}
+                                        <td className="py-5 px-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold block text-amber-500 uppercase tracking-tight">{item.name}</span>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {(item.session_names && item.session_names.length > 0) ? (
+                                                        <span className="text-[10px] font-bold text-amber-500/60 uppercase">{item.session_names.join(', ')}</span>
+                                                    ) : item.session_name && (
+                                                        <span className="text-[10px] font-bold text-amber-500/60 uppercase">{item.session_name}</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="py-5 px-6 text-center text-xs opacity-70">{item.test_type}</td>
 
@@ -683,11 +821,19 @@ const PenPaperTestRegistry = () => {
                             ) : (
                                 /* Master Data Dropdowns */
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <div className="space-y-1.5">
+                                        <MultiSelect 
+                                            label="Sessions" 
+                                            options={sessions} 
+                                            value={newItem.sessions} 
+                                            onChange={(val) => setNewItem({ ...newItem, sessions: val })} 
+                                            placeholder="Select Sessions" 
+                                            isDarkMode={isDarkMode}
+                                        />
+                                    </div>
                                     {[
-                                        { label: 'Session', field: 'session', options: sessions },
                                         { label: 'Class', field: 'class_level', options: classes },
                                         { label: 'Subject', field: 'subject', options: subjects },
-                                        { label: 'Exam Tag', field: 'target_exam', options: targetExams },
                                         { label: 'Exam Type', field: 'exam_type', options: examTypes }
                                     ].map(meta => (
                                         <div key={meta.field}>
@@ -703,65 +849,15 @@ const PenPaperTestRegistry = () => {
                                             </select>
                                         </div>
                                     ))}
-
-                                    {/* Multi-Select for Sections */}
-                                    <div className="space-y-2 relative" ref={sectionDropdownRef}>
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'opacity-40' : 'text-slate-500'} mb-2 ml-1`}>Assign to Sections</label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsSectionDropdownOpen(!isSectionDropdownOpen)}
-                                            className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all text-left flex items-center justify-between ${isDarkMode
-                                                ? 'bg-[#1a1f2e] border-white/5 text-white'
-                                                : 'bg-white border-slate-200 text-slate-800'
-                                                }`}
-                                        >
-                                            <span className="truncate">
-                                                {newItem.selectedSections.length === 0
-                                                    ? 'Select Sections'
-                                                    : `${newItem.selectedSections.length} Sections Selected`}
-                                            </span>
-                                            <ChevronDown size={16} className={`transition-transform duration-300 ${isSectionDropdownOpen ? 'rotate-180' : ''}`} />
-                                        </button>
-
-                                        {isSectionDropdownOpen && (
-                                            <div className={`absolute top-full left-0 right-0 z-[110] mt-2 rounded-[5px] border shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-300 ${isDarkMode
-                                                ? 'bg-[#1e293b] border-white/10 shadow-black/40'
-                                                : 'bg-white border-slate-100 shadow-slate-200'
-                                                }`}>
-                                                <div className="max-h-60 overflow-y-auto custom-scrollbar p-2">
-                                                    <div className="space-y-1">
-                                                        {sections.length > 0 ? sections.map(sec => {
-                                                            const isSelected = (newItem.selectedSections || []).includes(sec.id);
-                                                            return (
-                                                                <button
-                                                                    key={sec.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setNewItem(prev => {
-                                                                            const currentSections = prev.selectedSections || [];
-                                                                            const isSelected = currentSections.includes(sec.id);
-                                                                            if (isSelected) {
-                                                                                return { ...prev, selectedSections: currentSections.filter(id => id !== sec.id) };
-                                                                            } else {
-                                                                                return { ...prev, selectedSections: [...currentSections, sec.id] };
-                                                                            }
-                                                                        });
-                                                                    }}
-                                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[5px] transition-all ${isSelected
-                                                                        ? 'bg-amber-500/10 text-amber-500'
-                                                                        : isDarkMode ? 'hover:bg-white/5 text-slate-400 hover:text-white' : 'hover:bg-slate-50 text-slate-500'
-                                                                        }`}
-                                                                >
-                                                                    {isSelected ? <CheckSquare size={16} strokeWidth={3} /> : <Square size={16} strokeWidth={2} />}
-                                                                    <span className="text-[11px] font-black uppercase tracking-tight">{sec.name}</span>
-                                                                    {isSelected && <Check size={14} className="ml-auto" strokeWidth={4} />}
-                                                                </button>
-                                                            );
-                                                        }) : <div className="p-4 text-center text-[10px] font-bold opacity-30">No sections found</div>}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
+                                    <div className="space-y-1.5">
+                                        <MultiSelect 
+                                            label="Target Exams" 
+                                            options={targetExams} 
+                                            value={newItem.target_exams} 
+                                            onChange={(val) => setNewItem({ ...newItem, target_exams: val })} 
+                                            placeholder="Select Target Exams" 
+                                            isDarkMode={isDarkMode}
+                                        />
                                     </div>
                                 </div>
                             )}

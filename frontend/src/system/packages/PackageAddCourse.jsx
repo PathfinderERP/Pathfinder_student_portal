@@ -822,7 +822,7 @@ const PackageAddCourse = () => {
                 axios.get(`${apiUrl}/api/master-data/sessions/`, config)
             ]);
             setExamTypes(etRes.data);
-            setSessions(sRes.data);
+            setSessions(sRes.data.filter(s => s.is_active));
         } catch (err) {
             console.error("Fetch master data failed", err);
         }

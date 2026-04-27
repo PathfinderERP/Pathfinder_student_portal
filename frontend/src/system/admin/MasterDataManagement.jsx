@@ -400,9 +400,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
     // Cascading Filter Options for "Exam Details" subtab
     const availableSessionsForFilter = useMemo(() => {
-        if (activeSubTab !== 'Exam Details') return sessions;
+        if (activeSubTab !== 'Exam Details') return sessions.filter(s => s.is_active);
         const sessionIds = [...new Set(data.map(d => String(d.session)))];
-        return sessions.filter(s => sessionIds.includes(String(s.id)));
+        return sessions.filter(s => sessionIds.includes(String(s.id)) && s.is_active);
     }, [sessions, data, activeSubTab]);
 
     const availableClassesForFilter = useMemo(() => {
@@ -456,7 +456,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
             Object.keys(masterDataCacheRef.current).length > 0) {
             const cached = masterDataCacheRef.current;
-            setSessions(cached.sessions || []);
+            setSessions((cached.sessions || []).filter(s => s.is_active));
             setExamTypes(cached.examTypes || []);
             setClasses(cached.classes || []);
             setTargetExams(cached.targetExams || []);
@@ -496,7 +496,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             masterDataTimestampRef.current = now;
 
             // Update states
-            setSessions(sessRes.data);
+            setSessions(sessRes.data.filter(s => s.is_active));
             setExamTypes(typeRes.data);
             setClasses(classRes.data);
             setTargetExams(targetRes.data);
