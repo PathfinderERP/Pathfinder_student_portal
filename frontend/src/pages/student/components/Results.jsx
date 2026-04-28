@@ -245,7 +245,7 @@ const Results = ({ isDarkMode }) => {
             ]);
 
             const results = resultsRes.data || [];
-            const allTests = testsRes.data || [];
+            const allTests = (testsRes.data || []).filter(t => t.exam_type_details?.name !== 'STUDY PLANNER');
             const now = new Date();
 
             // Identify all tests not taken yet

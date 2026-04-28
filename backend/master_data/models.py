@@ -160,6 +160,7 @@ class ExamDetail(models.Model):
             # Clear admin test list cache if it exists
             from django.core.cache import cache
             cache.delete('admin_test_list')
+            cache.delete(f"test_paper_{test.pk}")
         except Exception as e:
             print(f"Error syncing ExamDetail to Test: {e}")
 

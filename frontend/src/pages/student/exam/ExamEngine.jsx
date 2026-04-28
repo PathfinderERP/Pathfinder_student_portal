@@ -60,7 +60,7 @@ const ExamEngine = () => {
 
     const handleReturnToDashboard = () => {
         try {
-            if (document.fullscreenElement) {
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
                 document.exitFullscreen().catch(() => {});
             }
         } catch (err) {}
@@ -324,12 +324,18 @@ const ExamEngine = () => {
     }, []);
 
     const exitFullscreen = useCallback(() => {
-        if (document.exitFullscreen) {
-            document.exitFullscreen().catch(err => console.error("Error exiting fullscreen:", err));
-        } else if (document.webkitExitFullscreen) { /* Safari */
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) { /* IE11 */
-            document.msExitFullscreen();
+        try {
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(err => console.warn("Fullscreen exit suppressed:", err));
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        } catch (err) {
+            console.warn("Fullscreen exit failed:", err);
         }
     }, []);
 

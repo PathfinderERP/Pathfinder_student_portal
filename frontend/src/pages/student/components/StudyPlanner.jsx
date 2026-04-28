@@ -39,6 +39,13 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
         }
     }, [studentData]);
 
+    const isMedical = profile.targetExam.includes('NEET') || profile.classLevel.includes('Med');
+    const availableColleges = isMedical ? COLLEGES.medical : (profile.targetExam === 'CUET' || profile.targetExam === 'Boards' ? COLLEGES.other : COLLEGES.engineering);
+
+    const examQuestions = isMedical
+        ? [{ subject: 'Physics' }, { subject: 'Chemistry' }, { subject: 'Biology' }]
+        : [{ subject: 'Physics' }, { subject: 'Chemistry' }, { subject: 'Mathematics' }];
+
     const [tests, setTests] = useState([]);
     const [loadingTests, setLoadingTests] = useState(false);
 
@@ -51,9 +58,6 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
     const [aiLoading, setAiLoading] = useState(false);
     const [aiPlan, setAiPlan] = useState('');
-
-    const isMedical = profile.targetExam.includes('NEET') || profile.classLevel.includes('Med');
-    const availableColleges = isMedical ? COLLEGES.medical : (profile.targetExam === 'CUET' || profile.targetExam === 'Boards' ? COLLEGES.other : COLLEGES.engineering);
 
     const fetchTests = async () => {
         setLoadingTests(true);
@@ -70,17 +74,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                       studentData?.student?.studentsDetails?.[0]?.examTag?.name;
 
             const testsData = (testsRes.data || []).filter(test => {
-                // 1. Must be STUDY PLANNER type
-                const isStudyPlanner = test.exam_type_details?.name === 'STUDY PLANNER';
-                if (!isStudyPlanner) return false;
-                
-                // 2. Academic Matching (Only if data exists)
-                const sessionMatch = !studentSession || (test.session_details?.name === studentSession);
-                const classMatch = !studentClass || (test.class_level_details?.name === studentClass);
-                const targetMatch = !studentTargetExam || 
-                                   (test.target_exam_details?.some(te => te.name === studentTargetExam));
-                
-                return sessionMatch && classMatch && targetMatch;
+                // Only show exams explicitly marked as STUDY PLANNER
+                return test.exam_type_details?.name === 'STUDY PLANNER';
             });
             const resultsData = resultsRes.data || [];
 
@@ -432,9 +427,9 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 </p>
                             </div>
                             <div className="grid grid-cols-3 gap-4 p-4 rounded-[4px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5">
-                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[0].subject}</span><span className="text-base font-black text-white">{testScores?.q1Score}%</span></div>
-                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[1].subject}</span><span className="text-base font-black text-white">{testScores?.q2Score}%</span></div>
-                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[2].subject}</span><span className="text-base font-black text-white">{testScores?.q3Score}%</span></div>
+                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[0].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q1Score}%</span></div>
+                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[1].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q2Score}%</span></div>
+                                <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[2].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q3Score}%</span></div>
                             </div>
                         </div>
                     </div>

@@ -1138,7 +1138,7 @@ const LibraryRegistry = () => {
         });
     }, [mergedSource, searchQuery, activeFilters, sortOrder]);
 
-    // Dynamic Filter Options based on master data
+    // Dynamic Filter Options for the Main Filter Bar
     const dynamicFilterOptions = useMemo(() => {
         return {
             sessions: sessions,
@@ -1158,6 +1158,24 @@ const LibraryRegistry = () => {
             sections: sections
         };
     }, [sessions, classes, subjects, chapters, topics, examTypes, targetExams, sections, activeFilters]);
+
+    // Dynamic Filter Options for the Add/Edit Modal
+    const modalFilteredChapters = useMemo(() => {
+        if (isIndependentMode) return chapters;
+        return chapters.filter(c => 
+            (!newItem.class_level || String(c.class_level) === String(newItem.class_level)) &&
+            (!newItem.subject || String(c.subject) === String(newItem.subject))
+        );
+    }, [chapters, newItem.class_level, newItem.subject, isIndependentMode]);
+
+    const modalFilteredTopics = useMemo(() => {
+        if (isIndependentMode) return topics;
+        return topics.filter(t => 
+            (!newItem.class_level || String(t.class_level) === String(newItem.class_level)) &&
+            (!newItem.subject || String(t.subject) === String(newItem.subject)) &&
+            (!newItem.chapter || String(t.chapter) === String(newItem.chapter))
+        );
+    }, [topics, newItem.class_level, newItem.subject, newItem.chapter, isIndependentMode]);
 
     // Stats logic
     const stats = useMemo(() => {
@@ -1602,10 +1620,7 @@ const LibraryRegistry = () => {
                                         { 
                                             label: 'Chapter', 
                                             field: 'chapter', 
-                                            options: isIndependentMode ? chapters : chapters.filter(c =>
-                                                (!newItem.class_level || String(c.class_level) === String(newItem.class_level)) &&
-                                                (!newItem.subject || String(c.subject) === String(newItem.subject))
-                                            )
+                                            options: modalFilteredChapters
                                         },
                                         { label: 'Target Exam', field: 'target_exams', options: targetExams, isMulti: true }
                                     ].map((meta, idx) => {
@@ -1621,16 +1636,37 @@ const LibraryRegistry = () => {
                                                 required={!['chapter', 'topic'].includes(meta.field) && !meta.isMulti}
                                                 onChange={(val) => {
                                                     const updates = { [meta.field]: val };
-                                                    // Only auto-reset if NOT in independent mode
+                                                    
+                                                    // Implementation of selection persistence (avoiding aggressive reset)
                                                     if (!isIndependentMode) {
-                                                        if (meta.field === 'class_level' || meta.field === 'subject') {
+                                                        const nextClass = meta.field === 'class_level' ? val : newItem.class_level;
+                                                        const nextSubject = meta.field === 'subject' ? val : newItem.subject;
+                                                        const nextChapter = meta.field === 'chapter' ? val : newItem.chapter;
+
+                                                        // Check if existing chapter is still valid for next class/subject
+                                                        const isChapterValid = chapters.some(c => 
+                                                            String(c.id) === String(nextChapter) &&
+                                                            (!nextClass || String(c.class_level) === String(nextClass)) &&
+                                                            (!nextSubject || String(c.subject) === String(nextSubject))
+                                                        );
+
+                                                        if (!isChapterValid && nextChapter !== '') {
                                                             updates.chapter = '';
                                                             updates.topic = '';
-                                                        } else if (meta.field === 'chapter') {
-                                                            updates.topic = '';
+                                                        } else {
+                                                            // Check if existing topic is still valid for next class/subject/chapter
+                                                            const isTopicValid = topics.some(t => 
+                                                                String(t.id) === String(newItem.topic) &&
+                                                                (!nextClass || String(t.class_level) === String(nextClass)) &&
+                                                                (!nextSubject || String(t.subject) === String(nextSubject)) &&
+                                                                (!nextChapter || String(t.chapter) === String(nextChapter))
+                                                            );
+                                                            if (!isTopicValid && newItem.topic !== '') {
+                                                                updates.topic = '';
+                                                            }
                                                         }
                                                     }
-                                                    setNewItem({ ...newItem, ...updates });
+                                                    setNewItem(prev => ({ ...prev, ...updates }));
                                                 }}
                                             />
                                         );
@@ -1655,12 +1691,7 @@ const LibraryRegistry = () => {
                                                     <CustomSelect
                                                         label="Jump to Topic"
                                                         value={newItem.topic}
-                                                        options={isIndependentMode ? topics : (
-                                                            (() => {
-                                                                const filtered = topics.filter(t => (!newItem.chapter || String(t.chapter) === String(newItem.chapter)));
-                                                                return filtered.map(t => ({ ...t, label: t.name, id: t.id }));
-                                                            })()
-                                                        )}
+                                                        options={modalFilteredTopics}
                                                         placeholder="Select Topic"
                                                         isDarkMode={isDarkMode}
                                                         required
@@ -1711,7 +1742,7 @@ const LibraryRegistry = () => {
                                     >
                                         {(newItem.chapter || isIndependentMode) ? (
                                             (() => {
-                                                const displayTopics = isIndependentMode ? topics : topics.filter(t => String(t.chapter) === String(newItem.chapter));
+                                                const displayTopics = modalFilteredTopics;
                                                 return displayTopics.map((t, idx) => {
                                                     const records = libraryItems.filter(li => String(li.topic) === String(t.id));
                                                     const hasContent = records.length > 0;

@@ -28,6 +28,12 @@ class Test(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        # Clear test paper cache when test is updated
+        from django.core.cache import cache
+        cache.delete(f"test_paper_{self.pk}")
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} ({self.code})"
 

@@ -23,10 +23,29 @@ class QuestionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = Question.objects.all()
-        # Optional: Add filtering here (e.g., by subject, topic)
-        subject_id = self.request.query_params.get('subject', None)
-        if subject_id:
-            queryset = queryset.filter(subject__id=subject_id)
+        
+        # Extended Filtering Logic
+        filters = {
+            'subject': 'subject__id',
+            'topic': 'topic__id',
+            'class_level': 'class_level',
+            'exam_type': 'exam_type__id',
+            'target_exam': 'target_exam__id',
+            'test_name': 'test_name__id',
+            'chapter': 'chapter__id',
+            'is_wrong': 'is_wrong'
+        }
+
+        for param, field in filters.items():
+            val = self.request.query_params.get(param)
+            if val:
+                if val.lower() == 'null':
+                    queryset = queryset.filter(**{f"{field.split('__')[0]}__isnull": True})
+                elif param == 'is_wrong':
+                    queryset = queryset.filter(is_wrong=val.lower() == 'true')
+                else:
+                    queryset = queryset.filter(**{field: val})
+
         return queryset.order_by('-created_at')
 
     def get_object(self):

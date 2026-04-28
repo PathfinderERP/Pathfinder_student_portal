@@ -147,19 +147,26 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     // Filtered Questions Logic
     const filteredQuestions = useMemo(() => {
         const result = questions.filter(q => {
-            if (filters.classId && String(q.class_level) !== String(filters.classId)) return false;
+            // Helper to check for NULL filters
+            const checkNullFilter = (filterVal, questionVal) => {
+                if (filterVal === '__NULL__') return !questionVal;
+                if (filterVal && String(questionVal) !== String(filterVal)) return false;
+                return true;
+            };
+
+            if (!checkNullFilter(filters.classId, q.class_level)) return false;
 
             const qSub = q.subject?.id || q.subject;
-            if (filters.subjectId && String(qSub) !== String(filters.subjectId)) return false;
+            if (!checkNullFilter(filters.subjectId, qSub)) return false;
 
             const qTopic = q.topic?.id || q.topic;
-            if (filters.topicId && String(qTopic) !== String(filters.topicId)) return false;
+            if (!checkNullFilter(filters.topicId, qTopic)) return false;
 
             const qExamType = q.exam_type?.id || q.exam_type;
-            if (filters.examTypeId && String(qExamType) !== String(filters.examTypeId)) return false;
+            if (!checkNullFilter(filters.examTypeId, qExamType)) return false;
 
             const qTargetExam = q.target_exam?.id || q.target_exam;
-            if (filters.targetExamId && String(qTargetExam) !== String(filters.targetExamId)) return false;
+            if (!checkNullFilter(filters.targetExamId, qTargetExam)) return false;
 
             if (filters.question_type && q.question_type !== filters.question_type) return false;
 
@@ -176,10 +183,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             }
 
             const qChapter = q.chapter?.id || q.chapter;
-            if (filters.chapterId && String(qChapter) !== String(filters.chapterId)) return false;
+            if (!checkNullFilter(filters.chapterId, qChapter)) return false;
 
             const qTestName = q.test_name?.id || q.test_name;
-            if (filters.testNameId && String(qTestName) !== String(filters.testNameId)) return false;
+            if (!checkNullFilter(filters.testNameId, qTestName)) return false;
 
             // Use debounced search instead of immediate filter search
             if (debouncedSearch) {
@@ -512,6 +519,58 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             return matchesClass && matchesSubject;
         });
     }, [topics, imageFilters.classId, imageFilters.subjectId]);
+
+    const repositoryFilteredSubjects = useMemo(() => {
+        if (!filters.classId || filters.classId === '__NULL__') return subjects;
+        const subjectIds = [...new Set(topics
+            .filter(t => String(t.class_level) === String(filters.classId))
+            .map(t => String(t.subject))
+        )];
+        return subjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [subjects, topics, filters.classId]);
+
+    const repositoryFilteredChapters = useMemo(() => {
+        return chapters.filter(c => {
+            const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(c.class_level) === String(filters.classId);
+            const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(c.subject) === String(filters.subjectId);
+            return matchesClass && matchesSubject;
+        });
+    }, [chapters, filters.classId, filters.subjectId]);
+
+    const repositoryFilteredTopics = useMemo(() => {
+        return topics.filter(t => {
+            const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(t.class_level) === String(filters.classId);
+            const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(t.subject) === String(filters.subjectId);
+            const matchesChapter = !filters.chapterId || filters.chapterId === '__NULL__' || String(t.chapter) === String(filters.chapterId);
+            return matchesClass && matchesSubject && matchesChapter;
+        });
+    }, [topics, filters.classId, filters.subjectId, filters.chapterId]);
+
+    const bulkUpdateFilteredSubjects = useMemo(() => {
+        if (!bulkUpdateFields.class_level) return subjects;
+        const subjectIds = [...new Set(topics
+            .filter(t => String(t.class_level) === String(bulkUpdateFields.class_level))
+            .map(t => String(t.subject))
+        )];
+        return subjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [subjects, topics, bulkUpdateFields.class_level]);
+
+    const bulkUpdateFilteredChapters = useMemo(() => {
+        return chapters.filter(c => {
+            const matchesClass = !bulkUpdateFields.class_level || String(c.class_level) === String(bulkUpdateFields.class_level);
+            const matchesSubject = !bulkUpdateFields.subject || String(c.subject) === String(bulkUpdateFields.subject);
+            return matchesClass && matchesSubject;
+        });
+    }, [chapters, bulkUpdateFields.class_level, bulkUpdateFields.subject]);
+
+    const bulkUpdateFilteredTopics = useMemo(() => {
+        return topics.filter(t => {
+            const matchesClass = !bulkUpdateFields.class_level || String(t.class_level) === String(bulkUpdateFields.class_level);
+            const matchesSubject = !bulkUpdateFields.subject || String(t.subject) === String(bulkUpdateFields.subject);
+            const matchesChapter = !bulkUpdateFields.chapter || String(t.chapter) === String(bulkUpdateFields.chapter);
+            return matchesClass && matchesSubject && matchesChapter;
+        });
+    }, [topics, bulkUpdateFields.class_level, bulkUpdateFields.subject, bulkUpdateFields.chapter]);
 
     // Cascading Filter: Filter subjects based on selected class
     const filteredSubjects = useMemo(() => {
@@ -1405,42 +1464,42 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Filter Class"
                             value={filters.classId}
-                            options={classes}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...classes]}
                             placeholder="All Classes"
-                            onChange={(val) => setFilters({ ...filters, classId: val, subjectId: '', chapterId: '', topicId: '' })}
+                            onChange={(val) => setFilters({ ...filters, classId: val })}
                         />
                         <CustomSelect
                             label="Filter Subject"
                             value={filters.subjectId}
-                            options={subjects}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...repositoryFilteredSubjects]}
                             placeholder="All Subjects"
-                            onChange={(val) => setFilters({ ...filters, subjectId: val, chapterId: '', topicId: '' })}
+                            onChange={(val) => setFilters({ ...filters, subjectId: val })}
                         />
                         <CustomSelect
                             label="Filter Chapter"
                             value={filters.chapterId}
-                            options={chapters}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...repositoryFilteredChapters]}
                             placeholder="All Chapters"
-                            onChange={(val) => setFilters({ ...filters, chapterId: val, topicId: '' })}
+                            onChange={(val) => setFilters({ ...filters, chapterId: val })}
                         />
                         <CustomSelect
                             label="Filter Topic"
                             value={filters.topicId}
-                            options={topics}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...repositoryFilteredTopics]}
                             placeholder="All Topics"
                             onChange={(val) => setFilters({ ...filters, topicId: val })}
                         />
                         <CustomSelect
                             label="Exam Type"
                             value={filters.examTypeId}
-                            options={examTypes}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...examTypes]}
                             placeholder="All Exams"
                             onChange={(val) => setFilters({ ...filters, examTypeId: val })}
                         />
                         <CustomSelect
                             label="Target Exam"
                             value={filters.targetExamId}
-                            options={targetExams}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...targetExams]}
                             placeholder="All Targets"
                             onChange={(val) => setFilters({ ...filters, targetExamId: val })}
                         />
@@ -1451,7 +1510,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Filter Test Name"
                             value={filters.testNameId}
-                            options={examDetails}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...examDetails]}
                             placeholder="All Tests"
                             onChange={(val) => setFilters({ ...filters, testNameId: val })}
                         />
@@ -2073,21 +2132,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             value={form.classId}
                             options={classes}
                             placeholder="Select Class"
-                            onChange={(val) => setForm({ ...form, classId: val, topicId: '' })}
+                            onChange={(val) => setForm({ ...form, classId: val })}
                         />
                         <CustomSelect
                             label="Subject"
                             value={form.subjectId}
                             options={filteredSubjects}
                             placeholder="Select Subject"
-                            onChange={(val) => setForm({ ...form, subjectId: val, chapterId: '', topicId: '' })}
+                            onChange={(val) => setForm({ ...form, subjectId: val })}
                         />
                         <CustomSelect
                             label="Chapter"
                             value={form.chapterId}
                             options={filteredChapters}
                             placeholder="Select Chapter"
-                            onChange={(val) => setForm({ ...form, chapterId: val, topicId: '' })}
+                            onChange={(val) => setForm({ ...form, chapterId: val })}
                         />
                         <CustomSelect
                             label="Topic"
@@ -2778,21 +2837,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <CustomSelect
                                 label="Update Subject"
                                 value={bulkUpdateFields.subject}
-                                options={subjects}
+                                options={bulkUpdateFilteredSubjects}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, subject: val })}
                             />
                             <CustomSelect
                                 label="Update Chapter"
                                 value={bulkUpdateFields.chapter}
-                                options={chapters}
+                                options={bulkUpdateFilteredChapters}
                                 placeholder="Keep Original"
-                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, chapter: val, topic: '' })}
+                                onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, chapter: val })}
                             />
                             <CustomSelect
                                 label="Update Topic"
                                 value={bulkUpdateFields.topic}
-                                options={topics}
+                                options={bulkUpdateFilteredTopics}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, topic: val })}
                             />
