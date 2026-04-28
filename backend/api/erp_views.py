@@ -437,7 +437,7 @@ def _sync_user_to_erp(user, admission_data):
 
         # 5. Sync Academic Metadata (Session, Class, Target Exam)
         # Session
-        erp_session_name = admission_data.get('course', {}).get('courseSession')
+        erp_session_name = admission_data.get('academicSession') or admission_data.get('course', {}).get('courseSession')
         if erp_session_name:
             session_obj = Session.objects.filter(name__iexact=erp_session_name).first()
             if session_obj and user.session_id != session_obj.id:

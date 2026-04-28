@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, ChevronsLeft, ChevronDown, LayoutGrid, GraduationCap, LineChart, Settings } from 'lucide-react';
+import { LogOut, ChevronDown, LayoutGrid, GraduationCap, LineChart, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor = 'orange', variant = 'standard' }) => {
@@ -160,14 +160,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                             </AnimatePresence>
                         </div>
 
-                        <motion.button
-                            whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => setOpen(!isOpen)}
-                            className={`p-2.5 rounded-xl text-slate-400 hover:text-slate-600 transition-colors flex lg:flex`}
-                        >
-                            <ChevronsLeft size={20} className={`transition-transform duration-500 ${!isOpen ? 'rotate-180' : ''}`} />
-                        </motion.button>
+                        {/* Toggle button removed as requested - Logo now serves as the primary toggle */}
                     </div>
                 </div>
 

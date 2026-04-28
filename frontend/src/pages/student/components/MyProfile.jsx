@@ -292,7 +292,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
                     <InfoField label="Registered Course" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth isSyncing={isActuallyRefreshing} accent="indigo" />
-                    <InfoField label="Academic Session" value={studentData?.course?.courseSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                    <InfoField label="Academic Session" value={studentData?.academicSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Level / Class" value={studentData?.class?.name} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Delivery Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Assigned Batch" value={batches.map(b => b.batchName).join(', ')} icon={Users} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />

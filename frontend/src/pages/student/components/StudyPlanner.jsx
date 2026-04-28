@@ -64,7 +64,24 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
             ]);
 
-            const testsData = testsRes.data || [];
+            const studentSession = studentData?.academicSession || studentData?.course?.courseSession;
+            const studentClass = studentData?.class?.name;
+            const studentTargetExam = studentData?.student?.studentsDetails?.[0]?.examTag?.tagName || 
+                                      studentData?.student?.studentsDetails?.[0]?.examTag?.name;
+
+            const testsData = (testsRes.data || []).filter(test => {
+                // 1. Must be STUDY PLANNER type
+                const isStudyPlanner = test.exam_type_details?.name === 'STUDY PLANNER';
+                if (!isStudyPlanner) return false;
+                
+                // 2. Academic Matching (Only if data exists)
+                const sessionMatch = !studentSession || (test.session_details?.name === studentSession);
+                const classMatch = !studentClass || (test.class_level_details?.name === studentClass);
+                const targetMatch = !studentTargetExam || 
+                                   (test.target_exam_details?.some(te => te.name === studentTargetExam));
+                
+                return sessionMatch && classMatch && targetMatch;
+            });
             const resultsData = resultsRes.data || [];
 
             const mergedData = testsData.map(test => {
