@@ -16,10 +16,10 @@ import Exams from './components/Exams';
 import Performance from './components/Performance';
 import Results from './components/Results';
 import Grievances from './components/Grievances';
-import SWOTAnalysis from './components/SWOTAnalysis';
+// import SWOTAnalysis from './components/SWOTAnalysis';
 import StudyMaterials from './components/StudyMaterials';
-import AdvancedAnalytics from './components/AdvancedAnalytics';
-import AIInsights from './components/AIInsights';
+// import AdvancedAnalytics from './components/AdvancedAnalytics';
+// import AIInsights from './components/AIInsights';
 import StudyPlanner from './components/StudyPlanner';
 import NoticeBoard from './components/NoticeBoard';
 import Scholarlab from './components/Scholarlab';
@@ -191,7 +191,7 @@ const StudentDashboard = () => {
         { name: 'Exams', icon: FileText },
         { name: 'Results', icon: Trophy },
         { name: 'Performance', icon: TrendingUp },
-        { name: 'SWOT Analysis', icon: Target },
+        // { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
         {
             name: 'Study Materials',
@@ -203,8 +203,8 @@ const StudentDashboard = () => {
             ]
         },
         { name: 'Scholarlab', icon: Beaker },
-        { name: 'Advanced Analytics', icon: BarChart2 },
-        { name: 'AI Insights', icon: Brain },
+        // { name: 'Advanced Analytics', icon: BarChart2 },
+        // { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
         { name: 'Notice Board', icon: Bell },
     ], []);
@@ -306,8 +306,8 @@ const StudentDashboard = () => {
                 return <Performance isDarkMode={isDarkMode} />;
             case 'Grievances':
                 return <Grievances isDarkMode={isDarkMode} />;
-            case 'SWOT Analysis':
-                return <SWOTAnalysis isDarkMode={isDarkMode} />;
+            /* case 'SWOT Analysis':
+                return <SWOTAnalysis isDarkMode={isDarkMode} />; */
             case 'Video Content':
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Notes':
@@ -319,10 +319,10 @@ const StudentDashboard = () => {
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Scholarlab':
                 return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} cache={scholarlabCache} setCache={setScholarlabCache} />;
-            case 'Advanced Analytics':
+            /* case 'Advanced Analytics':
                 return <AdvancedAnalytics isDarkMode={isDarkMode} />;
             case 'AI Insights':
-                return <AIInsights isDarkMode={isDarkMode} />;
+                return <AIInsights isDarkMode={isDarkMode} />; */
             case 'Study Planner':
                 return <StudyPlanner isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Notice Board':
