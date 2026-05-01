@@ -788,7 +788,68 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
         import json
         request = self.request
         
-        # 1. Handle PDFs with individual thumbnails, titles, and descriptions
+        is_update = request.data.get('update_granular') == 'true'
+
+        if is_update:
+            # Handle Deletions for PDFs
+            if 'keep_pdfs' in request.data:
+                keep_pdf_ids = request.data.getlist('keep_pdfs')
+                if keep_pdf_ids:
+                    item.pdfs.exclude(pk__in=keep_pdf_ids).delete()
+                else:
+                    item.pdfs.all().delete()
+            # If keep_pdfs not in request at all, leave PDFs untouched
+                
+            # Handle Deletions for Videos (Files)
+            if 'keep_videos' in request.data:
+                keep_video_ids = request.data.getlist('keep_videos')
+                if keep_video_ids:
+                    item.videos.filter(video_file__isnull=False).exclude(pk__in=keep_video_ids).delete()
+                else:
+                    item.videos.filter(video_file__isnull=False).delete()
+            # If keep_videos not in request at all, leave video files untouched
+
+            # Handle Deletions for Video Links
+            if 'keep_video_links' in request.data:
+                keep_video_link_ids = request.data.getlist('keep_video_links')
+                if keep_video_link_ids:
+                    item.videos.filter(video_link__isnull=False).exclude(pk__in=keep_video_link_ids).delete()
+                else:
+                    item.videos.filter(video_link__isnull=False).delete()
+            # If keep_video_links not in request at all, leave video links untouched
+
+            # Handle Deletions for DPPs
+            if 'keep_dpps' in request.data:
+                keep_dpp_ids = request.data.getlist('keep_dpps')
+                if keep_dpp_ids:
+                    item.dpps.exclude(pk__in=keep_dpp_ids).delete()
+                else:
+                    item.dpps.all().delete()
+            # If keep_dpps not in request at all, leave DPPs untouched
+        
+        # 1a. Update existing PDFs (metadata + optional new thumbnail)
+        existing_pdfs_data = request.data.get('existing_pdfs_data', '[]')
+        try:
+            existing_pdfs = json.loads(existing_pdfs_data)
+            for p in existing_pdfs:
+                pdf_id = p.get('id')
+                if pdf_id:
+                    try:
+                        pdf_obj = item.pdfs.get(pk=pdf_id)
+                        if p.get('name'):
+                            pdf_obj.title = p['name']
+                        if p.get('description') is not None:
+                            pdf_obj.description = p['description']
+                        thumb = request.FILES.get(f'existing_pdf_{pdf_id}_thumb')
+                        if thumb:
+                            pdf_obj.thumbnail = thumb
+                        pdf_obj.save()
+                    except LibraryPDF.DoesNotExist:
+                        pass
+        except Exception as e:
+            print(f"Error updating existing PDFs: {e}")
+
+        # 1b. Create new PDFs with individual thumbnails, titles, and descriptions
         pdfs = request.FILES.getlist('multi_pdfs')
         for i, f in enumerate(pdfs):
             thumb = request.FILES.get(f'pdf_{i}_thumb')
@@ -802,7 +863,29 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                 description=desc
             )
             
-        # 2. Handle Video Files with individual details
+        # 2a. Update existing Videos
+        existing_videos_data = request.data.get('existing_videos_data', '[]')
+        try:
+            existing_videos = json.loads(existing_videos_data)
+            for v in existing_videos:
+                video_id = v.get('id')
+                if video_id:
+                    try:
+                        video_obj = item.videos.get(pk=video_id)
+                        if v.get('name'):
+                            video_obj.title = v['name']
+                        if v.get('description') is not None:
+                            video_obj.description = v['description']
+                        thumb = request.FILES.get(f'existing_video_{video_id}_thumb')
+                        if thumb:
+                            video_obj.thumbnail = thumb
+                        video_obj.save()
+                    except LibraryVideo.DoesNotExist:
+                        pass
+        except Exception as e:
+            print(f"Error updating existing videos: {e}")
+
+        # 2b. Create new Video Files with individual details
         videos = request.FILES.getlist('multi_videos')
         for i, f in enumerate(videos):
             thumb = request.FILES.get(f'video_{i}_thumb')
@@ -824,18 +907,52 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                 link_url = v.get('link')
                 if link_url and str(link_url).strip():
                     thumb = request.FILES.get(f'link_{i}_thumb')
-                    LibraryVideo.objects.create(
-                        library_item=item, 
-                        video_link=link_url.strip(), 
-                        thumbnail=thumb,
-                        title=v.get('name') or f"Video Link {i+1}",
-                        description=v.get('description')
-                    )
+                    if v.get('id'):
+                        try:
+                            video = item.videos.get(pk=v.get('id'))
+                            video.video_link = link_url.strip()
+                            video.title = v.get('name') or f"Video Link {i+1}"
+                            video.description = v.get('description')
+                            if thumb:
+                                video.thumbnail = thumb
+                            video.save()
+                        except LibraryVideo.DoesNotExist:
+                            pass
+                    else:
+                        LibraryVideo.objects.create(
+                            library_item=item, 
+                            video_link=link_url.strip(), 
+                            thumbnail=thumb,
+                            title=v.get('name') or f"Video Link {i+1}",
+                            description=v.get('description')
+                        )
         except Exception as e:
             print(f"Error processing video links: {e}")
             pass
 
-        # 4. Handle multiple DPPs
+        # 4a. Update existing DPPs
+        existing_dpps_data = request.data.get('existing_dpps_data', '[]')
+        try:
+            existing_dpps = json.loads(existing_dpps_data)
+            for d in existing_dpps:
+                dpp_id = d.get('id')
+                if dpp_id:
+                    try:
+                        dpp_obj = item.dpps.get(pk=dpp_id)
+                        if d.get('name'):
+                            dpp_obj.title = d['name']
+                        if d.get('description') is not None:
+                            dpp_obj.description = d['description']
+                        thumb = request.FILES.get(f'existing_dpp_{dpp_id}_thumb')
+                        if thumb:
+                            dpp_obj.thumbnail = thumb
+                        dpp_obj.save()
+                    except LibraryDPP.DoesNotExist:
+                        pass
+        except Exception as e:
+            print(f"Error updating existing DPPs: {e}")
+
+        # 4b. Handle multiple new DPPs
         dpps = request.FILES.getlist('multi_dpps')
         for i, f in enumerate(dpps):
             thumb = request.FILES.get(f'dpp_{i}_thumb')

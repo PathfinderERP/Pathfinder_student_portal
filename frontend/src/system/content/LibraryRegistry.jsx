@@ -33,8 +33,9 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
     }, [options, searchTerm]);
 
     const toggleOption = (id) => {
-        const newValue = safeValue.includes(id)
-            ? safeValue.filter(v => v !== id)
+        const strId = String(id);
+        const newValue = safeValue.some(v => String(v) === strId)
+            ? safeValue.filter(v => String(v) !== strId)
             : [...safeValue, id];
         onChange(newValue);
     };
@@ -45,6 +46,17 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
         } else {
             onChange(options.map(opt => opt.id || opt.value));
         }
+    };
+
+    const getSelectedLabels = () => {
+        if (safeValue.length === 0) return placeholder;
+        const labels = safeValue.map(val => {
+            const opt = options.find(o => String(o.id) === String(val) || String(o.value) === String(val));
+            return opt ? (opt.label || opt.name || opt.value) : '';
+        }).filter(Boolean);
+        
+        if (labels.length === 0) return `${safeValue.length} Selected`;
+        return labels.join(', ');
     };
 
     return (
@@ -63,10 +75,8 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
 
                 <span className={`text-xs font-bold truncate ${safeValue.length === 0
                     ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
-                    : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
-                    {safeValue.length > 0 
-                        ? `${safeValue.length} Selected` 
-                        : placeholder}
+                    : (isDarkMode ? 'text-white' : 'text-slate-700')}`} title={getSelectedLabels()}>
+                    {getSelectedLabels()}
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -115,7 +125,8 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
 
                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                         {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
-                            const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                            const strVal = String(opt.id || opt.value);
+                            const isSelected = safeValue.some(v => String(v) === strVal);
                             return (
                                 <div
                                     key={i}
@@ -730,22 +741,26 @@ const LibraryRegistry = () => {
                 formData.append('content_type', data.content_type);
 
                 // Granular PDFs
-                data.multi_pdfs.forEach((item, i) => {
+                let pdfFileIdx = 0;
+                data.multi_pdfs.forEach((item) => {
                     if (item.file) {
                         formData.append('multi_pdfs', item.file);
-                        formData.append(`pdf_${i}_title`, item.name);
-                        formData.append(`pdf_${i}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`pdf_${i}_thumb`, item.thumbnail);
+                        formData.append(`pdf_${pdfFileIdx}_title`, item.name);
+                        formData.append(`pdf_${pdfFileIdx}_desc`, item.description);
+                        if (item.thumbnail) formData.append(`pdf_${pdfFileIdx}_thumb`, item.thumbnail);
+                        pdfFileIdx++;
                     }
                 });
 
                 // Granular Videos
-                data.multi_videos.forEach((item, i) => {
+                let videoFileIdx = 0;
+                data.multi_videos.forEach((item) => {
                     if (item.file) {
                         formData.append('multi_videos', item.file);
-                        formData.append(`video_${i}_title`, item.name);
-                        formData.append(`video_${i}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`video_${i}_thumb`, item.thumbnail);
+                        formData.append(`video_${videoFileIdx}_title`, item.name);
+                        formData.append(`video_${videoFileIdx}_desc`, item.description);
+                        if (item.thumbnail) formData.append(`video_${videoFileIdx}_thumb`, item.thumbnail);
+                        videoFileIdx++;
                     }
                 });
 
@@ -828,18 +843,19 @@ const LibraryRegistry = () => {
             topic: item.topic || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
+            target_exams: item.target_exams || [],
             section: item.section || '',
             thumbnail: null,
             pdf: null,
-            multi_pdfs: item.pdfs ? item.pdfs.map(p => ({ name: p.title, description: p.description, file: null, thumbnail: null, existing_thumb: p.thumbnail, existing_file: p.file })) : [],
-            multi_dpps: item.dpps ? item.dpps.map(d => ({ name: d.title, description: d.description, file: null, thumbnail: null, existing_thumb: d.thumbnail, existing_file: d.file })) : (item.dpp_file ? [{ name: item.name, description: item.description, file: null, thumbnail: null, existing_thumb: item.thumbnail, existing_file: item.dpp_file }] : []),
+            multi_pdfs: item.pdfs ? item.pdfs.map(p => ({ id: p.id, name: p.title, description: p.description, file: null, thumbnail: null, existing_thumb: p.thumbnail, existing_file: p.file })) : [],
+            multi_dpps: item.dpps ? item.dpps.map(d => ({ id: d.id, name: d.title, description: d.description, file: null, thumbnail: null, existing_thumb: d.thumbnail, existing_file: d.file })) : (item.dpp_file ? [{ id: item.id, name: item.name, description: item.description, file: null, thumbnail: null, existing_thumb: item.thumbnail, existing_file: item.dpp_file }] : []),
             video_link: item.video_link || '',
             video_file: null,
-            multi_videos: [],
-            content_type: item.video_link || item.video_file ? 'video' : (item.dpp_file ? 'dpp' : 'pdf'),
+            multi_videos: item.videos ? item.videos.filter(v => v.video_file).map(v => ({ id: v.id, name: v.title, description: v.description, file: null, thumbnail: null, existing_thumb: v.thumbnail, existing_file: v.video_file })) : [],
+            multi_video_links: item.videos ? item.videos.filter(v => v.video_link).map(v => ({ id: v.id, name: v.title, description: v.description, link: v.video_link, thumbnail: null, existing_thumb: v.thumbnail })) : [],
+            content_type: (item.videos?.length > 0 || item.video_link || item.video_file) ? 'video' : (item.dpp_file || item.dpps?.length > 0 ? 'dpp' : 'pdf'),
             existing_thumbnail: item.thumbnail,
             existing_dpp: item.dpp_file,
-            multi_video_links: [],
             questions: item.questions && item.questions.length > 0 ? item.questions : [{
                 tempId: Date.now(),
                 question: '',
@@ -892,12 +908,25 @@ const LibraryRegistry = () => {
             formData.append('topic', newItem.topic || '');
             // Handle Granular DPPs
             if (newItem.multi_dpps && newItem.multi_dpps.length > 0) {
-                newItem.multi_dpps.forEach((item, i) => {
-                    if (item.file) {
+                // 1. Send updates for existing DPPs (those with an id already in DB)
+                const existingDpps = newItem.multi_dpps.filter(p => p.id);
+                if (existingDpps.length > 0) {
+                    formData.append('existing_dpps_data', JSON.stringify(
+                        existingDpps.map(p => ({ id: p.id, name: p.name, description: p.description }))
+                    ));
+                    existingDpps.forEach(p => {
+                        if (p.thumbnail) formData.append(`existing_dpp_${p.id}_thumb`, p.thumbnail);
+                    });
+                }
+                // 2. Upload brand new DPPs
+                let dppFileIdx = 0;
+                newItem.multi_dpps.forEach((item) => {
+                    if (!item.id && item.file) {
                         formData.append('multi_dpps', item.file);
-                        formData.append(`dpp_${i}_title`, item.name);
-                        formData.append(`dpp_${i}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`dpp_${i}_thumb`, item.thumbnail);
+                        formData.append(`dpp_${dppFileIdx}_title`, item.name);
+                        formData.append(`dpp_${dppFileIdx}_desc`, item.description);
+                        if (item.thumbnail) formData.append(`dpp_${dppFileIdx}_thumb`, item.thumbnail);
+                        dppFileIdx++;
                     }
                 });
             }
@@ -908,47 +937,92 @@ const LibraryRegistry = () => {
                 formData.append('target_exams', newItem.target_exam);
             }
 
+            formData.append('update_granular', 'true');
+
+            // Send IDs of existing granular resources to keep (if not sending an ID, the backend will delete it)
+            if (newItem.multi_pdfs) {
+                const keepPdfs = newItem.multi_pdfs.filter(item => item.id).map(item => item.id);
+                keepPdfs.forEach(id => formData.append('keep_pdfs', id));
+            }
+            if (newItem.multi_videos) {
+                const keepVideos = newItem.multi_videos.filter(item => item.id).map(item => item.id);
+                keepVideos.forEach(id => formData.append('keep_videos', id));
+            }
+            if (newItem.multi_video_links) {
+                const keepVideoLinks = newItem.multi_video_links.filter(item => item.id).map(item => item.id);
+                keepVideoLinks.forEach(id => formData.append('keep_video_links', id));
+            }
+            if (newItem.multi_dpps) {
+                const keepDpps = newItem.multi_dpps.filter(item => item.id).map(item => item.id);
+                keepDpps.forEach(id => formData.append('keep_dpps', id));
+            }
+
             // Handle Granular PDFs
             if (newItem.multi_pdfs && newItem.multi_pdfs.length > 0) {
-                newItem.multi_pdfs.forEach((item, i) => {
-                    if (item.file) {
+                // 1. Send updates for existing PDFs (those with an id already in DB)
+                const existingPdfs = newItem.multi_pdfs.filter(p => p.id);
+                if (existingPdfs.length > 0) {
+                    formData.append('existing_pdfs_data', JSON.stringify(
+                        existingPdfs.map(p => ({ id: p.id, name: p.name, description: p.description }))
+                    ));
+                    existingPdfs.forEach(p => {
+                        if (p.thumbnail) formData.append(`existing_pdf_${p.id}_thumb`, p.thumbnail);
+                    });
+                }
+                // 2. Upload brand new PDFs (those without an id)
+                let pdfFileIdx = 0;
+                newItem.multi_pdfs.forEach((item) => {
+                    if (!item.id && item.file) {
                         formData.append('multi_pdfs', item.file);
-                        formData.append(`pdf_${i}_title`, item.name);
-                        formData.append(`pdf_${i}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`pdf_${i}_thumb`, item.thumbnail);
+                        formData.append(`pdf_${pdfFileIdx}_title`, item.name);
+                        formData.append(`pdf_${pdfFileIdx}_desc`, item.description);
+                        if (item.thumbnail) formData.append(`pdf_${pdfFileIdx}_thumb`, item.thumbnail);
+                        pdfFileIdx++;
                     }
                 });
             }
 
             // Handle Granular Videos
             if (newItem.multi_videos && newItem.multi_videos.length > 0) {
-                newItem.multi_videos.forEach((item, i) => {
-                    if (item.file) {
+                // 1. Send updates for existing Videos (those with an id already in DB)
+                const existingVideos = newItem.multi_videos.filter(v => v.id);
+                if (existingVideos.length > 0) {
+                    formData.append('existing_videos_data', JSON.stringify(
+                        existingVideos.map(v => ({ id: v.id, name: v.name, description: v.description }))
+                    ));
+                    existingVideos.forEach(v => {
+                        if (v.thumbnail) formData.append(`existing_video_${v.id}_thumb`, v.thumbnail);
+                    });
+                }
+                // 2. Upload brand new Videos
+                let videoFileIdx = 0;
+                newItem.multi_videos.forEach((item) => {
+                    if (!item.id && item.file) {
                         formData.append('multi_videos', item.file);
-                        formData.append(`video_${i}_title`, item.name);
-                        formData.append(`video_${i}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`video_${i}_thumb`, item.thumbnail);
+                        formData.append(`video_${videoFileIdx}_title`, item.name);
+                        formData.append(`video_${videoFileIdx}_desc`, item.description);
+                        if (item.thumbnail) formData.append(`video_${videoFileIdx}_thumb`, item.thumbnail);
+                        videoFileIdx++;
                     }
                 });
             }
 
             // Handle Granular Video Links
             if (newItem.multi_video_links && newItem.multi_video_links.length > 0) {
-                formData.append('multi_video_links_data', JSON.stringify(newItem.multi_video_links.map(v => ({ name: v.name, link: v.link, description: v.description }))));
+                formData.append('multi_video_links_data', JSON.stringify(newItem.multi_video_links.map(v => ({ id: v.id, name: v.name, link: v.link, description: v.description }))));
                 newItem.multi_video_links.forEach((v, i) => {
                     if (v.thumbnail) formData.append(`link_${i}_thumb`, v.thumbnail);
                 });
             }
 
             // Handle DPP Questions Sync for Update (Append new ones if any)
-            if (newItem.content_type === 'dpp' && newItem.questions.some(q => !q.id)) {
+            const newQuestionsToCreate = newItem.questions.filter(q => !q.id && q.question && q.question.trim() && q.question !== '<p></p>');
+            if (newItem.content_type === 'dpp' && newQuestionsToCreate.length > 0) {
                 const dppExamTypeId = examTypes.find(e => e.name.toUpperCase() === 'DPP')?.id;
                 const dppTargetExamId = targetExams.find(t => t.name.toUpperCase() === 'DPP')?.id;
 
                 const newQuestionIds = [];
-                for (const q of newItem.questions) {
-                    if (q.id) continue;
-
+                for (const q of newQuestionsToCreate) {
                     const cleanContent = await processEditorImages(q.question);
                     const cleanSolution = await processEditorImages(q.solution);
                     const cleanOptions = await Promise.all(q.options.map(async opt => ({
@@ -1183,8 +1257,9 @@ const LibraryRegistry = () => {
         return {
             total: items.length,
             managed_chapters: chapters.length,
-            pdfs: items.filter(item => item.pdf_file).length,
-            videos: items.filter(item => item.video_link || item.video_file).length
+            pdfs: items.reduce((acc, item) => acc + (item.pdfs?.length || 0) + (item.pdf_file ? 1 : 0), 0),
+            videos: items.reduce((acc, item) => acc + (item.videos?.length || 0) + (item.video_file || item.video_link ? 1 : 0), 0),
+            dpps: items.reduce((acc, item) => acc + (item.dpps?.length || 0) + (item.questions?.length > 0 ? 1 : 0), 0)
         };
     }, [libraryItems, chapters]);
 
@@ -1254,7 +1329,12 @@ const LibraryRegistry = () => {
                             <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Videos</span>
-                                <span className="text-xl font-black text-[#E67E22]">{stats.videos}</span>
+                                <span className="text-xl font-black text-blue-500">{stats.videos}</span>
+                            </div>
+                            <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>DPPs</span>
+                                <span className="text-xl font-black text-[#E67E22]">{stats.dpps}</span>
                             </div>
                         </div>
 
@@ -1452,22 +1532,6 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                {/* View/Watch Content */}
-                                                {!item.is_virtual && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedItemForView(item);
-                                                            setViewPage(1);
-                                                            setIsViewModalOpen(true);
-                                                            setIsFullScreen(false);
-                                                        }}
-                                                        className={`p-2 rounded-[5px] transition-all hover:scale-110 ${item.pdf_file ? 'bg-[#E67E22]/10 text-[#E67E22] hover:bg-[#E67E22]' : 'bg-amber-500/10 text-amber-600 hover:bg-amber-600'} hover:text-white border ${item.pdf_file ? 'border-[#E67E22]/20' : 'border-amber-500/20 shadow-sm'}`}
-                                                        title={item.pdf_file ? 'View PDF' : 'Watch Video'}
-                                                    >
-                                                        {item.pdf_file ? <Eye size={16} strokeWidth={3} /> : <PlayCircle size={16} strokeWidth={3} />}
-                                                    </button>
-                                                )}
-                                                
                                                 {/* Edit/Add Action */}
                                                 <button 
                                                     onClick={() => {
@@ -1748,7 +1812,8 @@ const LibraryRegistry = () => {
                                                     const hasContent = records.length > 0;
                                                     const summary = hasContent ? {
                                                         pdfs: records.reduce((acc, r) => acc + (r.pdfs?.length || 0) + (r.pdf_file ? 1 : 0), 0),
-                                                        videos: records.reduce((acc, r) => acc + (r.videos?.length || 0) + (r.video_link ? 1 : 0), 0),
+                                                        videos: records.reduce((acc, r) => acc + (r.videos?.length || 0) + (r.video_link || r.video_file ? 1 : 0), 0),
+                                                        dpps: records.reduce((acc, r) => acc + (r.dpps?.length || 0) + (r.questions?.length > 0 ? 1 : 0), 0),
                                                         questions: records.reduce((acc, r) => acc + (r.questions?.length || 0), 0)
                                                     } : null;
 
@@ -1792,12 +1857,20 @@ const LibraryRegistry = () => {
                                                                 }}
                                                                 className={`px-4 py-2 rounded-[6px] text-[9px] font-black uppercase tracking-wider transition-all border-2 relative flex-shrink-0 whitespace-nowrap
                                                                     ${String(newItem.topic) === String(t.id)
-                                                                        ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20 scale-[1.05] z-10'
-                                                                        : isDarkMode 
-                                                                            ? 'bg-black/20 border-white/5 text-slate-400 hover:border-orange-500/50 hover:text-orange-500' 
-                                                                            : 'bg-white border-slate-100 text-slate-600 hover:border-orange-500 hover:text-orange-500 shadow-sm'}`}
+                                                                        ? 'bg-[#E67E22] border-[#E67E22] shadow-[#E67E22]/30 scale-[1.02] -translate-y-1'
+                                                                        : hasContent
+                                                                            ? isDarkMode ? 'bg-[#1E2532] border-emerald-500/30 hover:border-emerald-500/60 shadow-emerald-500/5' : 'bg-white border-emerald-500/30 hover:border-emerald-500/60 shadow-emerald-500/5'
+                                                                            : isDarkMode ? 'bg-[#151A23] border-white/5 hover:border-white/20' : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                                                                    }
+                                                                `}
                                                             >
-                                                                {t.name}
+                                                                <span className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${String(newItem.topic) === String(t.id) ? 'text-white/70' : isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                                    Topic {idx + 1}
+                                                                </span>
+                                                                <span className={`text-sm font-black uppercase tracking-tight line-clamp-1 w-full ${String(newItem.topic) === String(t.id) ? 'text-white' : hasContent ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600') : (isDarkMode ? 'text-slate-300' : 'text-slate-700')}`}>
+                                                                    {t.name}
+                                                                </span>
+
                                                                 {String(newItem.topic) === String(t.id) && (
                                                                     <div className="absolute -top-2 -right-2 w-5 h-5 bg-white text-orange-500 rounded-full flex items-center justify-center shadow-xl border border-orange-500/10 z-[30]">
                                                                         <Check size={12} strokeWidth={4} />
@@ -1809,10 +1882,10 @@ const LibraryRegistry = () => {
                                                             </button>
 
                                                             {summary && (
-                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-48 p-4 bg-slate-900 border border-white/10 rounded-[8px] shadow-2xl opacity-0 group-hover/topic:opacity-100 pointer-events-none transition-all z-[100] transform -translate-y-2 group-hover/topic:translate-y-0">
+                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 p-4 bg-slate-900 border border-white/10 rounded-[8px] shadow-2xl opacity-0 group-hover/topic:opacity-100 pointer-events-none transition-all z-[100] transform -translate-y-2 group-hover/topic:translate-y-0">
                                                                     <div className="flex flex-col gap-2">
                                                                         <span className="text-[10px] font-black uppercase tracking-widest text-[#E67E22] border-b border-white/5 pb-2 mb-1">Existing Content</span>
-                                                                        <div className="grid grid-cols-3 gap-2">
+                                                                        <div className="grid grid-cols-4 gap-2">
                                                                             <div className="flex flex-col items-center gap-1">
                                                                                 <FileText size={12} className="text-blue-400" />
                                                                                 <span className="text-[9px] font-black text-white">{summary.pdfs}</span>
@@ -1822,6 +1895,11 @@ const LibraryRegistry = () => {
                                                                                 <Video size={12} className="text-amber-400" />
                                                                                 <span className="text-[9px] font-black text-white">{summary.videos}</span>
                                                                                 <span className="text-[7px] font-bold text-slate-500 uppercase">VID</span>
+                                                                            </div>
+                                                                            <div className="flex flex-col items-center gap-1">
+                                                                                <FileText size={12} className="text-orange-400" />
+                                                                                <span className="text-[9px] font-black text-white">{summary.dpps}</span>
+                                                                                <span className="text-[7px] font-bold text-slate-500 uppercase">DPP</span>
                                                                             </div>
                                                                             <div className="flex flex-col items-center gap-1">
                                                                                 <HelpCircle size={12} className="text-emerald-400" />
@@ -2108,7 +2186,35 @@ const LibraryRegistry = () => {
                                                                 <div className="md:col-span-9 space-y-4">
                                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                         <div><label className="block text-[8px] font-black uppercase tracking-widest text-red-500 mb-1">Resource Title *</label><input type="text" value={item.name || ''} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].name = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="e.g. Masterclass by S. Sir" className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
-                                                                        <div><label className="block text-[8px] font-black uppercase tracking-widest text-red-500/60 mb-1">Youtube URL *</label><input type="text" value={item.link || ''} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].link = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="https://youtube.com/..." className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
+                                                                        <div>
+                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-red-500/60 mb-1">Youtube URL *</label>
+                                                                            <div className="relative">
+                                                                                <input 
+                                                                                    type="text" 
+                                                                                    value={item.link || ''} 
+                                                                                    onChange={(e) => { 
+                                                                                        const updated = [...newItem.multi_video_links]; 
+                                                                                        updated[i].link = e.target.value; 
+                                                                                        setNewItem({ ...newItem, multi_video_links: updated }); 
+                                                                                    }} 
+                                                                                    placeholder="https://youtube.com/..." 
+                                                                                    className={`w-full pl-4 pr-10 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} 
+                                                                                />
+                                                                                {item.link && (
+                                                                                    <button 
+                                                                                        type="button" 
+                                                                                        onClick={(e) => { 
+                                                                                            e.stopPropagation(); 
+                                                                                            setPreviewData({ url: item.link, type: 'link', title: item.name || 'Video Link Preview' });
+                                                                                        }} 
+                                                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-[3px] transition-colors"
+                                                                                        title="Test Video Link"
+                                                                                    >
+                                                                                        <PlayCircle size={14} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
                                                                     <div><label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Brief Description</label><textarea value={item.description || ''} onChange={(e) => { const updated = [...newItem.multi_video_links]; updated[i].description = e.target.value; setNewItem({ ...newItem, multi_video_links: updated }); }} placeholder="Link details..." className={`w-full px-4 py-2.5 rounded-[5px] outline-none border-2 font-bold text-[10px] transition-all min-h-[50px] resize-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-red-500/50 text-white' : 'bg-white border-slate-100 focus:border-red-500 text-slate-800 shadow-sm'}`} /></div>
                                                                 </div>
@@ -2750,7 +2856,7 @@ const LibraryRegistry = () => {
                                 />
                             ) : previewData.type === 'link' ? (
                                 <iframe 
-                                    src={previewData.url.includes('youtube.com') ? previewData.url.replace('watch?v=', 'embed/') : previewData.url}
+                                    src={getYouTubeEmbedUrl(previewData.url)}
                                     className="w-full h-full rounded-[10px] border-none shadow-2xl"
                                     allowFullScreen
                                     title="Video Preview"

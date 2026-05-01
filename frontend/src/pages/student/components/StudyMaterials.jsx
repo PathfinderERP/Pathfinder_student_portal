@@ -122,8 +122,31 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
     const subjectsHierarchy = useMemo(() => {
         const hierarchy = {};
-        
-        materials.forEach(item => {
+        const flattenedMaterials = [];
+
+        // Flatten granular resources into individual cards
+        materials.forEach(baseItem => {
+            let hasGranular = false;
+            
+            if (baseItem.pdfs?.length > 0) {
+                hasGranular = true;
+                baseItem.pdfs.forEach((p, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-p-${i}`, name: p.title || baseItem.name, description: p.description || baseItem.description, pdf_file: p.file, thumbnail: p.thumbnail || baseItem.thumbnail, video_link: null, video_file: null, dpp_file: null, resource_type: 'PDF' }));
+            }
+            if (baseItem.videos?.length > 0) {
+                hasGranular = true;
+                baseItem.videos.forEach((v, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-v-${i}`, name: v.title || baseItem.name, description: v.description || baseItem.description, video_file: v.video_file, video_link: v.video_link, thumbnail: v.thumbnail || baseItem.thumbnail, pdf_file: null, dpp_file: null, resource_type: 'VIDEO' }));
+            }
+            if (baseItem.dpps?.length > 0) {
+                hasGranular = true;
+                baseItem.dpps.forEach((d, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-d-${i}`, name: d.title || baseItem.name, description: d.description || baseItem.description, dpp_file: d.file, thumbnail: d.thumbnail || baseItem.thumbnail, pdf_file: null, video_link: null, video_file: null, resource_type: 'DPP' }));
+            }
+            
+            if (!hasGranular) {
+                flattenedMaterials.push(baseItem);
+            }
+        });
+
+        flattenedMaterials.forEach(item => {
             const normalize = (val) => String(val || '').toLowerCase().trim().replace(/class\s*/g, '');
             
             // Apply student context filtering (Normalization for fuzzy matching)
@@ -153,6 +176,19 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 if (subName.toLowerCase() === 'biology') return;
             }
 
+            // Check content type
+            const isVideo = !!(item.resource_type === 'VIDEO' || item.video_link || item.video_file);
+            const isDPP = !!(item.resource_type === 'DPP' || item.dpp_file || item.questions?.length > 0);
+            const isPDF = !!(item.resource_type === 'PDF' || item.pdf_file || (!isVideo && !isDPP));
+
+            if (activeContentType === 'DPP') {
+                if (!isDPP) return;
+            } else if (activeContentType === 'STUDY_MATERIAL') {
+                if (!isPDF && (isVideo || isDPP)) return; // Only allow PDFs
+            } else if (activeContentType === 'VIDEO') {
+                if (!isVideo) return;
+            }
+
             if (!hierarchy[subName]) hierarchy[subName] = { name: subName, chapters: {} };
             if (!hierarchy[subName].chapters[chapName]) hierarchy[subName].chapters[chapName] = { name: chapName, topics: {} };
             if (!hierarchy[subName].chapters[chapName].topics[topName]) {
@@ -161,24 +197,12 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                     materials: [] 
                 };
             }
-            
-            // Check content type
-            const isVideo = !!(item.video_link || item.video_file);
-            const isDPP = item.resource_type === 'DPP';
-
-            if (activeContentType === 'DPP') {
-                if (!isDPP) return;
-            } else if (activeContentType === 'STUDY_MATERIAL') {
-                if (isVideo || isDPP) return;
-            } else if (activeContentType === 'VIDEO') {
-                if (!isVideo) return;
-            }
 
             hierarchy[subName].chapters[chapName].topics[topName].materials.push(item);
         });
 
         return hierarchy;
-    }, [materials, assignedClass, activeContentType]);
+    }, [materials, assignedClass, activeContentType, studentSession, studentSection]);
 
     const activeSubjectData = activeSubject ? subjectsHierarchy[activeSubject] : null;
     const activeChapterData = (activeSubjectData && activeChapter) ? activeSubjectData.chapters[activeChapter] : null;
@@ -187,10 +211,14 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
     const subjectsList = Object.keys(subjectsHierarchy).sort();
 
     // ── AUTO-NAVIGATION LOGIC ───────────────────────────────────────────
-    // 1. Auto-select first subject on initial load
+    // 1. Auto-select first subject on initial load or if current subject disappears
     useEffect(() => {
-        if (!activeSubject && subjectsList.length > 0) {
-            setActiveSubject(subjectsList[0]);
+        if (subjectsList.length > 0) {
+            if (!activeSubject || !subjectsList.includes(activeSubject)) {
+                setActiveSubject(subjectsList[0]);
+            }
+        } else if (activeSubject) {
+            setActiveSubject(null);
         }
     }, [subjectsList, activeSubject]);
 
@@ -270,7 +298,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                         </p>
 
                                         <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
-                                            {(selectedItem.pdf_file || selectedItem.video_link || selectedItem.video_file) && (
+                                            {(selectedItem.pdf_file || selectedItem.dpp_file || selectedItem.video_link || selectedItem.video_file) && (
                                                 <button
                                                     onClick={() => setViewPage(2)}
                                                     className="group/btn px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-4"
@@ -290,9 +318,9 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     >
                                         <ChevronRight size={16} className="rotate-180" /> Back to Info
                                     </button>
-                                    {selectedItem.pdf_file && !selectedItem.video_link && !selectedItem.video_file ? (
+                                    {(selectedItem.pdf_file || selectedItem.dpp_file) && !selectedItem.video_link && !selectedItem.video_file ? (
                                         <iframe
-                                            src={selectedItem.pdf_file}
+                                            src={selectedItem.pdf_file || selectedItem.dpp_file}
                                             className="w-full h-full border-none bg-white font-black"
                                             title="PDF Reader"
                                         />
@@ -417,7 +445,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
                 {/* 3. CHAPTER NAVIGATION & CONTENT */}
                 <div className="space-y-8">
-                    {!activeSubject ? (
+                    {!activeSubjectData ? (
                         <div className={`flex flex-col items-center justify-center min-h-[400px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
                             <div className="w-24 h-24 rounded-full bg-orange-500/5 flex items-center justify-center mb-6 animate-pulse">
                                 <Compass size={48} className="text-orange-500 opacity-20" />
