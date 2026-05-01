@@ -20,9 +20,6 @@ try:
 except ImportError:
     pass
 
-# Load environment variables
-load_dotenv()
-
 # Change session engine to avoid Djongo session table issues
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
@@ -51,6 +48,25 @@ CSRF_EXEMPT_LIST = [r'^/api/']
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables using absolute path
+env_path = os.path.join(BASE_DIR, '.env')
+load_dotenv(env_path)
+
+# Manual fallback read if standard loading fails
+if not os.getenv('GEMINI_API_KEY'):
+    try:
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip().startswith('GEMINI_API_KEY='):
+                        val = line.strip().split('=', 1)[1].strip().strip("'").strip('"')
+                        os.environ['GEMINI_API_KEY'] = val
+                        break
+    except:
+        pass
+
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -297,6 +313,9 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# AI Integration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Cache Configuration (Redis with LocMem Fallback)
 _redis_url = os.getenv('REDIS_URL', None)

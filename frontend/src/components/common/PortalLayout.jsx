@@ -4,7 +4,7 @@ import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, accentColor = 'orange', variant = 'standard' }) => {
+const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, accentColor = 'orange', variant = 'standard', onNoticeClick }) => {
     const { user, logout } = useAuth();
     const { isDarkMode, toggleTheme } = useTheme();
     const [isSidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
@@ -78,8 +78,8 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
 
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] 
                 ${isSidebarOpen 
-                    ? "lg:ml-64" 
-                    : "lg:ml-20"}`}>
+                    ? "md:ml-64" 
+                    : "md:ml-20"}`}>
                 <Header
                     title={title}
                     subtitle={subtitle}
@@ -91,6 +91,7 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
                     logout={logout}
                     actions={headerActions}
                     accentColor={accentColor}
+                    onNoticeClick={onNoticeClick}
                 />
 
                 <main className={`flex-1 overflow-auto px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8 2xl:px-12 scrollbar-thin relative z-10`}>

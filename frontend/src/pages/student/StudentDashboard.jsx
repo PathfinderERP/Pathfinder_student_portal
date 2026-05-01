@@ -357,6 +357,7 @@ const StudentDashboard = () => {
             subtitle="Student Learning Portal"
             sidebarItems={sidebarItems}
             headerActions={syncIndicator}
+            onNoticeClick={() => setActiveTab('Notice Board')}
             variant="premium"
         >
             {renderContent()}

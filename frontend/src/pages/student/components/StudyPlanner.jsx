@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Brain, Target, GraduationCap, ChevronLeft, ChevronRight, Activity, Clock, CheckCircle2,
     BookOpen, Calculator, Atom, Orbit, Sparkles, Loader2, ArrowRight, Dna,
-    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair, Search, ChevronDown
+    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair, Search, ChevronDown, AlertTriangle, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
@@ -24,7 +25,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [currentStep, setCurrentStep] = useState(1);
 
     // Form / Data States
-    const [profile, setProfile] = useState({ classLevel: 'N/A', targetExam: 'JEE' });
+    const [profile, setProfile] = useState({ classLevel: 'N/A', targetExam: '' });
 
     // New search state for colleges
     const [collegeSearch, setCollegeSearch] = useState('');
@@ -36,50 +37,49 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [collegeInfo, setCollegeInfo] = useState(null);
     const [loadingInfo, setLoadingInfo] = useState(false);
     const [cutoffData, setCutoffData] = useState([]);
+    const [branchDetails, setBranchDetails] = useState([]);
+    const [showAlert, setShowAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState("");
+    const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+    const [dismissQuotaAlert, setDismissQuotaAlert] = useState(false);
+    const [intelligenceCache, setIntelligenceCache] = useState({});
+    const searchTimeout = useRef(null);
+
+    const [filteredColleges, setFilteredColleges] = useState([]);
 
     const searchColleges = async (query) => {
-        if (!query || query.length < 3) return;
+        if (!query || query.length < 2 || !profile.targetExam) {
+            setFilteredColleges([]);
+            return;
+        }
+        
         setIsSearchingColleges(true);
         try {
-            // Using Wikipedia Query API for more comprehensive and higher-volume results
-            const response = await axios.get(
-                `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=50&format=json&origin=*`,
-                { 
-                    withCredentials: false,
-                    headers: { 'Authorization': undefined } 
-                }
-            );
-            
-            if (response.data?.query?.search) {
-                // Map search results to titles
-                const titles = response.data.query.search.map(item => item.title);
-                setDynamicColleges(titles);
-            }
+            const apiUrl = getApiUrl();
+            const response = await axios.post(`${apiUrl}/api/student/ai-mentor/college-search/`, {
+                query: query,
+                exam_type: profile.targetExam
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setFilteredColleges(response.data || []);
         } catch (error) {
             console.error('Failed to search colleges:', error);
+            if (error.response?.status === 429) setIsQuotaExceeded(true);
         } finally {
             setIsSearchingColleges(false);
         }
     };
 
-    // Trigger search with debounce
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            if (collegeSearch) {
-                searchColleges(collegeSearch);
-            }
-        }, 500);
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [collegeSearch]);
-
-    // Trigger initial search based on exam
-    useEffect(() => {
-        const initialQuery = profile.targetExam === 'NEET' 
-            ? 'Medical colleges in India' 
-            : 'Top engineering colleges in India';
-        setCollegeSearch(initialQuery);
-    }, [profile.targetExam]);
+    const handleSearchChange = (val) => {
+        setCollegeSearch(val);
+        setIsCollegeDropdownOpen(true);
+        
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+        searchTimeout.current = setTimeout(() => {
+            searchColleges(val);
+        }, 800);
+    };
 
     // Auto-sync profile with student metadata on load
     useEffect(() => {
@@ -89,8 +89,6 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     }, [studentData]);
 
     const isMedical = profile.targetExam === 'NEET' || profile.classLevel.includes('Med');
-    const availableColleges = dynamicColleges;
-    const filteredColleges = dynamicColleges;
 
     const examQuestions = isMedical
         ? [{ subject: 'Physics' }, { subject: 'Chemistry' }, { subject: 'Biology' }]
@@ -102,59 +100,82 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [testScores, setTestScores] = useState(null);
 
     const fetchCollegeInfo = async (collegeName) => {
+        const cacheKey = `${collegeName}-${profile.targetExam}`;
+        if (intelligenceCache[cacheKey]) {
+            const cached = intelligenceCache[cacheKey];
+            setCollegeInfo({ ...cached.info, validatedCollege: collegeName });
+            setCutoffData(cached.cutoffs);
+            setBranchDetails(cached.branches);
+            return { ...cached.info, validatedCollege: collegeName };
+        }
+
         setLoadingInfo(true);
         try {
-            // Explicitly disable credentials for external Wikipedia REST API to satisfy CORS policy
-            const wikiRes = await axios.get(
-                `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(collegeName)}`,
-                { 
-                    withCredentials: false,
-                    headers: { 'Authorization': undefined }
-                }
-            );
-            
-            const isN = profile.targetExam === 'NEET';
-            const baseCutoff = isN ? 680 : 500;
-            const seed = collegeName.length;
-            const currentYear = new Date().getFullYear();
-            
-            // Generate 10 years of historical data ending at the previous year
-            const yearsToGenerate = 10;
-            const mockCutoffs = Array.from({ length: yearsToGenerate }, (_, i) => {
-                const year = (currentYear - yearsToGenerate) + i;
-                // Add some pseudo-random variance based on seed and year
-                const variance = Math.sin(seed + year) * (isN ? 15 : 100);
-                return { 
-                    year, 
-                    value: Math.max(isN ? 500 : 10, baseCutoff + variance) 
-                };
+            const apiUrl = getApiUrl();
+            const response = await axios.post(`${apiUrl}/api/student/ai-mentor/college-intelligence/`, {
+                college_name: collegeName,
+                exam_type: profile.targetExam
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            setCollegeInfo({
-                summary: wikiRes.data.extract,
-                thumbnail: wikiRes.data.thumbnail?.source,
-                location: wikiRes.data.description,
-                wikiUrl: wikiRes.data.content_urls.desktop.page
-            });
-            setCutoffData(mockCutoffs);
+            const data = response.data;
+            setBranchDetails(data.branches || []);
+            setIsQuotaExceeded(false);
+
+            const resultInfo = {
+                summary: data.summary,
+                location: data.location,
+                wikiUrl: data.website || `https://www.google.com/search?q=${encodeURIComponent(collegeName)}`,
+                is_compatible: data.is_compatible !== false,
+                compatibility_error: data.compatibility_error,
+                validatedCollege: collegeName
+            };
+
+            setCollegeInfo(resultInfo);
+            setCutoffData(data.cutoffs || []);
+
+            setIntelligenceCache(prev => ({
+                ...prev,
+                [cacheKey]: {
+                    info: resultInfo,
+                    cutoffs: data.cutoffs || [],
+                    branches: data.branches || []
+                }
+            }));
+
+            return resultInfo;
         } catch (error) {
-            console.error('Failed to fetch external college data:', error);
-            setCollegeInfo({
-                summary: `Historical data and intelligence for ${collegeName} is being synchronized from national databases.`,
-                location: "Information currently unavailable"
-            });
+            console.error('Failed to fetch AI college intelligence:', error);
+            
+            if (error.response?.status === 429) {
+                setIsQuotaExceeded(true);
+            }
+
+            const fallback = {
+                summary: `Intelligence for ${collegeName} is being synchronized from national databases.`,
+                location: "Information currently unavailable",
+                is_compatible: false, // Strict mode: Block progression if AI cannot verify
+                compatibility_error: "Institutional validation failed due to high server traffic. Please wait a moment and try again.",
+                validatedCollege: collegeName
+            };
+            setCollegeInfo(fallback);
+            setCutoffData([]);
+            setBranchDetails([]);
+            return fallback;
         } finally {
             setLoadingInfo(false);
         }
     };
 
     const [planConfig, setPlanConfig] = useState({
-        targetCollege: 'IIT Bombay'
+        targetCollege: ''
     });
 
     useEffect(() => {
-        if (planConfig.targetCollege) {
-            fetchCollegeInfo(planConfig.targetCollege);
+        // AI Validation moved to Proceed button click to save quota and only validate final choice
+        if (!planConfig.targetCollege) {
+            setCollegeInfo(null);
         }
     }, [planConfig.targetCollege]);
 
@@ -391,7 +412,21 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 </div>
 
                 <div className="pt-8 flex justify-end pb-10 border-t border-slate-500/20">
-                    <button onClick={() => setCurrentStep(2)} className="px-10 py-5 bg-indigo-600 text-white rounded-[4px] font-black text-xs uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all shadow-[0_0_30px_rgba(79,70,229,0.2)] hover:shadow-[0_0_40px_rgba(79,70,229,0.4)] flex items-center gap-4 group">
+                    <button 
+                        onClick={() => {
+                            if (!profile.targetExam) {
+                                setAlertMessage("You must define your Primary Objective (JEE or NEET) before the system can initialize your target destination and assessment sequence.");
+                                setShowAlert(true);
+                                return;
+                            }
+                            setCurrentStep(2);
+                        }}
+                        className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group ${
+                            !profile.targetExam 
+                            ? 'bg-slate-500 opacity-50 text-white' 
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-[0_0_30px_rgba(79,70,229,0.2)] hover:shadow-[0_0_40px_rgba(79,70,229,0.4)]'
+                        }`}
+                    >
                         Define Target Destination <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                     </button>
                 </div>
@@ -444,10 +479,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                         type="text"
                                         placeholder="Search top colleges dynamically..."
                                         value={collegeSearch}
-                                        onChange={(e) => {
-                                            setCollegeSearch(e.target.value);
-                                            setIsCollegeDropdownOpen(true);
-                                        }}
+                                        onChange={(e) => handleSearchChange(e.target.value)}
                                         onFocus={() => setIsCollegeDropdownOpen(true)}
                                         className={`bg-transparent border-none outline-none text-xs font-bold w-full ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
                                     />
@@ -473,68 +505,69 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             </div>
                             <div className={`p-4 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-indigo-500/5 border-white/10' : 'bg-indigo-50/50 border-slate-200'}`}>
                                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Current Target</p>
-                                <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege}</p>
+                                <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || "No Institution Selected"}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <AnimatePresence mode="wait">
-                    {planConfig.targetCollege && (
-                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-lg'}`}>
-                            <div className="flex flex-col lg:flex-row gap-8">
-                                <div className="flex-1 space-y-6">
-                                    <div className="flex items-center gap-4">
-                                        {collegeInfo?.thumbnail && <img src={collegeInfo.thumbnail} alt="College" className="w-16 h-16 rounded-[4px] object-cover border border-white/10" />}
-                                        <div>
-                                            <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege}</h3>
-                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">{collegeInfo?.location || 'Fetching intelligence...'}</p>
-                                        </div>
-                                    </div>
-                                    {loadingInfo ? (
-                                        <div className="flex items-center gap-3 py-4">
-                                            <Loader2 size={16} className="animate-spin text-indigo-500" />
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Querying Global Databases</span>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            <p className={`text-xs font-bold leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{collegeInfo?.summary}</p>
-                                            <a href={collegeInfo?.wikiUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:underline">View Official Records <ArrowRight size={12} /></a>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className={`w-full lg:w-[350px] p-6 rounded-[4px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-50 border border-slate-200'}`}>
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h4 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>10-Year Cutoff Matrix</h4>
-                                        <Activity size={14} className="text-emerald-500" />
-                                    </div>
-                                    <div className="space-y-5 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {cutoffData.slice().reverse().map((item, idx) => (
-                                            <div key={item.year} className="space-y-2">
-                                                <div className="flex justify-between text-[10px] font-black uppercase tracking-wide">
-                                                    <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>{item.year}</span>
-                                                    <span className={isDarkMode ? 'text-white' : 'text-slate-800'}>{Math.round(item.value)} {profile.targetExam === 'NEET' ? 'Marks' : 'Rank'}</span>
-                                                </div>
-                                                <div className={`h-1.5 w-full rounded-full ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'} overflow-hidden`}>
-                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${(item.value / (profile.targetExam === 'NEET' ? 720 : 2000)) * 100}%` }} transition={{ delay: idx * 0.05, duration: 0.8 }} className={`h-full ${profile.targetExam === 'NEET' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="mt-8 pt-4 border-t border-slate-500/10">
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase leading-relaxed italic">* Historical {profile.targetExam} archives ({new Date().getFullYear() - 10}-{new Date().getFullYear() - 1}).</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {/* Intelligence section removed from here to be shown in Step 4 */}
 
                 <div className="flex justify-end pt-4 border-t border-slate-500/20">
-                    <button onClick={() => { setCurrentStep(3); fetchTests(); }} className="px-10 py-5 bg-emerald-600 text-white rounded-[4px] font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-lg flex items-center gap-4 group">
-                        Proceed to Assessment <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    <button 
+                        onClick={async () => { 
+                            if (!planConfig.targetCollege) {
+                                setAlertMessage("Please select a target institution from the list to establish your academic benchmark.");
+                                setShowAlert(true);
+                                return;
+                            }
+                            
+                            // Only validate if we haven't validated this specific college yet
+                            let currentInfo = collegeInfo;
+                            if (!currentInfo || currentInfo.validatedCollege !== planConfig.targetCollege) {
+                                currentInfo = await fetchCollegeInfo(planConfig.targetCollege);
+                            }
+
+                            // Now validate based on currentInfo
+                            if (currentInfo && currentInfo.is_compatible === false) {
+                                setAlertMessage(currentInfo.compatibility_error || `This institution does not appear to accept ${profile.targetExam} for admissions. Please select a compatible college.`);
+                                setShowAlert(true);
+                                return;
+                            }
+
+                            setCurrentStep(3); 
+                            fetchTests(); 
+                        }} 
+                        className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
+                            !planConfig.targetCollege
+                            ? 'bg-slate-500 opacity-50 text-white' 
+                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        }`}
+                    >
+                        {loadingInfo ? (
+                            <>Analyzing... <Loader2 size={18} className="animate-spin" /></>
+                        ) : (
+                            <>Proceed to Assessment <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
+                        )}
                     </button>
                 </div>
+
+                {isQuotaExceeded && !dismissQuotaAlert && (
+                    <div className="mt-4 p-3 rounded-[4px] border border-amber-500/20 bg-amber-500/5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex items-center gap-3">
+                            <AlertTriangle size={14} className="text-amber-500" />
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                                AI Validation is currently offline due to high traffic. Basic verification is active.
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setDismissQuotaAlert(true)}
+                            className="p-1 hover:bg-amber-500/10 rounded-full transition-colors text-amber-500/50 hover:text-amber-500"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
             </div>
         </motion.div>
     );
@@ -682,28 +715,149 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
                 {/* Results Header (If test taken) */}
                 {testScores && (
-                    <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'} relative overflow-hidden mb-8`}>
-                        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
-                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                            <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline-2 outline-offset-4 outline-indigo-500/50">
-                                <span className="text-4xl font-black">{testScores?.total}%</span>
-                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Accuracy</span>
+                    <div className="space-y-8">
+                        <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'} relative overflow-hidden`}>
+                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
+                            <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                                <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline-2 outline-offset-4 outline-indigo-500/50">
+                                    <span className="text-4xl font-black">{testScores?.total}%</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Accuracy</span>
+                                </div>
+                                <div className="flex-1 space-y-4">
+                                    <div>
+                                        <h2 className={`text-2xl font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                            <CheckCircle2 className="text-emerald-500" /> Assessment Analyzed
+                                        </h2>
+                                        <p className={`text-xs font-bold leading-relaxed mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Baseline established against <strong>{planConfig.targetCollege}</strong> thresholds.
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4 p-4 rounded-[4px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+                                        <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[0].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q1Score}%</span></div>
+                                        <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[1].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q2Score}%</span></div>
+                                        <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[2].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q3Score}%</span></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex-1 space-y-4">
-                                <div>
-                                    <h2 className={`text-2xl font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                        <CheckCircle2 className="text-emerald-500" /> Assessment Analyzed
-                                    </h2>
-                                    <p className={`text-xs font-bold leading-relaxed mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        Baseline established against <strong>{planConfig.targetCollege}</strong> thresholds.
+                        </div>
+
+                        {/* Intelligence & Gap Analysis */}
+                        <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-lg'}`}>
+                            <div className="flex flex-col lg:flex-row gap-8">
+                                <div className="flex-1 space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        {collegeInfo?.thumbnail && <img src={collegeInfo.thumbnail} alt="College" className="w-16 h-16 rounded-[4px] object-cover border border-white/10" />}
+                                        <div>
+                                            <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege}</h3>
+                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">{collegeInfo?.location || 'Fetching intelligence...'}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* GAP ANALYSIS METRIC */}
+                                    {collegeInfo?.required_percentage && (
+                                        <div className={`p-6 rounded-[4px] border-2 ${testScores.total >= collegeInfo.required_percentage ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h4 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Baseline Gap Analysis</h4>
+                                                <Crosshair size={14} className={testScores.total >= collegeInfo.required_percentage ? 'text-emerald-500' : 'text-rose-500'} />
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-end">
+                                                    <div>
+                                                        <span className="block text-[9px] font-black uppercase opacity-60 mb-1">Required Score</span>
+                                                        <span className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{collegeInfo.required_percentage}%</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="block text-[9px] font-black uppercase opacity-60 mb-1">Status</span>
+                                                        <span className={`text-xs font-black uppercase tracking-widest ${testScores.total >= collegeInfo.required_percentage ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                            {testScores.total >= collegeInfo.required_percentage ? 'Within Threshold' : `-${(collegeInfo.required_percentage - testScores.total).toFixed(1)}% Deficit`}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className={`h-2 w-full rounded-full ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'} overflow-hidden relative`}>
+                                                    <div className="absolute top-0 bottom-0 w-px bg-white z-10" style={{ left: `${collegeInfo.required_percentage}%` }} />
+                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${testScores.total}%` }} className={`h-full ${testScores.total >= collegeInfo.required_percentage ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                                </div>
+                                                <p className={`text-[10px] font-bold leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {testScores.total >= collegeInfo.required_percentage 
+                                                        ? `Your baseline accuracy exceeds the current admission threshold for ${planConfig.targetCollege}. Optimization should focus on consistency.`
+                                                        : `You are currently ${(collegeInfo.required_percentage - testScores.total).toFixed(1)}% below the target institutional threshold. Critical concept reinforcement required.`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {loadingInfo ? (
+                                        <div className="flex items-center gap-3 py-4">
+                                            <Loader2 size={16} className="animate-spin text-indigo-500" />
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Querying Global Databases</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <p className={`text-xs font-bold leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{collegeInfo?.summary}</p>
+                                            <a href={collegeInfo?.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:underline">View Official Records <ArrowRight size={12} /></a>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className={`w-full lg:w-[350px] p-6 rounded-[4px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-50 border border-slate-200'}`}>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h4 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>10-Year Cutoff Matrix</h4>
+                                        <Activity size={14} className="text-emerald-500" />
+                                    </div>
+                                    <div className="space-y-5 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {cutoffData.slice().reverse().map((item, idx) => (
+                                            <div key={item.year} className="space-y-2">
+                                                <div className="flex justify-between text-[10px] font-black uppercase tracking-wide">
+                                                    <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>{item.year}</span>
+                                                    <span className={isDarkMode ? 'text-white' : 'text-slate-800'}>{Math.round(item.value)} {profile.targetExam === 'NEET' ? 'Marks' : 'Rank'}</span>
+                                                </div>
+                                                <div className={`h-1.5 w-full rounded-full ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'} overflow-hidden`}>
+                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${(item.value / (profile.targetExam === 'NEET' ? 720 : 2000)) * 100}%` }} transition={{ delay: idx * 0.05, duration: 0.8 }} className={`h-full ${profile.targetExam === 'NEET' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-8 pt-4 border-t border-slate-500/10">
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase leading-relaxed italic">* Historical {profile.targetExam} archives ({new Date().getFullYear() - 10}-{new Date().getFullYear() - 1}).</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Branch Details Table - NEW AI INTEGRATION */}
+                            {branchDetails.length > 0 && (
+                                <div className={`mt-8 pt-8 border-t ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h4 className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                            Branch-wise Opening & Closing Ranks
+                                        </h4>
+                                        <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[8px] font-black uppercase">
+                                            AI Verified Data
+                                        </div>
+                                    </div>
+                                    <div className={`overflow-hidden rounded-[4px] border ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-slate-100 bg-slate-50/30'}`}>
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-50 text-slate-500'}`}>
+                                                    <th className="py-3 px-4">Branch / Discipline</th>
+                                                    <th className="py-3 px-4 text-center">Opening Rank</th>
+                                                    <th className="py-3 px-4 text-center">Closing Rank</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`text-[11px] font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                {branchDetails.map((branch, idx) => (
+                                                    <tr key={idx} className={`border-t ${isDarkMode ? 'border-white/5 hover:bg-white/5' : 'border-slate-50 hover:bg-white'} transition-colors`}>
+                                                        <td className="py-3 px-4">{branch.branch}</td>
+                                                        <td className="py-3 px-4 text-center text-emerald-500">{branch.opening || '--'}</td>
+                                                        <td className="py-3 px-4 text-center text-indigo-500">{branch.closing || '--'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <p className="mt-4 text-[9px] font-bold text-slate-500 uppercase italic">
+                                        * Ranks are based on previous year's {profile.targetExam} statistics. AI models may provide approximations.
                                     </p>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4 p-4 rounded-[4px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5">
-                                    <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[0].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q1Score}%</span></div>
-                                    <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[1].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q2Score}%</span></div>
-                                    <div><span className="block text-[9px] font-black uppercase opacity-60 mb-1">{examQuestions[2].subject}</span><span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{testScores?.q3Score}%</span></div>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -758,6 +912,58 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 {currentStep === 3 && <motion.div key="s3" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep3()}</motion.div>}
                 {currentStep === 4 && <motion.div key="s4" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep4()}</motion.div>}
             </AnimatePresence>
+
+            {/* Custom Sliding Alert (Toast Style) - Rendered via Portal to escape stacking context */}
+            {showAlert && createPortal(
+                <div className="fixed top-8 right-8 z-[10000] w-full max-w-sm pointer-events-none">
+                    <AnimatePresence>
+                        {showAlert && (
+                            <motion.div 
+                                initial={{ opacity: 0, x: 50, filter: 'blur(10px)' }}
+                                animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                                exit={{ opacity: 0, x: 50, filter: 'blur(10px)' }}
+                                className={`overflow-hidden rounded-[4px] border shadow-2xl pointer-events-auto ${isDarkMode ? 'bg-[#0a0d14] border-white/20' : 'bg-white border-slate-300'}`}
+                            >
+                                <div className="p-5">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
+                                            <AlertTriangle className="text-rose-500" size={20} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className={`text-[11px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Selection Required</h3>
+                                            <p className={`text-[10px] font-bold leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                {alertMessage}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => setShowAlert(false)} className={`p-1 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-500 hover:text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                    <div className="mt-4 flex justify-end">
+                                        <button 
+                                            onClick={() => setShowAlert(false)}
+                                            className="px-4 py-2 bg-rose-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg"
+                                        >
+                                            Got it
+                                        </button>
+                                    </div>
+                                </div>
+                                {/* Auto-close Progress Bar */}
+                                <div className="h-1 w-full bg-rose-500/10">
+                                    <motion.div 
+                                        initial={{ width: "100%" }}
+                                        animate={{ width: "0%" }}
+                                        transition={{ duration: 5, ease: "linear" }}
+                                        onAnimationComplete={() => setShowAlert(false)}
+                                        className="h-full bg-rose-500"
+                                    />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };

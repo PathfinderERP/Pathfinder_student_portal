@@ -660,11 +660,7 @@ const SystemDashboard = () => {
                 sidebarItems={sidebarItems}
                 title={isSuperAdmin ? "Super Admin Dashboard" : "Admin Dashboard"}
                 subtitle={activeTab === 'Dashboard' ? "Manage your application content and users" : `System Administration > ${activeTab}`}
-                headerActions={(
-                    <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[5px] border text-xs font-bold transition-all cursor-pointer hover:border-orange-500/50 ${isDarkMode ? 'bg-slate-800/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                        <ExternalLink size={14} /> <span>View Site</span>
-                    </div>
-                )}
+                headerActions={null}
             >
                 {successMessage && (
                     <div className="fixed top-24 left-1/2 -translate-x-1/2 z-100 animate-in slide-in-from-top duration-500">

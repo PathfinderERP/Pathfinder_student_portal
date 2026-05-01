@@ -107,10 +107,13 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r
+            className={`fixed inset-y-0 left-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r overflow-hidden
             ${isPremium
-                    ? `${isDarkMode ? 'bg-[#030712]/80 border-white/[0.05]' : 'bg-[#FAFBFC]/80 border-slate-200/50 shadow-[4px_0_40px_rgba(0,0,0,0.02)]'} backdrop-blur-2xl ${isOpen ? "w-64" : "w-64 -translate-x-full lg:w-20 lg:translate-x-0"} overflow-hidden`
-                    : `${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]'} w-64 translate-x-0 ${isOpen ? "w-64" : "-translate-x-full lg:w-20 lg:translate-x-0"}`}`}
+                ? `${isDarkMode ? 'bg-[#030712]/80 border-white/[0.05]' : 'bg-[#FAFBFC]/80 border-slate-200/50 shadow-[4px_0_40px_rgba(0,0,0,0.02)]'} backdrop-blur-2xl`
+                : `${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]'}`}
+            ${isOpen 
+                ? "w-64 translate-x-0" 
+                : "w-64 -translate-x-full md:translate-x-0 md:w-20"}`}
         >
             {/* Premium Decorative elements */}
             {isPremium && isOpen && (
@@ -122,7 +125,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
 
             <div className={`flex flex-col h-full relative z-10 ${!isPremium && !isOpen ? 'items-center' : ''}`}>
                 {/* Logo Section */}
-                <div className={`flex items-center ${isPremium ? 'h-24 px-5' : 'h-20 px-6 border-b'} ${isDarkMode ? 'border-white/5' : 'border-gray-100'} ${isOpen ? "justify-start" : "justify-center"}`}>
+                <div className={`flex items-center ${isPremium ? 'h-24' : 'h-20 border-b'} ${isOpen ? 'px-5' : 'px-0'} ${isDarkMode ? 'border-white/5' : 'border-gray-100'} ${isOpen ? "justify-start" : "justify-center"}`}>
                     <div className={`flex items-center gap-3 w-full ${!isOpen ? 'justify-center' : ''}`}>
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                             {isPremium ? (
@@ -165,7 +168,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                 </div>
 
                 {/* Navigation Section */}
-                <nav className={`flex-1 overflow-y-auto custom-scrollbar ${isPremium ? 'pt-2 pb-6 px-4 space-y-1.5' : 'pt-6 pb-4 px-4 space-y-1'}`}>
+                <nav className={`flex-1 overflow-y-auto custom-scrollbar ${isPremium ? 'pt-2 pb-6' : 'pt-6 pb-4'} ${isOpen ? 'px-4' : 'px-2'} space-y-1`}>
                     {Object.entries(groupedItems).map(([category, items], catIndex) => (
                         <div key={category} className={isPremium ? "space-y-0" : "space-y-0"}>
                             <div className={isPremium ? "space-y-1.5" : "space-y-1"}>
