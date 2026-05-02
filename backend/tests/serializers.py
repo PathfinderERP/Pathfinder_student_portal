@@ -262,10 +262,12 @@ class TestSerializer(serializers.ModelSerializer):
             if not sub:
                 return None
                 
+            submitted_at = sub.get('submitted_at') or sub.get('updated_at')
             return {
                 'is_finalized': sub.get('is_finalized', False),
                 'allow_resume': sub.get('allow_resume', False),
-                'time_spent': sub.get('time_spent', 0)
+                'time_spent': sub.get('time_spent', 0),
+                'submitted_date': submitted_at.isoformat() if hasattr(submitted_at, 'isoformat') else str(submitted_at) if submitted_at else None
             }
         except Exception:
             return None

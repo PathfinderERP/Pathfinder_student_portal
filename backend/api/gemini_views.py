@@ -8,6 +8,7 @@ from django.conf import settings
 import json
 import logging
 from google.api_core import exceptions as google_exceptions
+from .models import UploadedFile, CustomUser, StudentMasterPlan
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,20 @@ logger = logging.getLogger(__name__)
 def generate_ai_study_plan(request):
     try:
         data = request.data
+        test_id = data.get('test_id')
         target_college = data.get('target_college', 'Top National Engineering College')
+        target_college_obj = data.get('target_college_obj', {})
+        
+        # Check for existing plan to avoid redundant AI calls
+        if test_id:
+            existing_plan = StudentMasterPlan.objects.filter(user=request.user, test_id=test_id).first()
+            if existing_plan:
+                return Response({
+                    "ai_plan": existing_plan.master_plan, 
+                    "cached": True,
+                    "target_college": existing_plan.target_college
+                }, status=status.HTTP_200_OK)
+
         class_level = data.get('class', '12')
         total_score = data.get('total_score', '65')
         math_score = data.get('math_score', '60')
@@ -153,7 +167,21 @@ OUTPUT STYLE:
 """
 
         response = model.generate_content(prompt)
-        return Response({"ai_plan": response.text}, status=status.HTTP_200_OK)
+        ai_text = response.text
+
+        # Save the generated plan persistently
+        if test_id:
+            try:
+                StudentMasterPlan.objects.create(
+                    user=request.user,
+                    test_id=test_id,
+                    target_college=target_college_obj or {"name": target_college},
+                    master_plan=ai_text
+                )
+            except Exception as save_err:
+                logger.error(f"[AI MENTOR] Failed to save plan to DB: {save_err}")
+
+        return Response({"ai_plan": ai_text}, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"[AI MENTOR] Error generating study plan: {str(e)}", exc_info=True)
@@ -206,6 +234,11 @@ def get_college_intelligence(request):
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
+
+        import re
+        json_match = re.search(r'(\{.*\})', text, re.DOTALL)
+        if json_match:
+            text = json_match.group(1)
 
         try:
             result = json.loads(text)

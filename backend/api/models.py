@@ -161,3 +161,42 @@ class Notice(models.Model):
 
     def __str__(self):
         return self.title
+
+class StudentPsychometricProfile(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='psychometric_profiles')
+    classification = models.CharField(max_length=255)
+    traits = SafeJSONField(default=list)
+    summary = models.TextField()
+    raw_responses = SafeJSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.classification}"
+
+class StudentMasterPlan(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='master_plans')
+    test_id = models.CharField(max_length=100)
+    target_college = SafeJSONField(default=dict)
+    master_plan = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Plan for {self.user.username} - {self.test_id}"
+
+class StudentStudyPlannerConfig(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='planner_configs')
+    target_college = SafeJSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"Config for {self.user.username}"

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import UploadedFile, CustomUser, Grievance, StudyTask, Notice
+from .models import UploadedFile, CustomUser, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig
 import json
 
 class UserSerializer(serializers.ModelSerializer):
@@ -207,3 +207,19 @@ class NoticeSerializer(serializers.ModelSerializer):
         model = Notice
         fields = '__all__'
         read_only_fields = ['id', 'date', 'is_new']
+
+class StudentPsychometricProfileSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='pk', read_only=True)
+    
+    class Meta:
+        model = StudentPsychometricProfile
+        fields = ['id', 'classification', 'traits', 'summary', 'raw_responses', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+class StudentStudyPlannerConfigSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='pk', read_only=True)
+    
+    class Meta:
+        model = StudentStudyPlannerConfig
+        fields = ['id', 'target_college', 'updated_at']
+        read_only_fields = ['id', 'updated_at']

@@ -2,11 +2,12 @@ from rest_framework import viewsets, permissions, generics, status, response, vi
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice
+from .models import UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig
 from .serializers import (
     UploadedFileSerializer, CustomTokenObtainPairSerializer, 
     UserSerializer, UserCreateSerializer, LoginLogSerializer,
-    GrievanceSerializer, StudyTaskSerializer, NoticeSerializer
+    GrievanceSerializer, StudyTaskSerializer, NoticeSerializer,
+    StudentPsychometricProfileSerializer, StudentStudyPlannerConfigSerializer
 )
 
 @api_view(['GET'])
@@ -496,8 +497,125 @@ def cleanup_duplicate_users_view(request):
             "deleted_count": del_count
         })
         
-    return response.Response({
+        return response.Response({
         "status": "success",
         "total_deleted": total_deleted,
         "duplicates_processed": report
     })
+
+class StudentPsychometricProfileView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            from .db_utils import get_db
+            db = get_db()
+            if db is not None:
+                doc = db['api_studentpsychometricprofile'].find_one({'user_id': request.user.pk})
+                if doc:
+                    # Format for frontend
+                    return response.Response({
+                        'id':             str(doc.get('id', '')),
+                        'classification': doc.get('classification', ''),
+                        'traits':         doc.get('traits', []),
+                        'summary':        doc.get('summary', ''),
+                        'raw_responses':  doc.get('raw_responses', {}),
+                        'created_at':     doc.get('created_at'),
+                    })
+        except Exception as e:
+            print(f"[PsychometricView] PyMongo get failed: {e}")
+
+        # Fallback to ORM
+        profile = StudentPsychometricProfile.objects.filter(user=request.user).first()
+        if profile:
+            serializer = StudentPsychometricProfileSerializer(profile)
+            return response.Response(serializer.data)
+        return response.Response(None, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        profile = StudentPsychometricProfile.objects.filter(user=request.user).first()
+        if profile:
+            serializer = StudentPsychometricProfileSerializer(profile, data=request.data, partial=True)
+        else:
+            serializer = StudentPsychometricProfileSerializer(data=request.data)
+            
+        if serializer.is_valid():
+            instance = serializer.save(user=request.user)
+            
+            # Djongo Field Dropping Patch
+            try:
+                from .db_utils import get_db
+                db = get_db()
+                if db is not None:
+                    payload = {
+                        'classification': request.data.get('classification', ''),
+                        'traits':         request.data.get('traits', []),
+                        'summary':        request.data.get('summary', ''),
+                        'raw_responses':  request.data.get('raw_responses', {}),
+                        'user_id':        request.user.pk
+                    }
+                    db['api_studentpsychometricprofile'].update_one(
+                        {'id': instance.pk},
+                        {'$set': payload},
+                        upsert=True
+                    )
+            except Exception as e:
+                print(f"[PsychometricView] Patch failed: {e}")
+
+            return response.Response(serializer.data, status=status.HTTP_201_CREATED)
+        return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class StudentStudyPlannerConfigView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            from .db_utils import get_db
+            db = get_db()
+            if db is not None:
+                doc = db['api_studentstudyplannerconfig'].find_one({'user_id': request.user.pk})
+                if doc:
+                    return response.Response({
+                        'id':             str(doc.get('_id', '')),
+                        'target_college': doc.get('target_college', {}),
+                        'updated_at':     doc.get('updated_at'),
+                    })
+        except Exception as e:
+            print(f"[PlannerConfigView] PyMongo get failed: {e}")
+
+        config = StudentStudyPlannerConfig.objects.filter(user=request.user).first()
+        if config:
+            serializer = StudentStudyPlannerConfigSerializer(config)
+            return response.Response(serializer.data)
+        return response.Response(None, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        config = StudentStudyPlannerConfig.objects.filter(user=request.user).first()
+        if config:
+            serializer = StudentStudyPlannerConfigSerializer(config, data=request.data, partial=True)
+        else:
+            serializer = StudentStudyPlannerConfigSerializer(data=request.data)
+            
+        if serializer.is_valid():
+            instance = serializer.save(user=request.user)
+            
+            # Patch for Djongo JSON fields
+            try:
+                from .db_utils import get_db
+                db = get_db()
+                if db is not None:
+                    from datetime import datetime
+                    db['api_studentstudyplannerconfig'].update_one(
+                        {'_id': instance.pk},
+                        {'$set': {
+                            'target_college': request.data.get('target_college', {}),
+                            'user_id':        request.user.pk,
+                            'updated_at':     datetime.utcnow()
+                        }},
+                        upsert=True
+                    )
+            except Exception as e:
+                print(f"[PlannerConfigView] Patch failed: {e}")
+
+            return response.Response(serializer.data, status=status.HTTP_201_CREATED)
+        return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -14,6 +14,7 @@ import {
     Moon,
     Lock
 } from 'lucide-react';
+import StudentPsychometricForm from '../components/StudentPsychometricForm';
 
 const ExamEngine = () => {
     const { id: testId } = useParams();
@@ -45,6 +46,8 @@ const ExamEngine = () => {
     const [submissionType, setSubmissionType] = useState('MANUAL'); // 'MANUAL', 'TIME_UP', 'VIOLATION'
     const [questionTimes, setQuestionTimes] = useState({}); // { qId: seconds }
     const [lastViewedPerSection, setLastViewedPerSection] = useState({});
+    const [showPsychometric, setShowPsychometric] = useState(false);
+    const [psychometricResult, setPsychometricResult] = useState(null);
 
     const triggerToast = (msg) => {
         setToast({ show: true, message: msg });
@@ -59,12 +62,21 @@ const ExamEngine = () => {
     const isSubmittedRef = useRef(false);
 
     const handleReturnToDashboard = () => {
+        // SAFETY: Block any accidental redirect if the psychometric form is active
+        if (showPsychometric) return;
+        
         try {
             if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
                 document.exitFullscreen().catch(() => {});
             }
         } catch (err) {}
-        navigate('/student');
+
+        // If it's a study planner exam, redirect back to the Study Planner tab specifically at Step 3 (Results)
+        if (paperData?.exam_type_name === 'STUDY PLANNER') {
+            navigate('/student?tab=Study%20Planner&step=3');
+        } else {
+            navigate('/student');
+        }
     };
 
     // Initial stabilization period to prevent false violations during load/transition
@@ -90,7 +102,7 @@ const ExamEngine = () => {
     }, [responses]);
 
     const handleSaveProgress = useCallback(async (isFinal = false) => {
-        if (isSubmitted || isLocked || !paperData) return;
+        if (isSubmitted || isLocked || !paperData || showPsychometric) return;
         try {
             await axios.post(`${getApiUrl()}/api/tests/${testId}/save_progress/`, {
                 responses: getBackendResponses(),
@@ -114,12 +126,6 @@ const ExamEngine = () => {
                 });
                 const sData = statusResp.data;
 
-                if (sData.is_finalized && !sData.allow_resume) {
-                    setIsSubmitted(true);
-                    setIsLoading(false);
-                    return;
-                }
-
                 if (sData.status === 'interrupted' && !sData.allow_resume) {
                     setIsLocked(true);
                     setLockReason("SESSION INTERRUPTED. Your previous session was terminated unexpectedly. In accordance with security protocols, your account is now locked. Please contact the administrator to authorize a resume.");
@@ -131,14 +137,27 @@ const ExamEngine = () => {
                 const response = await axios.get(`${getApiUrl()}/api/tests/${testId}/question_paper/`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                setPaperData(response.data);
+                const paper = response.data;
+                setPaperData(paper);
+
+                if (sData.is_finalized && !sData.allow_resume) {
+                    // If it's a study planner and we don't have results, show psychometric
+                    if (paper.exam_type_name === 'STUDY PLANNER' && !psychometricResult) {
+                        setShowPsychometric(true);
+                        isSubmittedRef.current = true;
+                    } else {
+                        setIsSubmitted(true);
+                    }
+                    setIsLoading(false);
+                    return;
+                }
                 
                 // Restore time or set default
                 if (sData.time_spent > 0) {
-                    setTimeLeft(Math.max(1, (parseInt(response.data.duration || 180) * 60) - sData.time_spent));
+                    setTimeLeft(Math.max(1, (parseInt(paper.duration || 180) * 60) - sData.time_spent));
                     setShowResumeModal(true);
                 } else {
-                    setTimeLeft(parseInt(response.data.duration || 180) * 60);
+                    setTimeLeft(parseInt(paper.duration || 180) * 60);
                 }
 
                 // Restore responses
@@ -351,6 +370,11 @@ const ExamEngine = () => {
 
     const handleSubmit = useCallback(async (type = 'MANUAL') => {
         if (!paperData || isSubmitting) return;
+        
+        // CRITICAL: DISABLE SECURITY MONITORS IMMEDIATELY
+        setShowViolation(false);
+        isSubmittedRef.current = true;
+        
         setIsSubmitting(true);
         setSubmissionType(type);
 
@@ -387,7 +411,17 @@ const ExamEngine = () => {
             });
 
             setReportData(summary);
-            setIsSubmitted(true);
+            
+            // Only show Psychometric Form if it is a STUDY PLANNER exam
+            if (paperData?.exam_type_name === 'STUDY PLANNER') {
+                setShowPsychometric(true);
+                // CRITICAL: Update ref immediately to prevent race condition with fullscreenchange event
+                isSubmittedRef.current = true;
+            } else {
+                setIsSubmitted(true);
+                isSubmittedRef.current = true;
+            }
+            
             exitFullscreen();
         } catch (err) {
             console.error('Error submitting exam:', err);
@@ -399,8 +433,8 @@ const ExamEngine = () => {
 
     // Use a ref to track submission status for event listeners
     useEffect(() => {
-        isSubmittedRef.current = isSubmitted;
-    }, [isSubmitted]);
+        isSubmittedRef.current = isSubmitted || showPsychometric;
+    }, [isSubmitted, showPsychometric]);
 
     // Handlers (Moved outside useEffect for stability)
     const handleFullscreenChange = useCallback(() => {
@@ -482,11 +516,11 @@ const ExamEngine = () => {
     // Violation Auto-Submit Timer
     useEffect(() => {
         let interval = null;
-        if (showViolation && !isSubmitted && violationTimer > 0) {
+        if (showViolation && !isSubmitted && !showPsychometric && violationTimer > 0) {
             interval = setInterval(() => {
                 setViolationTimer(prev => prev - 1);
             }, 1000);
-        } else if (showViolation && !isSubmitted && violationTimer === 0) {
+        } else if (showViolation && !isSubmitted && !showPsychometric && violationTimer === 0) {
             handleSubmit('VIOLATION');
         }
 
@@ -497,7 +531,7 @@ const ExamEngine = () => {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [showViolation, violationTimer, isSubmitted]);
+    }, [showViolation, violationTimer, isSubmitted, showPsychometric]);
 
     // Individual Question Timer (Persistent per question)
     useEffect(() => {
@@ -585,6 +619,33 @@ const ExamEngine = () => {
         </div>
     );
 
+
+    if (showPsychometric) {
+        return (
+            <div className={`min-h-screen w-full flex items-center justify-center p-4 ${isDarkMode ? 'bg-[#0a0d14]' : 'bg-slate-50'}`}>
+                <div className={`w-full max-w-5xl h-[90vh] rounded-2xl overflow-hidden shadow-2xl border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                    <StudentPsychometricForm 
+                        isDarkMode={isDarkMode} 
+                        studentData={studentData || { name: studentName, email: studentEmail }}
+                        onSubmit={async (res) => {
+                            try {
+                                const apiUrl = getApiUrl();
+                                await axios.post(`${apiUrl}/api/student/psychometric-profile/`, res, {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                setPsychometricResult(res);
+                            } catch (err) {
+                                console.error("Failed to persist psychometric profile:", err);
+                                setPsychometricResult(res);
+                            }
+                            setShowPsychometric(false);
+                            setIsSubmitted(true);
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    }
 
     if (isSubmitted) {
         const totalAttempted = reportData.reduce((acc, curr) => acc + curr.attempted, 0);

@@ -1870,7 +1870,8 @@ class TestViewSet(viewsets.ModelViewSet):
             'test_code': test.code,
             'duration': test.duration,
             'instructions': test.instructions,
-            'sections': sections_data
+            'sections': sections_data,
+            'exam_type_name': test.exam_type.name if test.exam_type else None
         }
         
         # Cache for 60 minutes

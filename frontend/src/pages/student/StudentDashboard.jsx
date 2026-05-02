@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, User, CheckSquare, FileText,
     TrendingUp, Activity, AlertCircle, BookOpen,
@@ -32,6 +33,25 @@ const StudentDashboard = () => {
     const { user, logout, token, getApiUrl, loading: authLoading, refreshUser } = useAuth();
     const { isDarkMode } = useTheme();
     const [activeTab, setActiveTab] = useState('Dashboard');
+
+    const location = useLocation();
+
+    // URL-based Tab Navigation
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab) {
+            // Mapping check to ensure valid tab
+            const validTabs = [
+                'Dashboard', 'My Profile', 'Classes', 'Attendance', 
+                'Exams', 'Results', 'Performance', 'Grievances', 
+                'Study Materials', 'Study Planner', 'Notice Board'
+            ];
+            if (validTabs.includes(tab)) {
+                setActiveTab(tab);
+            }
+        }
+    }, [location.search]);
     const [studentData, setStudentData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [silentLoading, setSilentLoading] = useState(false);
@@ -213,7 +233,9 @@ const StudentDashboard = () => {
         label: item.name,
         icon: item.icon,
         active: activeTab === item.name || item.subItems?.some(s => s.name === activeTab),
-        onClick: item.subItems ? undefined : () => setActiveTab(item.name),
+        onClick: item.subItems ? undefined : () => {
+            setActiveTab(item.name);
+        },
         subItems: item.subItems?.map(sub => ({
             label: sub.name,
             icon: sub.icon,
