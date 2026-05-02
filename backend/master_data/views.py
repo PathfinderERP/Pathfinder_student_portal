@@ -770,7 +770,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
             'session', 'class_level', 'subject', 'chapter', 'topic', 
             'exam_type', 'target_exam', 'section'
         ).prefetch_related(
-            'pdfs', 'videos', 'dpps', 'questions'
+            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
         ).all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
@@ -975,7 +975,7 @@ class SolutionItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, vie
     def get_queryset(self):
         queryset = SolutionItem.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam'
-        ).prefetch_related('sections').all().order_by('-created_at')
+        ).prefetch_related('sections', 'sessions', 'target_exams').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'sections')
 
 class NoticeViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
@@ -988,7 +988,7 @@ class NoticeViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.
     def get_queryset(self):
         queryset = Notice.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
-        ).all().order_by('-created_at')
+        ).prefetch_related('sessions', 'target_exams').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
 class LiveClassViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
@@ -999,7 +999,7 @@ class LiveClassViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewse
     def get_queryset(self):
         queryset = LiveClass.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
-        ).prefetch_related('packages').all().order_by('-created_at')
+        ).prefetch_related('packages', 'sessions', 'target_exams').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
 class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
@@ -1011,7 +1011,7 @@ class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.M
     def get_queryset(self):
         queryset = Video.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
-        ).prefetch_related('packages').all().order_by('-created_at')
+        ).prefetch_related('packages', 'sessions', 'target_exams').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
 class PenPaperTestViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
@@ -1023,7 +1023,7 @@ class PenPaperTestViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, vie
     def get_queryset(self):
         queryset = PenPaperTest.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam'
-        ).prefetch_related('packages', 'sections').all().order_by('-created_at')
+        ).prefetch_related('packages', 'sections', 'sessions', 'target_exams').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'sections')
 
 class HomeworkViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):
@@ -1036,7 +1036,7 @@ class HomeworkViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewset
     def get_queryset(self):
         queryset = Homework.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam'
-        ).prefetch_related('sections', 'packages').all().order_by('-created_at')
+        ).prefetch_related('sections', 'packages', 'sessions', 'target_exams').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'sections')
 
 class BannerViewSet(viewsets.ModelViewSet):

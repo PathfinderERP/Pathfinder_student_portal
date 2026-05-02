@@ -445,16 +445,28 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
                 {/* 3. CHAPTER NAVIGATION & CONTENT */}
                 <div className="space-y-8">
-                    {!activeSubjectData ? (
-                        <div className={`flex flex-col items-center justify-center min-h-[400px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                    {isLoading ? (
+                        <div key="loading-vault" className={`flex flex-col items-center justify-center min-h-[400px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="w-24 h-24 rounded-full bg-orange-500/5 flex items-center justify-center mb-6">
+                                <Loader2 size={48} className="text-orange-500 animate-spin" />
+                            </div>
+                            <h3 className={`text-2xl font-black tracking-tight uppercase mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Loading Vault...</h3>
+                            <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.3em]">Gathering your study materials</p>
+                        </div>
+                    ) : !activeSubjectData ? (
+                        <div key="empty-subject" className={`flex flex-col items-center justify-center min-h-[400px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
                             <div className="w-24 h-24 rounded-full bg-orange-500/5 flex items-center justify-center mb-6 animate-pulse">
                                 <Compass size={48} className="text-orange-500 opacity-20" />
                             </div>
-                            <h3 className={`text-2xl font-black tracking-tight uppercase mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Choose a Subject</h3>
-                            <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.3em]">Select a library category above to begin learning</p>
+                            <h3 className={`text-2xl font-black tracking-tight uppercase mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                {materials.length === 0 ? 'No Materials Found' : 'Choose a Subject'}
+                            </h3>
+                            <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.3em]">
+                                {materials.length === 0 ? 'Check back later for new content' : 'Select a library category above to begin learning'}
+                            </p>
                         </div>
                     ) : (
-                        <div className="space-y-12 animate-in fade-in duration-700">
+                        <div key="loaded-content" className="space-y-12 animate-in fade-in duration-700 outline-none" style={{ outline: 'none' }}>
                              {/* Chapter Row */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-4">
@@ -484,15 +496,15 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                             </div>
 
                             {/* Topics & Content */}
-                            {!activeChapter ? (
+                            {!activeChapterData ? (
                                 <div className={`flex flex-col items-center justify-center min-h-[300px] rounded-[30px] border-2 border-dashed ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
                                     <h3 className={`text-xl font-black tracking-tight uppercase mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pick a Chapter</h3>
                                     <p className="text-[9px] font-black opacity-30 uppercase tracking-[0.2em]">Explore {activeSubject} in depth</p>
                                 </div>
                             ) : (
                                 <div className="space-y-10">
-                                    {Object.keys(activeChapterData.topics).sort().map(topName => {
-                                        const topicItems = activeChapterData.topics[topName].materials;
+                                    {Object.keys(activeChapterData?.topics || {}).sort().map(topName => {
+                                        const topicItems = activeChapterData?.topics?.[topName]?.materials || [];
                                         if (topicItems.length === 0) return null;
 
                                         return (
