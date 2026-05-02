@@ -78,15 +78,17 @@ class TestViewSet(viewsets.ModelViewSet):
             # Centre Filter: Student's centre must be in the test's allotted centres
             centre_filter = Q(centres__code__iexact=c_code) | Q(centres__name__iexact=c_name)
             
-            # Academic Filter: Test must match student's Session, ClassLevel, and TargetExam
-            # We only apply these filters if they are set on the user to avoid blocking them if sync hasn't happened.
+            # Academic Filter: Test must match student's ClassLevel and TargetExam.
+            # Session check is bypassed for STUDY PLANNER exams to allow cross-year strategy access.
             academic_filter = Q()
-            if user.session:
-                academic_filter &= Q(session=user.session)
             if user.class_level:
                 academic_filter &= Q(class_level=user.class_level)
             if user.target_exam:
                 academic_filter &= Q(target_exams=user.target_exam)
+            
+            # Session filtering: Must match UNLESS it is a STUDY PLANNER exam
+            if user.session:
+                academic_filter &= (Q(exam_type__name='STUDY PLANNER') | Q(session=user.session))
             
             # Combine filters: Show tests that are either already submitted OR match both centre and academic criteria
             queryset = queryset.filter(
