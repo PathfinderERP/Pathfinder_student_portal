@@ -202,7 +202,7 @@ const StudentDashboard = () => {
                 { name: 'DPP Questions', icon: Target }
             ]
         },
-        { name: 'Scholarlab', icon: Beaker },
+        // { name: 'Scholarlab', icon: Beaker },
         // { name: 'Advanced Analytics', icon: BarChart2 },
         // { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
