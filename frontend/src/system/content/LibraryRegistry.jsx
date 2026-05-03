@@ -455,18 +455,21 @@ const LibraryRegistry = () => {
         toast.success('Local draft cleared.');
     };
 
-    const fetchLibraryItems = useCallback(async () => {
+    const fetchLibraryItems = useCallback(async (forceRefresh = false) => {
         if (authLoading) return;
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/master-data/library/`, {
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            });
+            const config = token ? { 
+                headers: { 'Authorization': `Bearer ${token}` },
+                params: forceRefresh ? { refresh: 'true' } : {}
+            } : {};
+            const response = await axios.get(`${apiUrl}/api/master-data/library/`, config);
             // Library items can be paginated {results: []} or a simple array
             const data = response.data;
             const itemsList = Array.isArray(data) ? data : (data.results || data.library || []);
             setLibraryItems(itemsList);
+            if (forceRefresh) toast.success("Data refreshed from server");
         } catch (error) {
             console.error("Failed to fetch library items", error);
             toast.error("Failed to load library content");
@@ -1132,46 +1135,60 @@ const LibraryRegistry = () => {
     // Master-Data Synchronized Source
     const mergedSource = useMemo(() => {
         const safeLibrary = safeArray(libraryItems);
+        const safeTopics = safeArray(topics);
         const safeChapters = safeArray(chapters);
         
-        // Track which chapters are already represented in Library
-        const existingChapterIds = new Set(safeLibrary.map(item => String(item.chapter)));
+        // Track which topics are already represented in Library
+        const existingTopicIds = new Set(safeLibrary.map(item => String(item.topic)));
         
-        // Create virtual items for chapters that have NO library content yet
-        const virtualItems = safeChapters
-            .filter(ch => !existingChapterIds.has(String(ch.id)))
-            .map(ch => ({
-                id: `virtual-${ch.id}`,
-                name: ch.name || "Untitled Chapter",
-                chapter: ch.id,
-                chapter_name: ch.name,
-                chapter_order: ch.sort_order || 999,
-                subject: ch.subject,
-                subject_name: ch.subject_name,
-                class_level: ch.class_level,
-                class_name: ch.class_level_name,
-                is_virtual: true,
-                created_at: ch.created_at || new Date().toISOString(),
-                pdfs: [],
-                videos: [],
-                dpps: []
-            }));
+        // Create virtual items for topics that have NO library content yet
+        const virtualItems = safeTopics
+            .filter(t => !existingTopicIds.has(String(t.id)))
+            .map(t => {
+                const chapterInfo = safeChapters.find(ch => String(ch.id) === String(t.chapter));
+                return {
+                    id: `virtual-${t.id}`,
+                    name: t.name || "Untitled Topic",
+                    topic: t.id,
+                    topic_name: t.name,
+                    chapter: t.chapter,
+                    chapter_name: chapterInfo?.name || "Unsorted",
+                    chapter_order: chapterInfo?.sort_order || 999,
+                    topic_order: t.sort_order || 999,
+                    subject: t.subject,
+                    subject_name: t.subject_name,
+                    class_level: t.class_level,
+                    class_name: t.class_level_name,
+                    is_virtual: true,
+                    created_at: t.created_at || new Date().toISOString(),
+                    pdfs: [],
+                    videos: [],
+                    dpps: []
+                };
+            });
 
         const itemsWithOrder = safeLibrary.map(item => {
             const chapterInfo = safeChapters.find(ch => String(ch.id) === String(item.chapter));
+            const topicInfo = safeTopics.find(t => String(t.id) === String(item.topic));
             return {
                 ...item,
-                chapter_order: chapterInfo?.sort_order || 999
+                chapter_order: chapterInfo?.sort_order || 999,
+                topic_order: topicInfo?.sort_order || 999,
+                topic_name: item.topic_name || topicInfo?.name
             };
         });
 
         return [...itemsWithOrder, ...virtualItems];
-    }, [libraryItems, chapters]);
+    }, [libraryItems, topics, chapters]);
 
     // Filter Logic
     const filteredItems = useMemo(() => {
         return mergedSource.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSearch = !searchQuery || 
+                (item.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.topic_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.chapter_name || "").toLowerCase().includes(searchQuery.toLowerCase());
+
             const matchesSession = !activeFilters.session || 
                 String(item.session) === String(activeFilters.session) || 
                 (item.sessions && item.sessions.some(s => String(s) === String(activeFilters.session))) || 
@@ -1184,9 +1201,15 @@ const LibraryRegistry = () => {
             const matchesTargetExam = activeFilters.target_exams.length === 0 || 
                 (item.target_exams && item.target_exams.some(te => activeFilters.target_exams.includes(te)));
             const matchesSection = true;
+            
+            const hasPDF = !!(item.pdf_file || (item.pdfs && item.pdfs.length > 0));
+            const hasVideo = !!(item.video_link || item.video_file || (item.videos && item.videos.length > 0));
+            const hasDPP = !!(item.dpps && item.dpps.length > 0 || item.questions?.length > 0);
+
             const matchesContentType = !activeFilters.contentType ||
-                (activeFilters.contentType === 'pdf' && item.pdf_file) ||
-                (activeFilters.contentType === 'video' && (item.video_link || item.video_file));
+                (activeFilters.contentType === 'pdf' && hasPDF) ||
+                (activeFilters.contentType === 'video' && hasVideo) ||
+                (activeFilters.contentType === 'dpp' && hasDPP);
 
             return matchesSearch && matchesSession && matchesClass && matchesSubject && matchesChapter && matchesTopic && matchesExamType && matchesTargetExam && matchesSection && matchesContentType;
         }).sort((a, b) => {
@@ -1363,8 +1386,9 @@ const LibraryRegistry = () => {
                                 />
                             </div>
                             <button
-                                onClick={() => { fetchLibraryItems(); fetchMasterData(); }}
+                                onClick={() => { fetchLibraryItems(true); fetchMasterData(); }}
                                 className={`p-4 rounded-[5px] transition-colors ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-[#E67E22] border border-white/5' : 'bg-[#E67E22]/10 hover:bg-[#E67E22]/20 text-[#E67E22] border border-[#E67E22]/20'}`}
+                                title="Force Refresh from Server"
                             >
                                 <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
                             </button>
@@ -1428,6 +1452,7 @@ const LibraryRegistry = () => {
                                 <option value="">All Types</option>
                                 <option value="pdf">PDF Documents</option>
                                 <option value="video">Video Content</option>
+                                <option value="dpp">DPP Questions</option>
                             </select>
                             {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.chapter || activeFilters.target_exams.length > 0 || activeFilters.contentType) && (
                                 <button
@@ -1469,7 +1494,8 @@ const LibraryRegistry = () => {
                                  <th className="py-5 px-6 text-center">Session</th>
                                  <th className="py-5 px-6 text-center">Class</th>
                                  <th className="py-5 px-6 text-center">Subject</th>
-                                 <th className="py-5 px-6">Chapter Name</th>
+                                 <th className="py-5 px-6">Chapter & Topic</th>
+                                 <th className="py-5 px-6 text-center">Resources</th>
                                  <th className="py-5 px-6 text-center">Actions</th>
                             </tr>
                         </thead>
@@ -1527,7 +1553,34 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6">
                                             <div className="flex flex-col">
-                                                <span className="font-extrabold text-sm uppercase text-[#E67E22] tracking-tight">{item.chapter_name || '-'}</span>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{item.chapter_name || '-'}</span>
+                                                <span className="font-extrabold text-sm uppercase text-[#E67E22] tracking-tight">{item.topic_name || item.name || '-'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className="flex items-center justify-center gap-3">
+                                                {(() => {
+                                                    const pdfCount = (item.pdfs?.length || 0) + (item.pdf_file ? 1 : 0);
+                                                    const videoCount = (item.videos?.length || 0) + (item.video_link || item.video_file ? 1 : 0);
+                                                    const dppCount = (item.dpps?.length || 0) + (item.questions?.length > 0 ? 1 : 0);
+                                                    
+                                                    return (
+                                                        <>
+                                                            <div className={`flex flex-col items-center gap-0.5 ${pdfCount > 0 ? 'text-blue-500' : 'opacity-20'}`} title="PDFs">
+                                                                <FileText size={14} strokeWidth={3} />
+                                                                <span className="text-[9px] font-black">{pdfCount}</span>
+                                                            </div>
+                                                            <div className={`flex flex-col items-center gap-0.5 ${videoCount > 0 ? 'text-amber-500' : 'opacity-20'}`} title="Videos">
+                                                                <Video size={14} strokeWidth={3} />
+                                                                <span className="text-[9px] font-black">{videoCount}</span>
+                                                            </div>
+                                                            <div className={`flex flex-col items-center gap-0.5 ${dppCount > 0 ? 'text-emerald-500' : 'opacity-20'}`} title="DPP/Questions">
+                                                                <HelpCircle size={14} strokeWidth={3} />
+                                                                <span className="text-[9px] font-black">{dppCount}</span>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </td>
                                         <td className="py-5 px-6 text-center">
