@@ -569,6 +569,21 @@ class StudentStudyPlannerConfigView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        latest_plan = None
+        try:
+            from .models import StudentMasterPlan
+            prev_plan = StudentMasterPlan.objects.filter(user=request.user).order_by('-created_at').first()
+            if prev_plan:
+                has_previous_plan = True
+                latest_plan = {
+                    'content': prev_plan.master_plan,
+                    'test_id': prev_plan.test_id,
+                    'created_at': prev_plan.created_at,
+                    'target_college': prev_plan.target_college
+                }
+        except Exception:
+            pass
+
         try:
             from .db_utils import get_db
             db = get_db()
@@ -579,6 +594,8 @@ class StudentStudyPlannerConfigView(views.APIView):
                         'id':             str(doc.get('_id', '')),
                         'target_college': doc.get('target_college', {}),
                         'updated_at':     doc.get('updated_at'),
+                        'has_previous_plan': has_previous_plan,
+                        'latest_plan': latest_plan
                     })
         except Exception as e:
             print(f"[PlannerConfigView] PyMongo get failed: {e}")
@@ -586,8 +603,14 @@ class StudentStudyPlannerConfigView(views.APIView):
         config = StudentStudyPlannerConfig.objects.filter(user=request.user).first()
         if config:
             serializer = StudentStudyPlannerConfigSerializer(config)
-            return response.Response(serializer.data)
-        return response.Response(None, status=status.HTTP_200_OK)
+            data = serializer.data
+            data['has_previous_plan'] = has_previous_plan
+            data['latest_plan'] = latest_plan
+            return response.Response(data)
+        return response.Response({
+            'has_previous_plan': has_previous_plan,
+            'latest_plan': latest_plan
+        }, status=status.HTTP_200_OK)
 
     def post(self, request):
         config = StudentStudyPlannerConfig.objects.filter(user=request.user).first()

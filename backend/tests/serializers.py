@@ -246,31 +246,36 @@ class TestSerializer(serializers.ModelSerializer):
             if request.user.is_staff or getattr(request.user, 'user_type', '') != 'student':
                 return None
             
-        # Optimization: Use PyMongo directly to bypass Djongo's SQL parser RecursionError (500)
-        from api.db_utils import get_db
-        db = get_db()
-        if db is None:
+        # PERFORMANCE OPTIMIZATION: Check if submissions were pre-fetched in the list view context
+        student_subs = self.context.get('student_submissions')
+        sub = None
+        if student_subs and isinstance(student_subs, dict):
+            sub = student_subs.get(str(obj.pk))
+        else:
+            # Fallback to single lookup if not in bulk context (e.g. detail view)
+            from api.db_utils import get_db
+            db = get_db()
+            if db:
+                try:
+                    # Match directly on the integer test_id and the student ObjectId
+                    sub = db['tests_testsubmission'].find_one({
+                        'test_id': obj.pk,
+                        'student_id': request.user.pk
+                    }, {'is_finalized': 1, 'allow_resume': 1, 'time_spent': 1, 'submitted_at': 1, 'updated_at': 1, 'score': 1})
+                except Exception:
+                    pass
+        
+        if not sub:
             return None
             
-        try:
-            # Match directly on the integer test_id and the student ObjectId
-            sub = db['tests_testsubmission'].find_one({
-                'test_id': obj.pk,
-                'student_id': request.user.pk
-            }, {'is_finalized': 1, 'allow_resume': 1, 'time_spent': 1})
-            
-            if not sub:
-                return None
-                
-            submitted_at = sub.get('submitted_at') or sub.get('updated_at')
-            return {
-                'is_finalized': sub.get('is_finalized', False),
-                'allow_resume': sub.get('allow_resume', False),
-                'time_spent': sub.get('time_spent', 0),
-                'submitted_date': submitted_at.isoformat() if hasattr(submitted_at, 'isoformat') else str(submitted_at) if submitted_at else None
-            }
-        except Exception:
-            return None
+        submitted_at = sub.get('submitted_at') or sub.get('updated_at')
+        return {
+            'is_finalized': sub.get('is_finalized', False),
+            'allow_resume': sub.get('allow_resume', False),
+            'time_spent': sub.get('time_spent', 0),
+            'score': float(sub.get('score', 0)),
+            'submitted_date': submitted_at.isoformat() if hasattr(submitted_at, 'isoformat') else str(submitted_at) if submitted_at else None
+        }
 
     def _get_user_allotment(self, obj):
         request = self.context.get('request')

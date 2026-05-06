@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    Brain, Target, GraduationCap, ChevronLeft, ChevronRight, Activity, Clock, CheckCircle2, XCircle,
+    Brain, Target, GraduationCap, ChevronLeft, ChevronRight, Activity, CheckCircle2, XCircle,
     BookOpen, Calculator, Atom, Orbit, Sparkles, Loader2, ArrowRight, Dna,
-    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair, Search, ChevronDown, AlertTriangle, X
+    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair, Search, ChevronDown, AlertTriangle, X, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
@@ -162,11 +162,24 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     const res = await axios.get(`${apiUrl}/api/student/study-planner-config/`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    if (res.data && res.data.target_college) {
-                        const collegeObj = res.data.target_college;
-                        setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "" }));
-                        setSelectedCollege(collegeObj);
-                        setCollegeSearch(collegeObj.name || "");
+                    if (res.data) {
+                        if (res.data.target_college) {
+                            const collegeObj = res.data.target_college;
+                            setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "" }));
+                            setSelectedCollege(collegeObj);
+                            setCollegeSearch(collegeObj.name || "");
+                        }
+                        // Track whether the student already has a previous master plan
+                        if (res.data.has_previous_plan) {
+                            setHasPreviousPlan(true);
+                        }
+                        if (res.data.latest_plan) {
+                            setAiPlan(res.data.latest_plan.content);
+                            // Initial check: if no test selected yet, or if matches
+                            if (selectedTest && (selectedTest.id === res.data.latest_plan.test_id)) {
+                                setPlanSavedForCurrentTest(true);
+                            }
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to fetch planner config:", err);
@@ -189,10 +202,196 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [performanceData, setPerformanceData] = useState(null);
     const [analyzingId, setAnalyzingId] = useState(null);
     const [selectedTest, setSelectedTest] = useState(null);
-    const [viewMode, setViewMode] = useState('plan'); // 'plan' or 'solutions'
+    const [viewMode, setViewMode] = useState('cutoff'); // 'cutoff', 'solutions', 'plan'
     const [activeSolutionSection, setActiveSolutionSection] = useState("");
     const [showPsychometric, setShowPsychometric] = useState(false);
     const [psychometricResult, setPsychometricResult] = useState(null);
+    const [hasPreviousPlan, setHasPreviousPlan] = useState(false); // true if any plan ever saved in DB
+    const [planSavedForCurrentTest, setPlanSavedForCurrentTest] = useState(false); // true once plan is saved/loaded for this specific exam
+
+    // Auto-fetch/Synthesize Master Plan logic
+    useEffect(() => {
+        if (!selectedTest || !testScores) return;
+        
+        const tId = selectedTest.id || selectedTest._id;
+        
+        // If we don't have ANY plan yet, auto-synthesize for the first time
+        if (!hasPreviousPlan && !aiPlan && !aiLoading) {
+            console.log("[Plan] No previous plan found. Auto-synthesizing for first assessment...");
+            generateAIPlan(false);
+            return;
+        }
+
+        // If we have a plan, check if it belongs to THIS test
+        // The backend generate_ai_study_plan (POST) with is_update_request=false 
+        // will return the cached plan if it exists for this test_id.
+        const checkCurrentTestPlan = async () => {
+            if (planSavedForCurrentTest || aiLoading) return;
+            
+            try {
+                const apiUrl = getApiUrl();
+                // We call the same endpoint; if cached it's fast and doesn't use quota
+                const res = await axios.post(`${apiUrl}/api/student/ai-mentor/study-plan/`, {
+                    test_id: tId,
+                    is_update_request: false
+                }, { headers: { Authorization: `Bearer ${token}` } });
+                
+                if (res.data && res.data.cached) {
+                    setAiPlan(res.data.ai_plan);
+                    setPlanSavedForCurrentTest(true);
+                }
+            } catch (err) {
+                console.error("[Plan] Error checking for current test plan:", err);
+            }
+        };
+
+        checkCurrentTestPlan();
+    }, [selectedTest, testScores, hasPreviousPlan]);
+
+
+    // --- College Logo Helper ---
+    // Maps common Indian engineering/medical college names to their official domains
+    const COLLEGE_DOMAIN_MAP = {
+        'indian institute of technology bombay': 'iitb.ac.in',
+        'indian institute of technology delhi': 'iitd.ac.in',
+        'indian institute of technology madras': 'iitm.ac.in',
+        'indian institute of technology kanpur': 'iitk.ac.in',
+        'indian institute of technology kharagpur': 'iitkgp.ac.in',
+        'indian institute of technology roorkee': 'iitr.ac.in',
+        'indian institute of technology guwahati': 'iitg.ac.in',
+        'indian institute of technology hyderabad': 'iith.ac.in',
+        'indian institute of technology jodhpur': 'iitj.ac.in',
+        'indian institute of technology bhubaneswar': 'iitbbs.ac.in',
+        'indian institute of technology indore': 'iiti.ac.in',
+        'national institute of technology trichy': 'nitt.edu',
+        'national institute of technology warangal': 'nitw.ac.in',
+        'national institute of technology surathkal': 'nitk.ac.in',
+        'national institute of technology calicut': 'nitc.ac.in',
+        'bits pilani': 'bits-pilani.ac.in',
+        'vellore institute of technology': 'vit.ac.in',
+        'aiims delhi': 'aiims.edu',
+        'aiims new delhi': 'aiims.edu',
+        'armed forces medical college': 'afmc.nic.in',
+        'christian medical college': 'cmch-vellore.edu',
+    };
+
+    const COLLEGE_URL_MAP = {
+        'indian institute of technology bombay': 'https://www.iitb.ac.in',
+        'indian institute of technology delhi': 'https://home.iitd.ac.in',
+        'indian institute of technology madras': 'https://www.iitm.ac.in',
+        'indian institute of technology kanpur': 'https://www.iitk.ac.in',
+        'indian institute of technology kharagpur': 'https://www.iitkgp.ac.in',
+        'indian institute of technology roorkee': 'https://www.iitr.ac.in',
+        'indian institute of technology guwahati': 'https://www.iitg.ac.in',
+        'indian institute of technology hyderabad': 'https://www.iith.ac.in',
+        'indian institute of technology jodhpur': 'https://www.iitj.ac.in',
+        'indian institute of technology bhubaneswar': 'https://www.iitbbs.ac.in',
+        'indian institute of technology indore': 'https://www.iiti.ac.in',
+        'national institute of technology trichy': 'https://www.nitt.edu',
+        'national institute of technology warangal': 'https://www.nitw.ac.in',
+        'national institute of technology surathkal': 'https://www.nitk.ac.in',
+        'national institute of technology calicut': 'https://www.nitc.ac.in',
+        'bits pilani': 'https://www.bits-pilani.ac.in',
+        'vellore institute of technology': 'https://vit.ac.in',
+        'aiims delhi': 'https://www.aiims.edu',
+        'aiims new delhi': 'https://www.aiims.edu',
+        'armed forces medical college': 'https://www.afmc.nic.in',
+        'christian medical college': 'https://www.cmch-vellore.edu',
+        'delhi technological university': 'https://www.dtu.ac.in',
+        'jadavpur university': 'https://jadavpuruniversity.in',
+        'anna university': 'https://www.annauniv.edu',
+        'psg college of technology': 'https://www.psgtech.edu',
+    };
+
+    const getCollegeUrl = (name = '') => {
+        const key = name.toLowerCase().trim();
+        if (COLLEGE_URL_MAP[key]) return COLLEGE_URL_MAP[key];
+        const domain = COLLEGE_DOMAIN_MAP[key];
+        if (domain) return `https://www.${domain}`;
+        return null;
+    };
+
+
+    const getCollegeDomain = (name = '') => {
+        const key = name.toLowerCase().trim();
+        return COLLEGE_DOMAIN_MAP[key] || null;
+    };
+
+
+    // Direct Wikipedia Commons logo URLs — verified, stable
+    const COLLEGE_LOGO_MAP = {
+        'indian institute of technology bombay':    'https://upload.wikimedia.org/wikipedia/en/thumb/b/b2/IIT_Bombay_Logo.svg/400px-IIT_Bombay_Logo.svg.png',
+        'iit bombay':                               'https://upload.wikimedia.org/wikipedia/en/thumb/b/b2/IIT_Bombay_Logo.svg/400px-IIT_Bombay_Logo.svg.png',
+        'indian institute of technology delhi':     'https://upload.wikimedia.org/wikipedia/en/thumb/f/fd/Indian_Institute_of_Technology_Delhi_Logo.svg/400px-Indian_Institute_of_Technology_Delhi_Logo.svg.png',
+        'iit delhi':                                'https://upload.wikimedia.org/wikipedia/en/thumb/f/fd/Indian_Institute_of_Technology_Delhi_Logo.svg/400px-Indian_Institute_of_Technology_Delhi_Logo.svg.png',
+        'indian institute of technology madras':    'https://upload.wikimedia.org/wikipedia/en/thumb/6/69/IIT_Madras_Logo.svg/400px-IIT_Madras_Logo.svg.png',
+        'iit madras':                               'https://upload.wikimedia.org/wikipedia/en/thumb/6/69/IIT_Madras_Logo.svg/400px-IIT_Madras_Logo.svg.png',
+        'indian institute of technology kanpur':    'https://upload.wikimedia.org/wikipedia/en/thumb/b/b8/IIT_Kanpur_Logo.svg/400px-IIT_Kanpur_Logo.svg.png',
+        'iit kanpur':                               'https://upload.wikimedia.org/wikipedia/en/thumb/b/b8/IIT_Kanpur_Logo.svg/400px-IIT_Kanpur_Logo.svg.png',
+        'indian institute of technology kharagpur': 'https://upload.wikimedia.org/wikipedia/en/thumb/1/1c/IIT_Kharagpur_Logo.svg/400px-IIT_Kharagpur_Logo.svg.png',
+        'iit kharagpur':                            'https://upload.wikimedia.org/wikipedia/en/thumb/1/1c/IIT_Kharagpur_Logo.svg/400px-IIT_Kharagpur_Logo.svg.png',
+        'indian institute of technology roorkee':   'https://upload.wikimedia.org/wikipedia/en/thumb/8/8e/IIT_Roorkee_Logo.svg/400px-IIT_Roorkee_Logo.svg.png',
+        'iit roorkee':                              'https://upload.wikimedia.org/wikipedia/en/thumb/8/8e/IIT_Roorkee_Logo.svg/400px-IIT_Roorkee_Logo.svg.png',
+        'indian institute of technology guwahati':  'https://upload.wikimedia.org/wikipedia/en/thumb/1/12/IIT_Guwahati_Logo.svg/400px-IIT_Guwahati_Logo.svg.png',
+        'iit guwahati':                             'https://upload.wikimedia.org/wikipedia/en/thumb/1/12/IIT_Guwahati_Logo.svg/400px-IIT_Guwahati_Logo.svg.png',
+        'national institute of technology trichy':  'https://upload.wikimedia.org/wikipedia/en/thumb/a/ad/National_Institute_of_Technology%2C_Tiruchirappalli_logo.svg/400px-National_Institute_of_Technology%2C_Tiruchirappalli_logo.svg.png',
+        'nit trichy':                               'https://upload.wikimedia.org/wikipedia/en/thumb/a/ad/National_Institute_of_Technology%2C_Tiruchirappalli_logo.svg/400px-National_Institute_of_Technology%2C_Tiruchirappalli_logo.svg.png',
+        'bits pilani':                              'https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/BITS_Pilani-Logo.svg/400px-BITS_Pilani-Logo.svg.png',
+        'vellore institute of technology':          'https://upload.wikimedia.org/wikipedia/en/thumb/c/c5/Vellore_Institute_of_Technology_seal_2017.svg/400px-Vellore_Institute_of_Technology_seal_2017.svg.png',
+        'vit vellore':                              'https://upload.wikimedia.org/wikipedia/en/thumb/c/c5/Vellore_Institute_of_Technology_seal_2017.svg/400px-Vellore_Institute_of_Technology_seal_2017.svg.png',
+        'aiims delhi':                              'https://upload.wikimedia.org/wikipedia/en/thumb/6/62/AIIMS_Delhi.png/400px-AIIMS_Delhi.png',
+        'aiims new delhi':                          'https://upload.wikimedia.org/wikipedia/en/thumb/6/62/AIIMS_Delhi.png/400px-AIIMS_Delhi.png',
+    };
+
+
+    const getCollegeLogo = (name = '') => COLLEGE_LOGO_MAP[name.toLowerCase().trim()] || null;
+
+    const CollegeLogo = ({ name, size = 56, aiLogoUrl = null }) => {
+        const [srcIndex, setSrcIndex] = useState(0);
+        const initials = (name || '').split(' ').filter(w => w.length > 2).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'C';
+        const staticLogo = getCollegeLogo(name);
+        const domain = getCollegeDomain(name);
+
+        // Build waterfall: Static Map -> AI URL -> Google Favicon -> DuckDuckGo -> initials
+        const sources = [
+            staticLogo,
+            aiLogoUrl,
+            domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null,
+            domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null
+        ].filter(Boolean);
+
+        // Reset waterfall if name or aiLogoUrl changes
+        useEffect(() => {
+            setSrcIndex(0);
+        }, [name, aiLogoUrl]);
+
+        const currentSrc = sources[srcIndex];
+
+        if (!currentSrc || srcIndex >= sources.length) {
+            return (
+                <div
+                    style={{ width: size, height: size, fontSize: size * 0.33 }}
+                    className="shrink-0 rounded-[6px] flex items-center justify-center font-black text-white bg-gradient-to-br from-indigo-600 to-purple-700 shadow-lg border border-white/10"
+                >
+                    {initials}
+                </div>
+            );
+        }
+
+        return (
+            <img
+                key={`${name}-${srcIndex}`}
+                src={currentSrc}
+                alt={name}
+                onError={() => setSrcIndex(i => i + 1)}
+                style={{ width: size, height: size }}
+                className="shrink-0 rounded-[6px] object-contain bg-white p-1.5 border border-slate-200 shadow-md"
+            />
+        );
+    };
+
+
+
 
     const fetchCollegeInfo = async (collegeName) => {
         const cacheKey = `${collegeName}-${profile.targetExam}`;
@@ -277,8 +476,6 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [aiLoading, setAiLoading] = useState(false);
     const [aiPlan, setAiPlan] = useState('');
 
-    const [cooldowns, setCooldowns] = useState({});
-
     // Auto-fetch intelligence if missing on Step 3/4
     useEffect(() => {
         if ((currentStep === 3 || currentStep === 4) && planConfig.targetCollege && !collegeInfo && !loadingInfo) {
@@ -286,31 +483,6 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
         }
     }, [currentStep, planConfig.targetCollege, collegeInfo, loadingInfo]);
 
-    // Countdown Timer Effect
-    useEffect(() => {
-        const timer = setInterval(() => {
-            const newCooldowns = {};
-            tests.forEach(test => {
-                const tId = test.id || test._id;
-                if (test.submission?.submitted_date && tId) {
-                    const submittedDate = new Date(test.submission.submitted_date);
-                    const unlockDate = new Date(submittedDate.getTime() + (30 * 24 * 60 * 60 * 1000));
-                    const now = new Date();
-                    const diff = unlockDate - now;
-
-                    if (diff > 0) {
-                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                        newCooldowns[test.id || test._id] = { days, hours, mins, totalMs: diff };
-                    }
-                }
-            });
-            setCooldowns(newCooldowns);
-        }, 60000); // Update every minute
-
-        return () => clearInterval(timer);
-    }, [tests]);
 
     const fetchTests = async () => {
         setLoadingTests(true);
@@ -326,48 +498,47 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             });
             const resultsData = resultsRes.data || [];
 
+            // Create a lookup map for O(1) performance
+            const resultsMap = {};
+            resultsData.forEach(r => {
+                if (r.code) resultsMap[r.code] = r;
+                if (r.id) resultsMap[r.id] = r;
+            });
+
             const mergedData = testsData.map(test => {
-                const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                const result = resultsMap[test.code] || resultsMap[test.id];
+                
+                let percentageScore = 0;
+                if (result && result.marks != null && result.total > 0) {
+                    percentageScore = (result.marks / result.total) * 100;
+                } else if (test.submission && test.submission.score != null && test.total_marks > 0) {
+                    percentageScore = (test.submission.score / test.total_marks) * 100;
+                }
+
                 if (result) {
                     return {
                         ...test,
                         submission: {
                             ...(test.submission || {}),
-                            score: (result.marks != null && result.total > 0)
-                                ? (result.marks / result.total) * 100
-                                : (test.submission?.score || 0),
+                            score: percentageScore,
+                            raw_score: result.marks || test.submission?.score || 0,
                             rank: result.rank || test.submission?.rank || null,
                             is_finalized: result.is_finalized ?? true,
-                            submitted_date: result.submission_date || result.created_at || test.submission?.submitted_date
+                            submitted_date: result.submission_date || result.created_at || result.date || test.submission?.submitted_date
                         }
                     };
                 }
                 return {
                     ...test,
-                    submission: test.submission ? { ...test.submission, score: test.submission.score || 0 } : null
+                    submission: test.submission ? { 
+                        ...test.submission, 
+                        score: percentageScore,
+                        raw_score: test.submission.score || 0
+                    } : null
                 };
             });
 
-            // Initial cooldown calculation
-            const initialCooldowns = {};
-            mergedData.forEach(test => {
-                if (test.submission?.submitted_date) {
-                    const submittedDate = new Date(test.submission.submitted_date);
-                    const unlockDate = new Date(submittedDate.getTime() + (30 * 24 * 60 * 60 * 1000));
-                    const diff = unlockDate - new Date();
-                    if (diff > 0) {
-                        initialCooldowns[test.id || test._id] = {
-                            days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-                            hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-                            mins: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-                            totalMs: diff
-                        };
-                    }
-                }
-            });
-
             setTests(mergedData);
-            setCooldowns(initialCooldowns);
         } catch (error) {
             console.error('Failed to load real exams:', error);
         } finally {
@@ -375,21 +546,29 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
         }
     };
 
-    const generateAIPlan = async () => {
+    const generateAIPlan = async (isUpdate = false) => {
         setAiLoading(true);
         try {
             const apiUrl = getApiUrl();
+
+            // Build section-wise score breakdown for richer AI context
+            const sectionScoreText = (testScores?.sections || []).map(s => `${s.name}: ${Math.round(s.score)}%`).join(', ');
+
             const payload = {
                 test_id: selectedTest?.id || selectedTest?._id,
                 target_college: selectedCollege?.name || planConfig.targetCollege || "Top National Engineering College",
                 target_college_obj: selectedCollege,
                 class: profile.classLevel || "12",
                 total_score: (testScores?.total || 0).toString(),
-                math_score: isMedical ? "N/A" : (testScores?.q3Score || 0).toString(),
-                physics_score: (testScores?.q1Score || 0).toString(),
-                chemistry_score: (testScores?.q2Score || 0).toString(),
-                weak_topics: performanceData?.weak_topics || "Concepts requiring accuracy improvement",
-                strong_topics: performanceData?.strong_topics || "Foundational conceptual grasp",
+                math_score: isMedical ? "N/A" : (testScores?.q3Score || testScores?.total || 0).toString(),
+                physics_score: (testScores?.q1Score || testScores?.total || 0).toString(),
+                chemistry_score: (testScores?.q2Score || testScores?.total || 0).toString(),
+                weak_topics: performanceData?.weak_topics ||
+                    (testScores?.sections?.filter(s => s.score < 50).map(s => s.name).join(', ') ||
+                    "Concepts requiring accuracy improvement"),
+                strong_topics: performanceData?.strong_topics ||
+                    (testScores?.sections?.filter(s => s.score >= 70).map(s => s.name).join(', ') ||
+                    "Foundational conceptual grasp"),
                 daily_time_hours: "8",
                 psychometric_profile: {
                     classification: psychometricResult?.classification,
@@ -398,7 +577,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 },
                 section_analysis: testScores?.sections || [],
                 exam_name: profile.targetExam,
-                request_detail: "Provide a granular 1-year trajectory and a specific 1-month intensive study plan based on the assessment deficit and psychometric profile."
+                // Update mode: triggers comparative analysis with previous plan
+                is_update_request: isUpdate,
+                request_detail: isUpdate
+                    ? `This is an UPDATE request. The student has completed a new exam. Sections scored: ${sectionScoreText}. Re-analyze the student's trajectory since the last plan and create a refined, targeted strategy based on these new results.`
+                    : `Provide a granular 1-year trajectory and a specific 1-month intensive study plan based on the assessment deficit and psychometric profile. Sections: ${sectionScoreText}.`
             };
 
             const response = await axios.post(`${apiUrl}/api/student/ai-mentor/study-plan/`, payload, {
@@ -407,13 +590,16 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
             if (response.data && response.data.ai_plan) {
                 setAiPlan(response.data.ai_plan);
-                
-                // Restore college context if cached
+                // Mark plan as saved/locked for this test — no more buttons shown
+                setHasPreviousPlan(true);
+                setPlanSavedForCurrentTest(true);
+
+                // Restore college context if fetched from cache
                 if (response.data.cached && response.data.target_college) {
                     setSelectedCollege(response.data.target_college);
                     setPlanConfig(prev => ({ ...prev, targetCollege: response.data.target_college.name }));
                 }
-                
+
                 setCurrentStep(4);
             }
         } catch (error) {
@@ -509,175 +695,169 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     </div>
                 </div>
 
-                <div className="space-y-2">
-                    <h1 className={`text-3xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        Configure Academic Vector
-                    </h1>
-                    <p className={`text-sm font-bold tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Provide your current standing and objective to initialize the exam sequence.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-6">
-                            <GraduationCap size={16} /> Select Stage
-                        </label>
-
-                        <div className={`p-5 rounded-[4px] border relative overflow-hidden transition-all ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 flex-1 shadow-inner'}`}>
-                            <div className="absolute top-0 right-0 p-2">
-                                <div className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter shadow-lg">Verified Profile</div>
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white shadow-xl">
-                                    <span className="text-xl font-black">{profile.classLevel.split(' ').pop()}</span>
+                {loadingTests ? (
+                    <div className="flex flex-col items-center justify-center min-h-[500px] gap-8 py-20">
+                        <div className="relative">
+                            <div className="w-20 h-20 border-2 border-indigo-500/10 rounded-full" />
+                            <div className="absolute top-0 left-0 w-20 h-20 border-t-2 border-indigo-500 rounded-full animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center animate-pulse">
+                                    <Brain size={24} className="text-indigo-500" />
                                 </div>
-                                <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                        {profile.classLevel}
-                                    </h4>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">Current Standing</p>
+                            </div>
+                        </div>
+                        <div className="text-center space-y-3">
+                            <h3 className={`text-sm font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                Initializing Academic Vector
+                            </h3>
+                            <div className="flex flex-col gap-1">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Scanning cognitive baselines...</p>
+                                <div className={`w-48 h-1 mx-auto rounded-full overflow-hidden ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                    <motion.div 
+                                        initial={{ x: "-100%" }}
+                                        animate={{ x: "100%" }}
+                                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                                        className="w-full h-full bg-indigo-500"
+                                    />
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-emerald-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-4">
-                            <Target size={16} /> Primary Objective
-                        </label>
-                        <div className={`p-5 rounded-[4px] border relative overflow-hidden transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-indigo-50 flex-1 shadow-inner'}`}>
-                            <div className="absolute top-0 right-0 p-2">
-                                <div className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter shadow-lg">Verified Objective</div>
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-[4px] bg-emerald-600 flex items-center justify-center text-white shadow-xl">
-                                    <Target size={24} />
-                                </div>
-                                <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                        {profile.targetExam || "Fetching..."}
-                                    </h4>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">Automated Selection</p>
-                                </div>
-                            </div>
+                ) : (
+                    <>
+                        <div className="space-y-2">
+                            <h1 className={`text-3xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                Configure Academic Vector
+                            </h1>
+                            <p className={`text-sm font-bold tracking-wide ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Provide your current standing and objective to initialize the exam sequence.
+                            </p>
                         </div>
-                    </div>
-                </div>
 
-                {/* Resume Shortcut if test already completed */}
-                {(() => {
-                    const completedTests = tests.filter(t => t.submission?.is_finalized);
-                    if (completedTests.length === 0) return null;
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-6">
+                                    <GraduationCap size={16} /> Select Stage
+                                </label>
 
-                    // Find ANY active cooldown from the global state, or calculate on the fly
-                    let activeCooldown = Object.values(cooldowns).find(c => c.totalMs > 0);
-                    
-                    if (!activeCooldown) {
-                        const mostRecentFinalized = completedTests.sort((a,b) => {
-                            const dateA = new Date(a.submission?.submitted_date || 0);
-                            const dateB = new Date(b.submission?.submitted_date || 0);
-                            return dateB - dateA;
-                        })[0];
-                        
-                        if (mostRecentFinalized?.submission?.submitted_date) {
-                            activeCooldown = calculateCooldown(mostRecentFinalized.submission.submitted_date);
-                        }
-                    }
-                    
-                    return (
-                        <div className={`p-6 rounded-[4px] border-2 ${activeCooldown ? 'border-amber-500/20 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'} animate-in fade-in slide-in-from-top-4`}>
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center text-white shadow-lg ${activeCooldown ? 'bg-amber-600' : 'bg-emerald-600'}`}>
-                                        {activeCooldown ? <Clock size={24} /> : <Activity size={24} />}
+                                <div className={`p-5 rounded-[4px] border relative overflow-hidden transition-all ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100 flex-1 shadow-inner'}`}>
+                                    <div className="absolute top-0 right-0 p-2">
+                                        <div className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter shadow-lg">Verified Profile</div>
                                     </div>
-                                    <div>
-                                        <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                            {activeCooldown ? 'Retake Cooldown Active' : 'Previous Assessment Detected'}
-                                        </h4>
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
-                                            {activeCooldown 
-                                                ? `The cognitive baseline is locked for ${activeCooldown.days}d ${activeCooldown.hours}h ${activeCooldown.mins}m to ensure strategy implementation.` 
-                                                : 'You have already completed your cognitive baseline.'}
-                                        </p>
+
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white shadow-xl">
+                                            <span className="text-xl font-black">{profile.classLevel.split(' ').pop()}</span>
+                                        </div>
+                                        <div>
+                                            <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                {profile.classLevel}
+                                            </h4>
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">Current Standing</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <button 
-                                        onClick={() => setCurrentStep(3)}
-                                        className={`px-6 py-3 rounded-[2px] font-black text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center gap-2 ${activeCooldown ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-                                    >
-                                        View Latest Analysis <ArrowRight size={14} />
-                                    </button>
+                            </div>
+
+                            <div className={`p-6 rounded-[4px] border border-l-4 border-l-emerald-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-4">
+                                    <Target size={16} /> Primary Objective
+                                </label>
+                                <div className={`p-5 rounded-[4px] border relative overflow-hidden transition-all ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-indigo-50 flex-1 shadow-inner'}`}>
+                                    <div className="absolute top-0 right-0 p-2">
+                                        <div className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-tighter shadow-lg">Verified Objective</div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-[4px] bg-emerald-600 flex items-center justify-center text-white shadow-xl">
+                                            <Target size={24} />
+                                        </div>
+                                        <div>
+                                            <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                {profile.targetExam || "Fetching..."}
+                                            </h4>
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">Automated Selection</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    );
-                })()}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
-                        <Zap size={16} className="text-emerald-500 mb-3" />
-                        <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Take Assessment Exam</h4>
-                        <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>A short evaluation exam across core subjects to instantly map your current cognitive baseline.</p>
-                    </div>
-                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
-                        <Crosshair size={16} className="text-emerald-500 mb-3" />
-                        <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Gap Detection</h4>
-                        <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>The AI precisely measures the distance between your baseline and your target institution's threshold.</p>
-                    </div>
-                    <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
-                        <GitBranch size={16} className="text-indigo-500 mb-3" />
-                        <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Strategy Synthesis</h4>
-                        <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Generates a granular 1-year and 1-month trajectory specifically engineered for your explicit goal.</p>
-                    </div>
-                </div>
+                        {/* Resume Shortcut if test already completed */}
+                        {(() => {
+                            const completedTests = tests.filter(t => t.submission?.is_finalized);
+                            if (completedTests.length === 0) return null;
 
-                <div className="pt-8 flex justify-end pb-10 border-t border-slate-500/20">
-                    {(() => {
-                        // Double-layered check: Check state AND raw tests array
-                        const hasActiveCooldownState = Object.values(cooldowns).some(c => c.totalMs > 0);
-                        const hasRecentSubmission = tests.some(t => {
-                            if (!t.submission?.is_finalized || !t.submission?.submitted_date) return false;
-                            const diff = (new Date(t.submission.submitted_date).getTime() + (30 * 24 * 60 * 60 * 1000)) - Date.now();
-                            return diff > 0;
-                        });
-
-                        if (!hasActiveCooldownState && !hasRecentSubmission) {
                             return (
-                                <button 
-                                    onClick={() => {
-                                        if (!profile.targetExam) {
-                                            setAlertMessage("You must define your Primary Objective (JEE or NEET) before the system can initialize your target destination and assessment sequence.");
-                                            setShowAlert(true);
-                                            return;
-                                        }
-                                        setCurrentStep(2);
-                                    }}
-                                    className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group ${
-                                        !profile.targetExam 
-                                        ? 'bg-slate-500 opacity-50 text-white' 
-                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-[0_0_30px_rgba(79,70,229,0.2)] hover:shadow-[0_0_40px_rgba(79,70,229,0.4)]'
-                                    }`}
-                                >
-                                    Define Target Destination <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                                </button>
+                                <div className={`p-6 rounded-[4px] border-2 border-emerald-500/20 bg-emerald-500/5 animate-in fade-in slide-in-from-top-4`}>
+                                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-[4px] flex items-center justify-center text-white shadow-lg bg-emerald-600">
+                                                <Activity size={24} />
+                                            </div>
+                                            <div>
+                                                <h4 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                    Previous Assessment Detected
+                                                </h4>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
+                                                    You have already completed your cognitive baseline. View your analysis below.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => setCurrentStep(3)}
+                                                className="px-6 py-3 rounded-[2px] font-black text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            >
+                                                View Latest Analysis <ArrowRight size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             );
-                        }
+                        })()}
 
-                        // Get days from first active cooldown
-                        const cd = Object.values(cooldowns).find(c => c.totalMs > 0) || { days: 30 };
-                        
-                        return (
-                            <div className={`px-8 py-4 rounded-[4px] border border-amber-500/20 bg-amber-500/5 text-amber-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-lg`}>
-                                <Clock size={16} /> New Assessment Cycle Unlocks in {cd.days} Days
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                            <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                <Zap size={16} className="text-emerald-500 mb-3" />
+                                <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Take Assessment Exam</h4>
+                                <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>A short evaluation exam across core subjects to instantly map your current cognitive baseline.</p>
                             </div>
-                        );
-                    })()}
-                </div>
+                            <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                <Crosshair size={16} className="text-emerald-500 mb-3" />
+                                <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Gap Detection</h4>
+                                <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>The AI precisely measures the distance between your baseline and your target institution's threshold.</p>
+                            </div>
+                            <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                <GitBranch size={16} className="text-indigo-500 mb-3" />
+                                <h4 className={`text-xs font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Strategy Synthesis</h4>
+                                <p className={`text-[10px] font-bold leading-relaxed opacity-70 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Generates a granular 1-year and 1-month trajectory specifically engineered for your explicit goal.</p>
+                            </div>
+                        </div>
+
+                        {!tests.some(t => t.submission?.is_finalized) && (
+                        <div className="pt-8 flex justify-end pb-10 border-t border-slate-500/20">
+                            <button 
+                                onClick={() => {
+                                    if (!profile.targetExam) {
+                                        setAlertMessage("You must define your Primary Objective (JEE or NEET) before the system can initialize your target destination and assessment sequence.");
+                                        setShowAlert(true);
+                                        return;
+                                    }
+                                    setCurrentStep(2);
+                                }}
+                                className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group ${
+                                    !profile.targetExam 
+                                    ? 'bg-slate-500 opacity-50 text-white' 
+                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-[0_0_30px_rgba(79,70,229,0.2)] hover:shadow-[0_0_40px_rgba(79,70,229,0.4)]'
+                                }`}
+                            >
+                                Define Target Destination <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                            </button>
+                        </div>
+                        )}
+                    </>
+                )}
             </div>
         </motion.div>
     );
@@ -720,46 +900,62 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             <Target size={18} className="text-emerald-500" /> Target Destination
                         </h3>
                         <div className="space-y-4">
-                            <div className="relative">
-                                <div className={`flex items-center gap-2 p-3 rounded-[4px] border ${isDarkMode ? 'bg-[#0a0d14] border-white/10' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
-                                    <Search size={14} className="text-slate-500" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search top colleges dynamically..."
-                                        value={collegeSearch}
-                                        onChange={(e) => handleSearchChange(e.target.value)}
-                                        onFocus={() => setIsCollegeDropdownOpen(true)}
-                                        className={`bg-transparent border-none outline-none text-xs font-bold w-full ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
-                                    />
-                                    <button onClick={() => setIsCollegeDropdownOpen(!isCollegeDropdownOpen)} className="p-1 hover:bg-white/10 rounded transition-colors">
-                                        <ChevronDown size={14} className={`text-slate-500 transition-transform ${isCollegeDropdownOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                </div>
-                                {isCollegeDropdownOpen && (
-                                    <div className={`absolute z-20 mt-1 w-full max-h-[200px] overflow-y-auto rounded-[4px] border shadow-2xl ${isDarkMode ? 'bg-[#0a0d14] border-white/10' : 'bg-white border-slate-200'}`}>
-                                        {isSearchingColleges && (
-                                            <div className="p-4 flex items-center justify-center gap-2">
-                                                <Loader2 size={12} className="animate-spin text-indigo-500" />
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Searching API...</span>
-                                            </div>
-                                        )}
-                                        {filteredColleges.length > 0 ? filteredColleges.map(college => (
-                                            <button 
-                                                key={college} 
-                                                onClick={() => { 
-                                                    setPlanConfig({ ...planConfig, targetCollege: college }); 
-                                                    setSelectedCollege({ name: college }); // Store as object for AI context
-                                                    setCollegeSearch(college); 
-                                                    setIsCollegeDropdownOpen(false); 
-                                                }} 
-                                                className={`w-full p-3 text-left text-[11px] font-bold border-b last:border-b-0 transition-all ${planConfig.targetCollege === college ? 'bg-indigo-600 text-white border-indigo-600' : isDarkMode ? 'border-white/5 hover:bg-white/5 text-slate-400 hover:text-white' : 'border-slate-50 hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}
-                                            >
-                                                {college}
-                                            </button>
-                                        )) : !isSearchingColleges && <div className="p-4 text-center text-[10px] font-bold text-slate-500 uppercase">No results found</div>}
+                            {tests.some(t => t.submission?.is_finalized) ? (
+                                /* Locked view — exam already completed */
+                                <div className={`p-4 rounded-[4px] border-2 border-emerald-500/30 flex items-center gap-3 ${isDarkMode ? 'bg-emerald-500/5' : 'bg-emerald-50'}`}>
+                                    <CollegeLogo name={planConfig.targetCollege} size={52} aiLogoUrl={collegeInfo?.logo_url} />
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Target Locked</p>
+                                            <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || 'No Institution Selected'}</p>
+                                            <p className="text-[9px] font-bold text-slate-500 mt-0.5 uppercase tracking-widest">Your target is set. Complete more exams to update your master plan.</p>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                /* Editable search — first-time setup */
+                                <div className="relative">
+                                    <div className={`flex items-center gap-2 p-3 rounded-[4px] border ${isDarkMode ? 'bg-[#0a0d14] border-white/10' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
+                                        <Search size={14} className="text-slate-500" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search top colleges dynamically..."
+                                            value={collegeSearch}
+                                            onChange={(e) => handleSearchChange(e.target.value)}
+                                            onFocus={() => setIsCollegeDropdownOpen(true)}
+                                            className={`bg-transparent border-none outline-none text-xs font-bold w-full ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
+                                        />
+                                        <button onClick={() => setIsCollegeDropdownOpen(!isCollegeDropdownOpen)} className="p-1 hover:bg-white/10 rounded transition-colors">
+                                            <ChevronDown size={14} className={`text-slate-500 transition-transform ${isCollegeDropdownOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                    </div>
+                                    {isCollegeDropdownOpen && (
+                                        <div className={`absolute z-20 mt-1 w-full max-h-[200px] overflow-y-auto rounded-[4px] border shadow-2xl ${isDarkMode ? 'bg-[#0a0d14] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            {isSearchingColleges && (
+                                                <div className="p-4 flex items-center justify-center gap-2">
+                                                    <Loader2 size={12} className="animate-spin text-indigo-500" />
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Searching API...</span>
+                                                </div>
+                                            )}
+                                            {filteredColleges.length > 0 ? filteredColleges.map(college => (
+                                                <button 
+                                                    key={college} 
+                                                    onClick={() => { 
+                                                        setPlanConfig({ ...planConfig, targetCollege: college }); 
+                                                        setSelectedCollege({ name: college });
+                                                        setCollegeSearch(college); 
+                                                        setIsCollegeDropdownOpen(false); 
+                                                    }} 
+                                                    className={`w-full p-3 text-left text-[11px] font-bold border-b last:border-b-0 transition-all ${planConfig.targetCollege === college ? 'bg-indigo-600 text-white border-indigo-600' : isDarkMode ? 'border-white/5 hover:bg-white/5 text-slate-400 hover:text-white' : 'border-slate-50 hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}
+                                                >
+                                                    {college}
+                                                </button>
+                                            )) : !isSearchingColleges && <div className="p-4 text-center text-[10px] font-bold text-slate-500 uppercase">No results found</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div className={`p-4 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-indigo-500/5 border-white/10' : 'bg-indigo-50/50 border-slate-200'}`}>
                                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Current Target</p>
                                 <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || "No Institution Selected"}</p>
@@ -771,54 +967,60 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 {/* Intelligence section removed from here to be shown in Step 4 */}
 
                 <div className="flex justify-end pt-4 border-t border-slate-500/20">
-                    <button 
-                        onClick={async () => { 
-                            if (!planConfig.targetCollege) {
-                                setAlertMessage("Please select a target institution from the list to establish your academic benchmark.");
-                                setShowAlert(true);
-                                return;
-                            }
-                            
-                            // Only validate if we haven't validated this specific college yet
-                            let currentInfo = collegeInfo;
-                            if (!currentInfo || currentInfo.validatedCollege !== planConfig.targetCollege) {
-                                currentInfo = await fetchCollegeInfo(planConfig.targetCollege);
-                            }
+                    {tests.some(t => t.submission?.is_finalized) ? (
+                        <button
+                            onClick={() => { setViewMode('cutoff'); setCurrentStep(4); }}
+                            className="px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                            Go to My Analysis <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={async () => { 
+                                if (!planConfig.targetCollege) {
+                                    setAlertMessage("Please select a target institution from the list to establish your academic benchmark.");
+                                    setShowAlert(true);
+                                    return;
+                                }
+                                
+                                let currentInfo = collegeInfo;
+                                if (!currentInfo || currentInfo.validatedCollege !== planConfig.targetCollege) {
+                                    currentInfo = await fetchCollegeInfo(planConfig.targetCollege);
+                                }
 
-                            // Now validate based on currentInfo
-                            if (currentInfo && currentInfo.is_compatible === false) {
-                                setAlertMessage(currentInfo.compatibility_error || `This institution does not appear to accept ${profile.targetExam} for admissions. Please select a compatible college.`);
-                                setShowAlert(true);
-                                return;
-                            }
+                                if (currentInfo && currentInfo.is_compatible === false) {
+                                    setAlertMessage(currentInfo.compatibility_error || `This institution does not appear to accept ${profile.targetExam} for admissions. Please select a compatible college.`);
+                                    setShowAlert(true);
+                                    return;
+                                }
 
-                            // Save configuration to DB before proceeding
-                            try {
-                                const apiUrl = getApiUrl();
-                                await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
-                                    target_college: selectedCollege || { name: planConfig.targetCollege }
-                                }, {
-                                    headers: { 'Authorization': `Bearer ${token}` }
-                                });
-                            } catch (err) {
-                                console.error("Failed to save planner config:", err);
-                            }
+                                try {
+                                    const apiUrl = getApiUrl();
+                                    await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
+                                        target_college: selectedCollege || { name: planConfig.targetCollege }
+                                    }, {
+                                        headers: { 'Authorization': `Bearer ${token}` }
+                                    });
+                                } catch (err) {
+                                    console.error("Failed to save planner config:", err);
+                                }
 
-                            setCurrentStep(3); 
-                            fetchTests(); 
-                        }} 
-                        className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
-                            !planConfig.targetCollege
-                            ? 'bg-slate-500 opacity-50 text-white' 
-                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        }`}
-                    >
-                        {loadingInfo ? (
-                            <>Analyzing... <Loader2 size={18} className="animate-spin" /></>
-                        ) : (
-                            <>Proceed to Assessment <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
-                        )}
-                    </button>
+                                setCurrentStep(3); 
+                                fetchTests(); 
+                            }} 
+                            className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
+                                !planConfig.targetCollege
+                                ? 'bg-slate-500 opacity-50 text-white' 
+                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            }`}
+                        >
+                            {loadingInfo ? (
+                                <>Analyzing... <Loader2 size={18} className="animate-spin" /></>
+                            ) : (
+                                <>Proceed to Assessment <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>
+                            )}
+                        </button>
+                    )}
                 </div>
 
                 {isQuotaExceeded && !dismissQuotaAlert && (
@@ -907,10 +1109,9 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                     const isCompleted = test.submission?.is_finalized;
                                     const end = test.end_time ? new Date(test.end_time) : null;
                                     const isExpired = end && now > end;
-                                    
                                     const tId = test.id || test._id;
-                                    const cooldown = cooldowns[tId];
-                                    const isAvailable = !isCompleted && !isExpired && !cooldown;
+                                    // Study Planner exams are ONE-TIME ONLY — no cooldown, no retake
+                                    const canLaunch = !isCompleted && !isExpired;
 
                                     return (
                                         <tr key={tId} className={`border-b last:border-b-0 ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-50 hover:bg-slate-50/50'} transition-colors`}>
@@ -927,23 +1128,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                             </td>
                                             <td className="py-4 px-6 text-center">
                                                 {isCompleted ? (
-                                                    <div className="flex flex-col items-center gap-1">
-                                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest">Completed</span>
-                                                        {cooldown && (
-                                                            <span className="text-[8px] font-black text-rose-500 uppercase tracking-tighter flex items-center gap-1">
-                                                                <Clock size={10} /> Reset in {cooldown.days}d {cooldown.hours}h
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest">Completed</span>
                                                 ) : isExpired ? (
                                                     <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase tracking-widest">Expired</span>
-                                                ) : cooldown ? (
-                                                   <div className="flex flex-col items-center gap-1">
-                                                       <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[9px] font-black uppercase tracking-widest">In Cooldown</span>
-                                                       <span className="text-[8px] font-black text-amber-500 uppercase tracking-tighter">Available in {cooldown.days}d</span>
-                                                   </div>
                                                 ) : (
-                                                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[9px] font-black uppercase tracking-widest">Active</span>
+                                                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[9px] font-black uppercase tracking-widest">Available</span>
                                                 )}
                                             </td>
                                             <td className="py-4 px-6 text-center">
@@ -958,6 +1147,9 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                         onClick={async () => {
                                                             setAnalyzingId(tId);
                                                             setSelectedTest(test);
+                                                            // Reset plan lock for this new exam selection
+                                                            setAiPlan('');
+                                                            setPlanSavedForCurrentTest(false);
                                                             const score = Math.floor(test.submission?.score || 0);
                                                             
                                                             let sectionScores = [];
@@ -986,6 +1178,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                             });
                                                             setAnalyzingId(null);
                                                             if (psychometricResult) {
+                                                                setViewMode('cutoff');
                                                                 setCurrentStep(4);
                                                             } else {
                                                                 setShowPsychometric(true);
@@ -996,14 +1189,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                         {analyzingId === tId ? <Loader2 size={12} className="animate-spin" /> : null}
                                                         {analyzingId === tId ? 'Analyzing...' : 'Analyze Result'}
                                                     </button>
-                                                ) : isAvailable ? (
+                                                ) : canLaunch ? (
                                                     <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-emerald-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md">
                                                         Launch Exam
                                                     </button>
                                                 ) : (
-                                                    <button disabled className="px-4 py-2 bg-slate-500 opacity-50 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest cursor-not-allowed">
-                                                        {cooldown ? 'Locked' : 'Unavailable'}
-                                                    </button>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>—</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -1098,12 +1289,22 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             </div>
                         </div>
 
-                        {/* Intelligence & Gap Analysis */}
-                        <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-lg'}`}>
-                            <div className="flex flex-col lg:flex-row gap-8">
+                        {/* TAB NAVIGATION */}
+                        <div className={`flex items-center gap-2 border-b ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pb-px overflow-x-auto custom-scrollbar mt-8`}>
+                            <button onClick={() => setViewMode('cutoff')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${viewMode === 'cutoff' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>Intelligence & Cutoff</button>
+                            <button onClick={() => setViewMode('solutions')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${viewMode === 'solutions' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>Correct Answers</button>
+                            <button onClick={() => setViewMode('plan')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${viewMode === 'plan' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>
+                                {aiPlan ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Sparkles size={14} className={viewMode === 'plan' ? "text-indigo-500" : "text-slate-400"} />} Master Plan
+                            </button>
+                        </div>
+
+                        {viewMode === 'cutoff' && (
+                            <div className={`p-8 mt-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-lg'}`}>
+                                {/* Intelligence & Gap Analysis */}
+                                <div className="flex flex-col lg:flex-row gap-8">
                                 <div className="flex-1 space-y-6">
                                     <div className="flex items-center gap-4">
-                                        {collegeInfo?.thumbnail && <img src={collegeInfo.thumbnail} alt="College" className="w-16 h-16 rounded-[4px] object-cover border border-white/10" />}
+                                        <CollegeLogo name={planConfig.targetCollege} size={60} aiLogoUrl={collegeInfo?.logo_url} />
                                         <div>
                                             <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege}</h3>
                                             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">{collegeInfo?.location || 'Fetching intelligence...'}</p>
@@ -1151,7 +1352,19 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                     ) : (
                                         <div className="space-y-4">
                                             <p className={`text-xs font-bold leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{collegeInfo?.summary}</p>
-                                            <a href={collegeInfo?.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:underline">View Official Records <ArrowRight size={12} /></a>
+                                            {(() => {
+                                                const url = getCollegeUrl(planConfig.targetCollege) || collegeInfo?.website;
+                                                return url ? (
+                                                    <a
+                                                        href={url}
+                                                        target="_blank"
+                                                        rel="noreferrer noopener"
+                                                        className="inline-flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:underline hover:text-emerald-400 transition-colors"
+                                                    >
+                                                        View Official Records <ArrowRight size={12} />
+                                                    </a>
+                                                ) : null;
+                                            })()}
                                         </div>
                                     )}
                                 </div>
@@ -1229,43 +1442,66 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 </div>
                             )}
                         </div>
-                    </div>
-                )}
-
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-slate-500/20 gap-4">
-                    <div>
-                        <h1 className={`text-2xl md:text-3xl font-black uppercase tracking-tight flex items-center gap-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {viewMode === 'plan' ? (
-                                <><Brain className="text-indigo-500" size={32} /> Master Strategy Vector</>
-                            ) : (
-                                <><Target className="text-emerald-500" size={32} /> Detailed Solutions</>
-                            )}
-                        </h1>
-                        <div className="flex items-center gap-4 mt-3">
-                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
-                        </div>
-                    </div>
-                    <div className="flex gap-3">
-                        {performanceData && (
-                            <button 
-                                onClick={() => setViewMode(viewMode === 'plan' ? 'solutions' : 'plan')} 
-                                className={`px-6 py-3 rounded-[4px] border text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
-                            >
-                                {viewMode === 'plan' ? 'View Correct Answers' : 'Back to Strategy Plan'}
-                            </button>
                         )}
-                        {viewMode === 'plan' && !aiPlan && testScores && (
-                            <button onClick={generateAIPlan} disabled={aiLoading} className={`px-6 py-3 rounded-[4px] bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 disabled:opacity-50`}>
-                                {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                {aiLoading ? 'Synthesizing...' : 'Synthesize Master Plan'}
-                            </button>
-                        )}
-                    </div>
-                </div>
 
-                {viewMode === 'plan' ? (
-                    aiPlan && (
-                        <div className={`p-8 md:p-12 rounded-[4px] border relative ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                        {viewMode === 'plan' && (
+                            <div className="space-y-6 mt-6">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className={`text-xl font-black uppercase tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                            <Brain className="text-indigo-500" size={24} />
+                                            {aiPlan ? 'Master Strategy Vector' : 'Synthesize Master Plan'}
+                                        </h2>
+                                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
+                                            {aiPlan && planSavedForCurrentTest && (
+                                                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-[2px] flex items-center gap-1">
+                                                    <CheckCircle2 size={10} /> Plan Locked
+                                                </span>
+                                            )}
+                                            {!planSavedForCurrentTest && hasPreviousPlan && (
+                                                <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-1 rounded-[2px]">
+                                                    Previous plan found — Update available
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Buttons only visible when plan is NOT yet saved/locked for this exam */}
+                                    {!planSavedForCurrentTest && (
+                                        <div className="flex items-center gap-3">
+                                            {/* First-time: no plan ever in DB */}
+                                            {!hasPreviousPlan && (
+                                                <button
+                                                    onClick={() => generateAIPlan(false)}
+                                                    disabled={aiLoading}
+                                                    className="px-6 py-3 rounded-[4px] bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg"
+                                                >
+                                                    {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                                    {aiLoading ? 'Synthesizing...' : 'Synthesize Master Plan'}
+                                                </button>
+                                            )}
+                                            {/* Update: previous plan exists but this exam has no plan yet */}
+                                            {hasPreviousPlan && (
+                                                <button
+                                                    onClick={() => generateAIPlan(true)}
+                                                    disabled={aiLoading}
+                                                    className="px-6 py-3 rounded-[4px] bg-amber-500 text-white text-xs font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg"
+                                                >
+                                                    {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                                    {aiLoading ? 'Updating Strategy...' : 'Update Master Plan'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {!aiPlan ? (
+                                    <div className={`p-12 text-center border-2 border-dashed rounded-[4px] flex flex-col items-center gap-4 justify-center ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                        <Brain size={48} className="text-indigo-500 opacity-20" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 max-w-md leading-relaxed">Master Plan not yet generated. Click synthesize to analyze your psychometric profile and performance gaps.</p>
+                                    </div>
+                                ) : (
+                                    <div className={`p-8 md:p-12 rounded-[4px] border relative ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
                             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
                             <div className={`prose prose-sm md:prose-base max-w-none relative z-10 
                                 ${isDarkMode ? 'prose-invert prose-headings:text-white prose-p:text-slate-400 prose-strong:text-white prose-li:text-slate-400 prose-hr:border-white/10' : 'prose-headings:text-slate-900 prose-p:text-slate-700 prose-strong:text-slate-900 prose-li:text-slate-700 prose-hr:border-slate-200'}
@@ -1277,11 +1513,14 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             `}>
                                 <ReactMarkdown>{aiPlan}</ReactMarkdown>
                             </div>
-                        </div>
-                    )
-                ) : (
-                    <div className="space-y-6">
-                        {/* Section Tabs for Solutions */}
+                            </div>
+                                )}
+                            </div>
+                        )}
+
+                        {viewMode === 'solutions' && (
+                            <div className="space-y-6 mt-6">
+                                {/* Section Tabs for Solutions */}
                         <div className={`flex overflow-x-auto gap-2 border-b pb-2 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
                             {performanceData?.all_section_names?.map(name => (
                                 <button
@@ -1374,6 +1613,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 </div>
                             ))}
                         </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

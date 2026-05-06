@@ -200,3 +200,20 @@ class StudentStudyPlannerConfig(models.Model):
 
     def __str__(self):
         return f"Config for {self.user.username}"
+
+class CollegeIntelligence(models.Model):
+    """
+    Caches AI-generated intelligence about a college for a specific exam type.
+    """
+    college_name = models.CharField(max_length=255)
+    exam_type = models.CharField(max_length=50) # e.g., 'JEE', 'NEET'
+    data = SafeJSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('college_name', 'exam_type')
+        ordering = ['college_name']
+
+    def __str__(self):
+        return f"{self.college_name} ({self.exam_type})"

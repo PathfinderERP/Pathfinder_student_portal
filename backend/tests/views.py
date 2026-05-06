@@ -47,18 +47,29 @@ class TestViewSet(viewsets.ModelViewSet):
             db = get_db()
             
             # PASSIVE SYNC: Update user sections from the global ERP index if available.
-            # This ensures that if an admin refreshed the ERP index, students get updated instantly 
-            # without needing to re-login.
-            try:
-                from api.erp_views import get_student_lookup_index, _sync_user_to_erp
-                index = get_student_lookup_index(force_refresh=False)
-                if index:
-                    search_email = (user.email or user.username).strip().lower()
-                    match = index.get(f"email_{search_email}") or index.get(f"adm_{user.username.upper().strip()}")
-                    if match:
-                        _sync_user_to_erp(user, match)
-            except Exception as e:
-                print(f"Passive Sync Error: {e}")
+            # This is now handled in the background to avoid blocking the main request cycle.
+            if not getattr(user, 'exam_section', None) or not getattr(user, 'study_section', None):
+                try:
+                    import threading
+                    from api.erp_views import get_student_lookup_index, _sync_user_to_erp
+                    
+                    def bg_passive_sync(u_id):
+                        try:
+                            from django.contrib.auth import get_user_model
+                            U = get_user_model()
+                            u = U.objects.get(pk=u_id)
+                            index = get_student_lookup_index(force_refresh=False)
+                            if index:
+                                search_email = (u.email or u.username).strip().lower()
+                                match = index.get(f"email_{search_email}") or index.get(f"adm_{u.username.upper().strip()}")
+                                if match:
+                                    _sync_user_to_erp(u, match)
+                        except: pass
+                    
+                    t = threading.Thread(target=bg_passive_sync, args=(user.pk,))
+                    t.daemon = True
+                    t.start()
+                except: pass
 
             c_code = str(getattr(user, 'centre_code', '')).lower().strip()
             c_name = str(getattr(user, 'centre_name', '')).lower().strip()
@@ -158,11 +169,26 @@ class TestViewSet(viewsets.ModelViewSet):
         # Cache the test list for staff users (admin panel) to avoid heavy student count queries
         from django.core.cache import cache
         from api.erp_views import get_student_lookup_index
+        from api.db_utils import get_db
         from time import time
         
         is_staff = request.user.is_staff or request.user.is_superuser
+        is_student = getattr(request.user, 'user_type', '') == 'student'
         force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
         now = time()
+
+        # Pre-fetch student submissions to avoid N+1 in serializer
+        student_subs_map = {}
+        if is_student:
+            db = get_db()
+            if db is not None:
+                try:
+                    subs = list(db['tests_testsubmission'].find(
+                        {'student_id': request.user.pk},
+                        {'test_id': 1, 'is_finalized': 1, 'allow_resume': 1, 'time_spent': 1, 'submitted_at': 1, 'updated_at': 1, 'score': 1}
+                    ))
+                    student_subs_map = {str(s['test_id']): s for s in subs}
+                except: pass
         
         if is_staff and force_refresh:
             # Global purge of ERP student cache and index - do in background to not block UI
@@ -194,7 +220,20 @@ class TestViewSet(viewsets.ModelViewSet):
                 self.__class__._local_cache[cache_key] = {'data': cached_data, 'time': now}
                 return Response(cached_data)
         
-        response = super().list(request, *args, **kwargs)
+        # Inject pre-fetched submissions into context
+        serializer_context = self.get_serializer_context()
+        if student_subs_map:
+            serializer_context['student_submissions'] = student_subs_map
+
+        # We override super().list logic slightly to use our context
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True, context=serializer_context)
+            response = self.get_paginated_response(serializer.data)
+        else:
+            serializer = self.get_serializer(queryset, many=True, context=serializer_context)
+            response = Response(serializer.data)
         
         if is_staff:
             # OPTIMIZATION INJECTION: calculate total_students in bulk!
