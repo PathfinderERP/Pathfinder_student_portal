@@ -148,36 +148,7 @@ const DoughnutChart = ({ slices, size = 160, thickness = 28, isDarkMode }) => {
 
 
 // Realistic mock data generator for demonstration
-const getMockAttendance = () => {
-    const data = [];
-    const subjects = ['Mathematics', 'Physics', 'Inorganic Chemistry', 'Biology', 'Coordinate Geometry'];
-    const now = new Date();
-
-    // Generate records for the last 120 days to fill the charts
-    for (let i = 120; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(now.getDate() - i);
-
-        // Skip weekends for more realism
-        const day = date.getDay();
-        if (day === 0 || day === 6) continue;
-
-        // High attendance rate (88%) for a "good" student profile
-        const status = Math.random() > 0.12 ? 'Present' : 'Absent';
-        const subject = subjects[i % subjects.length];
-
-        data.push({
-            date: formatLocalDate(date),
-            status: status,
-            classScheduleId: {
-                subjectId: {
-                    subjectName: subject
-                }
-            }
-        });
-    }
-    return data;
-};
+const getMockAttendance = () => [];
 
 // Module-level constant — never recreated, keeps React.memo on MonthBlock stable
 const HEATMAP_DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -600,7 +571,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                             onChange={e => { setSubjectFilter(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
                         >
-                            {uniqueSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                            {uniqueSubjects.map(sub => <option key={sub} value={sub} className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>{sub}</option>)}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -610,7 +581,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                             onChange={e => { setTeacherFilter(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
                         >
-                            {uniqueTeachers.map(t => <option key={t} value={t}>{t}</option>)}
+                            {uniqueTeachers.map(t => <option key={t} value={t} className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>{t}</option>)}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -620,10 +591,10 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'}`}
                         >
-                            <option value="All">All Statuses</option>
-                            <option value="Present">Present</option>
-                            <option value="Absent">Absent</option>
-                            <option value="Not Marked">Not Marked</option>
+                            <option value="All" className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>All Statuses</option>
+                            <option value="Present" className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>Present</option>
+                            <option value="Absent" className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>Absent</option>
+                            <option value="Not Marked" className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>Not Marked</option>
                         </select>
                     </div>
                 </div>
@@ -636,7 +607,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                             onChange={e => { setBatchFilter(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-3 py-2 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all border ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500'} truncate`}
                         >
-                            {uniqueBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                            {uniqueBatches.map(b => <option key={b} value={b} className={isDarkMode ? 'bg-[#10141D] text-white' : ''}>{b}</option>)}
                         </select>
                     </div>
                 </div>
@@ -765,12 +736,12 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                             }}
                             className={`px-3 py-1.5 text-xs font-bold rounded-lg outline-none cursor-pointer transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'} border focus:border-indigo-500`}
                         >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={15}>15</option>
-                            <option value={20}>20</option>
-                            <option value={50}>50</option>
-                            <option value="all">All</option>
+                            <option className={isDarkMode ? 'bg-[#10141D] text-white' : ''} value={5}>5</option>
+                            <option className={isDarkMode ? 'bg-[#10141D] text-white' : ''} value={10}>10</option>
+                            <option className={isDarkMode ? 'bg-[#10141D] text-white' : ''} value={15}>15</option>
+                            <option className={isDarkMode ? 'bg-[#10141D] text-white' : ''} value={20}>20</option>
+                            <option className={isDarkMode ? 'bg-[#10141D] text-white' : ''} value={50}>50</option>
+                            <option className={isDarkMode ? 'bg-[#10141D] text-white' : ''} value="all">All</option>
                         </select>
                     </div>
 
@@ -1022,31 +993,30 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
         try {
             if (!isBackground) setLoading(true);
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Handle new structure: { success, totalClasses, presentCount, absentCount, data: [...] }
-            // or old structure: [...]
-            let data = response.data;
-            let records = [];
+            // Fetch Previous Classes (Detailed History)
+            const historyResp = await axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers });
+            const historyData = historyResp.data?.data || historyResp.data || [];
+
+            // Fetch Comprehensive Report (Summary Stats)
+            const reportResp = await axios.get(`${apiUrl}/api/student-portal/report/`, { headers });
+            const reportData = reportResp.data || {};
+            
+            let records = Array.isArray(historyData) ? historyData : [];
             let summary = null;
 
-            if (data && typeof data === 'object' && !Array.isArray(data)) {
-                records = data.data || [];
+            if (reportData.attendanceReport) {
                 summary = {
-                    totalClasses: data.totalClasses,
-                    presentCount: data.presentCount,
-                    absentCount: data.absentCount
+                    totalClasses: reportData.attendanceReport.totalClasses,
+                    presentCount: reportData.attendanceReport.presentCount,
+                    absentCount: reportData.attendanceReport.absentCount
                 };
-            } else {
-                records = data || [];
-            }
-
-            // If ERP returns empty data, injection of dummy data for demonstration
-            if (records.length === 0) {
-                records = getMockAttendance();
-                summary = null;
+                
+                // If history is empty but report has classes, use those as fallback
+                if (records.length === 0 && Array.isArray(reportData.attendanceReport.classes)) {
+                    records = reportData.attendanceReport.classes;
+                }
             }
 
             const isDataSame = JSON.stringify(records) === JSON.stringify(rawDataRef.current);
@@ -1136,7 +1106,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             const date = new Date(record.date || record.classScheduleId?.date);
             const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
             const weekday = date.toLocaleString('default', { weekday: 'short' });
-            const subjectName = record.subjectId?.subjectName || record.classScheduleId?.subjectId?.subjectName || record.subjectName || 'General';
+            const subjectName = record.subjectName || record.subjectId?.subjectName || record.classScheduleId?.subjectId?.subjectName || record.subject || 'General';
 
             if (!monthMap[monthName]) monthMap[monthName] = { month: monthName, present: 0, absent: 0, total: 0 };
             if (isPresent) monthMap[monthName].present++;

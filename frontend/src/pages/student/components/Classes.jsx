@@ -6,7 +6,7 @@ import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 // Toggle to enable dummy data for UI testing. Set to false to use live API.
-const USE_DUMMY_CLASSES = true;
+const USE_DUMMY_CLASSES = false;
 // Use static import for reliability in bundlers
 import * as CLASSES_DUMMY from './classesDummyData';
 const DUMMY = USE_DUMMY_CLASSES ? CLASSES_DUMMY : { DUMMY_CLASSES: [], DUMMY_ONGOING: [], DUMMY_UPCOMING: [], DUMMY_HISTORY: [] };
@@ -42,11 +42,13 @@ const ClassCard = ({ cls, isDarkMode, setSelectedClass, isOngoing = false, forma
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <h3 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {cls.subjectId?.subjectName || cls.subject || 'Class Session'}
+                            {cls.subjectName || cls.subjectId?.subjectName || cls.subject || 'Class Session'}
                         </h3>
-                        <span className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/10 text-white/70 border-white/10' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                            {cls.className}
-                        </span>
+                        {(cls.className || cls.academicClassName) && (
+                            <span className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/10 text-white/70 border-white/10' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                {cls.className || cls.academicClassName}
+                            </span>
+                        )}
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-xs font-medium opacity-60">
                         <span className="flex items-center gap-1.5">
@@ -55,9 +57,14 @@ const ClassCard = ({ cls, isDarkMode, setSelectedClass, isOngoing = false, forma
                         <span className="flex items-center gap-1.5">
                             <Clock size={12} /> {cls.startTime} - {cls.endTime}
                         </span>
-                        {(cls.teacherId?.name || cls.teacherName) && (
+                        {(cls.teacherName || cls.teacherId?.name) && (
                             <span className="flex items-center gap-1.5">
-                                <User size={12} /> {cls.teacherId?.name || cls.teacherName}
+                                <User size={12} /> {cls.teacherName || cls.teacherId?.name}
+                            </span>
+                        )}
+                        {cls.chapterName && (
+                            <span className="flex items-center gap-1.5 text-indigo-500">
+                                <BookOpen size={12} /> {cls.chapterName}
                             </span>
                         )}
                     </div>
@@ -252,7 +259,7 @@ const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
             const matchStatus = statusFilter === 'All' || status === statusFilter;
             const matchSubject = subjectFilter === 'All' || subject === subjectFilter;
             const matchTeacher = teacherFilter === 'All' || teacher === teacherFilter;
-            const matchBatch = batchFilter === 'All' || (r.className || 'General') === batchFilter;
+            const matchBatch = batchFilter === 'All' || (r.className || r.academicClassName || 'General') === batchFilter;
             const matchDate = !dateFilter || dateStr === dateFilter;
 
             return matchStatus && matchSubject && matchTeacher && matchBatch && matchDate;
@@ -529,7 +536,7 @@ const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
                                     className={`${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition-colors cursor-default`}>
                                     <td className="p-4">
                                         <p className={`text-xs font-black uppercase tracking-tight whitespace-nowrap ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                            {record.className || 'General Batch'}
+                                            {record.className || record.academicClassName || 'General Batch'}
                                         </p>
                                         <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest whitespace-nowrap">{subject}</p>
                                     </td>
@@ -640,46 +647,12 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     const [history, setHistory] = useState(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_HISTORY || []) : (cache?.history || []));
     
     const [loading, setLoading] = useState(false);
-    const [historyLoading, setHistoryLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
     const [currentTab, setCurrentTab] = useState('upcoming');
 
-    const fetchAttendanceHistory = useCallback(async (isBackground = false) => {
-        if (USE_DUMMY_CLASSES) return; // using dummy data for testing
-        if (!token) return;
-        try {
-            if (!isBackground) setHistoryLoading(true);
-            const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/student/attendance/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            let data = response.data;
-            let records = [];
-            if (data && typeof data === 'object' && !Array.isArray(data)) {
-                records = data.data || [];
-            } else {
-                records = data || [];
-            }
-
-            // Sameness check for history
-            const isHistorySame = JSON.stringify(history) === JSON.stringify(records);
-            if (!isHistorySame) {
-                setHistory(records);
-                if (setCache) {
-                    setCache(c => ({ ...c, history: records, loaded: true }));
-                }
-            }
-            setHistoryLoading(false);
-        } catch (err) {
-            console.error("Error fetching attendance history:", err);
-            setHistoryLoading(false);
-        }
-    }, [getApiUrl, token, history, setCache]);
-
     const fetchClasses = useCallback(async (isBackground = false) => {
-        if (USE_DUMMY_CLASSES) return; // using dummy data for testing
+        if (USE_DUMMY_CLASSES) return;
         if (!token) return;
 
         try {
@@ -700,67 +673,43 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
             const isUpcomingSame = JSON.stringify(upcomingClasses) === JSON.stringify(fetchedUpcoming);
             if (!isUpcomingSame) setUpcomingClasses(fetchedUpcoming);
 
-            // Original classes fetch for general list/fallback
-            const response = await axios.get(`${apiUrl}/api/student/classes/`, { headers });
-
-            // Handle various response structures
-            let data = [];
-            if (Array.isArray(response.data)) {
-                data = response.data;
-            } else if (response.data?.classes && Array.isArray(response.data.classes)) {
-                data = response.data.classes;
-            } else if (response.data?.data && Array.isArray(response.data.data)) {
-                data = response.data.data;
-            } else if (response.data?.schedule && Array.isArray(response.data.schedule)) {
-                data = response.data.schedule;
+            // Fetch Previous Classes
+            const previousResponse = await axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers });
+            const fetchedPrevious = previousResponse.data?.data || previousResponse.data || [];
+            const isPreviousSame = JSON.stringify(history) === JSON.stringify(fetchedPrevious);
+            if (!isPreviousSame) {
+                setHistory(fetchedPrevious);
+                if (setCache) {
+                    setCache(c => ({ ...c, history: fetchedPrevious }));
+                }
             }
 
-            // General Classes comparison
-            const isDataSame = JSON.stringify(data) === JSON.stringify(classesRef.current);
-
-            if (!isDataSame || !isOngoingSame || !isUpcomingSame) {
-                classesRef.current = data;
-                setClasses(data);
-
-                // Update parent cache with all new data
-                if (setCache) {
-                    setCache(c => ({ 
-                        ...c, 
-                        data: data, 
-                        ongoing: fetchedOngoing, 
-                        upcoming: fetchedUpcoming, 
-                        loaded: true 
-                    }));
-                }
+            // Update parent cache with all new data
+            if (setCache) {
+                setCache(c => ({ 
+                    ...c, 
+                    ongoing: fetchedOngoing, 
+                    upcoming: fetchedUpcoming, 
+                    loaded: true 
+                }));
             }
 
             if (!isBackground) setLoading(false);
 
         } catch (err) {
             console.error("Error fetching classes:", err);
-            // Don't show error immediately if it's just empty or 404 (no classes yet)
-            if (err.response?.status === 404) {
-                if (classesRef.current.length !== 0) {
-                    classesRef.current = [];
-                    setClasses([]);
-                    if (setCache) setCache({ data: [], loaded: true });
-                }
-            } else {
-                if (!isBackground) setError("Failed to load class schedule.");
-            }
+            if (!isBackground) setError("Failed to load class schedule.");
             if (!isBackground) setLoading(false);
         }
-    }, [getApiUrl, token, ongoingClasses, upcomingClasses, setCache]);
+    }, [getApiUrl, token, ongoingClasses, upcomingClasses, history, setCache]);
 
     useEffect(() => {
         if (!cache?.loaded) {
             fetchClasses(false); // Initial load
-            fetchAttendanceHistory(false);
         } else {
             fetchClasses(true); // Background sync on mount/tab switch
-            fetchAttendanceHistory(true);
         }
-    }, [fetchClasses, fetchAttendanceHistory, cache?.loaded]);
+    }, [fetchClasses, cache?.loaded]);
 
     // Format Date Helper
     const formatDate = useCallback((dateString) => {
@@ -807,10 +756,10 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
                         </p>
                     </div>
                     <button
-                        onClick={() => { fetchClasses(false); fetchAttendanceHistory(false); }}
+                        onClick={() => fetchClasses(false)}
                         className={`p-4 rounded-[5px] transition-all active:scale-95 flex items-center gap-3 ${isDarkMode ? 'bg-white/5 border border-white/10 text-white hover:bg-white/10' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200'}`}
                     >
-                        <RefreshCw size={18} className={loading || historyLoading ? "animate-spin" : ""} />
+                        <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Update Schedule</span>
                     </button>
                 </div>

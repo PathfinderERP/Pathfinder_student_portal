@@ -4,7 +4,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views import system_status, FileViewSet, CustomTokenObtainPairView, ProfileView, UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, StudyTaskViewSet, NoticeViewSet, UserSearchView, StudentPsychometricProfileView, StudentStudyPlannerConfigView
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
-    get_student_classes, get_ongoing_classes, get_upcoming_classes,
+    get_student_classes, get_ongoing_classes, get_upcoming_classes, get_previous_classes,
+    get_student_portal_profile, get_student_portal_report,
     get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag
 )
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
@@ -31,11 +32,23 @@ urlpatterns = [
     path('student-portal/classes/upcoming/', get_upcoming_classes, name='student-portal-upcoming'),
     path('student-portal/classes/ongoing/<str:studentId>/', get_ongoing_classes, name='student-portal-ongoing-id'),
     path('student-portal/classes/upcoming/<str:studentId>/', get_upcoming_classes, name='student-portal-upcoming-id'),
+    path('student-portal/classes/previous/', get_previous_classes, name='student-portal-previous'),
+    path('student-portal/classes/previous/<str:studentId>/', get_previous_classes, name='student-portal-previous-id'),
+    path('student-portal/profile/', get_student_portal_profile, name='student-portal-profile'),
+    path('student-portal/profile/<str:studentId>/', get_student_portal_profile, name='student-portal-profile-id'),
+    path('student-portal/report/', get_student_portal_report, name='student-portal-report'),
+    path('student-portal/report/<str:studentId>/', get_student_portal_report, name='student-portal-report-id'),
     # No-slash fallbacks
     path('student-portal/classes/ongoing', get_ongoing_classes),
     path('student-portal/classes/upcoming', get_upcoming_classes),
+    path('student-portal/classes/previous', get_previous_classes),
+    path('student-portal/profile', get_student_portal_profile),
+    path('student-portal/report', get_student_portal_report),
     path('student-portal/classes/ongoing/<str:studentId>', get_ongoing_classes),
     path('student-portal/classes/upcoming/<str:studentId>', get_upcoming_classes),
+    path('student-portal/classes/previous/<str:studentId>', get_previous_classes),
+    path('student-portal/profile/<str:studentId>', get_student_portal_profile),
+    path('student-portal/report/<str:studentId>', get_student_portal_report),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
     path('admin/erp-centres/', get_all_centres_erp_data, name='admin-erp-centres'),
     path('admin/erp-teachers/', get_all_teachers_erp_data, name='admin-erp-teachers'),

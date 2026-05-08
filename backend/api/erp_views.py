@@ -863,6 +863,61 @@ def get_upcoming_classes(request, studentId=None):
     return _proxy_class_endpoint(request, 'upcoming', studentId)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_previous_classes(request, studentId=None):
+    """Proxy for ERP previous classes (history) with security filtering."""
+    return _proxy_class_endpoint(request, 'previous', studentId)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_portal_profile(request, studentId=None):
+    """Proxy for ERP student portal profile with security filtering."""
+    return _proxy_portal_endpoint(request, 'profile', studentId)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_portal_report(request, studentId=None):
+    """Proxy for ERP student comprehensive report with security filtering."""
+    return _proxy_portal_endpoint(request, 'report', studentId)
+
+
+def _proxy_portal_endpoint(request, tail, studentId=None):
+    """Internal helper to proxy portal profile/report requests to ERP."""
+    user = request.user
+    is_privileged = user.user_type in ['superadmin', 'admin', 'teacher', 'faculty', 'staff']
+    target_id = studentId if (studentId and is_privileged) else _fetch_erp_student_id(user)
+    
+    if not target_id:
+        return Response({"error": "Student ERP identity not found"}, status=404)
+
+    try:
+        erp_url = _get_erp_url()
+        erp_token = _get_erp_admin_token()
+        if not erp_token:
+            return Response({"error": "ERP Authentication Failed"}, status=503)
+
+        # Profile/Report endpoints usually take studentId as a path param in the ERP
+        erp_endpoint = f"{erp_url}/api/student-portal/{tail}/{target_id}"
+        
+        resp = requests.get(
+            erp_endpoint,
+            headers={"Authorization": f"Bearer {erp_token}"},
+            params=request.GET,
+            timeout=25
+        )
+
+        if resp.status_code >= 400:
+            return Response({"error": f"ERP Error {resp.status_code}"}, status=resp.status_code)
+
+        return Response(resp.json(), status=200)
+    except Exception as e:
+        debug_log(f"[PORTAL-{tail.upper()}] Proxy Exception: {str(e)}")
+        return Response({"error": str(e)}, status=500)
+
+
 def _proxy_class_endpoint(request, tail, studentId=None):
     """Internal helper to proxy filtered class requests to ERP with security checks."""
     user = request.user
