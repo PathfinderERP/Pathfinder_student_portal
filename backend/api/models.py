@@ -201,6 +201,33 @@ class StudentStudyPlannerConfig(models.Model):
     def __str__(self):
         return f"Config for {self.user.username}"
 
+class UserActivityLog(models.Model):
+    ACTIVITY_TYPES = (
+        ('page_view', 'Page View'),
+        ('video_play', 'Video Play'),
+        ('video_pause', 'Video Pause'),
+        ('video_complete', 'Video Complete'),
+        ('heartbeat', 'Heartbeat'),
+        ('click', 'Click'),
+    )
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='activity_logs')
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPES)
+    path = models.CharField(max_length=500, help_text="The URL or section path")
+    
+    # Metadata for specific actions (e.g., video ID, test ID)
+    metadata = SafeJSONField(default=dict, blank=True)
+    
+    # For duration tracking
+    duration = models.IntegerField(default=0, help_text="Duration in seconds (for heartbeats or video watch time)")
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.activity_type} at {self.timestamp}"
+
 class CollegeIntelligence(models.Model):
     """
     Caches AI-generated intelligence about a college for a specific exam type.

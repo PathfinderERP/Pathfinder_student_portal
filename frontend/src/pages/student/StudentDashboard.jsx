@@ -19,12 +19,13 @@ import Results from './components/Results';
 import Grievances from './components/Grievances';
 // import SWOTAnalysis from './components/SWOTAnalysis';
 import StudyMaterials from './components/StudyMaterials';
-// import AdvancedAnalytics from './components/AdvancedAnalytics';
-// import AIInsights from './components/AIInsights';
+import AdvancedAnalytics from './components/AdvancedAnalytics';
+import AIInsights from './components/AIInsights';
 import StudyPlanner from './components/StudyPlanner';
 import NoticeBoard from './components/NoticeBoard';
 import Scholarlab from './components/Scholarlab';
 import SocialFeed from './components/SocialFeed';
+import { useActivityTracker } from '../../services/useActivityTracker';
 
 import PortalLayout from '../../components/common/PortalLayout';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,11 @@ const StudentDashboard = () => {
     const { user, logout, token, getApiUrl, loading: authLoading, refreshUser } = useAuth();
     const { isDarkMode } = useTheme();
     const [activeTab, setActiveTab] = useState('Dashboard');
+
+    // Track Student Activity
+    useActivityTracker(`StudentPortal/${activeTab}`);
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const location = useLocation();
 
@@ -43,8 +49,8 @@ const StudentDashboard = () => {
         if (tab) {
             // Mapping check to ensure valid tab
             const validTabs = [
-                'Dashboard', 'My Profile', 'Classes', 'Attendance', 
-                'Exams', 'Results', 'Performance', 'Grievances', 
+                'Dashboard', 'My Profile', 'Classes', 'Attendance',
+                'Exams', 'Results', 'Performance', 'Grievances',
                 'Study Materials', 'Study Planner', 'Notice Board'
             ];
             if (validTabs.includes(tab)) {
@@ -192,7 +198,7 @@ const StudentDashboard = () => {
                 axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
             ]);
-            
+
             const testsData = testsRes.data || [];
             const resultsData = resultsRes.data || [];
 
@@ -204,8 +210,8 @@ const StudentDashboard = () => {
                         ...test,
                         submission: {
                             ...(test.submission || {}),
-                            score: result.marks != null && result.total > 0 
-                                ? (result.marks / result.total) * 100 
+                            score: result.marks != null && result.total > 0
+                                ? (result.marks / result.total) * 100
                                 : (test.submission?.score ?? 0),
                             rank: result.rank || test.submission?.rank || null,
                             is_finalized: true
@@ -227,13 +233,13 @@ const StudentDashboard = () => {
             if (!user) return;
 
             const data = await fetchStudentData(false);
-            
+
             // Fix static data flicker in Attendance by ensuring cache status triggers fetch if needed
             const isInitial = !attendanceCache?.loaded;
             if (isInitial) {
                 fetchAttendanceStats();
             }
-            
+
             fetchUpcomingExams(); // Fetch exams for countdown
 
             // If data is offline/mock and we haven't tried syncing yet this mount, do it now
@@ -268,7 +274,7 @@ const StudentDashboard = () => {
             ]
         },
         // { name: 'Scholarlab', icon: Beaker },
-        // { name: 'Advanced Analytics', icon: BarChart2 },
+        { name: 'Advanced Analytics', icon: BarChart2 },
         // { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
         { name: 'Notice Board', icon: Bell },
@@ -386,10 +392,10 @@ const StudentDashboard = () => {
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Scholarlab':
                 return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} cache={scholarlabCache} setCache={setScholarlabCache} />;
-            /* case 'Advanced Analytics':
+            case 'Advanced Analytics':
                 return <AdvancedAnalytics isDarkMode={isDarkMode} />;
-            case 'AI Insights':
-                return <AIInsights isDarkMode={isDarkMode} />; */
+            // case 'AI Insights':
+            //     return <AIInsights isDarkMode={isDarkMode} />;
             case 'Study Planner':
                 return <StudyPlanner isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Notice Board':
@@ -440,10 +446,10 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
 
     const subjectStats = useMemo(() => {
         if (!exams || !Array.isArray(exams)) return null;
-        
+
         const subjects = {};
         const completedTests = exams.filter(e => e.submission?.is_finalized && e.submission?.score != null);
-        
+
         if (completedTests.length === 0) return null;
 
         completedTests.forEach(e => {
@@ -481,14 +487,14 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance'
         },
         { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', color: 'indigo', icon: GraduationCap },
-        { 
-            label: 'NEXT EXAM', 
-            value: nextExam ? nextExam.name : 'NO EXAMS', 
-            subtext: nextExam 
-                ? `${new Date(nextExam.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} | ${new Date(nextExam.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` 
-                : 'Enjoy your break!', 
-            pill: nextExam ? `Duration: ${nextExam.duration}m` : 'Clear Sky', 
-            color: 'orange', 
+        {
+            label: 'NEXT EXAM',
+            value: nextExam ? nextExam.name : 'NO EXAMS',
+            subtext: nextExam
+                ? `${new Date(nextExam.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} | ${new Date(nextExam.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Enjoy your break!',
+            pill: nextExam ? `Duration: ${nextExam.duration}m` : 'Clear Sky',
+            color: 'orange',
             icon: CalendarDays,
             tab: 'Exams'
         },
@@ -794,7 +800,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
 
             {/* Bottom: Dynamic Announcements/Exams */}
             {nextExam && (
-                <div 
+                <div
                     onClick={() => onTabChange('Exams')}
                     className={`p-6 rounded-[5px] border cursor-pointer transition-all hover:scale-[1.01] active:scale-95 shadow-lg
                     ${isDarkMode ? 'border-orange-500/20 bg-orange-500/5 shadow-orange-500/5' : 'border-orange-200 bg-orange-50 shadow-orange-100'}`}

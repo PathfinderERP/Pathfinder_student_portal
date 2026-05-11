@@ -2,12 +2,22 @@ from rest_framework import viewsets, permissions, generics, status, response, vi
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig
+import logging
+
+logger = logging.getLogger(__name__)
+
+from .models import (
+    UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice, 
+    StudentPsychometricProfile, StudentStudyPlannerConfig, UserActivityLog
+)
+from master_data.models import LibraryItem, Subject, Chapter, Topic
+from django.db.models import Q
 from .serializers import (
     UploadedFileSerializer, CustomTokenObtainPairSerializer, 
     UserSerializer, UserCreateSerializer, LoginLogSerializer,
     GrievanceSerializer, StudyTaskSerializer, NoticeSerializer,
-    StudentPsychometricProfileSerializer, StudentStudyPlannerConfigSerializer
+    StudentPsychometricProfileSerializer, StudentStudyPlannerConfigSerializer,
+    UserActivityLogSerializer
 )
 
 @api_view(['GET'])
@@ -642,3 +652,336 @@ class StudentStudyPlannerConfigView(views.APIView):
 
             return response.Response(serializer.data, status=status.HTTP_201_CREATED)
         return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserActivityLogViewSet(viewsets.ModelViewSet):
+    serializer_class = UserActivityLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return UserActivityLog.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_activity_analytics(request):
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        from collections import defaultdict
+        import requests
+        from .erp_views import _get_erp_url, _get_erp_admin_token, _fetch_erp_student_id
+
+        user = request.user
+        now = timezone.now()
+        last_35_days = now - timedelta(days=35)
+
+        # Fetch raw logs — avoid ORM date-cast (Djongo/MongoDB incompatible)
+        heartbeat_logs = list(UserActivityLog.objects.filter(
+            user=user,
+            activity_type='heartbeat'
+        ).values('timestamp', 'duration', 'path'))
+
+        # 1. Total study time
+        total_seconds = sum(log['duration'] or 0 for log in heartbeat_logs)
+        total_hours = round(total_seconds / 3600, 1)
+
+        # 2. Per-day intensity map for heatmap (Python-side grouping)
+        intensity_map = defaultdict(int)  # date -> total seconds
+        for log in heartbeat_logs:
+            ts = log['timestamp']
+            if ts and ts >= last_35_days:
+                day = ts.date()
+                intensity_map[day] += log['duration'] or 0
+
+        heatmap_data = []
+        for i in range(35):
+            date = (now - timedelta(days=34 - i)).date()
+            seconds = intensity_map.get(date, 0)
+            intensity = 0
+            if seconds > 0:
+                hours = seconds / 3600
+                if hours < 1:   intensity = 1
+                elif hours < 3: intensity = 2
+                elif hours < 6: intensity = 3
+                else:           intensity = 4
+            heatmap_data.append({
+                'day': date.strftime('%d %b'),
+                'intensity': intensity,
+                'active': seconds > 0,
+                'hours': round(seconds / 3600, 2)
+            })
+
+        # 3. Time distribution by section (Python-side grouping)
+        path_seconds = defaultdict(int)
+        for log in heartbeat_logs:
+            path_seconds[log.get('path') or 'unknown'] += log['duration'] or 0
+
+        total_dist_sec = sum(path_seconds.values()) or 1
+        colors = ['bg-indigo-500', 'bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-slate-400']
+        sorted_paths = sorted(path_seconds.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        distribution = []
+        for idx, (path, sec) in enumerate(sorted_paths):
+            # Better topic extraction: "StudentPortal/Video-Content" -> "Video Content"
+            parts = [p for p in path.split('/') if p and p != 'StudentPortal']
+            name = parts[-1].replace('-', ' ').title() if parts else 'Dashboard'
+            
+            distribution.append({
+                'topic': name,
+                'time': f"{round(sec / 3600, 1)} hrs",
+                'percent': int((sec / total_dist_sec) * 100),
+                'color': colors[idx % len(colors)]
+            })
+
+        # 4. Streak calculation (Python-side)
+        active_dates = sorted(intensity_map.keys(), reverse=True)
+        streak = 0
+        if active_dates:
+            check_date = now.date()
+            for date in active_dates:
+                if date == check_date:
+                    streak += 1
+                    check_date -= timedelta(days=1)
+                elif date > check_date:
+                    continue
+                else:
+                    break
+
+        # 5. Real proficiency from ERP
+        proficiency = []
+        try:
+            erp_sid = _fetch_erp_student_id(user)
+            if erp_sid:
+                erp_url = _get_erp_url()
+                erp_token = _get_erp_admin_token()
+                if erp_token:
+                    report_resp = requests.get(
+                        f"{erp_url}/api/student-portal/report",
+                        headers={"Authorization": f"Bearer {erp_token}"},
+                        params={"studentId": erp_sid},
+                        timeout=10
+                    )
+                    if report_resp.status_code == 200:
+                        report_data = report_resp.json()
+                        swp = report_data.get('data', {}).get('subjectWisePerformance', [])
+                        if not swp:
+                            swp = report_data.get('subjectWisePerformance', [])
+                        for item in swp[:4]:
+                            proficiency.append({
+                                'subject': item.get('subjectName') or item.get('subject') or 'Unknown',
+                                'score': int(item.get('percentage') or item.get('score') or 0),
+                                'trend': '+0%',
+                                'subtopics': []
+                            })
+        except Exception as erp_err:
+            print(f"[Analytics] ERP Score Fetch Error: {erp_err}")
+
+        if not proficiency:
+            # Default subjects for this portal
+            proficiency = [
+                {'subject': 'Physics',     'score': 0, 'trend': '+0%', 'subtopics': []},
+                {'subject': 'Chemistry',   'score': 0, 'trend': '+0%', 'subtopics': []},
+                {'subject': 'Mathematics', 'score': 0, 'trend': '+0%', 'subtopics': []},
+                {'subject': 'Biology',     'score': 0, 'trend': '+0%', 'subtopics': []},
+            ]
+
+        # 5.5 Merge activity-based subjects into proficiency if they are missing
+        # This ensures if a user watches a Bio video, it shows up
+        existing_subjects = {p['subject'].lower() for p in proficiency}
+        for dist_item in distribution:
+            topic = dist_item['topic']
+            # If the topic looks like a subject and isn't there, add it with a small engagement score
+            if topic.lower() not in existing_subjects and topic.lower() in ['biology', 'english', 'history']:
+                proficiency.append({
+                    'subject': topic,
+                    'score': min(15, dist_item['percent']), # Use percentage as a proxy for engagement
+                    'trend': '+ engagement',
+                    'subtopics': []
+                })
+            elif topic.lower() in existing_subjects:
+                # Boost existing scores slightly based on engagement if they are 0
+                for p in proficiency:
+                    if p['subject'].lower() == topic.lower() and p['score'] == 0:
+                        p['score'] = min(20, dist_item['percent'])
+                        p['trend'] = '+ engagement'
+
+        # 6. Summary stats
+        active_days = len(intensity_map)
+        unique_sections = len(path_seconds)
+        video_plays = UserActivityLog.objects.filter(
+            user=user, activity_type='video_play'
+        ).count()
+
+        # 7. Recent video activity (Deduplicated)
+        all_play_logs = list(UserActivityLog.objects.filter(
+            user=user, activity_type='video_play'
+        ).order_by('-timestamp'))
+        
+        all_video_logs = list(UserActivityLog.objects.filter(
+            user=user, activity_type__startswith='video_'
+        ))
+        
+        recent_videos_data = []
+        seen_ids = set()
+        
+        for rlog in all_play_logs:
+            v_id = rlog.metadata.get('video_id')
+            if not v_id or v_id in seen_ids:
+                continue
+            
+            seen_ids.add(v_id)
+            total_sec = sum(v.duration for v in all_video_logs if v.metadata.get('video_id') == v_id)
+            
+            recent_videos_data.append({
+                'title': rlog.metadata.get('video_title', 'Unknown Video'),
+                'timestamp': rlog.timestamp,
+                'id': v_id,
+                'duration_watched': f"{round(total_sec / 60, 1)} min"
+            })
+            if len(recent_videos_data) >= 5:
+                break
+
+        return response.Response({
+            'total_hours': total_hours,
+            'heatmap': heatmap_data,
+            'distribution': distribution,
+            'streak': streak,
+            'avg_daily_hours': round(total_hours / max(active_days, 1), 1) if active_days else 0,
+            'proficiency': proficiency,
+            'summary': {
+                'active_days': active_days,
+                'unique_sections': unique_sections,
+                'video_plays': video_plays,
+                'total_hours': total_hours
+            },
+            'recent_videos': recent_videos_data
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return response.Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_curriculum_progress(request):
+    """
+    Returns a detailed breakdown of the curriculum (Subject -> Chapter -> Topic)
+    and the student's completion status for each.
+    """
+    try:
+        user = request.user
+        
+        # 1. Fetch all LibraryItems relevant to this student
+        # We filter by Class Level and Target Exam to match the student's curriculum
+        items_query = LibraryItem.objects.all()
+        if hasattr(user, 'class_level') and user.class_level:
+            items_query = items_query.filter(Q(class_level=user.class_level) | Q(class_level__isnull=True))
+        if hasattr(user, 'target_exam') and user.target_exam:
+            items_query = items_query.filter(Q(target_exams=user.target_exam) | Q(target_exams__isnull=True))
+            
+        items = items_query.select_related('subject', 'chapter', 'topic').prefetch_related('videos').order_by('subject__name', 'chapter__name', 'topic__sort_order')
+        
+        # 2. Get Student Activity (Video Watch History)
+        activity_logs = list(UserActivityLog.objects.filter(
+            user=user, activity_type__startswith='video_'
+        ))
+        watched_video_ids = set()
+        for log in activity_logs:
+            v_id = log.metadata.get('video_id')
+            if v_id: 
+                watched_video_ids.add(str(v_id))
+            
+        # 3. Build the hierarchical structure: Subject -> Chapter -> Topics (Grouped by name)
+        structure = {}
+        for item in items:
+            subj_name = item.subject.name if item.subject else 'General Resources'
+            chap_name = item.chapter.name if item.chapter else 'Introduction'
+            topic_display_name = item.topic.name if item.topic else item.title
+            
+            if subj_name not in structure:
+                structure[subj_name] = {}
+            if chap_name not in structure[subj_name]:
+                structure[subj_name][chap_name] = {} # Use dict for deduplication
+            
+            # Get video-level data for this item
+            videos_data = []
+            item_videos = list(item.videos.all())
+            has_videos = len(item_videos) > 0
+            
+            status = 'not_started'
+            item_prefix = f"{item.id}-v-"
+            
+            for idx, v in enumerate(item_videos):
+                v_id_erp = f"{item.id}-v-{idx}"
+                v_id_model = str(v.id)
+                
+                v_status = 'not_started'
+                if v_id_erp in watched_video_ids or v_id_model in watched_video_ids:
+                    v_status = 'completed'
+                    status = 'completed' # If any video is watched, topic is in_progress/completed
+                
+                v_watch_time = sum(log.duration for log in activity_logs 
+                                 if str(log.metadata.get('video_id')) == v_id_erp or str(log.metadata.get('video_id')) == v_id_model)
+                
+                videos_data.append({
+                    'title': v.title or f"Video {idx+1}",
+                    'status': v_status,
+                    'duration_watched': f"{round(v_watch_time / 60, 1)} min" if v_watch_time > 0 else "0 min"
+                })
+
+            # Grouping Logic: If topic exists, update status/videos
+            if topic_display_name in structure[subj_name][chap_name]:
+                existing = structure[subj_name][chap_name][topic_display_name]
+                if status == 'completed':
+                    existing['status'] = 'completed'
+                existing['videos'].extend(videos_data)
+            else:
+                structure[subj_name][chap_name][topic_display_name] = {
+                    'name': topic_display_name,
+                    'status': status,
+                    'has_video': has_videos,
+                    'videos': videos_data
+                }
+            
+        # 4. Transform into a list-based format suitable for the frontend
+        formatted_result = []
+        for s_name in sorted(structure.keys()):
+            chapters_data = structure[s_name]
+            chap_list = []
+            
+            subj_total_topics = 0
+            subj_completed_topics = 0
+            
+            for c_name in sorted(chapters_data.keys()):
+                # Convert topics dict to list
+                topics = list(chapters_data[c_name].values())
+                
+                completed_count = sum(1 for t in topics if t['status'] == 'completed')
+                total_count = len(topics)
+                
+                subj_total_topics += total_count
+                subj_completed_topics += completed_count
+                
+                chap_list.append({
+                    'name': c_name,
+                    'topics': topics,
+                    'completed_count': completed_count,
+                    'total_count': total_count,
+                    'progress': round((completed_count / total_count) * 100) if total_count > 0 else 0
+                })
+            
+            formatted_result.append({
+                'subject': s_name,
+                'progress': round((subj_completed_topics / subj_total_topics) * 100) if subj_total_topics > 0 else 0,
+                'chapters': chap_list
+            })
+            
+        return response.Response(formatted_result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return response.Response({"error": str(e)}, status=500)
+

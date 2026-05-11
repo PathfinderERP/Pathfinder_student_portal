@@ -1,7 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import system_status, FileViewSet, CustomTokenObtainPairView, ProfileView, UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, StudyTaskViewSet, NoticeViewSet, UserSearchView, StudentPsychometricProfileView, StudentStudyPlannerConfigView
+from .views import (
+    system_status, FileViewSet, CustomTokenObtainPairView, ProfileView, 
+    UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, 
+    StudyTaskViewSet, NoticeViewSet, UserSearchView, 
+    StudentPsychometricProfileView, StudentStudyPlannerConfigView,
+    UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress
+)
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
     get_student_classes, get_ongoing_classes, get_upcoming_classes, get_previous_classes,
@@ -17,6 +23,7 @@ router.register(r'users', UserViewSet)
 router.register(r'grievances', GrievanceViewSet)
 router.register(r'study-tasks', StudyTaskViewSet, basename='study-task')
 router.register(r'notices', NoticeViewSet)
+router.register(r'activity-logs', UserActivityLogViewSet, basename='activity-log')
 
 urlpatterns = [
     path('system-status/', system_status, name='system-status'),
@@ -60,6 +67,8 @@ urlpatterns = [
     path('chat/search/', UserSearchView.as_view(), name='chat-search'),
     path('student/psychometric-profile/', StudentPsychometricProfileView.as_view(), name='psychometric-profile'),
     path('student/study-planner-config/', StudentStudyPlannerConfigView.as_view(), name='study-planner-config'),
+    path('student/activity-analytics/', get_student_activity_analytics, name='activity-analytics'),
+    path('student/curriculum-progress/', get_student_curriculum_progress, name='curriculum-progress'),
     path('examTag/<str:tagId>/', get_exam_tag, name='exam-tag'),
     path('admin/temp-cleanup/', include([
         path('grievances/', 

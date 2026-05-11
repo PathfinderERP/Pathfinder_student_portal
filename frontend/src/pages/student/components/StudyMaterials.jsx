@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { toast } from 'react-hot-toast';
+import { logVideoActivity } from '../../../services/useActivityTracker';
 
 const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }) => {
     const { getApiUrl, token, user } = useAuth();
@@ -41,6 +42,85 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
     const [selectedItem, setSelectedItem] = useState(null);
     const [viewPage, setViewPage] = useState(1); // 1 for Info, 2 for Content
     const [isFullScreen, setIsFullScreen] = useState(false);
+
+    // YouTube IFrame Player API
+    const ytPlayerRef = useRef(null);
+    const ytContainerRef = useRef(null);
+    const ytVideoStartTime = useRef(null);
+
+    const getYouTubeVideoId = (url) => {
+        if (!url) return null;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/ ;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+
+    // Load YouTube IFrame API script once
+    useEffect(() => {
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            document.head.appendChild(tag);
+        }
+    }, []);
+
+    // Initialize/re-create YouTube player when a YT video is shown
+    useEffect(() => {
+        if (
+            viewPage !== 2 ||
+            !selectedItem?.video_link ||
+            !ytContainerRef.current
+        ) return;
+
+        const videoId = getYouTubeVideoId(selectedItem.video_link);
+        if (!videoId) return;
+
+        const initPlayer = () => {
+            // Destroy previous player if any
+            if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === 'function') {
+                ytPlayerRef.current.destroy();
+            }
+            ytVideoStartTime.current = Date.now();
+            ytPlayerRef.current = new window.YT.Player(ytContainerRef.current, {
+                videoId,
+                width: '100%',
+                height: '100%',
+                playerVars: { autoplay: 1, rel: 0 },
+                events: {
+                    onStateChange: (event) => {
+                        const elapsed = Math.floor((Date.now() - ytVideoStartTime.current) / 1000);
+                        if (event.data === window.YT.PlayerState.PLAYING) {
+                            ytVideoStartTime.current = Date.now();
+                            logVideoActivity('play', selectedItem.id, selectedItem.name, 0);
+                        } else if (event.data === window.YT.PlayerState.PAUSED) {
+                            logVideoActivity('pause', selectedItem.id, selectedItem.name, elapsed);
+                        } else if (event.data === window.YT.PlayerState.ENDED) {
+                            logVideoActivity('complete', selectedItem.id, selectedItem.name, elapsed);
+                        }
+                    }
+                }
+            });
+        };
+
+        if (window.YT && window.YT.Player) {
+            initPlayer();
+        } else {
+            // Wait for API to load
+            const prev = window.onYouTubeIframeAPIReady;
+            window.onYouTubeIframeAPIReady = () => {
+                if (prev) prev();
+                initPlayer();
+            };
+        }
+
+        return () => {
+            if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === 'function') {
+                ytPlayerRef.current.destroy();
+                ytPlayerRef.current = null;
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewPage, selectedItem?.video_link]);
 
     const getYouTubeThumbnail = (url) => {
         if (!url) return null;
@@ -244,13 +324,13 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                     <div className={`relative w-full max-w-6xl transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'h-full rounded-none m-0' : 'h-[85vh] rounded-[5px]'}`}>
                         <div className={`flex items-center justify-between px-6 py-4 border-b relative z-20 ${isDarkMode ? 'bg-[#10141D] border-white/10 text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
                             <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-xl bg-gradient-to-br ${getSubjectGradient(selectedItem.subject_name)}`}>
-                                    {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} /> : <FileText size={24} />}
-                                </div>
-                                <div className="space-y-0.5">
-                                    <h4 className="text-xl font-black uppercase tracking-tight leading-tight truncate max-w-[200px] sm:max-w-md">{selectedItem.name}</h4>
-                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">{selectedItem.subject_name} • {(selectedItem.video_link || selectedItem.video_file) ? 'Video Player' : 'Document Reader'}</p>
-                                </div>
+                                 <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-xl bg-gradient-to-br ${getSubjectGradient(selectedItem.subject_name)}`}>
+                                     {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} /> : <FileText size={24} />}
+                                 </div>
+                                 <div className="space-y-0.5">
+                                     <h4 className="text-xl font-black uppercase tracking-tight leading-tight truncate max-w-[200px] sm:max-w-md">{selectedItem.name}</h4>
+                                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">{selectedItem.subject_name} • {(selectedItem.video_link || selectedItem.video_file) ? 'Video Player' : 'Document Reader'}</p>
+                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -260,7 +340,12 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     {isFullScreen ? <Minimize2 size={18} strokeWidth={3} /> : <Maximize2 size={18} strokeWidth={3} />}
                                 </button>
                                 <button
-                                    onClick={() => setSelectedItem(null)}
+                                    onClick={() => {
+                                        if (viewPage === 2 && (selectedItem.video_link || selectedItem.video_file)) {
+                                            logVideoActivity('pause', selectedItem.id, selectedItem.name);
+                                        }
+                                        setSelectedItem(null);
+                                    }}
                                     className="p-2.5 bg-red-500 text-white rounded-[5px] transition-all active:scale-95 shadow-lg shadow-red-500/20"
                                 >
                                     <X size={18} strokeWidth={3} />
@@ -297,23 +382,33 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                             {selectedItem.description || 'No detailed description available for this learning resource.'}
                                         </p>
 
-                                        <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
-                                            {(selectedItem.pdf_file || selectedItem.dpp_file || selectedItem.video_link || selectedItem.video_file) && (
-                                                <button
-                                                    onClick={() => setViewPage(2)}
-                                                    className="group/btn px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-4"
-                                                >
-                                                    {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} strokeWidth={2.5} className="group-hover/btn:animate-pulse" /> : <Eye size={24} strokeWidth={2.5} />}
-                                                    <span>{(selectedItem.video_link || selectedItem.video_file) ? 'Launch Video Player' : 'Open Document Reader'}</span>
-                                                </button>
-                                            )}
-                                        </div>
+                                                <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
+                                                    {(selectedItem.pdf_file || selectedItem.dpp_file || selectedItem.video_link || selectedItem.video_file) && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setViewPage(2);
+                                                                if (selectedItem.video_link || selectedItem.video_file) {
+                                                                    logVideoActivity('play', selectedItem.id, selectedItem.name);
+                                                                }
+                                                            }}
+                                                            className="group/btn px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-4"
+                                                        >
+                                                            {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} strokeWidth={2.5} className="group-hover/btn:animate-pulse" /> : <Eye size={24} strokeWidth={2.5} />}
+                                                            <span>{(selectedItem.video_link || selectedItem.video_file) ? 'Launch Video Player' : 'Open Document Reader'}</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="w-full h-full bg-black flex items-center justify-center relative">
                                     <button
-                                        onClick={() => setViewPage(1)}
+                                        onClick={() => {
+                                            if (viewPage === 2 && (selectedItem.video_link || selectedItem.video_file)) {
+                                                logVideoActivity('pause', selectedItem.id, selectedItem.name);
+                                            }
+                                            setViewPage(1);
+                                        }}
                                         className="absolute top-6 left-6 z-50 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[5px] transition-all flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"
                                     >
                                         <ChevronRight size={16} className="rotate-180" /> Back to Info
@@ -327,12 +422,8 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     ) : selectedItem.video_link ? (
                                         <div className="w-full h-full">
                                             {(selectedItem.video_link.includes('youtube.com') || selectedItem.video_link.includes('youtu.be')) ? (
-                                                <iframe
-                                                    src={getYouTubeEmbedUrl(selectedItem.video_link)}
-                                                    className="w-full h-full border-none"
-                                                    allowFullScreen
-                                                    title="YouTube Player"
-                                                />
+                                                // YouTube IFrame Player API — events captured via onStateChange
+                                                <div ref={ytContainerRef} className="w-full h-full" />
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center h-full text-white gap-4">
                                                     <ExternalLink size={48} />
@@ -348,6 +439,8 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                             className="max-w-full max-h-full"
                                             controls
                                             autoPlay
+                                            onPause={(e) => logVideoActivity('pause', selectedItem.id, selectedItem.name, Math.floor(e.target.currentTime))}
+                                            onEnded={(e) => logVideoActivity('complete', selectedItem.id, selectedItem.name, Math.floor(e.target.currentTime))}
                                         />
                                     ) : (
                                         <div className="text-white/30 font-black uppercase tracking-widest">Resource Unavailable</div>
