@@ -290,11 +290,11 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
         };
 
         return (
-            <div ref={containerRef} className={`rounded-[12px] p-6 flex-1 min-w-0 relative ${subCard}`}>
+            <div ref={containerRef} className={`rounded-lg p-6 flex-1 min-w-0 relative ${subCard}`}>
                 {/* HTML Tooltip */}
                 {tooltip && (
                     <div
-                        className={`pointer-events-none absolute z-50 px-3 py-2 rounded-[8px] text-center shadow-xl border
+                        className={`pointer-events-none absolute z-50 px-3 py-2 rounded-lg text-center shadow-xl border
                             ${isDarkMode ? 'bg-[#1e293b] border-[#334155] text-slate-200' : 'bg-white border-slate-200 text-slate-700'}`}
                         style={{
                             left: tooltip.px,
@@ -410,11 +410,11 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
         };
 
         return (
-            <div ref={containerRef} className={`rounded-[12px] p-6 overflow-x-auto relative ${subCard}`}>
+            <div ref={containerRef} className={`rounded-lg p-6 overflow-x-auto relative ${subCard}`}>
                 {/* HTML Tooltip — renders above everything */}
                 {tooltip && (
                     <div
-                        className={`pointer-events-none absolute z-50 px-3 py-2 rounded-[8px] text-center shadow-xl border text-[11px]
+                        className={`pointer-events-none absolute z-50 px-3 py-2 rounded-lg text-center shadow-xl border text-[11px]
                             ${isDarkMode ? 'bg-[#1e293b] border-[#334155] text-slate-200' : 'bg-white border-slate-200 text-slate-700'}`}
                         style={{
                             left: tooltip.px,
@@ -535,7 +535,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
             </button>
 
             {/* ── Report Card ───────────────────────────────────────────────── */}
-            <div className={`rounded-[10px] overflow-hidden shadow-xl ${card}`}>
+            <div className={`rounded-lg overflow-hidden shadow-xl ${card}`}>
 
                 {/* Header Strip */}
                 <div className={`px-7 py-5 border-b ${isDarkMode ? 'border-white/[0.06] bg-gradient-to-r from-[#1a2235] to-[#151b27]' : 'border-slate-100 bg-gradient-to-r from-slate-50 to-white'}`}>
@@ -545,7 +545,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                             <h2 className={`text-[15px] font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{report.testName}</h2>
                         </div>
                         {!report.isMissed && (
-                            <div className={`flex items-center gap-2 px-4 py-2 rounded-[6px] text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
                                 <Award size={14} />
                                 Rank {report.rank}
                             </div>
@@ -603,7 +603,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                 key={i}
                                                 onMouseEnter={() => setHovCard(i)}
                                                 onMouseLeave={() => setHovCard(null)}
-                                                className="relative rounded-[10px] p-5 overflow-hidden"
+                                                className="relative rounded-lg p-5 overflow-hidden"
                                                 style={{
                                                     background: isHov
                                                         ? (isDarkMode ? 'rgba(255,255,255,0.06)' : 'white')
@@ -642,7 +642,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
 
 
                         {/* Stats Grid */}
-                        <div className={`rounded-[10px] p-5 ${subCard}`}>
+                        <div className={`rounded-lg p-5 ${subCard}`}>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {/* Left */}
                                 <div className="space-y-3">
@@ -683,7 +683,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                         {/* Charts */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {[{ title: 'Marks Analysis', slices: markSlices }, { title: 'Time Taken', slices: timeSlices }].map(({ title, slices }) => (
-                                <div key={title} className={`rounded-[10px] p-5 ${subCard} ${report.isMissed ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                                <div key={title} className={`rounded-lg p-5 ${subCard} ${report.isMissed ? 'opacity-40 grayscale-[0.5]' : ''}`}>
                                     <p className={`text-[10px] font-black uppercase tracking-widest mb-5 ${muted}`}>{title} {report.isMissed ? '(No Data)' : ''}</p>
                                     <div className="flex flex-col items-center gap-4">
                                         <DoughnutChart slices={report.isMissed ? [{label: 'Empty', color: isDarkMode ? '#1e293b' : '#f1f5f9', pct: 1}] : slices} size={160} thickness={28} />

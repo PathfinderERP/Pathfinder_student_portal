@@ -31,12 +31,15 @@ const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => 
                         <button
                             key={i + 1}
                             onClick={() => onPageChange(i + 1)}
-                            className={`w-10 h-10 rounded-[5px] text-[10px] font-black transition-all ${currentPage === i + 1
+                            className={`w-10 h-10 rounded-[5px] text-[10px] font-black transition-all relative ${currentPage === i + 1
                                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
                                 : `border ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-slate-200 hover:bg-white'}`
                                 }`}
                         >
                             {i + 1}
+                            {currentPage === i + 1 && (
+                                <div className="absolute top-1.5 right-1.5 w-1 h-1 bg-white rounded-[1px] opacity-70" />
+                            )}
                         </button>
                     ))}
                 </div>

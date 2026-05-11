@@ -157,7 +157,7 @@ const ResultAnalytics = ({ results, isDarkMode }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
             {/* Percentile Trend Area Chart */}
-            <div className={`col-span-1 lg:col-span-2 p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+            <div className={`col-span-1 lg:col-span-2 p-6 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">Percentile Trend</h3>
@@ -201,7 +201,7 @@ const ResultAnalytics = ({ results, isDarkMode }) => {
             </div>
 
             {/* Performance Distribution Pie Chart */}
-            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+            <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">Score Matrix</h3>
@@ -381,7 +381,7 @@ const Results = ({ isDarkMode }) => {
                         <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             {activeTab === 'recent' ? 'Recent Results' : 'Score History'}
                         </h2>
-                        <div className={`flex p-1 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200 shadow-inner'}`}>
+                        <div className={`flex p-1 rounded-lg border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200 shadow-inner'}`}>
                             <button
                                 onClick={() => setActiveTab('recent')}
                                 className={`px-4 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent'
@@ -409,7 +409,7 @@ const Results = ({ isDarkMode }) => {
                                 placeholder={"Search by test name..."}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full md:w-64 pl-11 pr-4 py-2.5 rounded-[5px] border text-xs font-bold transition-all outline-none ${isDarkMode
+                                className={`w-full md:w-64 pl-11 pr-4 py-2.5 rounded-lg border text-xs font-bold transition-all outline-none ${isDarkMode
                                     ? 'bg-[#10141D] border-white/10 focus:border-blue-500/50 text-white'
                                     : 'bg-white border-slate-200 focus:border-blue-400 focus:shadow-lg focus:shadow-blue-500/5 text-slate-700'}`}
                             />
@@ -432,7 +432,7 @@ const Results = ({ isDarkMode }) => {
                 </div>
 
                 {/* Results Table */}
-                <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
+                <div className={`rounded-lg border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
@@ -557,7 +557,7 @@ const Results = ({ isDarkMode }) => {
 
                 {/* Performance Summary Cards (Moved to bottom as highlights) */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                    <div className={`p-6 rounded-lg border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Latest Result</h4>
                         <div className={`text-3xl font-black text-center mb-1 ${!latestResult ? 'text-slate-400' : 'text-blue-500'}`}>
                             {latestResult ? `${((latestResult.marks / latestResult.total) * 100).toFixed(2)}%` : '—'}
@@ -570,7 +570,7 @@ const Results = ({ isDarkMode }) => {
                         </div>
                     </div>
 
-                    <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                    <div className={`p-6 rounded-lg border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Highest Score</h4>
                         <div className={`text-3xl font-black text-center mb-1 ${!highestScore ? 'text-slate-400' : 'text-emerald-500'}`}>
                             {highestScore ? `${highestScore.pct.toFixed(2)}%` : '—'}
@@ -583,7 +583,7 @@ const Results = ({ isDarkMode }) => {
                         </div>
                     </div>
 
-                    <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                    <div className={`p-6 rounded-lg border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Avg. Percentile</h4>
                         <div className="text-3xl font-black text-center text-blue-500 mb-1">
                             {averagePercentile.value > 0 ? `${averagePercentile.value.toFixed(2)}%` : '—'}
@@ -596,7 +596,7 @@ const Results = ({ isDarkMode }) => {
                         </div>
                     </div>
 
-                    <div className={`p-6 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                    <div className={`p-6 rounded-lg border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Global Rank</h4>
                         <div className="text-3xl font-black text-center text-orange-500 mb-1">
                             {globalRank !== 'N/A' ? `#${globalRank}` : '—'}

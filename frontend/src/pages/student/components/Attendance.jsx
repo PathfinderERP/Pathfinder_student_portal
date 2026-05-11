@@ -981,9 +981,10 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     const { getApiUrl, token } = useAuth();
 
     // Use a ref for comparison to avoid the infinite loop in dependency arrays
-    const rawDataRef = useRef(cache?.loaded ? cache.data : getMockAttendance());
+    const rawDataRef = useRef(cache?.loaded ? cache.data : []);
     const [rawData, setRawData] = useState(rawDataRef.current);
-    const [loading, setLoading] = useState(false);
+    // Only show loading if we don't have cached data yet
+    const [loading, setLoading] = useState(!cache?.loaded); 
     const [error, setError] = useState(null);
     const [timePeriod, setTimePeriod] = useState('all');
     const [viewMode, setViewMode] = useState('overview');
@@ -995,12 +996,13 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             const apiUrl = getApiUrl();
             const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Fetch Previous Classes (Detailed History)
-            const historyResp = await axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers });
-            const historyData = historyResp.data?.data || historyResp.data || [];
+            // Fetch history and summary in parallel to improve performance
+            const [historyResp, reportResp] = await Promise.all([
+                axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers }),
+                axios.get(`${apiUrl}/api/student-portal/report/`, { headers })
+            ]);
 
-            // Fetch Comprehensive Report (Summary Stats)
-            const reportResp = await axios.get(`${apiUrl}/api/student-portal/report/`, { headers });
+            const historyData = historyResp.data?.data || historyResp.data || [];
             const reportData = reportResp.data || {};
             
             let records = Array.isArray(historyData) ? historyData : [];
@@ -1029,17 +1031,18 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                     setCache({ data: records, summary: summary, loaded: true });
                 }
             }
-            if (!isBackground) setLoading(false);
+            // Always ensure loading is false after data is resolved
+            setLoading(false);
         } catch (err) {
             console.error('Attendance fetch error:', err);
             if (!isBackground) setError(err.response?.data?.error || 'Failed to load attendance records');
-            if (!isBackground) setLoading(false);
+            setLoading(false);
         }
     }, [getApiUrl, token, setCache]);
 
     useEffect(() => {
-        if (!cache?.loaded) fetchAttendance(false);
-        else fetchAttendance(true);
+        const isInitial = !cache?.loaded;
+        fetchAttendance(!isInitial);
     }, [fetchAttendance, cache?.loaded]);
 
     const processedData = useMemo(() => {
@@ -1147,16 +1150,26 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     }, [rawData, timePeriod]);
 
     if (loading) return (
-        <div className="flex flex-col items-center justify-center p-20">
-            <div className="w-16 h-16 flex items-center justify-center mb-4">
-                <RefreshCw size={48} className="text-indigo-500 animate-spin" />
+        <div className="space-y-8 animate-pulse pb-20">
+            {/* Hero Skeleton */}
+            <div className={`p-10 rounded-lg border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                <div className="h-4 w-32 bg-slate-400/20 rounded-full mb-6" />
+                <div className="h-12 w-1/2 bg-slate-400/20 rounded-lg mb-4" />
+                <div className="h-4 w-1/3 bg-slate-400/20 rounded-full" />
             </div>
-            <p className="font-black uppercase tracking-widest text-[10px] opacity-50">Syncing Attendance Records...</p>
+            {/* Stats row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className={`p-6 rounded-lg border h-32 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`} />
+                ))}
+            </div>
+            {/* Heatmap skeleton */}
+            <div className={`p-8 rounded-lg border h-64 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`} />
         </div>
     );
 
     if (error) return (
-        <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'} flex items-center gap-4`}>
+        <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'} flex items-center gap-4`}>
             <AlertCircle className="text-red-500" size={24} />
             <div>
                 <h3 className="text-sm font-black text-red-500 uppercase tracking-tighter">Sync Failed</h3>
@@ -1167,7 +1180,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     );
 
     if (!processedData) return (
-        <div className={`p-20 rounded-[5px] border border-dashed text-center ${isDarkMode ? 'border-white/10 opacity-40' : 'border-slate-200 opacity-60'}`}>
+        <div className={`p-20 rounded-lg border border-dashed text-center ${isDarkMode ? 'border-white/10 opacity-40' : 'border-slate-200 opacity-60'}`}>
             <Clock size={40} className="mx-auto mb-4 border-2 border-current rounded-full p-2" />
             <p className="text-xs font-black uppercase tracking-widest">No attendance data discovered</p>
         </div>
@@ -1176,7 +1189,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
             {/* New Stylish Header */}
-            <div className={`p-10 rounded-2xl border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl shadow-black/50' : 'bg-white border-slate-100 shadow-xl'}`}>
+            <div className={`p-10 rounded-lg border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl shadow-black/50' : 'bg-white border-slate-100 shadow-xl'}`}>
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div className="space-y-4">
                         <div className="flex items-center gap-3">
@@ -1202,7 +1215,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                     </div>
 
                     <div className="flex flex-col items-center gap-4">
-                        <div className={`p-6 rounded-2xl border text-center min-w-[160px] ${isDarkMode ? 'bg-white/5 border-white/10 backdrop-blur-md' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className={`p-6 rounded-lg border text-center min-w-[160px] ${isDarkMode ? 'bg-white/5 border-white/10 backdrop-blur-md' : 'bg-slate-50 border-slate-200'}`}>
                             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-1">Current Sync</p>
                             <div className="flex items-center justify-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -1267,7 +1280,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             </div>
 
             {/* Area Chart Section - THE MAIN UPGRADE */}
-            <div className={`p-8 rounded-2xl border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+            <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
                         <h3 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -1299,10 +1312,10 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
 
             {/* Calendar Heatmap & Distribution Mix Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className={`lg:col-span-2 p-8 rounded-2xl border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                <div className={`lg:col-span-2 p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                     <AttendanceCalendar dailyData={processedData.dailyAttendance} isDarkMode={isDarkMode} />
                 </div>
-                <div className={`p-8 rounded-2xl border flex flex-col items-center justify-center ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+                <div className={`p-8 rounded-lg border flex flex-col items-center justify-center ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                     <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] mb-10 w-full text-left opacity-30 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         Attendance Health
                     </h3>
@@ -1331,7 +1344,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             </div>
 
             {/* Subject Efficiency Section */}
-            <div className={`p-8 rounded-2xl border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+            <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                 <div className="flex items-center justify-between mb-8">
                     <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         Subject-wise Performance
@@ -1367,7 +1380,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             </div>
 
             {/* Attendance Dossier (History List) */}
-            <div className={`p-8 rounded-2xl border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
+            <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
                 <DetailedHistory records={rawData} isDarkMode={isDarkMode} />
             </div>
         </div>
@@ -1377,8 +1390,8 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
 const MetricCard = React.memo(({ title, value, icon: Icon, color, isDark, subtitle }) => (
     <motion.div
         whileHover={{ y: -5 }}
-        className={`p-8 rounded-2xl border transition-all ${isDark ? 'bg-[#10141D]/50 border-white/5 shadow-2xl backdrop-blur-3xl' : 'bg-white border-slate-100 shadow-lg'}`}>
-        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg mb-6`}>
+        className={`p-8 rounded-lg border transition-all ${isDark ? 'bg-[#10141D]/50 border-white/5 shadow-2xl backdrop-blur-3xl' : 'bg-white border-slate-100 shadow-lg'}`}>
+        <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center shadow-lg mb-6`}>
             <Icon size={24} className="text-white" strokeWidth={2.5} />
         </div>
         <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 ${isDark ? 'text-white/40' : 'text-slate-500'}`}>{title}</p>

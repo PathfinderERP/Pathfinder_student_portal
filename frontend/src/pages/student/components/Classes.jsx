@@ -31,11 +31,11 @@ const formatLocalDate = (date) => {
 const ClassCard = ({ cls, isDarkMode, setSelectedClass, isOngoing = false, formatDate }) => (
     <div
         onClick={() => setSelectedClass(cls)}
-        className={`p-6 rounded-[5px] border group hover:border-blue-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:shadow-md'}`}
+        className={`p-6 rounded-lg border group hover:border-blue-500/50 transition-all cursor-pointer ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:shadow-md'}`}
     >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-lg shrink-0
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white shadow-lg shrink-0
                     ${cls.classMode === 'Online' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-cyan-600'}`}>
                     {cls.classMode === 'Online' ? <Video size={20} /> : <BookOpen size={20} />}
                 </div>
@@ -45,7 +45,7 @@ const ClassCard = ({ cls, isDarkMode, setSelectedClass, isOngoing = false, forma
                             {cls.subjectName || cls.subjectId?.subjectName || cls.subject || 'Class Session'}
                         </h3>
                         {(cls.className || cls.academicClassName) && (
-                            <span className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/10 text-white/70 border-white/10' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                            <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${isDarkMode ? 'bg-white/10 text-white/70 border-white/10' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                 {cls.className || cls.academicClassName}
                             </span>
                         )}
@@ -72,7 +72,7 @@ const ClassCard = ({ cls, isDarkMode, setSelectedClass, isOngoing = false, forma
             </div>
 
             <div className="flex items-center gap-4 md:self-center self-end">
-                <div className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest ${cls.status === 'Completed' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600') :
+                <div className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest ${cls.status === 'Completed' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600') :
                     cls.status === 'Cancelled' ? (isDarkMode ? 'bg-red-500/10 text-red-500' : 'bg-red-50 text-red-600') :
                         (isOngoing || cls.status === 'Ongoing') ? (isDarkMode ? 'bg-orange-500/10 text-orange-500 animate-pulse' : 'bg-orange-50 text-orange-600 animate-pulse') :
                             (isDarkMode ? 'bg-blue-500/10 text-blue-500' : 'bg-blue-50 text-blue-600')
@@ -188,7 +188,7 @@ const DoughnutChart = ({ slices, size = 160, thickness = 28, isDarkMode }) => {
 };
 
 const EmptyState = ({ icon: Icon, message, submessage, isDarkMode }) => (
-    <div className={`py-20 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
+    <div className={`py-20 text-center rounded-lg border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
         <div className="flex flex-col items-center gap-4 opacity-30">
             <Icon size={60} />
             <div className="space-y-1">
@@ -646,7 +646,7 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     const [upcomingClasses, setUpcomingClasses] = useState(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_UPCOMING || []) : (cache?.upcoming || []));
     const [history, setHistory] = useState(USE_DUMMY_CLASSES ? (DUMMY.DUMMY_HISTORY || []) : (cache?.history || []));
     
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(!cache?.loaded);
     const [error, setError] = useState(null);
     const [selectedClass, setSelectedClass] = useState(null);
     const [currentTab, setCurrentTab] = useState('upcoming');
@@ -661,23 +661,21 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
             const apiUrl = getApiUrl();
             const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Fetch Ongoing Classes
-            const ongoingResponse = await axios.get(`${apiUrl}/api/student-portal/classes/ongoing/`, { headers });
-            const fetchedOngoing = ongoingResponse.data?.data || ongoingResponse.data || [];
-            const isOngoingSame = JSON.stringify(ongoingClasses) === JSON.stringify(fetchedOngoing);
-            if (!isOngoingSame) setOngoingClasses(fetchedOngoing);
+            // Parallelize fetching all class types for maximum performance
+            const [ongoingRes, upcomingRes, historyRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/student-portal/classes/ongoing/`, { headers }),
+                axios.get(`${apiUrl}/api/student-portal/classes/upcoming/`, { headers }),
+                axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers })
+            ]);
 
-            // Fetch Upcoming Classes
-            const upcomingResponse = await axios.get(`${apiUrl}/api/student-portal/classes/upcoming/`, { headers });
-            const fetchedUpcoming = upcomingResponse.data?.data || upcomingResponse.data || [];
-            const isUpcomingSame = JSON.stringify(upcomingClasses) === JSON.stringify(fetchedUpcoming);
-            if (!isUpcomingSame) setUpcomingClasses(fetchedUpcoming);
+            const fetchedOngoing = ongoingRes.data?.data || ongoingRes.data || [];
+            const fetchedUpcoming = upcomingRes.data?.data || upcomingRes.data || [];
+            const fetchedPrevious = historyRes.data?.data || historyRes.data || [];
 
-            // Fetch Previous Classes
-            const previousResponse = await axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers });
-            const fetchedPrevious = previousResponse.data?.data || previousResponse.data || [];
-            const isPreviousSame = JSON.stringify(history) === JSON.stringify(fetchedPrevious);
-            if (!isPreviousSame) {
+            if (JSON.stringify(ongoingClasses) !== JSON.stringify(fetchedOngoing)) setOngoingClasses(fetchedOngoing);
+            if (JSON.stringify(upcomingClasses) !== JSON.stringify(fetchedUpcoming)) setUpcomingClasses(fetchedUpcoming);
+            
+            if (JSON.stringify(history) !== JSON.stringify(fetchedPrevious)) {
                 setHistory(fetchedPrevious);
                 if (setCache) {
                     setCache(c => ({ ...c, history: fetchedPrevious }));
@@ -694,12 +692,13 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
                 }));
             }
 
-            if (!isBackground) setLoading(false);
+            // Always resolve loading state after successful fetch
+            setLoading(false);
 
         } catch (err) {
             console.error("Error fetching classes:", err);
             if (!isBackground) setError("Failed to load class schedule.");
-            if (!isBackground) setLoading(false);
+            setLoading(false);
         }
     }, [getApiUrl, token, ongoingClasses, upcomingClasses, history, setCache]);
 
@@ -730,9 +729,25 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
 
     if (loading && !cache?.loaded) {
         return (
-            <div className="flex flex-col items-center justify-center p-20 animate-pulse">
-                <Calendar size={48} className="text-indigo-500 mb-4" />
-                <p className="font-black uppercase tracking-widest text-xs opacity-50">Syncing Schedule...</p>
+            <div className="space-y-8 animate-pulse pb-20">
+                {/* Hero Skeleton */}
+                <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    <div className="h-4 w-32 bg-slate-400/20 rounded-full mb-4" />
+                    <div className="h-10 w-1/2 bg-slate-400/20 rounded-lg mb-4" />
+                    <div className="h-4 w-1/3 bg-slate-400/20 rounded-full" />
+                </div>
+                {/* Tab Bar Skeleton */}
+                <div className="flex gap-4 border-b border-white/10 pb-4">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-10 w-32 bg-slate-400/20 rounded-lg" />
+                    ))}
+                </div>
+                {/* Content Cards Skeleton */}
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className={`p-6 rounded-lg border h-32 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`} />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -740,7 +755,7 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
     return (
         <div className="space-y-8 animate-fade-in-up pb-10">
             {/* Unified Header */}
-            <div className={`p-8 rounded-[5px] border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className={`p-8 rounded-lg border relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-3 mb-3">
@@ -757,7 +772,7 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
                     </div>
                     <button
                         onClick={() => fetchClasses(false)}
-                        className={`p-4 rounded-[5px] transition-all active:scale-95 flex items-center gap-3 ${isDarkMode ? 'bg-white/5 border border-white/10 text-white hover:bg-white/10' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200'}`}
+                        className={`p-4 rounded-lg transition-all active:scale-95 flex items-center gap-3 ${isDarkMode ? 'bg-white/5 border border-white/10 text-white hover:bg-white/10' : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200'}`}
                     >
                         <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Update Schedule</span>
@@ -818,7 +833,7 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
                 )}
 
                 {currentTab === 'history' && (
-                    <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                          <DetailedHistory records={history} isDarkMode={isDarkMode} defaultBatch={studentBatch} />
                     </div>
                 )}
@@ -828,7 +843,7 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
             {selectedClass && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setSelectedClass(null)}>
                     <div
-                        className={`w-full max-w-lg rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden ${isDarkMode ? 'bg-[#1e293b] text-white border border-white/10' : 'bg-white text-slate-900'}`}
+                        className={`w-full max-w-lg rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden ${isDarkMode ? 'bg-[#1e293b] text-white border border-white/10' : 'bg-white text-slate-900'}`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}

@@ -17,41 +17,35 @@ const Performance = ({ isDarkMode }) => {
     const [error, setError] = useState(null);
 
     const fetchData = async () => {
+        if (!token) return;
         setIsLoading(true);
         setError(null);
 
-        // Static data for now
-        setTimeout(() => {
-            const staticResults = [
-                { id: 1, subject_name: 'Mathematics', marks: 85, total: 100, date: '2023-10-01', percentile: 90, rank: 5, isMissed: false },
-                { id: 2, subject_name: 'Physics', marks: 78, total: 100, date: '2023-10-15', percentile: 82, rank: 12, isMissed: false },
-                { id: 3, subject_name: 'Chemistry', marks: 92, total: 100, date: '2023-11-01', percentile: 95, rank: 2, isMissed: false },
-                { id: 4, subject_name: 'Biology', marks: 88, total: 100, date: '2023-11-15', percentile: 88, rank: 8, isMissed: false },
-                { id: 5, subject_name: 'Mathematics', marks: 90, total: 100, date: '2023-12-01', percentile: 92, rank: 4, isMissed: false },
-                { id: 6, subject_name: 'Physics', marks: 85, total: 100, date: '2023-12-15', percentile: 89, rank: 7, isMissed: false },
-                { id: 7, subject_name: 'Chemistry', marks: 88, total: 100, date: '2024-01-01', percentile: 90, rank: 6, isMissed: false },
-                { id: 8, subject_name: 'Biology', marks: 95, total: 100, date: '2024-01-15', percentile: 97, rank: 1, isMissed: false },
-                { id: 9, subject_name: 'Mathematics', marks: 92, total: 100, date: '2024-02-01', percentile: 94, rank: 3, isMissed: false },
-                { id: 10, subject_name: 'Physics', marks: 89, total: 100, date: '2024-02-15', percentile: 91, rank: 5, isMissed: false },
-            ];
+        try {
+            const apiUrl = getApiUrl();
+            const [resultsRes, attendanceRes, reportRes] = await Promise.allSettled([
+                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${apiUrl}/api/student/attendance/`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`${apiUrl}/api/student-portal/report/`, { headers: { Authorization: `Bearer ${token}` } })
+            ]);
 
-            const staticAttendance = [
-                { date: '2023-10-01', status: 'Present' },
-                { date: '2023-10-02', status: 'Present' },
-                { date: '2023-10-03', status: 'Absent' },
-                { date: '2023-10-04', status: 'Present' },
-                { date: '2023-10-05', status: 'Present' },
-                { date: '2023-10-06', status: 'Present' },
-                { date: '2023-10-07', status: 'Present' },
-                { date: '2023-10-08', status: 'Present' },
-                { date: '2023-10-09', status: 'Absent' },
-                { date: '2023-10-10', status: 'Present' },
-            ];
+            if (resultsRes.status === 'fulfilled') {
+                setResults(resultsRes.value.data || []);
+            }
+            
+            if (attendanceRes.status === 'fulfilled') {
+                setAttendance(attendanceRes.value.data || []);
+            }
 
-            setResults(staticResults);
-            setAttendance(staticAttendance);
+            // We can also use reportRes.value.data if needed for deeper insights
+            // but for now we aggregate from results and attendance for better accuracy
+            
+        } catch (err) {
+            console.error("Error fetching performance data", err);
+            setError("Failed to synchronize academic records. Please verify your connection.");
+        } finally {
             setIsLoading(false);
-        }, 800);
+        }
     };
 
     useEffect(() => {
@@ -108,51 +102,72 @@ const Performance = ({ isDarkMode }) => {
 
     const subjects = useMemo(() => {
         const subjectMap = {};
-        const sortedResults = [...results].sort((a, b) => new Date(b.date || b.end_time) - new Date(a.date || a.end_time));
+        const sortedResults = [...results].sort((a, b) => new Date(b.date || b.end_time || b.start_time) - new Date(a.date || a.end_time || a.start_time));
 
-        sortedResults.filter(r => !r.isMissed).forEach(r => {
-            const sName = r.subject_details?.name || r.subject_name || 'General';
+        // Process Results
+        sortedResults.filter(r => !r.isMissed && !r.isUpcoming && !r.isPlanned).forEach(r => {
+            const sName = r.subject_details?.name || r.subject_name || r.name?.split(' - ')[0] || 'General';
             if (!subjectMap[sName]) {
-                subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0 };
+                subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 } };
             }
-            const pct = (r.marks / (r.total || 1)) * 100;
-            subjectMap[sName].scores.push(pct);
-            subjectMap[sName].totalMarks += r.marks;
-            subjectMap[sName].possibleMarks += r.total;
+            if (r.total > 0) {
+                const pct = (r.marks / r.total) * 100;
+                subjectMap[sName].scores.push(pct);
+                subjectMap[sName].totalMarks += r.marks;
+                subjectMap[sName].possibleMarks += r.total;
+            }
         });
 
-        const subjectList = Object.keys(subjectMap).map(sName => {
-            const data = subjectMap[sName];
-            const avgScore = (data.totalMarks / (data.possibleMarks || 1)) * 100;
-            const recent = data.scores[0] || 0;
-            const prev = data.scores[1] || recent;
-            const trend = (recent - prev).toFixed(1);
+        // Process Attendance per subject
+        attendance.forEach(record => {
+            const status = record.attendanceStatus || record.status;
+            const sName = record.subjectName || record.subjectId?.subjectName || record.subject || 'General';
+            
+            if (status === 'Present' || status === 'Absent') {
+                if (!subjectMap[sName]) {
+                    subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 } };
+                }
+                subjectMap[sName].attendance.total++;
+                if (status === 'Present') subjectMap[sName].attendance.present++;
+            }
+        });
 
-            const colors = ['blue', 'purple', 'emerald', 'orange', 'rose', 'cyan'];
-            const colorIdx = sName.length % colors.length;
+        const subjectList = Object.keys(subjectMap)
+            .filter(sName => sName && sName !== 'N/A' && sName !== 'General' && sName !== '—')
+            .map(sName => {
+                const data = subjectMap[sName];
+                const avgScore = data.possibleMarks > 0 ? (data.totalMarks / data.possibleMarks) * 100 : 0;
+                const recent = data.scores[0] || 0;
+                const prev = data.scores[1] || recent;
+                const trend = (recent - prev).toFixed(1);
+                const attRate = data.attendance.total > 0 ? Math.round((data.attendance.present / data.attendance.total) * 100) : 0;
+
+                const colors = ['blue', 'purple', 'emerald', 'orange', 'rose', 'cyan'];
+                const colorIdx = sName.length % colors.length;
 
             return {
                 name: sName,
                 score: Math.round(avgScore),
-                displayScore: Math.max(1, Math.round(avgScore)), // For Pie/Radar rendering
+                displayScore: Math.max(1, Math.round(avgScore)),
                 recent: Math.round(recent),
                 trend: parseFloat(trend),
                 color: colors[colorIdx],
-                count: data.scores.length
+                count: data.scores.length,
+                attendanceRate: attRate,
+                attendanceCount: data.attendance.total
             };
         }).sort((a, b) => b.score - a.score);
 
-        // Ensure at least 3 points for Radar Chart by adding standard dimensions
         if (subjectList.length > 0 && subjectList.length < 3) {
             const placeholders = [
                 { name: 'Presence', score: stats.attendanceRate, displayScore: Math.max(1, stats.attendanceRate), color: 'emerald', isStatic: true },
-                { name: 'Momentum', score: Math.abs(stats.improvement * 10), displayScore: Math.max(1, Math.abs(stats.improvement * 10)), color: 'indigo', isStatic: true }
+                { name: 'Momentum', score: Math.abs(parseFloat(stats.improvement) * 10), displayScore: Math.max(1, Math.abs(parseFloat(stats.improvement) * 10)), color: 'indigo', isStatic: true }
             ];
             return [...subjectList, ...placeholders.slice(0, 3 - subjectList.length)];
         }
 
         return subjectList;
-    }, [results, stats]);
+    }, [results, attendance, stats.attendanceRate, stats.improvement]);
 
     const insights = useMemo(() => {
         if (!subjects.length) return null;
@@ -168,25 +183,35 @@ const Performance = ({ isDarkMode }) => {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[500px]">
-                <div className="relative">
-                    <Loader2 className="animate-spin text-blue-500" size={64} />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <TrendingUp size={24} className="text-blue-400" />
-                    </div>
+            <div className="space-y-8 animate-pulse pb-20">
+                {/* Hero Skeleton */}
+                <div className={`p-10 rounded-lg border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                    <div className="h-4 w-32 bg-slate-400/20 rounded-full mb-6" />
+                    <div className="h-12 w-3/4 bg-slate-400/20 rounded-lg mb-6" />
+                    <div className="h-4 w-1/2 bg-slate-400/20 rounded-full" />
                 </div>
-                <p className="mt-6 text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 animate-pulse">Syncing Advanced Analytics...</p>
+                {/* Stats Grid Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className={`p-6 rounded-lg border h-32 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`} />
+                    ))}
+                </div>
+                {/* Charts Skeleton */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className={`lg:col-span-2 p-8 rounded-lg border h-[400px] ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`} />
+                    <div className={`p-8 rounded-lg border h-[400px] ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`} />
+                </div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className={`p-10 rounded-2xl border flex flex-col items-center text-center ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
+            <div className={`p-10 rounded-lg border flex flex-col items-center text-center ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
                 <AlertCircle className="text-red-500 mb-4" size={48} />
                 <h3 className="text-lg font-black text-red-500 uppercase tracking-tight mb-2">Analysis Failed</h3>
                 <p className={`text-sm font-medium ${isDarkMode ? 'text-red-200/60' : 'text-red-700/60'} max-w-md`}>{error}</p>
-                <button onClick={fetchData} className="mt-6 px-8 py-3 bg-red-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20">
+                <button onClick={fetchData} className="mt-6 px-8 py-3 bg-red-500 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20">
                     Retry Synchronization
                 </button>
             </div>
@@ -196,7 +221,7 @@ const Performance = ({ isDarkMode }) => {
     return (
         <div className="space-y-8 animate-fade-in-up pb-20">
             {/* Header / Hero Section */}
-            <div className={`p-10 rounded-2xl border relative overflow-hidden transition-all duration-700 ${isDarkMode ? 'bg-[#0f172a] border-white/5 shadow-2xl shadow-black/50' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'}`}>
+            <div className={`p-10 rounded-lg border relative overflow-hidden transition-all duration-700 ${isDarkMode ? 'bg-[#0f172a] border-white/5 shadow-2xl shadow-black/50' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/50'}`}>
                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/5 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2" />
 
@@ -216,13 +241,13 @@ const Performance = ({ isDarkMode }) => {
                         <h2 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4 leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Academic <span className="bg-linear-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">Performance</span>
                         </h2>
-                        <p className={`text-base font-medium max-w-lg leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                        <p className={`text-sm font-medium max-w-lg leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                             Your comprehensive academic data hub. We've aggregated <span className="font-bold text-blue-500">{stats.totalTests} assessments</span> to visualize your current mastery and growth.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-6">
-                        <div className={`p-8 rounded-2xl border text-center min-w-[200px] group transition-all duration-500 hover:scale-[1.05] ${isDarkMode ? 'bg-white/3 border-white/10 backdrop-blur-3xl' : 'bg-slate-50 border-slate-200 shadow-lg'}`}>
+                        <div className={`p-8 rounded-lg border text-center min-w-[200px] group transition-all duration-500 hover:scale-[1.05] ${isDarkMode ? 'bg-white/3 border-white/10 backdrop-blur-3xl' : 'bg-slate-50 border-slate-200 shadow-lg'}`}>
                             <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-2">Overall Mastery</p>
                             <div className="text-5xl font-black tracking-tighter text-blue-500 mb-1">{stats.average}%</div>
                             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aggregate Score</div>
@@ -262,7 +287,7 @@ const Performance = ({ isDarkMode }) => {
             {/* Growth Chart & Insights Row */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 {/* Trajectory Chart */}
-                <div className={`xl:col-span-2 p-8 rounded-2xl border ${isDarkMode ? 'bg-[#0f172a] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
+                <div className={`xl:col-span-2 p-8 rounded-lg border ${isDarkMode ? 'bg-[#0f172a] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
                     <div className="flex items-center justify-between mb-10">
                         <div>
                             <h3 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Academic Growth</h3>
@@ -314,7 +339,7 @@ const Performance = ({ isDarkMode }) => {
                 </div>
 
                 {/* AI Insights Panel */}
-                <div className={`p-8 rounded-2xl border flex flex-col justify-between ${isDarkMode ? 'bg-[#0f172a] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
+                <div className={`p-8 rounded-lg border flex flex-col justify-between ${isDarkMode ? 'bg-[#0f172a] border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
                     <div>
                         <div className="flex items-center gap-3 mb-8">
                             <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10">
@@ -360,7 +385,7 @@ const Performance = ({ isDarkMode }) => {
 
             {/* Deep Analytics: Radar & Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className={`p-8 rounded-2xl border ${isDarkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
+                <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
                     <h3 className={`text-lg font-black uppercase tracking-tight mb-8 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Subject Radar</h3>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -380,7 +405,7 @@ const Performance = ({ isDarkMode }) => {
                     </div>
                 </div>
 
-                <div className={`p-8 rounded-2xl border ${isDarkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
+                <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-200 shadow-xl shadow-slate-200/40'}`}>
                     <h3 className={`text-lg font-black uppercase tracking-tight mb-8 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Score Distribution</h3>
                     <div className="h-[300px] w-full flex items-center justify-center">
                         <ResponsiveContainer width="100%" height="100%">
@@ -441,10 +466,10 @@ const EnhancedStatCard = ({ title, value, subtitle, icon: Icon, color, isDark, t
     return (
         <motion.div
             whileHover={{ y: -5 }}
-            className={`p-6 rounded-2xl border flex flex-col group transition-all duration-300 ${isDark ? 'bg-[#0f172a] border-white/5 shadow-xl' : 'bg-white border-slate-200 shadow-lg'}`}
+            className={`p-6 rounded-lg border flex flex-col group transition-all duration-300 ${isDark ? 'bg-[#0f172a] border-white/5 shadow-xl' : 'bg-white border-slate-200 shadow-lg'}`}
         >
             <div className="flex items-center justify-between mb-6">
-                <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${colorMap[color].split(' ').slice(0, 2).join(' ')} flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 group-hover:rotate-6`}>
+                <div className={`w-12 h-12 rounded-lg bg-linear-to-br ${colorMap[color].split(' ').slice(0, 2).join(' ')} flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 group-hover:rotate-6`}>
                     <Icon size={24} className="text-white" strokeWidth={2.5} />
                 </div>
                 {trend && (
@@ -480,13 +505,13 @@ const SubjectCard = ({ subject, idx, isDark }) => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: idx * 0.1 }}
             whileHover={{ y: -8 }}
-            className={`p-6 rounded-2xl border transition-all duration-300 relative overflow-hidden group ${isDark ? 'bg-[#0f172a] border-white/5 shadow-2xl hover:bg-white/4' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl'}`}
+            className={`p-6 rounded-lg border transition-all duration-300 relative overflow-hidden group ${isDark ? 'bg-[#0f172a] border-white/5 shadow-2xl hover:bg-white/4' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl'}`}
         >
             <div className={`absolute top-0 right-0 w-32 h-32 bg-linear-to-br ${gradient} opacity-[0.03] blur-3xl`} />
 
             <div className="flex items-center justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${gradient} flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500`}>
+                    <div className={`w-12 h-12 rounded-lg bg-linear-to-br ${gradient} flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500`}>
                         <span className="text-white font-black text-lg">{subject.name[0]}</span>
                     </div>
                     <div>
@@ -521,13 +546,13 @@ const SubjectCard = ({ subject, idx, isDark }) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-6">
-                    <div className={`p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                        <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">Most Recent</p>
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">Section Score</p>
                         <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{subject.recent}%</p>
                     </div>
-                    <div className={`p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                        <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">Target</p>
-                        <p className={`text-sm font-black text-indigo-500`}>{Math.min(100, subject.score + 5)}%</p>
+                    <div className={`p-3 rounded-lg border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">Attendance</p>
+                        <p className={`text-sm font-black text-indigo-500`}>{subject.attendanceRate}%</p>
                     </div>
                 </div>
             </div>
@@ -548,8 +573,8 @@ const InsightRow = ({ icon: Icon, title, text, color, isDark }) => {
     };
 
     return (
-        <div className={`flex gap-4 p-4 rounded-2xl border border-transparent transition-all duration-300 hover:border-slate-200 dark:hover:border-white/5 hover:bg-slate-50 dark:hover:bg-white/2`}>
-            <div className={`shrink-0 w-10 h-10 rounded-xl ${colorClasses[color]} flex items-center justify-center border shadow-sm`}>
+        <div className={`flex gap-4 p-4 rounded-lg border border-transparent transition-all duration-300 hover:border-slate-200 dark:hover:border-white/5 hover:bg-slate-50 dark:hover:bg-white/2`}>
+            <div className={`shrink-0 w-10 h-10 rounded-lg ${colorClasses[color]} flex items-center justify-center border shadow-sm`}>
                 <Icon size={18} strokeWidth={2.5} />
             </div>
             <div className="flex flex-col gap-0.5">
@@ -563,7 +588,7 @@ const InsightRow = ({ icon: Icon, title, text, color, isDark }) => {
 const CustomTooltip = ({ active, payload, isDarkMode }) => {
     if (active && payload && payload.length) {
         return (
-            <div className={`p-4 rounded-xl border shadow-2xl backdrop-blur-xl ${isDarkMode ? 'bg-[#1e293b]/90 border-white/10' : 'bg-white/90 border-slate-200'}`}>
+            <div className={`p-4 rounded-lg border shadow-2xl backdrop-blur-xl ${isDarkMode ? 'bg-[#1e293b]/90 border-white/10' : 'bg-white/90 border-slate-200'}`}>
                 <p className={`text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2`}>{payload[0].payload.date}</p>
                 <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />

@@ -73,8 +73,8 @@ const StudentDashboard = () => {
     // Flag to prevent multiple auto-sync attempts in one session
     const hasAutoSynced = useRef(false);
     const [statsData, setStatsData] = useState({
-        attendance: { value: '92%', subtext: '37 of 40 classes | 3 absences', loaded: false },
-        gpa: { value: '8.5/10', subtext: 'Rank: 5th of 60 students', loaded: false }
+        attendance: { value: '—%', subtext: 'Syncing attendance...', loaded: false },
+        gpa: { value: '—/10', subtext: 'Syncing GPA...', loaded: false }
     });
 
     // Fetch Student Data from backend API (which proxies to ERP)
@@ -183,13 +183,58 @@ const StudentDashboard = () => {
         }
     }, [token, getApiUrl]);
 
+    // Fetch Upcoming Exams for Dashboard Countdown
+    const fetchUpcomingExams = useCallback(async () => {
+        if (!token || !getApiUrl) return;
+        try {
+            const apiUrl = getApiUrl();
+            const [testsRes, resultsRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
+            ]);
+            
+            const testsData = testsRes.data || [];
+            const resultsData = resultsRes.data || [];
+
+            // Merge results data (rank, marks) into tests data
+            const mergedData = testsData.map(test => {
+                const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                if (result) {
+                    return {
+                        ...test,
+                        submission: {
+                            ...(test.submission || {}),
+                            score: result.marks != null && result.total > 0 
+                                ? (result.marks / result.total) * 100 
+                                : (test.submission?.score ?? 0),
+                            rank: result.rank || test.submission?.rank || null,
+                            is_finalized: true
+                        }
+                    };
+                }
+                return test;
+            });
+
+            setExamsCache({ data: mergedData, loaded: true });
+        } catch (err) {
+            console.error("Dashboard Exams Fetch Error:", err);
+        }
+    }, [token, getApiUrl]);
+
     useEffect(() => {
         const loadInitialData = async () => {
             if (authLoading) return;
             if (!user) return;
 
             const data = await fetchStudentData(false);
-            fetchAttendanceStats(); // Fetch attendance stats immediately
+            
+            // Fix static data flicker in Attendance by ensuring cache status triggers fetch if needed
+            const isInitial = !attendanceCache?.loaded;
+            if (isInitial) {
+                fetchAttendanceStats();
+            }
+            
+            fetchUpcomingExams(); // Fetch exams for countdown
 
             // If data is offline/mock and we haven't tried syncing yet this mount, do it now
             if (data?.is_offline && !hasAutoSynced.current) {
@@ -200,7 +245,7 @@ const StudentDashboard = () => {
         };
 
         loadInitialData();
-    }, [user, fetchStudentData, authLoading, fetchAttendanceStats]);
+    }, [user, fetchStudentData, authLoading, fetchAttendanceStats, fetchUpcomingExams]);
 
     const navItems = useMemo(() => [
         { name: 'Dashboard', icon: LayoutDashboard },
@@ -313,7 +358,7 @@ const StudentDashboard = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard':
-                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} silentLoading={silentLoading} onTabChange={setActiveTab} dashboardStats={statsData} />;
+                return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} silentLoading={silentLoading} onTabChange={setActiveTab} dashboardStats={statsData} exams={examsCache.data} />;
             case 'My Profile':
                 return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} silentLoading={silentLoading || loading} />;
             case 'Classes':
@@ -389,9 +434,44 @@ const StudentDashboard = () => {
 
 // -- DASHBOARD HOME COMPONENT --
 // -- DASHBOARD HOME COMPONENT --
-const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData, silentLoading, onTabChange, dashboardStats }) => {
+const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, studentData, silentLoading, onTabChange, dashboardStats, exams }) => {
     const isPending = studentData?.sync_status === 'pending';
     const isActuallySyncing = isPending || silentLoading;
+
+    const subjectStats = useMemo(() => {
+        if (!exams || !Array.isArray(exams)) return null;
+        
+        const subjects = {};
+        const completedTests = exams.filter(e => e.submission?.is_finalized && e.submission?.score != null);
+        
+        if (completedTests.length === 0) return null;
+
+        completedTests.forEach(e => {
+            // Try to extract subject name from test name like "PHYSICS - Test 1"
+            const sName = e.name?.split(' - ')[0] || 'General';
+            if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
+            subjects[sName].scores.push(e.submission.score);
+            subjects[sName].total += e.submission.score;
+        });
+
+        const subjectList = Object.keys(subjects).map(sName => ({
+            name: sName,
+            average: Math.round(subjects[sName].total / subjects[sName].scores.length)
+        })).sort((a, b) => b.average - a.average);
+
+        return {
+            strongest: subjectList[0] || null,
+            weakest: subjectList.length > 1 ? subjectList[subjectList.length - 1] : null
+        };
+    }, [exams]);
+
+    const nextExam = useMemo(() => {
+        if (!exams || !Array.isArray(exams)) return null;
+        const now = new Date();
+        return exams
+            .filter(e => e.start_time && new Date(e.start_time) > now)
+            .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
+    }, [exams]);
 
     const stats = useMemo(() => [
         {
@@ -400,10 +480,20 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             subtext: dashboardStats?.attendance?.subtext || '37 of 40 classes | 3 absences',
             trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance'
         },
-        { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', trend: '+0.3', trendUp: true, color: 'indigo', icon: GraduationCap },
-        { label: 'NEXT EXAM', value: 'PHYSICS', subtext: '5 days | 10:00 AM - 1:00 PM', pill: 'Preparation: 75%', color: 'orange', icon: CalendarDays },
+        { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', color: 'indigo', icon: GraduationCap },
+        { 
+            label: 'NEXT EXAM', 
+            value: nextExam ? nextExam.name : 'NO EXAMS', 
+            subtext: nextExam 
+                ? `${new Date(nextExam.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} | ${new Date(nextExam.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` 
+                : 'Enjoy your break!', 
+            pill: nextExam ? `Duration: ${nextExam.duration}m` : 'Clear Sky', 
+            color: 'orange', 
+            icon: CalendarDays,
+            tab: 'Exams'
+        },
         { label: 'STUDY STREAK', value: '12 days', subtext: 'Keep it up!', pill: 'Avg: 2.5 hrs/day', color: 'purple', icon: Flame },
-    ], [dashboardStats]);
+    ], [dashboardStats, nextExam]);
 
     return (
         <div className="space-y-8 animate-fade-in-up">
@@ -580,11 +670,15 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                     </div>
                     <div className="relative z-10">
                         <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Strong Subject</h3>
-                        <div className="text-4xl font-black text-emerald-500 mb-2">CHEMISTRY</div>
-                        <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Average: 88%</p>
+                        <div className="text-4xl font-black text-emerald-500 mb-2">
+                            {subjectStats?.strongest?.name || 'SYNCING...'}
+                        </div>
+                        <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {subjectStats?.strongest ? `Average: ${subjectStats.strongest.average}%` : 'Data being analyzed'}
+                        </p>
                         <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-[5px] w-fit">
                             <CheckSquare size={14} />
-                            Consistently Excellent
+                            {subjectStats?.strongest ? 'Consistently Excellent' : 'AI Analysis Pending'}
                         </div>
                     </div>
                 </div>
@@ -597,11 +691,15 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                     </div>
                     <div className="relative z-10">
                         <h3 className={`text-xs font-black uppercase tracking-widest mb-4 ${isDarkMode ? 'text-white/60' : 'text-slate-900/60'}`}>Needs Focus</h3>
-                        <div className="text-4xl font-black text-red-500 mb-2">MATHEMATICS</div>
-                        <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Average: 78%</p>
+                        <div className="text-4xl font-black text-red-500 mb-2">
+                            {subjectStats?.weakest?.name || (subjectStats?.strongest ? 'EXCELLENT' : 'SYNCING...')}
+                        </div>
+                        <p className={`text-sm font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {subjectStats?.weakest ? `Average: ${subjectStats.weakest.average}%` : subjectStats?.strongest ? 'No weak subjects identified' : 'Data being analyzed'}
+                        </p>
                         <div className="flex items-center gap-2 text-xs font-bold text-orange-600 bg-orange-500/10 px-3 py-1.5 rounded-[5px] w-fit">
                             <Brain size={14} />
-                            AI recommends extra practice
+                            {subjectStats?.weakest ? 'AI recommends extra practice' : 'Academic profile looks healthy'}
                         </div>
                     </div>
                 </div>
@@ -694,21 +792,35 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                 </div>
             </div>
 
-            {/* Bottom: Announcements */}
-            <div className={`p-6 rounded-[5px] border border-orange-500/20 bg-orange-50/50 dark:bg-orange-500/5`}>
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-500 text-white rounded-[5px]">
-                        <AlertCircle size={18} />
-                    </div>
-                    <div>
-                        <h4 className={`font-bold text-sm ${isDarkMode ? 'text-orange-400' : 'text-orange-900'}`}>Physics Exam Countdown</h4>
-                        <p className={`text-xs ${isDarkMode ? 'text-orange-400/70' : 'text-orange-800/70'}`}>Upcoming on Monday, 10:00 AM</p>
-                    </div>
-                    <div className="ml-auto px-3 py-1 bg-orange-500 text-white text-[10px] font-bold rounded-[5px]">
-                        5 Days Left
+            {/* Bottom: Dynamic Announcements/Exams */}
+            {nextExam && (
+                <div 
+                    onClick={() => onTabChange('Exams')}
+                    className={`p-6 rounded-[5px] border cursor-pointer transition-all hover:scale-[1.01] active:scale-95 shadow-lg
+                    ${isDarkMode ? 'border-orange-500/20 bg-orange-500/5 shadow-orange-500/5' : 'border-orange-200 bg-orange-50 shadow-orange-100'}`}
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-500 text-white rounded-[5px] animate-pulse">
+                            <AlertCircle size={18} />
+                        </div>
+                        <div>
+                            <h4 className={`font-black uppercase tracking-tight text-sm ${isDarkMode ? 'text-orange-400' : 'text-orange-900'}`}>
+                                {nextExam.name} Countdown
+                            </h4>
+                            <p className={`text-xs font-bold ${isDarkMode ? 'text-orange-400/70' : 'text-orange-800/70'}`}>
+                                Upcoming on {new Date(nextExam.start_time).toLocaleDateString('en-IN', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                        </div>
+                        <div className="ml-auto px-4 py-2 bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/30">
+                            {(() => {
+                                const diff = new Date(nextExam.start_time) - new Date();
+                                const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                                return days <= 0 ? 'Starts Today' : `${days} Days Left`;
+                            })()}
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
