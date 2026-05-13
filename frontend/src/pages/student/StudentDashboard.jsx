@@ -214,7 +214,8 @@ const StudentDashboard = () => {
                                 ? (result.marks / result.total) * 100
                                 : (test.submission?.score ?? 0),
                             rank: result.rank || test.submission?.rank || null,
-                            is_finalized: true
+                            is_finalized: true,
+                            section_stats: result.section_stats
                         }
                     };
                 }
@@ -453,11 +454,23 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
         if (completedTests.length === 0) return null;
 
         completedTests.forEach(e => {
-            // Try to extract subject name from test name like "PHYSICS - Test 1"
-            const sName = e.name?.split(' - ')[0] || 'General';
-            if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
-            subjects[sName].scores.push(e.submission.score);
-            subjects[sName].total += e.submission.score;
+            // New logic: prioritize section-wise performance breakdown
+            if (e.submission?.section_stats && e.submission.section_stats.length > 0) {
+                e.submission.section_stats.forEach(sec => {
+                    const sName = sec.name || 'General';
+                    if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
+                    
+                    const pct = sec.total > 0 ? (sec.marks / sec.total) * 100 : 0;
+                    subjects[sName].scores.push(pct);
+                    subjects[sName].total += pct;
+                });
+            } else {
+                // Fallback: extract subject name from test name
+                const sName = e.name?.split(' - ')[0] || 'General';
+                if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
+                subjects[sName].scores.push(e.submission.score);
+                subjects[sName].total += e.submission.score;
+            }
         });
 
         const subjectList = Object.keys(subjects).map(sName => ({

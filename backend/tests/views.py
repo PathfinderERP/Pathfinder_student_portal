@@ -12,6 +12,7 @@ from questions.serializers import QuestionSerializer
 import random
 import string
 import re
+import json
 
 def clean_html(text):
     if not text: return ""
@@ -2262,9 +2263,10 @@ class TestViewSet(viewsets.ModelViewSet):
             return Response([])
             
         # Optimize aggregation for ranking: fetch all finalized scores to calculate rank on the fly
+        # We also fetch responses for the current user to calculate section-wise performance
         pipeline = [
             {'$match': {'test_id': {'$in': mongo_test_ids}, 'is_finalized': True}},
-            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1}}
+            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1, 'responses': 1}}
         ]
         all_subs = list(db['tests_testsubmission'].aggregate(pipeline))
         
@@ -2282,7 +2284,8 @@ class TestViewSet(viewsets.ModelViewSet):
                 user_scores[tid] = {
                     'id': tid,
                     'score': score,
-                    'submitted_at': sub.get('submitted_at')
+                    'submitted_at': sub.get('submitted_at'),
+                    'responses': sub.get('responses', {})
                 }
                 
         results = []
@@ -2314,6 +2317,66 @@ class TestViewSet(viewsets.ModelViewSet):
                 except: pass
             if date_str and len(date_str) > 10: date_str = date_str[:10]
             
+            # Calculate section-wise breakdown for Subject Mastery view
+            section_stats = []
+            try:
+                # Optimized fetching: only get sections for this test
+                # In a real high-traffic system, we'd cache this or pre-calculate it on submission
+                sections = test.sections.all().prefetch_related('questions')
+                user_res = u_data.get('responses', {})
+                if isinstance(user_res, str):
+                    import json
+                    try: user_res = json.loads(user_res)
+                    except: user_res = {}
+
+                for sec in sections:
+                    sec_score = 0.0
+                    sec_total = 0.0
+                    sec_questions = sec.questions.all()
+                    
+                    for q in sec_questions:
+                        c_marks = float(sec.correct_marks or 0)
+                        n_marks = float(sec.negative_marks or 0)
+                        sec_total += c_marks
+                        
+                        qid = str(q.pk)
+                        if qid in user_res:
+                            ans = user_res[qid].get('answer')
+                            if ans is not None:
+                                # Simplified scoring for performance; exact same logic as submit()
+                                is_correct = False
+                                q_type = q.question_type or 'SINGLE_CHOICE'
+                                
+                                if q_type == 'SINGLE_CHOICE':
+                                    ans_str = str(ans).strip().lower()
+                                    keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                                    opts = q.question_options or []
+                                    for oi, opt in enumerate(opts):
+                                        opt_id = str(opt.get('id', ''))
+                                        opt_label = keys[oi] if oi < len(keys) else None
+                                        if ans_str == opt_id or (opt_label and ans_str == opt_label):
+                                            if opt.get('isCorrect'): is_correct = True
+                                            break
+                                elif q_type == 'MULTI_CHOICE':
+                                    correct_set = set([str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')])
+                                    is_correct = set(map(str, ans if isinstance(ans, list) else [])) == correct_set
+                                elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                                    try:
+                                        val = float(ans)
+                                        is_correct = float(q.answer_from) <= val <= float(q.answer_to)
+                                    except: pass
+                                
+                                if is_correct: sec_score += c_marks
+                                else: sec_score -= n_marks
+                    
+                    section_stats.append({
+                        'name': sec.name,
+                        'marks': round(sec_score, 2),
+                        'total': round(sec_total, 2)
+                    })
+            except Exception as e:
+                print(f"Error calculating sections for {test.name}: {e}")
+
             results.append({
                 'id': tid,
                 'name': test.name,
@@ -2322,11 +2385,183 @@ class TestViewSet(viewsets.ModelViewSet):
                 'marks': round(u_data['score'], 2),
                 'total': test.total_marks,
                 'rank': rank,
-                'percentile': percentile
+                'percentile': percentile,
+                'section_stats': section_stats
             })
             
         results.sort(key=lambda x: x['date'], reverse=True)
         return Response(results)
+
+    @action(detail=True, methods=['get'], url_path='my_analysis')
+    def my_analysis(self, request, pk=None):
+        """
+        Returns chapter-wise and topic-wise analysis for the authenticated student for this test.
+        Optional query param: ?section=Physics  (to filter only that subject's questions)
+        """
+        user = request.user
+        if not user or user.is_anonymous:
+            return Response({'error': 'Unauthorized'}, status=401)
+
+        try:
+            test = self.get_object()
+        except Exception:
+            return Response({'error': 'Test not found'}, status=404)
+
+        from api.db_utils import get_db
+        db = get_db()
+        if db is None:
+            return Response({'error': 'DB unavailable'}, status=503)
+
+        from bson import ObjectId
+        try:
+            uid = ObjectId(user.pk)
+        except Exception:
+            uid = user.pk
+        try:
+            tid = ObjectId(test.pk)
+        except Exception:
+            tid = test.pk
+
+        # Get student's finalized responses for this test
+        sub_doc = db['tests_testsubmission'].find_one(
+            {'test_id': tid, 'student_id': uid, 'is_finalized': True},
+            {'responses': 1}
+        )
+        if not sub_doc:
+            return Response({'chapters': [], 'test_name': test.name, 'error': 'no_submission'})
+
+        user_responses = sub_doc.get('responses', {})
+        if isinstance(user_responses, str):
+            import json
+            try:
+                user_responses = json.loads(user_responses)
+            except Exception:
+                user_responses = {}
+
+        # Optional: filter by section name (subject)
+        section_filter = request.query_params.get('section', '').strip().lower()
+
+        chapter_data = {}  # { chapter_name: { correct, incorrect, unattempted, total, score, max_score, topics: {} } }
+
+        for section in test.sections.all():
+            # If section_filter provided, only process matching sections
+            if section_filter and section.name.strip().lower() != section_filter:
+                continue
+
+            c_marks = float(section.correct_marks or 0)
+            n_marks = float(section.negative_marks or 0)
+
+            questions = section.questions.select_related('chapter', 'topic').all()
+
+            for q in questions:
+                chapter_name = (q.chapter.name if q.chapter else 'Uncategorized').strip()
+                topic_name = (q.topic.name if q.topic else 'General').strip()
+
+                if chapter_name not in chapter_data:
+                    chapter_data[chapter_name] = {
+                        'correct': 0, 'incorrect': 0, 'unattempted': 0,
+                        'total': 0, 'score': 0.0, 'max_score': 0.0,
+                        'topics': {}
+                    }
+
+                if topic_name not in chapter_data[chapter_name]['topics']:
+                    chapter_data[chapter_name]['topics'][topic_name] = {
+                        'correct': 0, 'incorrect': 0, 'unattempted': 0,
+                        'total': 0, 'score': 0.0, 'max_score': 0.0
+                    }
+
+                chapter_data[chapter_name]['total'] += 1
+                chapter_data[chapter_name]['max_score'] += c_marks
+                chapter_data[chapter_name]['topics'][topic_name]['total'] += 1
+                chapter_data[chapter_name]['topics'][topic_name]['max_score'] += c_marks
+
+                qid = str(q.pk)
+                ans_obj = user_responses.get(qid)
+                if not ans_obj:
+                    chapter_data[chapter_name]['unattempted'] += 1
+                    chapter_data[chapter_name]['topics'][topic_name]['unattempted'] += 1
+                    continue
+
+                ans = ans_obj.get('answer') if isinstance(ans_obj, dict) else ans_obj
+                if ans is None:
+                    chapter_data[chapter_name]['unattempted'] += 1
+                    chapter_data[chapter_name]['topics'][topic_name]['unattempted'] += 1
+                    continue
+
+                # Evaluate correctness
+                is_correct = False
+                q_type = q.question_type or 'SINGLE_CHOICE'
+
+                if q_type == 'SINGLE_CHOICE':
+                    ans_str = str(ans).strip().lower()
+                    keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                    opts = q.question_options or []
+                    for oi, opt in enumerate(opts):
+                        opt_id = str(opt.get('id', ''))
+                        opt_label = keys[oi] if oi < len(keys) else None
+                        if ans_str == opt_id or (opt_label and ans_str == opt_label):
+                            if opt.get('isCorrect'):
+                                is_correct = True
+                            break
+                elif q_type == 'MULTI_CHOICE':
+                    correct_set = set([str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')])
+                    is_correct = set(map(str, ans if isinstance(ans, list) else [])) == correct_set
+                elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                    try:
+                        val = float(ans)
+                        is_correct = float(q.answer_from) <= val <= float(q.answer_to)
+                    except Exception:
+                        pass
+
+                if is_correct:
+                    chapter_data[chapter_name]['correct'] += 1
+                    chapter_data[chapter_name]['score'] += c_marks
+                    chapter_data[chapter_name]['topics'][topic_name]['correct'] += 1
+                    chapter_data[chapter_name]['topics'][topic_name]['score'] += c_marks
+                else:
+                    chapter_data[chapter_name]['incorrect'] += 1
+                    chapter_data[chapter_name]['score'] -= n_marks
+                    chapter_data[chapter_name]['topics'][topic_name]['incorrect'] += 1
+                    chapter_data[chapter_name]['topics'][topic_name]['score'] -= n_marks
+
+        # Serialize into response list
+        chapters_list = []
+        for chap_name, chap in chapter_data.items():
+            topics_list = []
+            for t_name, td in chap['topics'].items():
+                pct = (td['score'] / td['max_score'] * 100) if td['max_score'] > 0 else 0
+                topics_list.append({
+                    'name': t_name,
+                    'correct': td['correct'],
+                    'incorrect': td['incorrect'],
+                    'unattempted': td['unattempted'],
+                    'total': td['total'],
+                    'score': round(td['score'], 2),
+                    'max_score': round(td['max_score'], 2),
+                    'percentage': round(max(0.0, pct), 1)
+                })
+            topics_list.sort(key=lambda x: x['percentage'], reverse=True)
+
+            chap_pct = (chap['score'] / chap['max_score'] * 100) if chap['max_score'] > 0 else 0
+            chapters_list.append({
+                'name': chap_name,
+                'correct': chap['correct'],
+                'incorrect': chap['incorrect'],
+                'unattempted': chap['unattempted'],
+                'total': chap['total'],
+                'score': round(chap['score'], 2),
+                'max_score': round(chap['max_score'], 2),
+                'percentage': round(max(0.0, chap_pct), 1),
+                'topics': topics_list
+            })
+
+        chapters_list.sort(key=lambda x: x['percentage'], reverse=True)
+
+        return Response({
+            'test_name': test.name,
+            'section': section_filter or 'All Sections',
+            'chapters': chapters_list
+        })
 
 
 class TestCentreAllotmentViewSet(viewsets.ModelViewSet):

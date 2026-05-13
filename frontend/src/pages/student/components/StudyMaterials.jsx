@@ -599,6 +599,9 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     {Object.keys(activeChapterData?.topics || {}).sort().map(topName => {
                                         const topicItems = activeChapterData?.topics?.[topName]?.materials || [];
                                         if (topicItems.length === 0) return null;
+                                        
+                                        // Reverse the items so they display in opposite sequence
+                                        const displayItems = [...topicItems].reverse();
 
                                         return (
                                             <div key={topName} className="space-y-8 animate-in slide-in-from-bottom-5 duration-700">
@@ -608,12 +611,13 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                         <div className="h-1 w-full bg-gradient-to-r from-orange-500 to-transparent rounded-full"></div>
                                                     </div>
                                                     <div className="flex-1 h-[1px] bg-slate-200 dark:bg-white/5"></div>
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{topicItems.length} Resources</span>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{displayItems.length} Resources</span>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                                                    {topicItems.map((item) => (
+                                                    {displayItems.map((item) => (
                                                         <div
+
                                                             key={item.id}
                                                             onClick={() => { setSelectedItem(item); setViewPage(1); }}
                                                             className={`group p-1 rounded-[25px] border transition-all duration-500 hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.15)] hover:-translate-y-3

@@ -3,6 +3,8 @@ import { TrendingUp, Award, Target, BarChart2, Loader2, Calendar, Zap, AlertCirc
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import ResultReport from './ResultReport';
+import SubjectDeepDive from './SubjectDeepDive';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, RadialBarChart, RadialBar,
@@ -15,6 +17,8 @@ const Performance = ({ isDarkMode }) => {
     const [attendance, setAttendance] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedTest, setSelectedTest] = useState(null);
+    const [selectedSubject, setSelectedSubject] = useState(null);
 
     const fetchData = async () => {
         if (!token) return;
@@ -106,15 +110,35 @@ const Performance = ({ isDarkMode }) => {
 
         // Process Results
         sortedResults.filter(r => !r.isMissed && !r.isUpcoming && !r.isPlanned).forEach(r => {
-            const sName = r.subject_details?.name || r.subject_name || r.name?.split(' - ')[0] || 'General';
-            if (!subjectMap[sName]) {
-                subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 } };
-            }
-            if (r.total > 0) {
-                const pct = (r.marks / r.total) * 100;
-                subjectMap[sName].scores.push(pct);
-                subjectMap[sName].totalMarks += r.marks;
-                subjectMap[sName].possibleMarks += r.total;
+            // New logic: if result has section_stats, use them to populate subjects accurately
+            if (r.section_stats && r.section_stats.length > 0) {
+                r.section_stats.forEach(sec => {
+                    const sName = sec.name || 'General';
+                    if (!subjectMap[sName]) {
+                        subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 }, tests: [] };
+                    }
+                    if (sec.total > 0) {
+                        const pct = (sec.marks / sec.total) * 100;
+                        subjectMap[sName].scores.push(pct);
+                        subjectMap[sName].totalMarks += sec.marks;
+                        subjectMap[sName].possibleMarks += sec.total;
+                    }
+                    // Keep track of which test this section came from for the deep-dive
+                    subjectMap[sName].tests.push(r);
+                });
+            } else {
+                // Fallback for legacy results or results without section breakdown
+                const sName = r.subject_details?.name || r.subject_name || r.name?.split(' - ')[0] || 'General';
+                if (!subjectMap[sName]) {
+                    subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 }, tests: [] };
+                }
+                if (r.total > 0) {
+                    const pct = (r.marks / r.total) * 100;
+                    subjectMap[sName].scores.push(pct);
+                    subjectMap[sName].totalMarks += r.marks;
+                    subjectMap[sName].possibleMarks += r.total;
+                }
+                subjectMap[sName].tests.push(r);
             }
         });
 
@@ -125,7 +149,7 @@ const Performance = ({ isDarkMode }) => {
             
             if (status === 'Present' || status === 'Absent') {
                 if (!subjectMap[sName]) {
-                    subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 } };
+                    subjectMap[sName] = { scores: [], totalMarks: 0, possibleMarks: 0, attendance: { present: 0, total: 0 }, tests: [] };
                 }
                 subjectMap[sName].attendance.total++;
                 if (status === 'Present') subjectMap[sName].attendance.present++;
@@ -154,7 +178,8 @@ const Performance = ({ isDarkMode }) => {
                 color: colors[colorIdx],
                 count: data.scores.length,
                 attendanceRate: attRate,
-                attendanceCount: data.attendance.total
+                attendanceCount: data.attendance.total,
+                tests: data.tests
             };
         }).sort((a, b) => b.score - a.score);
 
@@ -214,6 +239,28 @@ const Performance = ({ isDarkMode }) => {
                 <button onClick={fetchData} className="mt-6 px-8 py-3 bg-red-500 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20">
                     Retry Synchronization
                 </button>
+            </div>
+        );
+    }
+
+    if (selectedSubject) {
+        return (
+            <SubjectDeepDive
+                subject={selectedSubject}
+                isDarkMode={isDarkMode}
+                onBack={() => setSelectedSubject(null)}
+            />
+        );
+    }
+
+    if (selectedTest) {
+        return (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                <ResultReport 
+                    test={selectedTest} 
+                    isDarkMode={isDarkMode} 
+                    onBack={() => setSelectedTest(null)} 
+                />
             </div>
         );
     }
@@ -445,7 +492,13 @@ const Performance = ({ isDarkMode }) => {
                         </div>
                     ) : (
                         subjects.filter(s => !s.isStatic).map((subject, idx) => (
-                            <SubjectCard key={idx} subject={subject} idx={idx} isDark={isDarkMode} />
+                            <SubjectCard 
+                                key={idx} 
+                                subject={subject} 
+                                idx={idx} 
+                                isDark={isDarkMode} 
+                                onDeepDive={() => setSelectedSubject(subject)}
+                            />
                         ))
                     )}
                 </div>
@@ -487,7 +540,7 @@ const EnhancedStatCard = ({ title, value, subtitle, icon: Icon, color, isDark, t
     );
 };
 
-const SubjectCard = ({ subject, idx, isDark }) => {
+const SubjectCard = ({ subject, idx, isDark, onDeepDive }) => {
     const colorMap = {
         blue: 'from-blue-500 to-indigo-600 text-blue-500',
         purple: 'from-purple-500 to-fuchsia-600 text-purple-500',
@@ -557,7 +610,9 @@ const SubjectCard = ({ subject, idx, isDark }) => {
                 </div>
             </div>
 
-            <button className={`mt-8 w-full flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] opacity-30 group-hover:opacity-100 group-hover:text-blue-500 transition-all duration-500 ${isDark ? 'text-white' : 'text-slate-950'}`}>
+            <button 
+                onClick={onDeepDive}
+                className={`mt-8 w-full flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] opacity-30 group-hover:opacity-100 group-hover:text-blue-500 transition-all duration-500 ${isDark ? 'text-white' : 'text-slate-950'}`}>
                 Subject Deep-Dive <ArrowUpRight size={14} />
             </button>
         </motion.div>
