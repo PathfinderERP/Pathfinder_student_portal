@@ -288,7 +288,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
     const activeChapterData = (activeSubjectData && activeChapter) ? activeSubjectData.chapters[activeChapter] : null;
     const activeTopicData = (activeChapterData && activeTopic) ? activeChapterData.topics[activeTopic] : null;
 
-    const subjectsList = Object.keys(subjectsHierarchy).sort();
+    const subjectsList = Object.keys(subjectsHierarchy).sort().reverse();
 
     // ── AUTO-NAVIGATION LOGIC ───────────────────────────────────────────
     // 1. Auto-select first subject on initial load or if current subject disappears
@@ -567,7 +567,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     <h4 className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Curriculum Chapters</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
-                                    {Object.keys(activeSubjectData.chapters).sort().map(chapName => (
+                                    {Object.keys(activeSubjectData.chapters).sort().reverse().map(chapName => (
                                         <button
                                             key={chapName}
                                             onClick={() => {
@@ -596,7 +596,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                 </div>
                             ) : (
                                 <div className="space-y-10">
-                                    {Object.keys(activeChapterData?.topics || {}).sort().map(topName => {
+                                    {Object.keys(activeChapterData?.topics || {}).sort().reverse().map(topName => {
                                         const topicItems = activeChapterData?.topics?.[topName]?.materials || [];
                                         if (topicItems.length === 0) return null;
                                         
