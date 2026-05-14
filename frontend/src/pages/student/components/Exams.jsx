@@ -430,6 +430,14 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
             const isExpired = end && now > end;
             const isStudentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
             return activeTab === 'ongoing' ? !isStudentCompleted : isStudentCompleted;
+        }).sort((a, b) => {
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+            if (activeTab === 'ongoing') {
+                return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+            } else {
+                return nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: 'base' });
+            }
         });
     }, [tests, searchTerm, activeTab]);
 
