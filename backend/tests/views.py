@@ -2246,7 +2246,10 @@ class TestViewSet(viewsets.ModelViewSet):
             return Response([])
             
         # Fast map creation for results
-        published_tests = Test.objects.filter(is_result_published=True).only('id', 'name', 'code', 'total_marks')
+        # OPTIMIZED: Fetch published tests with sections and questions prefetched to solve N+1 issue
+        published_tests = Test.objects.filter(is_result_published=True).prefetch_related(
+            'sections', 'sections__questions'
+        ).only('id', 'name', 'code', 'total_marks', 'created_at')
         tests_map = {str(t.pk): t for t in published_tests}
         
         # Prepare test_id array for Mongo matching
@@ -2320,9 +2323,8 @@ class TestViewSet(viewsets.ModelViewSet):
             # Calculate section-wise breakdown for Subject Mastery view
             section_stats = []
             try:
-                # Optimized fetching: only get sections for this test
-                # In a real high-traffic system, we'd cache this or pre-calculate it on submission
-                sections = test.sections.all().prefetch_related('questions')
+                # Optimized fetching: Use prefetched sections and questions
+                sections = test.sections.all()
                 user_res = u_data.get('responses', {})
                 if isinstance(user_res, str):
                     import json

@@ -17,21 +17,112 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
     const [curriculumData, setCurriculumData] = useState(null);
     const [refetchTick, setRefetchTick] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [testResults, setTestResults] = useState([]);
+    const [competencyData, setCompetencyData] = useState(null);
 
     const fetchAnalytics = async (isManual = false) => {
         try {
             if (isManual) setIsRefreshing(true);
             else setLoading(true);
-            const response = await axios.get(`${getApiUrl()}/api/student/activity-analytics/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            setRealData(response.data);
             
-            // Fetch curriculum progress
-            const curriculumRes = await axios.get(`${getApiUrl()}/api/student/curriculum-progress/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            setCurriculumData(curriculumRes.data);
+            const apiUrl = getApiUrl();
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            // Fetch all analytics data in parallel to avoid sequential loading bottlenecks
+            const [activityRes, curriculumRes, resultsRes, reportRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/student/activity-analytics/`, { headers }).catch(e => ({ data: null })),
+                axios.get(`${apiUrl}/api/student/curriculum-progress/`, { headers }).catch(e => ({ data: null })),
+                axios.get(`${apiUrl}/api/tests/my_results/`, { headers }).catch(e => ({ data: [] })),
+                axios.get(`${apiUrl}/api/student-portal/report/`, { headers }).catch(e => ({ data: null }))
+            ]);
+
+            const realData = activityRes.data;
+            const curriculumData = curriculumRes.data;
+            const results = Array.isArray(resultsRes.data) ? resultsRes.data : [];
+            const globalReport = reportRes?.data;
+
+            setRealData(realData);
+            setCurriculumData(curriculumData);
+            setTestResults(results);
+
+            // 4. Process Competency Data
+            if (results.length > 0) {
+                const subjectMap = {};
+                const topicMap = {};
+
+                results.forEach(test => {
+                    const sections = test.section_stats || [];
+                    sections.forEach(sec => {
+                        const sName = sec.name || 'General';
+                        const secMarks = parseFloat(sec.marks ?? sec.net_marks ?? 0);
+                        const secTotal = parseFloat(sec.total ?? sec.total_max ?? 0);
+                        const score = secTotal > 0 ? (secMarks / secTotal) * 100 : 0;
+                        
+                        // Subject Aggregation
+                        if (!subjectMap[sName]) subjectMap[sName] = { totalMarks: 0, possibleMarks: 0, count: 0, scores: [] };
+                        subjectMap[sName].totalMarks += secMarks;
+                        subjectMap[sName].possibleMarks += secTotal;
+                        subjectMap[sName].count += 1;
+                        subjectMap[sName].scores.push(score);
+
+                        // Topic Aggregation
+                        if (!topicMap[sName]) topicMap[sName] = { totalMarks: 0, possibleMarks: 0, name: sName };
+                        topicMap[sName].totalMarks += secMarks;
+                        topicMap[sName].possibleMarks += secTotal;
+                    });
+                });
+
+                const subjects = Object.keys(subjectMap).map(name => {
+                    const data = subjectMap[name];
+                    let trendStr = 'New';
+                    if (data.scores.length >= 2) {
+                        const latest = data.scores[0];
+                        const previous = data.scores[1];
+                        const diff = latest - previous;
+                        if (diff > 0) trendStr = `+${Math.round(diff)}%`;
+                        else if (diff < 0) trendStr = `${Math.round(diff)}%`;
+                        else trendStr = 'Stable';
+                    }
+
+                    return {
+                        name,
+                        score: Math.round(data.possibleMarks > 0 ? (data.totalMarks / data.possibleMarks) * 100 : 0),
+                        trend: trendStr
+                    };
+                }).sort((a, b) => b.score - a.score);
+
+                const topics = Object.values(topicMap).map(t => ({
+                    ...t,
+                    score: t.possibleMarks > 0 ? (t.totalMarks / t.possibleMarks) * 100 : 0
+                })).sort((a, b) => b.score - a.score);
+                
+                // 5. Merge with Global ERP Report Data if available
+                if (globalReport?.chapters) {
+                    // If ERP has detailed chapter data, use it for the Matrix
+                    const erpChapters = globalReport.chapters.map(chap => ({
+                        name: chap.name,
+                        score: chap.percentage || chap.score || 0,
+                        subject: chap.subject || 'General',
+                        topics: chap.topics || []
+                    }));
+
+                    setCompetencyData({
+                        subjects,
+                        strengths: erpChapters.filter(c => (c.percentage || c.score) >= 75).sort((a, b) => (b.percentage || b.score) - (a.percentage || a.score)),
+                        weaknesses: erpChapters.filter(c => (c.percentage || c.score) < 50).sort((a, b) => (a.percentage || a.score) - (b.percentage || b.score)),
+                        improving: erpChapters.filter(c => (c.percentage || c.score) >= 50 && (c.percentage || c.score) < 75),
+                        erpChapters
+                    });
+                } else {
+                    setCompetencyData({
+                        subjects,
+                        strengths: topics.filter(t => t.score >= 75).sort((a, b) => b.score - a.score),
+                        weaknesses: topics.filter(t => t.score < 50).sort((a, b) => a.score - b.score),
+                        improving: topics.filter(t => t.score >= 50 && t.score < 75)
+                    });
+                }
+            }
+
         } catch (error) {
             console.error('Failed to fetch analytics:', error);
         } finally {
@@ -57,6 +148,13 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
             { subject: 'Mathematics', score: 91, trend: '+7%', subtopics: ['Calculus', 'Algebra', 'Trigonometry'] },
             { subject: 'Biology', score: 75, trend: '+1%', subtopics: ['Botany', 'Zoology', 'Genetics'] },
         ]
+    };
+
+    const getTestBadge = (score) => {
+        if (score >= 80) return { label: 'Elite', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' };
+        if (score >= 60) return { label: 'Proficient', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' };
+        if (score >= 40) return { label: 'Progressing', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
+        return { label: 'Critical', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
     };
 
     if (loading) {
@@ -194,12 +292,12 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Subject Proficiency Bars */}
                         <div className="space-y-6">
-                            {(realData?.proficiency || []).map((prof, i) => (
+                            {(competencyData?.subjects || realData?.proficiency || []).slice(0, 4).map((prof, i) => (
                                 <div key={i} className="space-y-2">
                                     <div className="flex justify-between items-end">
                                         <div className="flex items-center gap-2">
-                                            <span className={`text-sm font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{prof.subject}</span>
-                                            <span className={`text-[10px] font-bold ${prof.trend.includes('+') ? 'text-emerald-500' : 'text-red-500'}`}>{prof.trend}</span>
+                                            <span className={`text-sm font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{prof.subject || prof.name}</span>
+                                            <span className={`text-[10px] font-bold ${prof.trend?.includes('+') ? 'text-emerald-500' : prof.trend === 'Stable' ? 'text-slate-400' : 'text-red-500'}`}>{prof.trend}</span>
                                         </div>
                                         <span className="text-xl font-black text-indigo-500">{prof.score}%</span>
                                     </div>
@@ -208,15 +306,20 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                                             initial={{ width: 0 }}
                                             animate={{ width: `${prof.score}%` }}
                                             transition={{ duration: 1.5, delay: i * 0.1, ease: "easeOut" }}
-                                            className={`h-full rounded-r-[5px] bg-gradient-to-r ${prof.subject === 'Physics' ? 'from-blue-500 to-indigo-600' :
-                                                prof.subject === 'Chemistry' ? 'from-orange-500 to-red-600' :
-                                                    prof.subject === 'Mathematics' ? 'from-indigo-500 to-purple-600' :
+                                            className={`h-full rounded-r-[5px] bg-gradient-to-r ${prof.subject === 'Physics' || prof.name === 'Physics' ? 'from-blue-500 to-indigo-600' :
+                                                prof.subject === 'Chemistry' || prof.name === 'Chemistry' ? 'from-orange-500 to-red-600' :
+                                                    prof.subject === 'Mathematics' || prof.name === 'Mathematics' ? 'from-indigo-500 to-purple-600' :
                                                         'from-emerald-500 to-green-600'
                                                 }`}
                                         />
                                     </div>
                                 </div>
                             ))}
+                            {(!competencyData?.subjects && !realData?.proficiency) && (
+                                <div className="h-full flex items-center justify-center opacity-20">
+                                    <p className="text-[10px] font-black uppercase tracking-widest">No proficiency data available</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Heatmap Section */}
@@ -323,6 +426,118 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                 </div>
             </div>
 
+            {/* Academic Competency Deep-Dive */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Strengths & Weaknesses (Topic Wise) */}
+                <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="p-2.5 rounded-[5px] bg-emerald-500/10 text-emerald-500">
+                            <Target size={20} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h3 className={`font-black uppercase tracking-tight text-lg ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Competency Insights</h3>
+                            <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-0.5">Test-wise topic performance breakdown</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        {/* Strengths */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Core Strengths</span>
+                                <span className="text-[10px] font-bold opacity-30">Above 75% Mastery</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {competencyData?.strengths?.length > 0 ? competencyData.strengths.map((t, i) => (
+                                    <span key={i} className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
+                                        {t.name} ({Math.round(t.score)}%)
+                                    </span>
+                                )) : (
+                                    <p className="text-[10px] font-bold opacity-30 italic">Keep practicing to identify your strengths</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Weaknesses */}
+                        <div className="space-y-4 pt-4 border-t border-dashed border-slate-200 dark:border-white/5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Needs Attention</span>
+                                <span className="text-[10px] font-bold opacity-30">Below 50% Mastery</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {competencyData?.weaknesses?.length > 0 ? competencyData.weaknesses.map((t, i) => (
+                                    <span key={i} className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase border ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-100 text-red-700'}`}>
+                                        {t.name} ({Math.round(t.score)}%)
+                                    </span>
+                                )) : (
+                                    <p className="text-[10px] font-bold opacity-30 italic">Excellent! No critical weaknesses identified.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Recommendation */}
+                        <div className={`p-4 rounded-[5px] border-l-4 border-indigo-500 ${isDarkMode ? 'bg-indigo-500/5 text-indigo-200' : 'bg-indigo-50 text-indigo-900'}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Brain size={14} className="text-indigo-500" />
+                                <span className="text-[9px] font-black uppercase tracking-widest">AI Recommendation</span>
+                            </div>
+                            <p className="text-[11px] font-bold leading-relaxed">
+                                {competencyData?.weaknesses?.length > 0 
+                                    ? `Prioritize reviewing ${competencyData.weaknesses[0].name}. Your score is currently ${Math.round(competencyData.weaknesses[0].score)}% in this area.`
+                                    : "Your performance is well-balanced. Focus on maintaining your streak to improve institutional rank."}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Recent Test History */}
+                <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="p-2.5 rounded-[5px] bg-indigo-500/10 text-indigo-500">
+                            <TrendingUp size={20} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h3 className={`font-black uppercase tracking-tight text-lg ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Test Performance History</h3>
+                            <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-0.5">Review your latest examination attempts</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar">
+                        {testResults?.length > 0 ? testResults.slice(0, 5).map((test, i) => (
+                            <div key={i} className={`p-4 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05]' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{test.name}</p>
+                                        <p className="text-[9px] font-bold opacity-40 mt-0.5">
+                                            {test.date || test.submitted_date 
+                                                ? new Date(test.date || test.submitted_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) 
+                                                : 'Date Unavailable'}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`text-sm font-black ${test.marks / test.total >= 0.75 ? 'text-emerald-500' : test.marks / test.total >= 0.5 ? 'text-orange-500' : 'text-red-500'}`}>
+                                            {Math.round((test.marks / test.total) * 100)}%
+                                        </p>
+                                        <p className="text-[8px] font-black opacity-30 uppercase tracking-widest">Score: {test.marks}/{test.total}</p>
+                                    </div>
+                                </div>
+                                <div className="h-1 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+                                    <div 
+                                        className={`h-full rounded-full ${test.marks / test.total >= 0.75 ? 'bg-emerald-500' : test.marks / test.total >= 0.5 ? 'bg-orange-500' : 'bg-red-500'}`}
+                                        style={{ width: `${(test.marks / test.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="flex flex-col items-center justify-center py-12 opacity-30 text-center">
+                                <TrendingUp size={48} className="mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em]">No test results found</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
             {/* Curriculum Mastery Section */}
             <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <div className="flex items-center justify-between mb-8">
@@ -413,6 +628,72 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                             </div>
                         </div>
                     ))}
+                </div>
+            </div>
+
+            {/* Topic Performance Matrix */}
+            <div className={`p-8 rounded-[5px] border ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-[5px] bg-indigo-500/10 text-indigo-500">
+                            <Layers size={20} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h3 className={`font-black uppercase tracking-tight text-lg ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Topic Performance Matrix</h3>
+                            <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-0.5">Granular subject-wise scoring breakdown</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {(competencyData?.erpChapters || competencyData?.subjects)?.map((subj, idx) => {
+                        // If we have ERP Chapters, subj is a chapter. If fallback, it's a subject.
+                        const isChapter = !!subj.topics;
+                        const displayTitle = subj.name;
+                        const displayScore = Math.round(subj.score);
+                        const subItems = isChapter ? subj.topics : [];
+
+                        return (
+                            <div key={idx} className={`p-5 rounded-[5px] border transition-all hover:border-indigo-500/30 ${isDarkMode ? 'bg-white/[0.01] border-white/5' : 'bg-slate-50/50 border-slate-100 shadow-sm'}`}>
+                                <div className="flex items-center justify-between mb-4 pb-3 border-b border-dashed border-slate-200 dark:border-white/5">
+                                    <div className="flex flex-col">
+                                        <h4 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{displayTitle}</h4>
+                                        {isChapter && <span className="text-[8px] font-bold opacity-30 uppercase tracking-widest">{subj.subject}</span>}
+                                    </div>
+                                    <span className="text-[10px] font-black text-indigo-500">{displayScore}% {isChapter ? 'Mastery' : 'AVG'}</span>
+                                </div>
+                                <div className="space-y-4">
+                                    {subItems.length > 0 ? subItems.map((topic, tIdx) => (
+                                        <div key={tIdx} className="space-y-1.5">
+                                            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
+                                                <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>{topic.name}</span>
+                                                <span className={topic.percentage >= 75 ? 'text-emerald-500' : topic.percentage >= 50 ? 'text-orange-500' : 'text-red-500'}>
+                                                    {Math.round(topic.percentage)}%
+                                                </span>
+                                            </div>
+                                            <div className="h-1 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${topic.percentage}%` }}
+                                                    className={`h-full rounded-full ${topic.percentage >= 75 ? 'bg-emerald-500' : topic.percentage >= 50 ? 'bg-orange-500' : 'bg-red-500'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <p className="text-[9px] font-bold opacity-30 italic py-2">
+                                            {isChapter ? 'No sub-topic analysis available' : 'Take more tests for detailed breakdown'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {!competencyData && (
+                        <div className="col-span-full py-12 flex flex-col items-center justify-center opacity-30">
+                            <Layers size={32} className="mb-3" />
+                            <p className="text-[10px] font-black uppercase tracking-widest">Perform in a test to see topic analysis</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
