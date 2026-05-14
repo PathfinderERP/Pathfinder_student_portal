@@ -80,8 +80,31 @@ const StudentDashboard = () => {
     const hasAutoSynced = useRef(false);
     const [statsData, setStatsData] = useState({
         attendance: { value: '—%', subtext: 'Syncing attendance...', loaded: false },
-        gpa: { value: '—/10', subtext: 'Syncing GPA...', loaded: false }
+        gpa: { value: '—/10', subtext: 'Syncing GPA...', loaded: false },
+        streak: { value: '— days', subtext: 'Keep it up!', loaded: false },
+        rank: { value: '—', subtext: 'Institutional Standing', loaded: false }
     });
+
+    const fetchAnalytics = useCallback(async () => {
+        if (!token || !getApiUrl) return;
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/student/activity-analytics/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = response.data;
+            setStatsData(prev => ({
+                ...prev,
+                streak: {
+                    value: `${data.streak || 0} days`,
+                    subtext: data.streak > 0 ? 'Consistent learning!' : 'Start your streak today!',
+                    loaded: true
+                }
+            }));
+        } catch (err) {
+            console.error("Dashboard Analytics Fetch Error:", err);
+        }
+    }, [token, getApiUrl]);
 
     // Fetch Student Data from backend API (which proxies to ERP)
     const fetchStudentData = useCallback(async (forceRefresh = false, silentBackground = false) => {
@@ -222,6 +245,28 @@ const StudentDashboard = () => {
                 return test;
             });
 
+            // Calculate GPA and Rank from merged results
+            const completedTests = mergedData.filter(t => t.submission?.is_finalized);
+            if (completedTests.length > 0) {
+                const totalScore = completedTests.reduce((acc, t) => acc + (t.submission.score || 0), 0);
+                const avgGpa = (totalScore / completedTests.length / 10).toFixed(1); // Assuming 0-100 scale -> 0-10 scale
+                const latestRank = completedTests[0]?.submission?.rank || '—';
+
+                setStatsData(prev => ({
+                    ...prev,
+                    gpa: {
+                        value: `${avgGpa}/10`,
+                        subtext: `Based on ${completedTests.length} tests`,
+                        loaded: true
+                    },
+                    rank: {
+                        value: latestRank !== '—' ? `#${latestRank}` : '—',
+                        subtext: 'Current Class Position',
+                        loaded: true
+                    }
+                }));
+            }
+
             setExamsCache({ data: mergedData, loaded: true });
         } catch (err) {
             console.error("Dashboard Exams Fetch Error:", err);
@@ -239,6 +284,7 @@ const StudentDashboard = () => {
             const isInitial = !attendanceCache?.loaded;
             if (isInitial) {
                 fetchAttendanceStats();
+                fetchAnalytics();
             }
 
             fetchUpcomingExams(); // Fetch exams for countdown
@@ -252,7 +298,7 @@ const StudentDashboard = () => {
         };
 
         loadInitialData();
-    }, [user, fetchStudentData, authLoading, fetchAttendanceStats, fetchUpcomingExams]);
+    }, [user, fetchStudentData, authLoading, fetchAttendanceStats, fetchUpcomingExams, fetchAnalytics]);
 
     const navItems = useMemo(() => [
         { name: 'Dashboard', icon: LayoutDashboard },
@@ -492,14 +538,37 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
     }, [exams]);
 
+    const trajectoryData = useMemo(() => {
+        if (!exams || !Array.isArray(exams)) return [];
+        const data = exams
+            .filter(e => e.submission?.is_finalized && e.submission?.score != null)
+            .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+            .slice(-7) // Last 7 tests for a clean chart
+            .map(e => ({
+                date: new Date(e.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                score: Math.round(e.submission.score)
+            }));
+        
+        // Ensure at least 2 points for the line
+        if (data.length === 1) return [{ date: 'Start', score: 0 }, ...data];
+        return data;
+    }, [exams]);
+
     const stats = useMemo(() => [
         {
             label: 'ATTENDANCE RATE',
-            value: dashboardStats?.attendance?.value || '92%',
-            subtext: dashboardStats?.attendance?.subtext || '37 of 40 classes | 3 absences',
+            value: dashboardStats?.attendance?.value || '—%',
+            subtext: dashboardStats?.attendance?.subtext || 'Calculating attendance...',
             trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance'
         },
-        { label: 'CURRENT GPA', value: '8.5/10', subtext: 'Rank: 5th of 60 students', color: 'indigo', icon: GraduationCap },
+        { 
+            label: 'CURRENT GPA', 
+            value: dashboardStats?.gpa?.value || '—/10', 
+            subtext: dashboardStats?.gpa?.subtext || 'Processing results...',
+            pill: dashboardStats?.rank?.value ? `Rank: ${dashboardStats.rank.value}` : 'Calculating Rank',
+            color: 'indigo', 
+            icon: GraduationCap 
+        },
         {
             label: 'NEXT EXAM',
             value: nextExam ? nextExam.name : 'NO EXAMS',
@@ -511,7 +580,14 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             icon: CalendarDays,
             tab: 'Exams'
         },
-        { label: 'STUDY STREAK', value: '12 days', subtext: 'Keep it up!', pill: 'Avg: 2.5 hrs/day', color: 'purple', icon: Flame },
+        { 
+            label: 'STUDY STREAK', 
+            value: dashboardStats?.streak?.value || '— days', 
+            subtext: dashboardStats?.streak?.subtext || 'Keep it up!', 
+            pill: 'Daily Engagement', 
+            color: 'purple', 
+            icon: Flame 
+        },
     ], [dashboardStats, nextExam]);
 
     return (
@@ -737,77 +813,95 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
 
                 {/* Visual Premium Area Chart */}
                 <div className="relative h-48 w-full">
-                    <svg viewBox="0 0 1000 200" className="w-full h-full overflow-visible">
-                        <defs>
-                            <linearGradient id="perfDashboardGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
-                                <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-                            </linearGradient>
-                        </defs>
+                    {trajectoryData.length === 0 ? (
+                        <div className="h-full w-full flex items-center justify-center border border-dashed border-slate-500/20 rounded-[5px]">
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30">Waiting for performance data...</p>
+                        </div>
+                    ) : (
+                        <svg viewBox="0 0 1000 200" className="w-full h-full overflow-visible">
+                            <defs>
+                                <linearGradient id="perfDashboardGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+                                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
 
-                        {/* Grid Lines */}
-                        {[0, 50, 100].map(val => (
-                            <line
-                                key={val}
-                                x1="0" y1={200 - (val * 2)}
-                                x2="1000" y2={200 - (val * 2)}
-                                stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}
-                                strokeDasharray="4 4"
-                            />
-                        ))}
+                            {/* Grid Lines */}
+                            {[0, 50, 100].map(val => (
+                                <line
+                                    key={val}
+                                    x1="0" y1={200 - (val * 1.5) - 20}
+                                    x2="1000" y2={200 - (val * 1.5) - 20}
+                                    stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}
+                                    strokeDasharray="4 4"
+                                />
+                            ))}
 
-                        {/* Dummy Data Area */}
-                        <motion.path
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 1, delay: 0.5 }}
-                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40 L 1000 200 L 0 200 Z"
-                            fill="url(#perfDashboardGradient)"
-                        />
+                            {(() => {
+                                const stepX = 1000 / (trajectoryData.length - 1 || 1);
+                                const getPoints = () => trajectoryData.map((d, i) => {
+                                    const x = i * stepX;
+                                    const y = 200 - (d.score * 1.5) - 20; // 0-100 scale to 180-30 svg y
+                                    return { x, y, score: d.score };
+                                });
+                                const points = getPoints();
+                                const pathD = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+                                const areaD = `${pathD} L ${points[points.length - 1].x} 200 L 0 200 Z`;
 
-                        {/* Main Line */}
-                        <motion.path
-                            initial={{ pathLength: 0 }}
-                            animate={{ pathLength: 1 }}
-                            transition={{ duration: 2, ease: "easeInOut" }}
-                            d="M 0 160 L 100 150 L 200 170 L 300 130 L 400 140 L 500 110 L 600 120 L 700 80 L 800 90 L 900 60 L 1000 40"
-                            fill="none"
-                            stroke="#6366f1"
-                            strokeWidth="4"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        />
-
-                        {/* Data Points */}
-                        {[0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((x, i) => {
-                            const y = [160, 150, 170, 130, 140, 110, 120, 80, 90, 60, 40][i];
-                            const val = [20, 25, 15, 35, 30, 45, 40, 60, 55, 70, 80][i];
-                            return (
-                                <g key={i} className="group cursor-pointer">
-                                    <motion.circle
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ delay: 2 + (i * 0.1) }}
-                                        whileHover={{ scale: 1.8, strokeWidth: 4 }}
-                                        cx={x} cy={y} r="5"
-                                        className="fill-white stroke-indigo-500 stroke-[3px]"
-                                    />
-                                    {/* Tooltip on hover */}
-                                    <foreignObject x={x - 20} y={y - 35} width="40" height="25" className="overflow-visible pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div className="bg-indigo-600 text-white text-[9px] font-black py-1 px-1.5 rounded-[3px] text-center shadow-xl">
-                                            {val}%
-                                        </div>
-                                    </foreignObject>
-                                </g>
-                            );
-                        })}
-                    </svg>
+                                return (
+                                    <>
+                                        <motion.path
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 1, delay: 0.5 }}
+                                            d={areaD}
+                                            fill="url(#perfDashboardGradient)"
+                                        />
+                                        <motion.path
+                                            initial={{ pathLength: 0 }}
+                                            animate={{ pathLength: 1 }}
+                                            transition={{ duration: 2, ease: "easeInOut" }}
+                                            d={pathD}
+                                            fill="none"
+                                            stroke="#6366f1"
+                                            strokeWidth="4"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                        {points.map((p, i) => (
+                                            <g key={i} className="group cursor-pointer">
+                                                <motion.circle
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    transition={{ delay: 2 + (i * 0.1) }}
+                                                    whileHover={{ scale: 1.8, strokeWidth: 4 }}
+                                                    cx={p.x} cy={p.y} r="5"
+                                                    className="fill-white stroke-indigo-500 stroke-[3px]"
+                                                />
+                                                <foreignObject x={p.x - 20} y={p.y - 35} width="40" height="25" className="overflow-visible pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="bg-indigo-600 text-white text-[9px] font-black py-1 px-1.5 rounded-[3px] text-center shadow-xl">
+                                                        {p.score}%
+                                                    </div>
+                                                </foreignObject>
+                                            </g>
+                                        ))}
+                                    </>
+                                );
+                            })()}
+                        </svg>
+                    )}
                 </div>
 
                 <div className="flex justify-between mt-6 px-1">
-                    {['10 Mar', '20 Mar', '30 Mar', 'Today'].map(date => (
-                        <span key={date} className="text-[9px] font-black uppercase opacity-30 tracking-[0.2em]">{date}</span>
-                    ))}
+                    {trajectoryData.length > 0 ? (
+                        trajectoryData.map((d, i) => (
+                            <span key={i} className="text-[9px] font-black uppercase opacity-30 tracking-[0.2em]">{d.date}</span>
+                        ))
+                    ) : (
+                        ['Past', 'Recent', 'Today'].map(l => (
+                            <span key={l} className="text-[9px] font-black uppercase opacity-30 tracking-[0.2em]">{l}</span>
+                        ))
+                    )}
                 </div>
             </div>
 
