@@ -197,6 +197,22 @@ const TestAllotment = () => {
                     };
                     const createRes = await axios.post(`${apiUrl}/api/centres/`, createPayload, getAuthConfig());
                     local = createRes.data;
+                } else {
+                    // Patch existing centre if email/phone are missing (they may have been blank at creation time)
+                    const erpEmail = (erpDetail.email || erpDetail.contactEmail || "").substring(0, 254);
+                    const erpPhone = (erpDetail.phoneNumber || erpDetail.phone || erpDetail.mobile || "").substring(0, 20);
+                    const needsPatch = (!local.email && erpEmail) || (!local.phone_number && erpPhone);
+                    if (needsPatch) {
+                        const patchPayload = {};
+                        if (!local.email && erpEmail) patchPayload.email = erpEmail;
+                        if (!local.phone_number && erpPhone) patchPayload.phone_number = erpPhone;
+                        try {
+                            const patchRes = await axios.patch(`${apiUrl}/api/centres/${local.id}/`, patchPayload, getAuthConfig());
+                            local = { ...local, ...patchRes.data };
+                        } catch (patchErr) {
+                            console.warn("Could not patch centre contact info:", patchErr);
+                        }
+                    }
                 }
                 if (local) {
                     finalLocalIds.push(local.id);
