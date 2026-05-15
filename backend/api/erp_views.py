@@ -66,9 +66,9 @@ def _is_profile_rich(data):
     """Checks if the given ERP data contains actual profile details beyond placeholders."""
     if not isinstance(data, dict): return False
     
-    # Check for direct 'student' object (Strategy 1/2 shape) 
-    # OR check if it has 'studentsDetails' (Login cache shape)
-    details = data.get('student', {}).get('studentsDetails', [])
+    # Strategy 1/2 shape: data.get('student') might be None, so we use (data.get('student') or {}).get(...)
+    student_obj = data.get('student') or {}
+    details = student_obj.get('studentsDetails', [])
     if not details and isinstance(data.get('studentsDetails'), list):
         details = data['studentsDetails']
 
@@ -124,7 +124,8 @@ def get_student_lookup_index(force_refresh=False):
                 idx[key] = record
         
         # Index by Student Emails (Normalizes to Lower/Strip)
-        details = record.get('student', {}).get('studentsDetails', [])
+        student_obj = record.get('student') or {}
+        details = student_obj.get('studentsDetails', [])
         for d in details:
             email = str(d.get('studentEmail') or '').strip().lower()
             if email:
@@ -201,7 +202,8 @@ def _perform_background_erp_sync(user_id, search_email, student_cache_key, force
             
             if potential_record:
                 # Basic verification (same as in main view)
-                details = potential_record.get('student', {}).get('studentsDetails', [])
+                student_obj = potential_record.get('student') or {}
+                details = student_obj.get('studentsDetails', [])
                 if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
                     target_record = potential_record
         
@@ -317,7 +319,8 @@ def get_student_erp_data(request):
                     
                     if potential_record:
                         # VERIFY this is actually the right student
-                        details = potential_record.get('student', {}).get('studentsDetails', [])
+                        student_obj = potential_record.get('student') or {}
+                        details = student_obj.get('studentsDetails', [])
                         adm_num = str(potential_record.get('admissionNumber') or '').strip().upper()
                         email_match = any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details)
                         
@@ -337,7 +340,8 @@ def get_student_erp_data(request):
                 if all_students:
                     print(f"[ERP] Searching through {len(all_students)} records for match...")
                     for admission in all_students:
-                        details = admission.get('student', {}).get('studentsDetails', [])
+                        student_obj = admission.get('student') or {}
+                        details = student_obj.get('studentsDetails', [])
                         admission_num = str(admission.get('admissionNumber') or '').strip().upper()
                         if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details) or \
                            (search_username and admission_num == search_username):
@@ -386,7 +390,8 @@ def _sync_user_to_erp(user, admission_data):
         has_changed = False
 
         # 0. Sync ERP Student ID (the authoritative MongoDB _id from the admission record)
-        new_erp_sid = str(admission_data.get('student', {}).get('_id') or admission_data.get('_id') or '').strip()
+        student_obj = admission_data.get('student') or {}
+        new_erp_sid = str(student_obj.get('_id') or admission_data.get('_id') or '').strip()
         if new_erp_sid and user.erp_student_id != new_erp_sid:
             user.erp_student_id = new_erp_sid; has_changed = True
             print(f"[SYNC] ✓ Synced erp_student_id={new_erp_sid} for {user.username}")
@@ -410,7 +415,8 @@ def _sync_user_to_erp(user, admission_data):
             if user.rm_code != new_rm: user.rm_code = new_rm; has_changed = True
         
         # 3. Sync Names
-        details_list = admission_data.get('student', {}).get('studentsDetails', [])
+        student_obj = admission_data.get('student') or {}
+        details_list = student_obj.get('studentsDetails', [])
         if details_list and isinstance(details_list, list) and len(details_list) > 0:
             details = details_list[0]
             name = details.get('studentName', '')
