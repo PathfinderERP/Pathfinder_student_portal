@@ -283,7 +283,8 @@ class TestViewSet(viewsets.ModelViewSet):
                             
                             # Identifiers for de-duplication per Test
                             adm = str(erp.get('admissionNumber') or '').strip().upper()
-                            details = erp.get('student', {}).get('studentsDetails', [])
+                            student_obj = erp.get('student') or {}
+                            details = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or []
                             em = str(details[0].get('studentEmail') or '').strip().lower() if details else None
                             
                             # Get student's centre
@@ -455,8 +456,10 @@ class TestViewSet(viewsets.ModelViewSet):
         for erp in erp_pool:
             if not isinstance(erp, dict): continue
             adm = str(erp.get('admissionNumber') or '').upper().strip()
-            details = erp.get('student', {}).get('studentsDetails', [{}])[0]
-            email = str(details.get('studentEmail') or "").lower().strip()
+            student_obj = erp.get('student') or {}
+            details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
+            details = details_list[0] if (isinstance(details_list, list) and details_list) else {}
+            email = str((details.get('studentEmail') if isinstance(details, dict) else None) or "").lower().strip()
             
             if (adm and adm in global_seen_uids) or (email and email in global_seen_uids): continue
             
@@ -679,8 +682,10 @@ class TestViewSet(viewsets.ModelViewSet):
             
             for erp in erp_index.values():
                 adm = str(erp.get('admissionNumber') or '').upper().strip()
-                det = erp.get('student', {}).get('studentsDetails', [{}])[0]
-                em = str(det.get('studentEmail') or "").lower().strip()
+                student_obj = erp.get('student') or {}
+                details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
+                det = details_list[0] if (isinstance(details_list, list) and details_list) else {}
+                em = str((det.get('studentEmail') if isinstance(det, dict) else None) or "").lower().strip()
                 
                 # Check for existing local student or already processed ERP student
                 if (adm and adm in global_seen_uids) or (em and em in global_seen_uids): continue
@@ -695,8 +700,9 @@ class TestViewSet(viewsets.ModelViewSet):
                     final_list.append((SimpleNamespace(
                         pk=None, username=adm, email=em or f"{adm.lower()}@unknown.com",
                         first_name=sp[0], last_name=' '.join(sp[1:]) if len(sp) > 1 else '',
-                        admission_number=adm, exam_section=erp.get('sectionAllotment', {}).get('examSection'),
-                        study_section=erp.get('sectionAllotment', {}).get('studySection'),
+                        admission_number=adm, 
+                        exam_section=(erp.get('sectionAllotment') or {}).get('examSection'),
+                        study_section=(erp.get('sectionAllotment') or {}).get('studySection'),
                         rm_code=None, omr_code=None, employee_id=None, user_type='student'
                     ), False))
                     if adm: global_seen_uids.add(adm)

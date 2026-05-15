@@ -211,7 +211,7 @@ def _perform_background_erp_sync(user_id, search_email, student_cache_key, force
         if not target_record:
             all_students = _fetch_all_students_erp(force_refresh=force_refresh)
             for admission in all_students:
-                details = admission.get('student', {}).get('studentsDetails', [])
+                details = (admission.get('student') or {}).get('studentsDetails', [])
                 if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
                     target_record = admission
                     break
@@ -443,7 +443,7 @@ def _sync_user_to_erp(user, admission_data):
 
         # 5. Sync Academic Metadata (Session, Class, Target Exam)
         # Session
-        erp_session_name = admission_data.get('academicSession') or admission_data.get('course', {}).get('courseSession')
+        erp_session_name = admission_data.get('academicSession') or (admission_data.get('course') or {}).get('courseSession')
         if erp_session_name:
             session_obj = Session.objects.filter(name__iexact=erp_session_name).first()
             if session_obj and user.session_id != session_obj.id:
@@ -743,7 +743,7 @@ def _fetch_erp_student_id(user):
     # 2. Fallback: extract from cached ERP profile data
     cached_profile = cache.get(f"erp_student_data_v6_{user.pk}")
     if cached_profile and isinstance(cached_profile, dict):
-        sid = cached_profile.get('_id') or cached_profile.get('student', {}).get('_id')
+        sid = cached_profile.get('_id') or (cached_profile.get('student') or {}).get('_id')
         if sid:
             # Save it so we don't need to look it up next time
             try:
