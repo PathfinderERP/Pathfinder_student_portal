@@ -1,10 +1,9 @@
 import axios from 'axios';
+import { getBaseApiUrl } from './apiConfig';
 
 const logActivity = async (activityType, path, metadata = {}, duration = 0) => {
     const token = localStorage.getItem('auth_token');
-
-    // With the new Vite proxy, we can use relative paths
-    const apiUrl = '/api';
+    const apiUrl = getBaseApiUrl();
 
     if (!token) {
         console.warn('[Activity] Skipped: No auth_token');
@@ -14,7 +13,7 @@ const logActivity = async (activityType, path, metadata = {}, duration = 0) => {
     console.log(`[Activity] Logging: ${activityType} on ${path}`, { metadata, duration });
 
     try {
-        const response = await axios.post(`${apiUrl}/activity-logs/`, {
+        const response = await axios.post(`${apiUrl}/api/activity-logs/`, {
             activity_type: activityType,
             path: path,
             metadata: metadata,

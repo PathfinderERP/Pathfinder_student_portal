@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { jwtDecode } from "jwt-decode";
 import axios from 'axios';
+import { getBaseApiUrl } from '../services/apiConfig';
 
 const AuthContext = createContext(null);
 
@@ -12,16 +13,7 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     const getApiUrl = useCallback(() => {
-        let defaultUrl = 'https://api.studypathportal.in';
-        if (import.meta.env.MODE === 'development') {
-            defaultUrl = 'http://127.0.0.1:3001';
-        }
-        let url = import.meta.env.VITE_API_URL || defaultUrl;
-        // Fix for common development connectivity issues: replace localhost with 127.0.0.1
-        if (url.includes('localhost')) {
-            url = url.replace('localhost', '127.0.0.1');
-        }
-        return url;
+        return getBaseApiUrl();
     }, []);
 
     const getRoleLabel = useCallback((type) => {

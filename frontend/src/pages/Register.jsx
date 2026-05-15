@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { UserPlus, User, Mail, Lock, Briefcase, AlertCircle, Sun, Moon, ArrowLeft, Send } from 'lucide-react';
+import { getBaseApiUrl } from '../services/apiConfig';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -25,7 +26,8 @@ const Register = () => {
         setError('');
         setIsLoading(true);
         try {
-            await axios.post('http://127.0.0.1:3001/api/register/', formData);
+            const apiUrl = getBaseApiUrl();
+            await axios.post(`${apiUrl}/api/register/`, formData);
             navigate('/login');
         } catch (err) {
             setError(err.response?.data?.detail || 'Registration failed. Try again.');
