@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     system_status, FileViewSet, CustomTokenObtainPairView, ProfileView, 
-    UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, 
+    UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, DoubtViewSet,
     StudyTaskViewSet, NoticeViewSet, UserSearchView, 
     StudentPsychometricProfileView, StudentStudyPlannerConfigView,
     UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress
@@ -21,6 +21,7 @@ router = DefaultRouter()
 router.register(r'files', FileViewSet)
 router.register(r'users', UserViewSet)
 router.register(r'grievances', GrievanceViewSet)
+router.register(r'doubts', DoubtViewSet)
 router.register(r'study-tasks', StudyTaskViewSet, basename='study-task')
 router.register(r'notices', NoticeViewSet)
 router.register(r'activity-logs', UserActivityLogViewSet, basename='activity-log')

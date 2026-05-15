@@ -16,6 +16,7 @@ const Grievances = ({ isDarkMode }) => {
     const [fetchLoading, setFetchLoading] = useState(true);
     const [success, setSuccess] = useState(false);
     const [grievances, setGrievances] = useState([]);
+    const [subjects, setSubjects] = useState([]);
 
     const fetchGrievances = async () => {
         setFetchLoading(true);
@@ -34,6 +35,18 @@ const Grievances = ({ isDarkMode }) => {
 
     useEffect(() => {
         fetchGrievances();
+        const fetchSubjects = async () => {
+            try {
+                const apiUrl = getApiUrl();
+                const response = await axios.get(`${apiUrl}/api/master-data/subjects/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                setSubjects(response.data || []);
+            } catch (err) {
+                console.error("Failed to fetch subjects", err);
+            }
+        };
+        fetchSubjects();
     }, []);
 
     const handleSubmit = async (e) => {
@@ -138,15 +151,19 @@ const Grievances = ({ isDarkMode }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Subject</label>
-                            <input
-                                type="text"
+                            <select
                                 value={formData.subject}
                                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                                 className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
-                                    ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-white/20' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                placeholder="Enter subject"
+                                    ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                 required
-                            />
+                            >
+                                <option value="" disabled className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>Select Subject</option>
+                                <option value="General" className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>General / Non-Academic</option>
+                                {subjects.map(sub => (
+                                    <option key={sub.id} value={sub.name} className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>{sub.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="space-y-2">
                             <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Category</label>
@@ -248,20 +265,6 @@ const Grievances = ({ isDarkMode }) => {
                                         <span className={`px-2.5 py-1 rounded-[5px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${getStatusColor(item.status)}`}>
                                             {item.status || '—'}
                                         </span>
-                                        <button
-                                            onClick={() => handleDelete(item.id)}
-                                            disabled={deletingId === item.id}
-                                            title={confirmId === item.id ? 'Click again to confirm' : 'Delete'}
-                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-[5px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
-                                                ${confirmId === item.id
-                                                    ? 'bg-red-500 text-white animate-pulse'
-                                                    : 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white'
-                                                } disabled:opacity-40`}>
-                                            {deletingId === item.id
-                                                ? <Loader2 size={10} className="animate-spin" />
-                                                : <Trash2 size={10} />}
-                                            {confirmId === item.id ? 'Sure?' : ''}
-                                        </button>
                                     </div>
                                 </div>
                                 {item.description && (

@@ -5,7 +5,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,7 @@ import Exams from './components/Exams';
 import Performance from './components/Performance';
 import Results from './components/Results';
 import Grievances from './components/Grievances';
+import Doubts from './components/Doubts';
 // import SWOTAnalysis from './components/SWOTAnalysis';
 import StudyMaterials from './components/StudyMaterials';
 import AdvancedAnalytics from './components/AdvancedAnalytics';
@@ -50,7 +51,7 @@ const StudentDashboard = () => {
             // Mapping check to ensure valid tab
             const validTabs = [
                 'Dashboard', 'My Profile', 'Classes', 'Attendance',
-                'Exams', 'Results', 'Performance', 'Grievances',
+                'Exams', 'Results', 'Performance', 'Grievances', 'Doubts',
                 'Study Materials', 'Study Planner', 'Notice Board'
             ];
             if (validTabs.includes(tab)) {
@@ -311,6 +312,7 @@ const StudentDashboard = () => {
         { name: 'Performance', icon: TrendingUp },
         // { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
+        { name: 'Doubts', icon: HelpCircle },
         {
             name: 'Study Materials',
             icon: BookOpen,
@@ -426,6 +428,8 @@ const StudentDashboard = () => {
                 return <Performance isDarkMode={isDarkMode} />;
             case 'Grievances':
                 return <Grievances isDarkMode={isDarkMode} />;
+            case 'Doubts':
+                return <Doubts isDarkMode={isDarkMode} />;
             /* case 'SWOT Analysis':
                 return <SWOTAnalysis isDarkMode={isDarkMode} />; */
             case 'Video Content':

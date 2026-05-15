@@ -59,6 +59,7 @@ import SeminarRegistry from './content/SeminarRegistry';
 import TestShiftRegistry from './content/TestShiftRegistry';
 import GuideRegistry from './content/GuideRegistry';
 import CommunityRegistry from './content/CommunityRegistry';
+import GrievanceManagement from './admin/GrievanceManagement';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
@@ -384,6 +385,7 @@ const SystemDashboard = () => {
                 { id: 'solve_doubt', label: 'Solve Doubt', active: activeTab === 'Solve Doubt', onClick: () => setActiveTab('Solve Doubt') },
             ]
         },
+        { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
         {
             id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Nexus Hub', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
             subItems: [
@@ -567,6 +569,8 @@ const SystemDashboard = () => {
                 return <AssignDoubt />;
             case 'Solve Doubt':
                 return <SolveDoubt />;
+            case 'Grievance Management':
+                return <GrievanceManagement />;
             case 'Library':
                 return <LibraryRegistry />;
             case 'Solution To Dpp Rpp':

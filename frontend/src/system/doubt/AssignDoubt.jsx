@@ -17,9 +17,10 @@ const AssignDoubt = () => {
     const [loading, setLoading] = useState(true);
 
     const fetchDoubts = async () => {
+        setLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/grievances/`, {
+            const response = await axios.get(`${apiUrl}/api/doubts/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             // Map the data to the format expected by the table
@@ -27,13 +28,25 @@ const AssignDoubt = () => {
                 id: d.id,
                 student: d.student_name,
                 studentId: d.student_id,
-                subject: d.subject + (d.category === 'Doubt Session' ? ' (Doubt)' : ''),
-                date: new Date(d.date).toLocaleString(),
+                studentClass: d.student_class || 'N/A',
+                studentEmail: d.student_email || 'N/A',
+                admissionNumber: d.admission_number || 'N/A',
+                examTag: d.exam_tag || 'N/A',
+                subject: d.subject,
+                chapter: d.chapter,
+                topic: d.topic,
+                title: d.title,
+                date: d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A',
                 status: d.status,
                 description: d.description,
+                image: d.image,
+                image2: d.image2,
+                image3: d.image3,
+                pdf: d.pdf,
+                voice_note: d.voice_note,
                 teacherName: d.teacher_name,
                 assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                solvedDate: d.solved_date ? new Date(d.solved_date).toLocaleString() : null
+                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null
             }));
             setDoubts(mappedDoubts);
         } catch (error) {
@@ -70,6 +83,7 @@ const AssignDoubt = () => {
     // Custom "Show Doubt" Modal State
     const [isShowDoubtModalOpen, setIsShowDoubtModalOpen] = useState(false);
     const [selectedDoubtForView, setSelectedDoubtForView] = useState(null);
+    const [activePreview, setActivePreview] = useState(null);
 
     // Fetch teachers when modal opens
     useEffect(() => {
@@ -109,6 +123,7 @@ const AssignDoubt = () => {
         setSelectedTeacher('');
         setIsShowDoubtModalOpen(false);
         setSelectedDoubtForView(null);
+        setActivePreview(null);
     };
 
     const handleConfirmAssign = async () => {
@@ -119,7 +134,7 @@ const AssignDoubt = () => {
 
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/grievances/${selectedDoubtForAssignment.id}/`, {
+            await axios.patch(`${apiUrl}/api/doubts/${selectedDoubtForAssignment.id}/`, {
                 status: 'Assign',
                 teacher_name: teacherName,
                 teacher_id: selectedTeacher,
@@ -139,7 +154,7 @@ const AssignDoubt = () => {
     const handleRejectDoubt = async (doubtId) => {
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/grievances/${doubtId}/`, {
+            await axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
                 status: 'Rejected'
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -153,7 +168,7 @@ const AssignDoubt = () => {
     const handleRestoreDoubt = async (doubtId) => {
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/grievances/${doubtId}/`, {
+            await axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
                 status: 'Unassigned'
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -493,34 +508,156 @@ const AssignDoubt = () => {
 
             {/* Show Doubt Modal */}
             {isShowDoubtModalOpen && selectedDoubtForView && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="w-full max-w-lg mx-4 overflow-hidden rounded-t-lg rounded-b-lg shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 pt-32 overflow-y-auto">
+                    <div className="w-full max-w-4xl mx-4 mb-12 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-200">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 bg-orange-500 text-white">
-                            <h3 className="text-lg font-bold">Doubt Details At A Glance</h3>
-                            <button onClick={handleCloseModal} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-                                <X size={20} strokeWidth={2.5} />
+                        <div className="flex items-center justify-between px-8 py-6 bg-orange-500 text-white">
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black tracking-tight uppercase">Doubt Details At A Glance</h3>
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Case #{selectedDoubtForView.id}</p>
+                            </div>
+                            <button onClick={handleCloseModal} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                                <X size={24} strokeWidth={3} />
                             </button>
                         </div>
 
                         {/* Modal Body */}
-                        <div className={`p-8 min-h-[300px] max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-[#1e293b] text-slate-200' : 'bg-white text-slate-700'}`}>
-                            <div className="mb-6">
-                                <p className={`text-[10px] font-black uppercase tracking-widest text-orange-500 mb-2`}>Student Query</p>
-                                <p className="font-bold text-sm leading-relaxed whitespace-pre-wrap italic">
-                                    "{selectedDoubtForView.description}"
+                        <div className={`p-8 space-y-8 ${isDarkMode ? 'bg-[#10141D] text-slate-200' : 'bg-white text-slate-700'}`}>
+                            
+                            {/* Top Row: Academic Context */}
+                            <div className="grid grid-cols-4 gap-6">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</p>
+                                    <p className="font-black text-sm uppercase text-orange-500">{selectedDoubtForView.subject}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exam Tag</p>
+                                    <p className="font-black text-sm uppercase">{selectedDoubtForView.examTag}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Topic</p>
+                                    <p className="font-black text-sm uppercase truncate">{selectedDoubtForView.topic || 'General'}</p>
+                                </div>
+                                <div className="space-y-1 text-right">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Posted On</p>
+                                    <p className="font-black text-sm uppercase opacity-60">{selectedDoubtForView.date}</p>
+                                </div>
+                            </div>
+
+                            {/* Student Identity Block */}
+                            <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Student Profile</p>
+                                <div className="grid grid-cols-4 gap-6">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">Name</p>
+                                        <p className="font-black text-sm uppercase">{selectedDoubtForView.student}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">Enrollment No.</p>
+                                        <p className="font-black text-sm uppercase text-orange-500">{selectedDoubtForView.admissionNumber}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">Class / Level</p>
+                                        <p className="font-black text-sm uppercase">{selectedDoubtForView.studentClass}</p>
+                                    </div>
+                                    <div className="space-y-1 text-right">
+                                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">Email Address</p>
+                                        <p className="font-black text-sm lowercase">{selectedDoubtForView.studentEmail}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6 rounded-[5px] border border-orange-500/10 bg-orange-500/5">
+                                <h4 className="text-sm font-black uppercase tracking-tight mb-3 text-orange-500">{selectedDoubtForView.title || 'Doubt Description'}</h4>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                                    {selectedDoubtForView.description}
                                 </p>
                             </div>
 
-                            <div className={`grid grid-cols-2 gap-4 p-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
-                                <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student</p>
-                                    <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.student}</p>
-                                    <p className={`text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {selectedDoubtForView.studentId || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subject</p>
-                                    <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.subject}</p>
+                            {/* Multimedia Attachments & Previews */}
+                            <div className="space-y-8">
+                                <div className="grid grid-cols-2 gap-8">
+                                    {/* Left: Attachment List */}
+                                    <div className="space-y-6">
+                                        {/* Images Gallery */}
+                                        {(selectedDoubtForView.image || selectedDoubtForView.image2 || selectedDoubtForView.image3) && (
+                                            <div className="space-y-3">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Attachments (Click to preview)</p>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {[selectedDoubtForView.image, selectedDoubtForView.image2, selectedDoubtForView.image3].map((img, i) => img && (
+                                                        <button 
+                                                            key={i} 
+                                                            onClick={() => setActivePreview({ url: img, type: 'image' })}
+                                                            className={`group relative aspect-video rounded-[5px] overflow-hidden border transition-all shadow-md ${activePreview?.url === img ? 'border-orange-500 ring-2 ring-orange-500/20' : 'border-white/10 hover:border-orange-500/50'}`}
+                                                        >
+                                                            <img src={img} alt={`Attachment ${i+1}`} className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* PDF & Audio */}
+                                        <div className="space-y-4">
+                                            {selectedDoubtForView.pdf && (
+                                                <div className="space-y-3">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Documents</p>
+                                                    <button 
+                                                        onClick={() => setActivePreview({ url: selectedDoubtForView.pdf, type: 'pdf' })}
+                                                        className={`w-full flex items-center gap-4 p-4 rounded-[5px] border transition-all group ${activePreview?.type === 'pdf' ? 'bg-red-500/10 border-red-500' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'}`}>
+                                                        <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs">PDF</div>
+                                                        <div className="flex-1 text-left min-w-0">
+                                                            <p className="text-xs font-bold truncate text-red-500">View PDF Document</p>
+                                                            <p className="text-[10px] opacity-50 font-medium uppercase tracking-widest">Click to preview below</p>
+                                                        </div>
+                                                        <Eye size={16} className="text-red-500 group-hover:scale-110 transition-transform" />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {selectedDoubtForView.voice_note && (
+                                                <div className="space-y-3">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Voice Note</p>
+                                                    <div className="p-4 rounded-[5px] border border-blue-500/20 bg-blue-500/5">
+                                                        <audio controls className="w-full h-10 custom-audio-player">
+                                                            <source src={selectedDoubtForView.voice_note} type="audio/mpeg" />
+                                                        </audio>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Live Previewer */}
+                                    <div className="flex flex-col">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Live Preview</p>
+                                        <div className={`flex-1 min-h-[300px] rounded-[5px] border overflow-hidden flex items-center justify-center ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                            {activePreview ? (
+                                                activePreview.type === 'image' ? (
+                                                    <img src={activePreview.url} alt="Preview" className="max-w-full max-h-full object-contain animate-in fade-in zoom-in-95 duration-300" />
+                                                ) : (
+                                                    <iframe 
+                                                        src={`${activePreview.url}#toolbar=0`} 
+                                                        className="w-full h-full border-none"
+                                                        title="PDF Preview"
+                                                    />
+                                                )
+                                            ) : (
+                                                <div className="text-center space-y-2 opacity-30">
+                                                    <Eye size={32} className="mx-auto" />
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest">Select an attachment<br/>to preview</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {activePreview && (
+                                            <div className="mt-3 flex justify-end">
+                                                <a href={activePreview.url} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:underline flex items-center gap-1">
+                                                    Open in new tab <ChevronRight size={10} />
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

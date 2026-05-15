@@ -6,7 +6,11 @@ export default {
   ],
   darkMode: 'class',
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        script: ['"Playwrite GB S"', 'cursive'],
+      }
+    },
   },
   plugins: [
     require('@tailwindcss/typography'),

@@ -122,6 +122,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
     return (
         <aside
             className={`fixed inset-y-0 left-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r overflow-hidden
+            ${isPremium ? 'sidebar-font' : ''}
             ${isPremium
                     ? `${isDarkMode ? 'bg-[#030712]/80 border-white/[0.05]' : 'bg-[#FAFBFC]/80 border-slate-200/50 shadow-[4px_0_40px_rgba(0,0,0,0.02)]'} backdrop-blur-2xl`
                     : `${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]'}`}
@@ -175,7 +176,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                         exit={{ opacity: 0, x: -10, filter: 'blur(10px)' }}
                                         className="flex flex-col flex-1 truncate"
                                     >
-                                        <span className={`text-xl font-black tracking-tighter leading-none font-brand ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pathfinder</span>
+                                        <span className={`text-xl leading-none ${isPremium ? 'font-script font-light tracking-normal' : 'font-brand font-black tracking-tighter'} ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pathfinder</span>
                                         {isPremium && (
                                             <span className={`text-[9px] font-black tracking-[0.2em] mt-1 bg-clip-text text-transparent uppercase antialiased font-brand whitespace-nowrap ${isDarkMode ? 'bg-gradient-to-r from-indigo-400 to-blue-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`}>
                                                 STUDENT HUB

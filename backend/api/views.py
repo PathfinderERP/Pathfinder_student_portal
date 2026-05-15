@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice, 
-    StudentPsychometricProfile, StudentStudyPlannerConfig, UserActivityLog
+    StudentPsychometricProfile, StudentStudyPlannerConfig, UserActivityLog, Doubt
 )
 from master_data.models import LibraryItem, Subject, Chapter, Topic
 from django.db.models import Q
@@ -17,7 +17,7 @@ from .serializers import (
     UserSerializer, UserCreateSerializer, LoginLogSerializer,
     GrievanceSerializer, StudyTaskSerializer, NoticeSerializer,
     StudentPsychometricProfileSerializer, StudentStudyPlannerConfigSerializer,
-    UserActivityLogSerializer
+    UserActivityLogSerializer, DoubtSerializer
 )
 
 @api_view(['GET'])
@@ -134,22 +134,81 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         date_val = doc.get('date')
         if date_val and hasattr(date_val, 'isoformat'):
             date_val = date_val.isoformat()
+        
+        # Fallback for centre info if missing in doc
+        centre_code = doc.get('centre_code')
+        # Fallback for centre and class info if missing in doc
+        centre_code = doc.get('centre_code')
+        centre_name = doc.get('centre_name')
+        student_class = doc.get('student_class')
+        
+        if not centre_code or not centre_name or not student_class:
+            try:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                sid = doc.get('student_id')
+                if sid:
+                    from bson import ObjectId
+                    # Normalize and try lookup
+                    sid_norm = str(sid).lower().strip()
+                    try:
+                        # Djongo often requires actual ObjectId for pk lookups
+                        user_obj = User.objects.filter(pk=ObjectId(sid_norm)).first()
+                    except:
+                        user_obj = None
+                    
+                    if not user_obj:
+                        # Fallback for erp_student_id or admission_number
+                        user_obj = User.objects.filter(erp_student_id=sid).first() or \
+                                   User.objects.filter(admission_number=sid).first()
+                    
+                    if user_obj:
+                        centre_code = centre_code or getattr(user_obj, 'centre_code', 'N/A')
+                        centre_name = centre_name or getattr(user_obj, 'centre_name', 'N/A')
+                        
+                        # Combine all academic info for complete context
+                        e_sec = getattr(user_obj, 'exam_section', '')
+                        s_sec = getattr(user_obj, 'study_section', '')
+                        c_lvl = getattr(user_obj.class_level, 'name', '') if user_obj.class_level else ''
+                        t_exm = getattr(user_obj.target_exam, 'name', '') if user_obj.target_exam else ''
+                        
+                        # Clean up list-like strings if Djongo returned them as such
+                        def clean_sec(s):
+                            s = str(s).strip()
+                            if s.startswith('[') and s.endswith(']'):
+                                try:
+                                    import ast
+                                    parsed = ast.literal_eval(s)
+                                    if isinstance(parsed, list): return ", ".join([str(x) for x in parsed if x])
+                                except: pass
+                            return s if s and s != '[]' else ''
+
+                        sections = [clean_sec(s) for s in [c_lvl, t_exm, e_sec, s_sec] if clean_sec(s)]
+                        student_class = student_class or (" - ".join(sections) if sections else 'N/A')
+            except Exception as e:
+                print(f"[GrievanceViewSet] Fallback lookup failed: {e}")
 
         return {
-            'id':                   safe_str(doc.get('id')),
-            'student_name':         doc.get('student_name'),
-            'student_id':           doc.get('student_id'),
-            'subject':              doc.get('subject'),
-            'category':             doc.get('category'),
-            'description':          doc.get('description'),
-            'priority':             doc.get('priority'),
-            'status':               doc.get('status'),
+            'id':                   str(doc.get('_id')),
+            'student_id':           str(doc.get('student_id') or ''),
+            'student_name':         doc.get('student_name') or 'Student',
+            'student_email':        getattr(user_obj, 'email', 'N/A') if 'user_obj' in locals() and user_obj else 'N/A',
+            'admission_number':     getattr(user_obj, 'admission_number', 'N/A') if 'user_obj' in locals() and user_obj else 'N/A',
+            'student_class':        student_class or 'N/A',
+            'exam_tag':             getattr(user_obj.target_exam, 'name', 'N/A') if 'user_obj' in locals() and user_obj and user_obj.target_exam else 'N/A',
+            'subject':              doc.get('subject') or 'General',
+            'category':             doc.get('category') or 'Other',
+            'description':          doc.get('description') or '',
+            'priority':             doc.get('priority') or 'Medium',
+            'status':               doc.get('status') or 'Pending',
             'date':                 date_val,
-            'teacher_name':         doc.get('teacher_name'),
-            'teacher_id':           doc.get('teacher_id'),
+            'teacher_id':           safe_str(doc.get('teacher_id')),
+            'teacher_name':         safe_str(doc.get('teacher_name')),
             'assign_date':          safe_str(doc.get('assign_date')),
             'solved_date':          safe_str(doc.get('solved_date')),
             'solution_description': doc.get('solution_description'),
+            'centre_code':          safe_str(centre_code),
+            'centre_name':          safe_str(centre_name),
         }
 
     def list(self, request, *args, **kwargs):
@@ -180,8 +239,20 @@ class GrievanceViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             print(f"[GrievanceViewSet] PyMongo list failed: {e}")
-            return response.Response([], status=200)
-
+    def destroy(self, request, *args, **kwargs):
+        """
+        Block students from deleting grievances.
+        """
+        user = request.user
+        user_type = getattr(user, 'user_type', '')
+        
+        if user_type == 'student':
+            return response.Response(
+                {"detail": "Once submitted, grievances cannot be deleted by students for administrative tracking purposes."},
+                status=403
+            )
+        
+        return super().destroy(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         # Automatically set student info if they are a student
@@ -202,6 +273,19 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                     extra_data['status'] = 'Unassigned'
                 else:
                     extra_data['status'] = 'Pending'
+            
+            # Fetch centre and class info from user
+            extra_data['centre_code'] = self.request.user.centre_code
+            extra_data['centre_name'] = self.request.user.centre_name
+            
+            # Combine all available academic info for permanent storage
+            e_sec = getattr(self.request.user, 'exam_section', '')
+            s_sec = getattr(self.request.user, 'study_section', '')
+            c_lvl = getattr(self.request.user.class_level, 'name', '') if self.request.user.class_level else ''
+            t_exm = getattr(self.request.user.target_exam, 'name', '') if self.request.user.target_exam else ''
+            
+            sections = [s for s in [c_lvl, t_exm, e_sec, s_sec] if s]
+            extra_data['student_class'] = " - ".join(sections) if sections else 'N/A'
 
         instance = serializer.save(**extra_data)
 
@@ -219,6 +303,9 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                     'description':  self.request.data.get('description', ''),
                     'priority':     self.request.data.get('priority', 'Medium'),
                     'status':       extra_data.get('status', self.request.data.get('status', 'Pending')),
+                    'centre_code':  extra_data.get('centre_code'),
+                    'centre_name':  extra_data.get('centre_name'),
+                    'student_class': extra_data.get('student_class'),
                 }
                 if student_id_str:
                     payload['student_id'] = student_id_str
@@ -285,6 +372,280 @@ class GrievanceViewSet(viewsets.ModelViewSet):
                 print(f"[GrievanceViewSet] PyMongo delete failed: {e}")
                 return response.Response({'detail': str(e)}, status=500)
 
+        return super().destroy(request, *args, **kwargs)
+
+class DoubtViewSet(viewsets.ModelViewSet):
+    queryset = Doubt.objects.all()
+    serializer_class = DoubtSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Doubt.objects.all()
+
+    def _format_doc(self, doc):
+        """Convert a raw MongoDB document to a clean dict for JSON response."""
+        def safe_str(val, default=''):
+            return str(val) if val is not None else default
+
+        date_val = doc.get('created_at')
+        if date_val and hasattr(date_val, 'isoformat'):
+            date_val = date_val.isoformat()
+
+        # Handle image URL construction for all fields
+        def get_full_url(path):
+            if not path or str(path).strip() == '' or str(path) == 'None':
+                return None
+            path_str = str(path)
+            if path_str.startswith('http'):
+                return path_str
+            from django.conf import settings
+            media_url = getattr(settings, 'MEDIA_URL', '/media/')
+            s3_domain = getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', None)
+            
+            # If path already contains media_url, strip it to avoid double-prefixing
+            if path_str.startswith(media_url):
+                path_str = path_str[len(media_url):]
+            
+            if s3_domain:
+                # Cloudflare R2 / S3 path
+                return f"https://{s3_domain}/{path_str.lstrip('/')}"
+            
+            # Local storage path
+            request = self.request
+            base_url = f"{request.scheme}://{request.get_host()}"
+            return f"{base_url}{media_url}{path_str.lstrip('/')}"
+
+        # Enrich with student context if missing or for fresh display
+        centre_code = doc.get('centre_code')
+        centre_name = doc.get('centre_name')
+        student_class = doc.get('student_class')
+        student_email = doc.get('student_email')
+        admission_number = doc.get('admission_number')
+        exam_tag = doc.get('exam_tag')
+
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            sid = doc.get('student_id')
+            if sid:
+                sid_str = str(sid).strip()
+                user_obj = None
+                
+                # 1. Try pk lookup (ObjectId)
+                from bson import ObjectId
+                try:
+                    if len(sid_str) == 24: # Likely ObjectId
+                        user_obj = User.objects.filter(pk=ObjectId(sid_str)).first()
+                except: pass
+                
+                # 2. Try pk lookup (Direct string)
+                if not user_obj:
+                    try: user_obj = User.objects.filter(pk=sid_str).first()
+                    except: pass
+                
+                # 3. Try fallback fields
+                if not user_obj:
+                    user_obj = User.objects.filter(username=sid_str).first() or \
+                               User.objects.filter(erp_student_id=sid_str).first() or \
+                               User.objects.filter(admission_number=sid_str).first()
+                
+                if user_obj:
+                    centre_code = centre_code or getattr(user_obj, 'centre_code', 'N/A')
+                    centre_name = centre_name or getattr(user_obj, 'centre_name', 'N/A')
+                    student_email = student_email or getattr(user_obj, 'email', 'N/A')
+                    admission_number = admission_number or getattr(user_obj, 'admission_number', 'N/A')
+                    
+                    # Hydrate Exam Tag
+                    if not exam_tag:
+                        try:
+                            if hasattr(user_obj, 'target_exam') and user_obj.target_exam:
+                                exam_tag = user_obj.target_exam.name
+                        except: pass
+                        exam_tag = exam_tag or 'N/A'
+                    
+                    # Hydrate Student Class
+                    if not student_class:
+                        try:
+                            c_lvl = getattr(user_obj.class_level, 'name', '') if user_obj.class_level else ''
+                            t_exm = getattr(user_obj.target_exam, 'name', '') if user_obj.target_exam else ''
+                            student_class = f"{c_lvl} - {t_exm}".strip(' - ')
+                        except: pass
+                        student_class = student_class or 'N/A'
+        except Exception as e:
+            print(f"[DoubtViewSet] Enrichment failed: {e}")
+
+        return {
+            'id':             safe_str(doc.get('id')),
+            'student_name':   safe_str(doc.get('student_name')),
+            'student_id':     safe_str(doc.get('student_id')),
+            'student_email':  student_email or 'N/A',
+            'admission_number': admission_number or 'N/A',
+            'student_class':  student_class or 'N/A',
+            'exam_tag':       exam_tag or 'N/A',
+            'subject':        safe_str(doc.get('subject')),
+            'chapter':        safe_str(doc.get('chapter')),
+            'topic':          safe_str(doc.get('topic')),
+            'title':          safe_str(doc.get('title')),
+            'description':    safe_str(doc.get('description')),
+            'image':          get_full_url(doc.get('image')),
+            'image2':         get_full_url(doc.get('image2')),
+            'image3':         get_full_url(doc.get('image3')),
+            'pdf':            get_full_url(doc.get('pdf')),
+            'voice_note':     get_full_url(doc.get('voice_note')),
+            'status':         'Unassigned' if doc.get('status') == 'Pending' else ('Assign' if doc.get('status') == 'In Progress' else doc.get('status')),
+            'created_at':     date_val,
+            'teacher_name':   safe_str(doc.get('teacher_name')),
+            'teacher_id':     safe_str(doc.get('teacher_id')),
+            'assign_date':    safe_str(doc.get('assign_date')),
+            'teacher_reply':  safe_str(doc.get('teacher_reply')),
+            'resolved_at':    safe_str(doc.get('resolved_at')),
+            'centre_code':    centre_code or 'N/A',
+            'centre_name':    centre_name or 'N/A',
+        }
+
+    def list(self, request, *args, **kwargs):
+        from .db_utils import get_db
+        user = request.user
+        user_type = getattr(user, 'user_type', '')
+        db = get_db()
+
+        if db is None:
+            return response.Response([], status=200)
+
+        try:
+            collection = db['api_doubt']
+
+            if user_type in ('admin', 'staff', 'superadmin'):
+                docs = list(collection.find().sort('created_at', -1))
+            else:
+                student_id_str = str(user.pk)
+                docs = list(collection.find({'student_id': student_id_str}).sort('created_at', -1))
+
+            formatted = [self._format_doc(doc) for doc in docs]
+            return response.Response(formatted)
+
+        except Exception as e:
+            print(f"[DoubtViewSet] PyMongo list failed: {e}")
+            return response.Response([], status=200)
+
+    def perform_create(self, serializer):
+        student_name = f"{self.request.user.first_name} {self.request.user.last_name}".strip() if self.request.user.first_name else self.request.user.username
+        student_id_str = str(self.request.user.pk)
+        
+        instance = serializer.save(
+            student_name=student_name,
+            student_id=student_id_str,
+            status='Unassigned',
+            centre_code=getattr(self.request.user, 'centre_code', ''),
+            centre_name=getattr(self.request.user, 'centre_name', '')
+        )
+
+        # Djongo patch - Use instance data to be sure
+        try:
+            from .db_utils import get_db
+            db = get_db()
+            if db is not None:
+                payload = {
+                    'subject':      instance.subject,
+                    'chapter':      instance.chapter,
+                    'topic':        instance.topic,
+                    'title':        instance.title,
+                    'description':  instance.description,
+                    'status':       'Unassigned',
+                    'student_id':   student_id_str,
+                    'student_name': student_name,
+                    'centre_code':  getattr(self.request.user, 'centre_code', ''),
+                    'centre_name':  getattr(self.request.user, 'centre_name', '')
+                }
+                
+                for field in ['image', 'image2', 'image3', 'pdf', 'voice_note']:
+                    val = getattr(instance, field, None)
+                    if val:
+                        try:
+                            payload[field] = val.url
+                        except:
+                            payload[field] = str(val)
+
+                db['api_doubt'].update_one(
+                    {'id': instance.pk},
+                    {'$set': payload}
+                )
+        except Exception as e:
+            print(f"[DoubtViewSet] PyMongo patch failed: {e}")
+
+    def _sync_to_mongo(self, instance):
+        """Helper to ensure ORM updates are pushed to MongoDB PyMongo-style"""
+        try:
+            from .db_utils import get_db
+            db = get_db()
+            if db is not None:
+                payload = {
+                    'status':         instance.status,
+                    'teacher_name':   instance.teacher_name,
+                    'teacher_id':     instance.teacher_id,
+                    'assign_date':    instance.assign_date.isoformat() if instance.assign_date and hasattr(instance.assign_date, 'isoformat') else instance.assign_date,
+                    'teacher_reply':  instance.teacher_reply,
+                    'resolved_at':    instance.resolved_at.isoformat() if instance.resolved_at and hasattr(instance.resolved_at, 'isoformat') else instance.resolved_at,
+                }
+                # Also include basic fields just in case they were edited
+                for field in ['subject', 'chapter', 'topic', 'title', 'description']:
+                    val = getattr(instance, field, None)
+                    if val is not None:
+                        payload[field] = val
+                
+                # Sync file URLs too
+                for field in ['image', 'image2', 'image3', 'pdf', 'voice_note']:
+                    val = getattr(instance, field, None)
+                    if val:
+                        try:
+                            payload[field] = val.url
+                        except:
+                            payload[field] = str(val)
+
+                db['api_doubt'].update_one(
+                    {'id': instance.pk},
+                    {'$set': payload}
+                )
+        except Exception as e:
+            print(f"[DoubtViewSet] Sync to Mongo failed: {e}")
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._sync_to_mongo(instance)
+
+    def partial_update(self, request, *args, **kwargs):
+        resp = super().partial_update(request, *args, **kwargs)
+        # The super call triggers perform_update which calls our sync
+        return resp
+
+    def destroy(self, request, *args, **kwargs):
+        from .db_utils import get_db
+        pk = kwargs.get('pk')
+        user = request.user
+        user_type = getattr(user, 'user_type', '')
+
+        db = get_db()
+        if db is not None:
+            try:
+                collection = db['api_doubt']
+                if user_type in ('admin', 'staff', 'superadmin'):
+                    all_docs = list(collection.find())
+                    target = next((d for d in all_docs if str(d.get('id', '')) == str(pk)), None)
+                else:
+                    student_id_str = str(user.pk)
+                    student_docs = list(collection.find({'student_id': student_id_str}))
+                    target = next((d for d in student_docs if str(d.get('id', '')) == str(pk)), None)
+
+                if target:
+                    collection.delete_one({'_id': target['_id']})
+                    try:
+                        Doubt.objects.get(pk=pk).delete()
+                    except:
+                        pass
+                    return response.Response(status=204)
+            except Exception as e:
+                print(f"[DoubtViewSet] PyMongo delete failed: {e}")
+        
         return super().destroy(request, *args, **kwargs)
 
 

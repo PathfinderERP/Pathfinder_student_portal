@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import UploadedFile, CustomUser, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig
+from .models import UploadedFile, CustomUser, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig, Doubt
 from .models import UserActivityLog
 import json
 
@@ -11,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'employee_id', 'permissions', 'is_active', 'date_joined', 'created_by_username', 'exam_section', 'study_section', 'omr_code', 'rm_code', 'admission_number', 'centre_code', 'centre_name']
+        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'employee_id', 'permissions', 'is_active', 'date_joined', 'created_by_username', 'exam_section', 'study_section', 'omr_code', 'rm_code', 'admission_number', 'centre_code', 'centre_name', 'class_level']
         read_only_fields = ['username', 'date_joined', 'created_by_username', 'admission_number']
 
     def validate_user_type(self, value):
@@ -232,3 +232,11 @@ class UserActivityLogSerializer(serializers.ModelSerializer):
         model = UserActivityLog
         fields = ['id', 'activity_type', 'path', 'metadata', 'duration', 'timestamp']
         read_only_fields = ['id', 'timestamp']
+
+class DoubtSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='pk', read_only=True)
+    
+    class Meta:
+        model = Doubt
+        fields = '__all__'
+        read_only_fields = ['id', 'student_name', 'student_id', 'created_at']

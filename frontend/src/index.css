@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Playwrite+GB+S:ital,wght@0,100..400;1,100..400&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -142,6 +143,11 @@ html.dark {
     background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Sidebar font override */
+.font-script, .sidebar-font, .sidebar-font * {
+    font-family: 'Playwrite GB S', cursive !important;
 }
 
 /* eufrhfu */

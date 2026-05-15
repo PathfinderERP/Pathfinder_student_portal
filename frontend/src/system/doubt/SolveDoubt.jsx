@@ -19,7 +19,7 @@ const SolveDoubt = () => {
     const fetchDoubts = async () => {
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/grievances/`, {
+            const response = await axios.get(`${apiUrl}/api/doubts/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             // Map the data to the format expected by the table
@@ -27,14 +27,22 @@ const SolveDoubt = () => {
                 id: d.id,
                 student: d.student_name,
                 studentId: d.student_id,
-                subject: d.subject + (d.category === 'Doubt Session' ? ' (Doubt)' : ''),
-                date: new Date(d.date).toLocaleString(),
+                subject: d.subject,
+                chapter: d.chapter,
+                topic: d.topic,
+                title: d.title,
+                date: d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A',
                 status: d.status,
                 description: d.description,
+                image: d.image,
+                image2: d.image2,
+                image3: d.image3,
+                pdf: d.pdf,
+                voice_note: d.voice_note,
                 teacherId: d.teacher_id,
                 teacherName: d.teacher_name,
                 assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                solvedDate: d.solved_date ? new Date(d.solved_date).toLocaleString() : null
+                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null
             }));
             setDoubts(mappedDoubts);
         } catch (error) {
@@ -92,9 +100,9 @@ const SolveDoubt = () => {
     const handleSolveClick = async (doubtId) => {
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/grievances/${doubtId}/`, {
+            await axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
                 status: 'Resolved',
-                solved_date: new Date().toISOString()
+                resolved_at: new Date().toISOString()
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -333,15 +341,90 @@ const SolveDoubt = () => {
                         </div>
 
                         {/* Modal Body */}
-                        <div className={`p-10 ${isDarkMode ? 'bg-[#1e293b] text-slate-200' : 'bg-white text-slate-700'}`}>
-                            <div className="mb-6">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-2">Student Query</p>
-                                <p className="font-bold text-lg leading-relaxed whitespace-pre-wrap italic">
+                        <div className={`p-8 min-h-[300px] max-h-[80vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#0d1119] text-slate-200' : 'bg-white text-slate-700'}`}>
+                            
+                            {/* Metadata Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subject</p>
+                                    <p className="font-black text-xs uppercase text-orange-500">{selectedDoubtForView.subject}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Chapter</p>
+                                    <p className="font-bold text-xs truncate">{selectedDoubtForView.chapter || 'General'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Topic</p>
+                                    <p className="font-bold text-xs truncate">{selectedDoubtForView.topic || 'General'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Posted On</p>
+                                    <p className="font-bold text-[10px] opacity-60">{selectedDoubtForView.date}</p>
+                                </div>
+                            </div>
+
+                            <div className="mb-8 p-5 rounded-[5px] border border-orange-500/10 bg-orange-500/5">
+                                <h4 className="text-sm font-black uppercase tracking-tight mb-3 text-orange-500">{selectedDoubtForView.title || 'Doubt Description'}</h4>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
                                     "{selectedDoubtForView.description}"
                                 </p>
                             </div>
 
-                            <div className={`grid grid-cols-2 gap-4 p-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
+                            {/* Multimedia Attachments */}
+                            <div className="space-y-8">
+                                {/* Images Gallery */}
+                                {(selectedDoubtForView.image || selectedDoubtForView.image2 || selectedDoubtForView.image3) && (
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Image Attachments</p>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                            {[selectedDoubtForView.image, selectedDoubtForView.image2, selectedDoubtForView.image3].map((img, i) => img && (
+                                                <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="group relative aspect-square rounded-[5px] overflow-hidden border border-white/10 hover:border-orange-500/50 transition-all shadow-lg">
+                                                    <img src={img} alt={`Attachment ${i+1}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <Eye size={20} className="text-white" />
+                                                    </div>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* PDF Attachment */}
+                                {selectedDoubtForView.pdf && (
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">PDF Attachment</p>
+                                        <a href={selectedDoubtForView.pdf} target="_blank" rel="noopener noreferrer" 
+                                            className="flex items-center gap-4 p-4 rounded-[5px] border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all group">
+                                            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black">PDF</div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold truncate">Study Material / Reference PDF</p>
+                                                <p className="text-[10px] opacity-50 font-medium">Click to open in new tab</p>
+                                            </div>
+                                            <Eye size={16} className="text-red-500 group-hover:translate-x-1 transition-transform" />
+                                        </a>
+                                    </div>
+                                )}
+
+                                {/* Voice Note */}
+                                {selectedDoubtForView.voice_note && (
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Voice Explanation</p>
+                                        <div className="p-4 rounded-[5px] border border-blue-500/20 bg-blue-500/5 space-y-3">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Audio Clip</span>
+                                            </div>
+                                            <audio controls className="w-full h-10 custom-audio-player">
+                                                <source src={selectedDoubtForView.voice_note} type="audio/mpeg" />
+                                                Your browser does not support the audio element.
+                                            </audio>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Student Identity Grid */}
+                            <div className={`mt-10 pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-slate-100'} grid grid-cols-2 gap-4`}>
                                 <div>
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student</p>
                                     <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.student}</p>

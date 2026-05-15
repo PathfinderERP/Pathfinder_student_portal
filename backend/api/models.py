@@ -103,6 +103,11 @@ class Grievance(models.Model):
     assign_date = models.DateTimeField(null=True, blank=True)
     solved_date = models.DateTimeField(null=True, blank=True)
     solution_description = models.TextField(null=True, blank=True)
+    
+    # Centre info
+    centre_code = models.CharField(max_length=50, null=True, blank=True)
+    centre_name = models.CharField(max_length=255, null=True, blank=True)
+    student_class = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ['-date']
@@ -244,3 +249,42 @@ class CollegeIntelligence(models.Model):
 
     def __str__(self):
         return f"{self.college_name} ({self.exam_type})"
+
+class Doubt(models.Model):
+    STATUS_CHOICES = (
+        ('Unassigned', 'Unassigned'),
+        ('Assign', 'Assign'),
+        ('Resolved', 'Resolved'),
+        ('Rejected', 'Rejected'),
+    )
+    student_name = models.CharField(max_length=255)
+    student_id = models.CharField(max_length=100, null=True, blank=True)
+    subject = models.CharField(max_length=100)
+    chapter = models.CharField(max_length=255, null=True, blank=True)
+    topic = models.CharField(max_length=255, null=True, blank=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    image = models.ImageField(upload_to='doubts/', null=True, blank=True)
+    image2 = models.ImageField(upload_to='doubts/', null=True, blank=True)
+    image3 = models.ImageField(upload_to='doubts/', null=True, blank=True)
+    pdf = models.FileField(upload_to='doubts/pdfs/', null=True, blank=True)
+    voice_note = models.FileField(upload_to='doubts/audio/', null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Unassigned')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Assignment details
+    teacher_name = models.CharField(max_length=255, null=True, blank=True)
+    teacher_id = models.CharField(max_length=100, null=True, blank=True)
+    assign_date = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    teacher_reply = models.TextField(null=True, blank=True)
+    
+    # Centre info
+    centre_code = models.CharField(max_length=50, null=True, blank=True)
+    centre_name = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.student_name}"
