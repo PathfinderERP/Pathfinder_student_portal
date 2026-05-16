@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Eye, UserPlus, Filter, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, X, RotateCcw } from 'lucide-react';
+import { Search, Eye, UserPlus, Filter, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, X, RotateCcw, CheckSquare, Square, Users, LayoutGrid } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,6 +11,13 @@ const AssignDoubt = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [selectedSubject, setSelectedSubject] = useState('All');
+    const [selectedCenter, setSelectedCenter] = useState('All');
+    const [sortOrder, setSortOrder] = useState('newest');
+    const [selectedDoubtIds, setSelectedDoubtIds] = useState([]);
+    const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
+    const [selectedTeachersForBulk, setSelectedTeachersForBulk] = useState([]);
+    const [distributeEqually, setDistributeEqually] = useState(false);
 
     // Initial Data State (Only Unassigned Doubts initially)
     const [doubts, setDoubts] = useState([]);
@@ -46,7 +53,10 @@ const AssignDoubt = () => {
                 voice_note: d.voice_note,
                 teacherName: d.teacher_name,
                 assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null
+                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
+                centreName: d.centre_name,
+                centreCode: d.centre_code,
+                rawDate: d.created_at ? new Date(d.created_at) : new Date(0)
             }));
             setDoubts(mappedDoubts);
         } catch (error) {
@@ -67,11 +77,27 @@ const AssignDoubt = () => {
         { id: 'Rejected', label: 'REJECTED DOUBTS' }
     ];
 
-    const filteredDoubts = doubts.filter(d =>
-        (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            d.subject.toLowerCase().includes(searchQuery.toLowerCase())) &&
-        (d.status === activeTab)
-    );
+    const filteredDoubts = doubts
+        .filter(d =>
+            (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                d.subject.toLowerCase().includes(searchQuery.toLowerCase())) &&
+            (d.status === activeTab) &&
+            (selectedSubject === 'All' || d.subject === selectedSubject) &&
+            (selectedCenter === 'All' || d.centreName === selectedCenter)
+        )
+        .sort((a, b) => {
+            const timeA = a.rawDate instanceof Date && !isNaN(a.rawDate) ? a.rawDate.getTime() : 0;
+            const timeB = b.rawDate instanceof Date && !isNaN(b.rawDate) ? b.rawDate.getTime() : 0;
+            
+            if (timeA !== timeB) {
+                return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+            }
+            // Fallback to ID sorting if times are equal
+            return sortOrder === 'newest' ? b.id - a.id : a.id - b.id;
+        });
+
+    const subjects = ['All', ...new Set(doubts.map(d => d.subject))];
+    const centers = ['All', ...new Set(doubts.map(d => d.centreName).filter(Boolean))];
 
     const totalPages = Math.ceil(filteredDoubts.length / itemsPerPage);
 
@@ -85,7 +111,7 @@ const AssignDoubt = () => {
     const [selectedDoubtForView, setSelectedDoubtForView] = useState(null);
     const [activePreview, setActivePreview] = useState(null);
 
-    // Fetch teachers when modal opens
+    // Fetch ERP teachers when component mounts or modal opens
     useEffect(() => {
         const fetchTeachers = async () => {
             try {
@@ -93,19 +119,17 @@ const AssignDoubt = () => {
                 const activeToken = token || localStorage.getItem('auth_token');
                 if (!activeToken) return;
 
-                const response = await axios.get(`${apiUrl}/api/master-data/teachers/`, {
+                const response = await axios.get(`${apiUrl}/api/admin/erp-teachers/`, {
                     headers: { 'Authorization': `Bearer ${activeToken}` }
                 });
                 setTeachers(response.data);
             } catch (error) {
-                console.error("Failed to fetch teachers:", error);
+                console.error("Failed to fetch ERP teachers:", error);
             }
         };
 
-        if (isAssignModalOpen) {
-            fetchTeachers();
-        }
-    }, [isAssignModalOpen, getApiUrl, token]);
+        fetchTeachers();
+    }, [getApiUrl, token]);
 
     const handleAssignClick = (doubt) => {
         setSelectedDoubtForAssignment(doubt);
@@ -179,6 +203,82 @@ const AssignDoubt = () => {
         }
     };
 
+    const toggleSelectAll = () => {
+        if (selectedDoubtIds.length === filteredDoubts.length) {
+            setSelectedDoubtIds([]);
+        } else {
+            setSelectedDoubtIds(filteredDoubts.map(d => d.id));
+        }
+    };
+
+    const toggleSelectDoubt = (id) => {
+        setSelectedDoubtIds(prev => 
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkConfirmAssign = async () => {
+        if (selectedTeachersForBulk.length === 0 || selectedDoubtIds.length === 0) return;
+
+        try {
+            const apiUrl = getApiUrl();
+            const doubtsToAssign = [...selectedDoubtIds];
+            const teachersToUse = [...selectedTeachersForBulk];
+
+            if (distributeEqually && teachersToUse.length > 1) {
+                // Equal Distribution Logic
+                const perTeacher = Math.ceil(doubtsToAssign.length / teachersToUse.length);
+                
+                const promises = [];
+                for (let i = 0; i < teachersToUse.length; i++) {
+                    const teacherId = teachersToUse[i];
+                    const teacher = teachers.find(t => String(t.id) === String(teacherId));
+                    const teacherName = teacher?.name || 'Teacher';
+                    
+                    const chunk = doubtsToAssign.slice(i * perTeacher, (i + 1) * perTeacher);
+                    
+                    chunk.forEach(doubtId => {
+                        promises.push(axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
+                            status: 'Assign',
+                            teacher_name: teacherName,
+                            teacher_id: teacherId,
+                            assign_date: new Date().toISOString()
+                        }, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        }));
+                    });
+                }
+                await Promise.all(promises);
+            } else {
+                // All to one or multiple teachers (all get all? no, usually bulk to one)
+                // If not distributing equally, assign all to the FIRST selected teacher
+                const teacherId = teachersToUse[0];
+                const teacher = teachers.find(t => String(t.id) === String(teacherId));
+                const teacherName = teacher?.name || 'Teacher';
+
+                const promises = doubtsToAssign.map(doubtId => 
+                    axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
+                        status: 'Assign',
+                        teacher_name: teacherName,
+                        teacher_id: teacherId,
+                        assign_date: new Date().toISOString()
+                    }, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                );
+                await Promise.all(promises);
+            }
+
+            fetchDoubts();
+            setSelectedDoubtIds([]);
+            setIsBulkAssignModalOpen(false);
+            setSelectedTeachersForBulk([]);
+        } catch (error) {
+            console.error('Bulk assignment failed:', error);
+            alert('Bulk assignment failed.');
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
             <div className={`p-8 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
@@ -218,20 +318,98 @@ const AssignDoubt = () => {
                     </div>
 
                     {/* Filters Row */}
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                        <div className="relative group w-full md:w-96">
-                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={20} />
-                            <input
-                                type="text"
-                                placeholder="Search by student or subject..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-14 pr-6 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
-                                    ? 'bg-white/5 border-white/5 text-white focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
-                                    : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
-                                    }`}
-                            />
+                    <div className="flex flex-col xl:flex-row gap-4 justify-between items-center relative">
+                        {/* Bulk Action Overlay */}
+                        {selectedDoubtIds.length > 0 && (
+                            <div className={`absolute inset-0 z-10 flex items-center justify-between px-6 rounded-[5px] animate-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-orange-500/20 backdrop-blur-md border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm font-black uppercase tracking-widest text-orange-500">
+                                        {selectedDoubtIds.length} Doubts Selected
+                                    </span>
+                                    <button 
+                                        onClick={() => setSelectedDoubtIds([])}
+                                        className="text-xs font-bold underline opacity-50 hover:opacity-100 transition-opacity">
+                                        Clear Selection
+                                    </button>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => setIsBulkAssignModalOpen(true)}
+                                        className="px-6 py-2 bg-orange-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center gap-2">
+                                        <Users size={14} />
+                                        Bulk Assign
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex flex-col md:flex-row gap-4 w-full xl:w-auto">
+                            <div className="relative group w-full md:w-80">
+                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={20} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by student or subject..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className={`w-full pl-14 pr-6 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
+                                        ? 'bg-white/5 border-white/5 text-white focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
+                                        }`}
+                                />
+                            </div>
+
+                            {/* Subject Filter */}
+                            <div className="relative w-full md:w-48">
+                                <select
+                                    value={selectedSubject}
+                                    onChange={(e) => setSelectedSubject(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
+                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
+                                        }`}
+                                >
+                                    <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Subjects</option>
+                                    {subjects.filter(s => s !== 'All').map(s => (
+                                        <option key={s} value={s} className={isDarkMode ? 'bg-slate-800' : ''}>{s}</option>
+                                    ))}
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            </div>
+
+                            {/* Center Filter */}
+                            <div className="relative w-full md:w-48">
+                                <select
+                                    value={selectedCenter}
+                                    onChange={(e) => setSelectedCenter(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
+                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
+                                        }`}
+                                >
+                                    <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Centers</option>
+                                    {centers.filter(c => c !== 'All').map(c => (
+                                        <option key={c} value={c} className={isDarkMode ? 'bg-slate-800' : ''}>{c}</option>
+                                    ))}
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            </div>
+
+                            {/* Sort Filter */}
+                            <div className="relative w-full md:w-48">
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
+                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
+                                        }`}
+                                >
+                                    <option value="newest" className={isDarkMode ? 'bg-slate-800' : ''}>Newest First</option>
+                                    <option value="oldest" className={isDarkMode ? 'bg-slate-800' : ''}>Oldest First</option>
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            </div>
                         </div>
+
                         <button
                             onClick={fetchDoubts}
                             className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
@@ -273,6 +451,11 @@ const AssignDoubt = () => {
                                     </>
                                 ) : (
                                     <>
+                                        <th className="py-4 px-2 text-center w-12">
+                                            <button onClick={toggleSelectAll} className="text-slate-400 hover:text-orange-500 transition-colors">
+                                                {selectedDoubtIds.length === filteredDoubts.length && filteredDoubts.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
+                                            </button>
+                                        </th>
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2">Student Name</th>
                                         <th className="py-4 px-2">Subject</th>
@@ -288,6 +471,7 @@ const AssignDoubt = () => {
                             {loading ? (
                                 Array(5).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
+                                        <td className="py-4 px-2 text-center"><div className="h-4 w-4 mx-auto rounded bg-slate-100 dark:bg-white/5"></div></td>
                                         <td className="py-4 px-2 text-center">
                                             <div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
@@ -315,7 +499,9 @@ const AssignDoubt = () => {
                                     </tr>
                                 ))
                             ) : filteredDoubts.length > 0 ? (
-                                filteredDoubts.map((doubt) => (
+                                filteredDoubts
+                                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                                    .map((doubt) => (
                                     <tr key={doubt.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         {activeTab === 'Assign' || activeTab === 'Solve' ? (
                                             <>
@@ -381,6 +567,13 @@ const AssignDoubt = () => {
                                             </>
                                         ) : (
                                             <>
+                                                <td className="py-4 px-2 text-center">
+                                                    <button 
+                                                        onClick={() => toggleSelectDoubt(doubt.id)}
+                                                        className={`transition-colors ${selectedDoubtIds.includes(doubt.id) ? 'text-orange-500' : 'text-slate-400 hover:text-slate-300'}`}>
+                                                        {selectedDoubtIds.includes(doubt.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                    </button>
+                                                </td>
                                                 <td className="py-4 px-2 text-center">
                                                     <span className={`text-sm font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {doubt.id}
@@ -482,9 +675,47 @@ const AssignDoubt = () => {
                                         }`}
                                 >
                                     <option value="" disabled>Select Teacher</option>
-                                    {teachers.map((teacher) => (
-                                        <option key={teacher.id} value={teacher.id}>{teacher.name} ({teacher.subject_name || 'No Subject'})</option>
-                                    ))}
+                                    {(() => {
+                                        const filtered = teachers.filter(t => {
+                                            if (!selectedDoubtForAssignment) return true;
+                                            
+                                            const doubtSubject = (selectedDoubtForAssignment.subject || '').toLowerCase();
+                                            const doubtCentre = (selectedDoubtForAssignment.centreName || '').toLowerCase();
+                                            
+                                            const teacherSubject = (t.subject || '').toLowerCase();
+                                            const teacherCentres = t.centres?.map(c => c.toLowerCase()) || [];
+                                            
+                                            // 1. Subject match (lenient)
+                                            // Handle Math vs Mathematics
+                                            const isMath = (s) => s.includes('math') || s.includes('mat');
+                                            const isBio = (s) => s.includes('bio');
+                                            
+                                            let subjectMatch = teacherSubject.includes(doubtSubject) || doubtSubject.includes(teacherSubject);
+                                            
+                                            if (!subjectMatch) {
+                                                if (isMath(doubtSubject) && isMath(teacherSubject)) subjectMatch = true;
+                                                if (isBio(doubtSubject) && isBio(teacherSubject)) subjectMatch = true;
+                                            }
+                                            
+                                            // 2. Centre match
+                                            const isGlobalTeacher = teacherCentres.length === 0;
+                                            const isNoDoubtCentre = !doubtCentre || doubtCentre === 'n/a';
+                                            const actualCentreMatch = teacherCentres.some(c => c.includes(doubtCentre) || doubtCentre.includes(c));
+                                            
+                                            const centreMatch = isGlobalTeacher || isNoDoubtCentre || actualCentreMatch;
+                                            
+                                            return subjectMatch && centreMatch;
+                                        });
+
+                                        // Fallback: If filtered list is empty, show all teachers so admin is not blocked
+                                        const displayList = filtered.length > 0 ? filtered : teachers;
+
+                                        return displayList.map((teacher) => (
+                                            <option key={teacher.id} value={teacher.id}>
+                                                {teacher.name} ({teacher.subject_name || 'No Subject'}) - {teacher.centres?.join(', ') || 'Global'}
+                                            </option>
+                                        ));
+                                    })()}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
                                     <ChevronRight size={16} className="rotate-90" />
@@ -665,6 +896,121 @@ const AssignDoubt = () => {
                 </div>
             )}
 
+            {/* Bulk Assign Modal */}
+            {isBulkAssignModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto py-8 sm:py-20">
+                    <div className="w-full max-w-2xl mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10 relative">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-8 py-6 bg-orange-600 text-white sticky top-0 z-10">
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Bulk Assignment</h3>
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{selectedDoubtIds.length} Doubts Selected</p>
+                            </div>
+                            <button onClick={() => setIsBulkAssignModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                                <X size={24} strokeWidth={3} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className={`p-8 space-y-8 ${isDarkMode ? 'bg-[#0d1119] text-slate-200' : 'bg-white text-slate-700'}`}>
+                            
+                            {/* Distribution Options */}
+                            <div className="flex items-center justify-between p-4 rounded-[5px] bg-orange-500/5 border border-orange-500/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-full bg-orange-500/20 text-orange-500">
+                                        <LayoutGrid size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-tight">Equal Distribution</p>
+                                        <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Divide doubts equally among teachers</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setDistributeEqually(!distributeEqually)}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${distributeEqually ? 'bg-orange-600' : 'bg-slate-700'}`}>
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${distributeEqually ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+
+                            {/* Teacher Multi-Select */}
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Teachers ({selectedTeachersForBulk.length})</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                    {(() => {
+                                        const selectedDoubts = doubts.filter(d => selectedDoubtIds.includes(d.id));
+                                        
+                                        // Helper to normalize subjects for matching
+                                        const normalizeSubject = (s) => {
+                                            const val = (s || '').toLowerCase().trim();
+                                            if (val.includes('math') || val.includes('mat')) return 'math';
+                                            if (val.includes('bio')) return 'biology';
+                                            if (val.includes('phys')) return 'physics';
+                                            if (val.includes('chem')) return 'chemistry';
+                                            return val;
+                                        };
+
+                                        const selectedSubjects = new Set(selectedDoubts.map(d => normalizeSubject(d.subject)));
+                                        const selectedCenters = new Set(selectedDoubts.map(d => (d.centreName || '').toLowerCase().trim()));
+
+                                        const filtered = teachers.filter(t => {
+                                            const tSub = normalizeSubject(t.subject);
+                                            const tCentres = t.centres?.map(c => c.toLowerCase().trim()) || [];
+
+                                            const subjectMatch = Array.from(selectedSubjects).some(s => s === tSub);
+                                            const centreMatch = tCentres.length === 0 || Array.from(selectedCenters).some(dc => 
+                                                dc === 'n/a' || dc === '' || tCentres.some(tc => tc.includes(dc) || dc.includes(tc))
+                                            );
+
+                                            return subjectMatch && centreMatch;
+                                        });
+
+                                        const displayList = filtered.length > 0 ? filtered : teachers;
+
+                                        return displayList.map(teacher => (
+                                            <button 
+                                                key={teacher.id}
+                                                onClick={() => {
+                                                    setSelectedTeachersForBulk(prev => 
+                                                        prev.includes(teacher.id) ? prev.filter(id => id !== teacher.id) : [...prev, teacher.id]
+                                                    );
+                                                }}
+                                                className={`flex items-center gap-3 p-3 rounded-[5px] border-2 transition-all text-left ${selectedTeachersForBulk.includes(teacher.id) 
+                                                    ? 'border-orange-500 bg-orange-500/10' 
+                                                    : (isDarkMode ? 'border-white/5 bg-white/5 hover:border-white/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200')}`}>
+                                                <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${selectedTeachersForBulk.includes(teacher.id) ? 'bg-orange-500 text-white' : (isDarkMode ? 'bg-white/10' : 'bg-white border border-slate-200')}`}>
+                                                    {selectedTeachersForBulk.includes(teacher.id) && <CheckSquare size={14} />}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-black uppercase truncate">{teacher.name}</p>
+                                                    <p className="text-[9px] font-bold opacity-50 truncate">{teacher.subject_name}</p>
+                                                </div>
+                                            </button>
+                                        ));
+                                    })()}
+                                </div>
+                            </div>
+
+                            {/* Summary Footer */}
+                            <div className="pt-6 border-t border-white/5 flex flex-col gap-4">
+                                {distributeEqually && selectedTeachersForBulk.length > 0 && (
+                                    <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 py-2 rounded">
+                                        Each teacher will get ~{Math.ceil(selectedDoubtIds.length / selectedTeachersForBulk.length)} doubts
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={handleBulkConfirmAssign}
+                                    disabled={selectedTeachersForBulk.length === 0}
+                                    className={`w-full py-4 rounded-[5px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.98]
+                                        ${selectedTeachersForBulk.length > 0 
+                                            ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-orange-600/30' 
+                                            : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'}`}>
+                                    Execute Bulk Assignment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -649,10 +649,43 @@ const Doubts = ({ isDarkMode }) => {
                                                 )}
                                             </div>
                                             {/* Reply Body */}
-                                            <div className={`px-4 py-4 ${isDarkMode ? 'bg-white/[0.02]' : 'bg-white'}`}>
-                                                <p className={`text-sm font-medium leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-slate-700'}`}>
-                                                    {item.teacher_reply}
-                                                </p>
+                                            <div className={`px-4 py-4 space-y-4 ${isDarkMode ? 'bg-white/[0.02]' : 'bg-white'}`}>
+                                                {item.teacher_reply && (
+                                                    <p className={`text-sm font-medium leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-slate-700'}`}>
+                                                        {item.teacher_reply}
+                                                    </p>
+                                                )}
+
+                                                {/* Teacher's Image Attachments */}
+                                                {(item.reply_image || item.reply_image2 || item.reply_image3) && (
+                                                    <div className="space-y-2">
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Teacher's Images</p>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            {[item.reply_image, item.reply_image2, item.reply_image3].map((img, i) => img && (
+                                                                <button key={i} onClick={() => openAttachment(img, 'image')} className="aspect-square rounded-[5px] overflow-hidden border border-emerald-500/20 hover:border-emerald-500/60 transition-all">
+                                                                    <img src={img} alt={`Reply ${i + 1}`} className="w-full h-full object-cover" />
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Teacher's PDF */}
+                                                {item.reply_pdf && (
+                                                    <button onClick={() => openAttachment(item.reply_pdf, 'pdf')}
+                                                        className={`w-full flex items-center gap-3 p-3 rounded-[5px] border transition-all ${isDarkMode ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10' : 'border-red-200 bg-red-50 hover:bg-red-100'}`}>
+                                                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black text-[10px] flex-shrink-0">PDF</div>
+                                                        <span className={`text-xs font-bold ${isDarkMode ? 'text-white/70' : 'text-slate-700'}`}>Teacher's Solution PDF — click to view</span>
+                                                    </button>
+                                                )}
+
+                                                {/* Teacher's Voice Note */}
+                                                {item.reply_voice_note && (
+                                                    <div className={`p-3 rounded-[5px] border ${isDarkMode ? 'border-blue-500/20 bg-blue-500/5' : 'border-blue-200 bg-blue-50'}`}>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-blue-500 mb-2">Teacher's Voice Explanation</p>
+                                                        <audio controls src={item.reply_voice_note} className="w-full h-10" style={{ outline: 'none' }} />
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ) : (

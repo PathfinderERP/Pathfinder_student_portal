@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, Eye, CheckCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, User } from 'lucide-react';
+import { Search, Eye, CheckCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, User, Upload, FileText, Mic, Image, Send } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -56,11 +56,20 @@ const SolveDoubt = () => {
         fetchDoubts();
     }, []);
 
-    // Custom "Show Doubt" Modal State
+    // Show Doubt Modal State
     const [isShowDoubtModalOpen, setIsShowDoubtModalOpen] = useState(false);
     const [selectedDoubtForView, setSelectedDoubtForView] = useState(null);
 
-    // Fetch teachers for the dropdown
+    // Solve Reply Modal State
+    const [isSolveModalOpen, setIsSolveModalOpen] = useState(false);
+    const [selectedDoubtForSolve, setSelectedDoubtForSolve] = useState(null);
+    const [replyText, setReplyText] = useState('');
+    const [replyImages, setReplyImages] = useState([null, null, null]);
+    const [replyPdf, setReplyPdf] = useState(null);
+    const [replyVoice, setReplyVoice] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Fetch ERP teachers for the dropdown
     useEffect(() => {
         const fetchTeachers = async () => {
             try {
@@ -68,7 +77,7 @@ const SolveDoubt = () => {
                 const activeToken = token || localStorage.getItem('auth_token');
                 if (!activeToken) return;
 
-                const response = await axios.get(`${apiUrl}/api/master-data/teachers/`, {
+                const response = await axios.get(`${apiUrl}/api/admin/erp-teachers/`, {
                     headers: { 'Authorization': `Bearer ${activeToken}` }
                 });
                 setTeachers(response.data);
@@ -77,7 +86,7 @@ const SolveDoubt = () => {
                     setSelectedTeacherId(String(response.data[0].id));
                 }
             } catch (error) {
-                console.error("Failed to fetch teachers:", error);
+                console.error("Failed to fetch ERP teachers:", error);
             }
         };
         fetchTeachers();
@@ -97,18 +106,38 @@ const SolveDoubt = () => {
             d.subject.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
-    const handleSolveClick = async (doubtId) => {
+    const openSolveModal = (doubt) => {
+        setSelectedDoubtForSolve(doubt);
+        setReplyText('');
+        setReplyImages([null, null, null]);
+        setReplyPdf(null);
+        setReplyVoice(null);
+        setIsSolveModalOpen(true);
+    };
+
+    const handleSubmitSolution = async () => {
+        if (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice) return;
+        setSubmitting(true);
         try {
             const apiUrl = getApiUrl();
-            await axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
-                status: 'Resolved',
-                resolved_at: new Date().toISOString()
-            }, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const formData = new FormData();
+            formData.append('status', 'Resolved');
+            formData.append('resolved_at', new Date().toISOString());
+            formData.append('teacher_reply', replyText);
+            const imgFields = ['reply_image', 'reply_image2', 'reply_image3'];
+            replyImages.forEach((f, i) => { if (f) formData.append(imgFields[i], f); });
+            if (replyPdf) formData.append('reply_pdf', replyPdf);
+            if (replyVoice) formData.append('reply_voice_note', replyVoice);
+            await axios.patch(`${apiUrl}/api/doubts/${selectedDoubtForSolve.id}/`, formData, {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
             });
             fetchDoubts();
-        } catch (error) {
-            console.error('Failed to mark as solved:', error);
+            setIsSolveModalOpen(false);
+        } catch (err) {
+            console.error('Submit solution failed:', err);
+            alert('Failed to submit solution.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -279,11 +308,11 @@ const SolveDoubt = () => {
                                                         <Eye size={18} />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleSolveClick(doubt.id)}
+                                                        onClick={() => openSolveModal(doubt)}
                                                         className="px-4 py-2.5 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-2"
                                                     >
-                                                        <CheckCircle size={14} strokeWidth={3} />
-                                                        <span>Mark Solved</span>
+                                                        <Send size={14} strokeWidth={3} />
+                                                        <span>Write Solution</span>
                                                     </button>
                                                 </div>
                                             ) : (
@@ -435,6 +464,107 @@ const SolveDoubt = () => {
                                     <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.subject}</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Solve Reply Modal */}
+            {isSolveModalOpen && selectedDoubtForSolve && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-md overflow-y-auto py-8">
+                    <div className="w-full max-w-2xl mx-4 rounded-[5px] shadow-2xl border border-white/10 overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-8 py-5 bg-emerald-600 text-white sticky top-0 z-10">
+                            <div>
+                                <h3 className="text-lg font-black uppercase">Submit Solution</h3>
+                                <p className="text-[10px] opacity-70 uppercase tracking-widest">{selectedDoubtForSolve.subject} — {selectedDoubtForSolve.student}</p>
+                            </div>
+                            <button onClick={() => setIsSolveModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full"><X size={22} strokeWidth={3}/></button>
+                        </div>
+
+                        {/* Body */}
+                        <div className={`p-8 space-y-6 ${isDarkMode ? 'bg-[#0d1119] text-slate-200' : 'bg-white text-slate-700'}`}>
+
+                            {/* Original Doubt Summary */}
+                            <div className={`p-4 rounded-[5px] border text-sm ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Student's Question</p>
+                                <p className="font-bold text-orange-500">{selectedDoubtForSolve.title}</p>
+                                <p className="mt-1 opacity-70 text-xs">{selectedDoubtForSolve.description}</p>
+                                {/* Student's attached images */}
+                                {(selectedDoubtForSolve.image || selectedDoubtForSolve.image2 || selectedDoubtForSolve.image3) && (
+                                    <div className="flex gap-2 mt-3">
+                                        {[selectedDoubtForSolve.image, selectedDoubtForSolve.image2, selectedDoubtForSolve.image3].map((img, i) => img && (
+                                            <a key={i} href={img} target="_blank" rel="noreferrer" className="w-16 h-16 rounded overflow-hidden border border-white/10 flex-shrink-0">
+                                                <img src={img} alt="student attachment" className="w-full h-full object-cover" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Text Reply */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Explanation *</label>
+                                <textarea
+                                    rows={5}
+                                    value={replyText}
+                                    onChange={e => setReplyText(e.target.value)}
+                                    placeholder="Write your detailed solution here..."
+                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-medium text-sm resize-none transition-all ${isDarkMode
+                                        ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                        : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500'}`}
+                                />
+                            </div>
+
+                            {/* Image Uploads */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Image size={14}/>Solution Images (max 3)</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {replyImages.map((file, i) => (
+                                        <label key={i} className={`relative aspect-square flex flex-col items-center justify-center gap-2 rounded-[5px] border-2 border-dashed cursor-pointer transition-all ${file ? 'border-emerald-500 bg-emerald-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
+                                            <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                                const updated = [...replyImages];
+                                                updated[i] = e.target.files[0] || null;
+                                                setReplyImages(updated);
+                                            }}/>
+                                            {file
+                                                ? <><img src={URL.createObjectURL(file)} alt="preview" className="absolute inset-0 w-full h-full object-cover rounded-[5px]"/><span className="absolute bottom-1 right-1 bg-emerald-500 text-white text-[9px] font-black rounded px-1">✓</span></>
+                                                : <><Upload size={20} className="opacity-30"/><span className="text-[9px] font-bold opacity-30">Image {i+1}</span></>}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* PDF Upload */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14}/>PDF Solution</label>
+                                <label className={`flex items-center gap-4 p-4 rounded-[5px] border-2 border-dashed cursor-pointer transition-all ${replyPdf ? 'border-red-500 bg-red-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
+                                    <input type="file" accept=".pdf" className="hidden" onChange={e => setReplyPdf(e.target.files[0] || null)}/>
+                                    <div className="w-9 h-9 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs flex-shrink-0">PDF</div>
+                                    <span className="text-sm font-bold opacity-60">{replyPdf ? replyPdf.name : 'Attach a PDF document...'}</span>
+                                </label>
+                            </div>
+
+                            {/* Voice Note Upload */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Mic size={14}/>Voice Note</label>
+                                <label className={`flex items-center gap-4 p-4 rounded-[5px] border-2 border-dashed cursor-pointer transition-all ${replyVoice ? 'border-blue-500 bg-blue-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
+                                    <input type="file" accept="audio/*" className="hidden" onChange={e => setReplyVoice(e.target.files[0] || null)}/>
+                                    <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500 flex-shrink-0"><Mic size={18}/></div>
+                                    <span className="text-sm font-bold opacity-60">{replyVoice ? replyVoice.name : 'Attach an audio explanation...'}</span>
+                                </label>
+                            </div>
+
+                            {/* Submit */}
+                            <button
+                                onClick={handleSubmitSolution}
+                                disabled={submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice)}
+                                className={`w-full py-4 rounded-[5px] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
+                                    submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice)
+                                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                        : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xl shadow-emerald-600/20'}`}>
+                                {submitting ? <><RefreshCw size={16} className="animate-spin"/>Submitting...</> : <><Send size={16}/>Submit Solution</>}
+                            </button>
                         </div>
                     </div>
                 </div>

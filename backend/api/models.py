@@ -278,6 +278,11 @@ class Doubt(models.Model):
     assign_date = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     teacher_reply = models.TextField(null=True, blank=True)
+    reply_image = models.ImageField(upload_to='doubts/replies/', null=True, blank=True)
+    reply_image2 = models.ImageField(upload_to='doubts/replies/', null=True, blank=True)
+    reply_image3 = models.ImageField(upload_to='doubts/replies/', null=True, blank=True)
+    reply_pdf = models.FileField(upload_to='doubts/replies/pdfs/', null=True, blank=True)
+    reply_voice_note = models.FileField(upload_to='doubts/replies/audio/', null=True, blank=True)
     
     # Centre info
     centre_code = models.CharField(max_length=50, null=True, blank=True)

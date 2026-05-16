@@ -499,6 +499,11 @@ class DoubtViewSet(viewsets.ModelViewSet):
             'assign_date':    safe_str(doc.get('assign_date')),
             'teacher_reply':  safe_str(doc.get('teacher_reply')),
             'resolved_at':    safe_str(doc.get('resolved_at')),
+            'reply_image':    get_full_url(doc.get('reply_image')),
+            'reply_image2':   get_full_url(doc.get('reply_image2')),
+            'reply_image3':   get_full_url(doc.get('reply_image3')),
+            'reply_pdf':      get_full_url(doc.get('reply_pdf')),
+            'reply_voice_note': get_full_url(doc.get('reply_voice_note')),
             'centre_code':    centre_code or 'N/A',
             'centre_name':    centre_name or 'N/A',
         }
@@ -593,8 +598,9 @@ class DoubtViewSet(viewsets.ModelViewSet):
                     if val is not None:
                         payload[field] = val
                 
-                # Sync file URLs too
-                for field in ['image', 'image2', 'image3', 'pdf', 'voice_note']:
+                # Sync file URLs for student question attachments
+                for field in ['image', 'image2', 'image3', 'pdf', 'voice_note',
+                              'reply_image', 'reply_image2', 'reply_image3', 'reply_pdf', 'reply_voice_note']:
                     val = getattr(instance, field, None)
                     if val:
                         try:
