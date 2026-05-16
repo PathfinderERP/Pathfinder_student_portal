@@ -147,16 +147,27 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setIsActionLoading(true);
         try {
             const apiUrl = getApiUrl();
+            
+            // 1. Update schedules for all selected allotments
             const updates = selectedAllotmentIds.map(id =>
                 axios.patch(`${apiUrl}/api/tests/allotments/${id}/`, { ...bulkEditForm, is_code_sent: false }, getAuthConfig())
             );
             await Promise.all(updates);
+
+            // 2. Generate access codes for all selected allotments
+            // This ensures codes are created/updated after the time change
+            const codeGens = selectedAllotmentIds.map(id =>
+                axios.post(`${apiUrl}/api/tests/allotments/${id}/generate_code/`, {}, getAuthConfig())
+            );
+            await Promise.all(codeGens);
+
             fetchAllotments();
             setIsBulkEditModalOpen(false);
             setSelectedAllotmentIds([]);
-            triggerAlert(`${selectedAllotmentIds.length} Centres updated successfully!`, 'success');
+            triggerAlert(`${selectedAllotmentIds.length} Centres updated and codes generated successfully!`, 'success');
         } catch (err) {
-            triggerAlert('Failed to update centres', 'error');
+            console.error('Bulk update error:', err);
+            triggerAlert('Failed to update centres or generate codes', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -175,6 +186,42 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             triggerAlert(`${selectedAllotmentIds.length} Centres ${status ? 'activated' : 'deactivated'}`, 'success');
         } catch (err) {
             triggerAlert('Failed to update status', 'error');
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleBulkSendEmail = async () => {
+        const selected = allotments.filter(a => selectedAllotmentIds.includes(a.id));
+        
+        // Validation checks
+        const centersWithoutCodes = selected.filter(a => !a.access_code);
+        if (centersWithoutCodes.length > 0) {
+            triggerAlert(`${centersWithoutCodes.length} centres missing codes. Generate codes first.`, 'error');
+            return;
+        }
+
+        const invalidCenters = selected.filter(a => !a.is_active || !a.start_time || !a.end_time);
+        if (invalidCenters.length > 0) {
+            triggerAlert(`${invalidCenters.length} centres are inactive or missing schedule times.`, 'error');
+            return;
+        }
+
+        if (!window.confirm(`Send access codes to ${selectedAllotmentIds.length} centres?`)) return;
+
+        setIsActionLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const sends = selectedAllotmentIds.map(id =>
+                axios.post(`${apiUrl}/api/tests/allotments/${id}/send_email/`, {}, getAuthConfig())
+            );
+            await Promise.all(sends);
+            fetchAllotments();
+            setSelectedAllotmentIds([]);
+            triggerAlert(`Access codes sent to ${selectedAllotmentIds.length} centres successfully!`, 'success');
+        } catch (err) {
+            console.error('Bulk send error:', err);
+            triggerAlert('Failed to send some access codes', 'error');
         } finally {
             setIsActionLoading(false);
         }
@@ -270,6 +317,14 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                 className="px-3 py-1.5 bg-blue-600 text-white rounded-[5px] text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
                             >
                                 Bulk Edit
+                            </button>
+                            <button
+                                onClick={handleBulkSendEmail}
+                                disabled={isActionLoading || allotments.filter(a => selectedAllotmentIds.includes(a.id)).some(a => !a.access_code)}
+                                className={`px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${allotments.filter(a => selectedAllotmentIds.includes(a.id)).some(a => !a.access_code) ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-50' : 'bg-sky-500 text-white hover:bg-sky-600'}`}
+                                title={allotments.filter(a => selectedAllotmentIds.includes(a.id)).some(a => !a.access_code) ? "Generate codes for all selected centres first" : "Send codes to selected centres"}
+                            >
+                                <Send size={12} /> Send Codes
                             </button>
                             <div className="w-px h-4 bg-blue-500/20" />
                             <button

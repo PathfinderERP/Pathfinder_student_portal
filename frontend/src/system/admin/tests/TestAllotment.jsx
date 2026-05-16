@@ -226,14 +226,21 @@ const TestAllotment = () => {
             // 3. If in Table View, Save individual Allotment Details (Schedules)
             if (isTableView && modalAllotments.length > 0) {
                 // We need to wait for backend to process allotments first, or just call patch on allotments we have
-                const updatePromises = modalAllotments
-                    .filter(a => selectedCentreIds.includes(a.centre_details?.code))
-                    .map(a => axios.patch(`${apiUrl}/api/tests/allotments/${a.id}/`, {
+                const allotmentsToUpdate = modalAllotments.filter(a => selectedCentreIds.includes(a.centre_details?.code));
+                
+                const updatePromises = allotmentsToUpdate.map(a => 
+                    axios.patch(`${apiUrl}/api/tests/allotments/${a.id}/`, {
                         start_time: a.start_time,
                         end_time: a.end_time
-                    }, getAuthConfig()));
-
+                    }, getAuthConfig())
+                );
                 await Promise.all(updatePromises);
+
+                // Also generate codes for these allotments
+                const codeGenPromises = allotmentsToUpdate.map(a => 
+                    axios.post(`${apiUrl}/api/tests/allotments/${a.id}/generate_code/`, {}, getAuthConfig())
+                );
+                await Promise.all(codeGenPromises);
             }
 
             setIsModalOpen(false);
