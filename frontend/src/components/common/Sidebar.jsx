@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor = 'orange', variant = 'standard' }) => {
     const [expandedItems, setExpandedItems] = useState({});
+    const [hoveredTooltip, setHoveredTooltip] = useState(null);
     const isPremium = variant === 'premium';
 
     React.useEffect(() => {
@@ -120,6 +121,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
     const groupedItems = getGroupedItems();
 
     return (
+        <>
         <aside
             className={`fixed inset-y-0 left-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r overflow-hidden
             ${isPremium ? 'sidebar-font' : ''}
@@ -141,9 +143,9 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
 
             <div className={`flex flex-col h-full relative z-10 ${!isPremium && !isOpen ? 'items-center' : ''}`}>
                 {/* Logo Section */}
-                <div className={`flex items-center ${isPremium ? 'h-24' : 'h-20 border-b'} ${isOpen ? 'px-5' : 'px-0'} ${isDarkMode ? 'border-white/5' : 'border-gray-100'} ${isOpen ? "justify-start" : "justify-center"}`}>
+                <div className={`flex items-center ${isPremium ? 'h-24 pt-4' : 'h-20 border-b'} ${isOpen ? 'px-5' : 'px-0'} ${isDarkMode ? 'border-white/5' : 'border-gray-100'} ${isOpen ? "justify-start" : "justify-center"}`}>
                     <div className={`flex items-center gap-3 w-full ${!isOpen ? 'justify-center' : ''}`}>
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`flex items-center gap-3 flex-1 min-w-0 ${!isOpen ? 'justify-center' : ''}`}>
                             {isPremium ? (
                                 <button
                                     onClick={() => setOpen(!isOpen)}
@@ -176,7 +178,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                         exit={{ opacity: 0, x: -10, filter: 'blur(10px)' }}
                                         className="flex flex-col flex-1 truncate"
                                     >
-                                        <span className={`text-xl leading-none ${isPremium ? 'font-script font-light tracking-normal' : 'font-brand font-black tracking-tighter'} ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pathfinder</span>
+                                        <span className={`text-2xl leading-none ${isPremium ? 'font-script font-semibold tracking-normal' : 'font-brand font-semibold tracking-tighter'} ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pathfinder</span>
                                         {isPremium && (
                                             <span className={`text-[9px] font-black tracking-[0.2em] mt-1 bg-clip-text text-transparent uppercase antialiased font-brand whitespace-nowrap ${isDarkMode ? 'bg-gradient-to-r from-indigo-400 to-blue-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`}>
                                                 STUDENT HUB
@@ -192,7 +194,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                 </div>
 
                 {/* Navigation Section */}
-                <nav className={`flex-1 overflow-y-auto custom-scrollbar ${isPremium ? 'pt-2 pb-6' : 'pt-6 pb-4'} ${isOpen ? 'px-4' : 'px-2'} space-y-1`}>
+                <nav className={`flex-1 overflow-y-auto custom-scrollbar ${isPremium ? 'pt-6 pb-6' : 'pt-6 pb-4'} ${isOpen ? 'px-4' : 'px-2'} space-y-1`}>
                     {Object.entries(groupedItems).map(([category, items], catIndex) => (
                         <div key={category} className={isPremium ? "space-y-0" : "space-y-0"}>
                             <div className={isPremium ? "space-y-1.5" : "space-y-1"}>
@@ -220,6 +222,13 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                     if (item.onClick) item.onClick();
                                                     if (!hasSubItems && window.innerWidth < 1024) setOpen(false);
                                                 }}
+                                                onMouseEnter={(e) => {
+                                                    if (!isOpen) {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        setHoveredTooltip({ label: item.label, top: rect.top + rect.height / 2 - 16 });
+                                                    }
+                                                }}
+                                                onMouseLeave={() => setHoveredTooltip(null)}
                                                 className={`w-full flex items-center transition-all duration-300 group relative
                                                 ${isOpen ? "px-5" : "px-3 justify-center"} 
                                                 ${isPremium ? 'py-3.5' : 'py-2.5 rounded-xl'}
@@ -266,8 +275,6 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                         className={`flex-shrink-0 ml-1 transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''} ${isDarkMode ? 'text-white/20' : 'text-slate-300'}`}
                                                     />
                                                 )}
-
-                                                {/* Dot indicator removed for cleaner look as per reference */}
                                             </motion.button>
 
                                             <AnimatePresence>
@@ -358,11 +365,11 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                         whileHover={isPremium ? { y: -5, scale: 1.02 } : { y: -2 }}
                         className={`flex items-center p-3 rounded-2xl ${isPremium ? 'glass-panel shadow-2xl shadow-black/10' : (isDarkMode ? 'bg-white/5' : 'bg-white shadow-lg shadow-slate-200/50 border border-slate-100')} ${isOpen ? "" : "justify-center"}`}
                     >
-                        <div className={`w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center font-black flex-shrink-0 border-2 ${isDarkMode ? `${colors.activeBg} ${colors.text} border-white/[0.1]` : `${colors.activeBg} ${colors.textLight} border-white`}`}>
+                        <div className={`rounded-xl overflow-hidden flex items-center justify-center font-black flex-shrink-0 border-2 ${isPremium ? 'w-9 h-9 text-base' : 'w-11 h-11 text-lg'} ${isDarkMode ? `${colors.activeBg} ${colors.text} border-white/[0.1]` : `${colors.activeBg} ${colors.textLight} border-white`}`}>
                             {user?.profile_image ? (
                                 <img src={user.profile_image} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-lg">{user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}</span>
+                                <span>{user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}</span>
                             )}
                         </div>
                         <AnimatePresence>
@@ -373,7 +380,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                     exit={{ opacity: 0, x: -10 }}
                                     className={`ml-4 overflow-hidden flex-1`}
                                 >
-                                    <p className={`text-[14px] font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'} ${!isPremium ? 'text-sm font-semibold' : ''}`}>
+                                    <p className={`font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'} ${isPremium ? 'text-xs' : 'text-[14px]'} ${!isPremium ? 'text-sm font-semibold' : ''}`}>
                                         {user?.first_name || user?.username || "User"}
                                     </p>
                                     {isPremium ? (
@@ -398,7 +405,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                             onClick={logout}
                             className={`mt-4 w-full flex items-center justify-center gap-2.5 px-4 py-2 transition-all
                             ${isPremium
-                                    ? 'text-[12px] font-black uppercase tracking-[0.2em] rounded-2.5xl text-slate-500 hover:text-red-400 hover:bg-red-500/10'
+                                    ? 'text-[10px] font-black uppercase tracking-[0.2em] rounded-2.5xl text-slate-500 hover:text-red-400 hover:bg-red-500/10'
                                     : 'text-sm font-semibold text-slate-500 hover:text-red-600'}`}
                         >
                             <LogOut size={18} />
@@ -408,6 +415,23 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                 </div>
             </div>
         </aside>
+        {/* Global Tooltip for collapsed state */}
+        <AnimatePresence>
+            {hoveredTooltip && !isOpen && (
+                <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className={`fixed z-[100] px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl border pointer-events-none ${isDarkMode ? 'bg-[#1E293B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                    style={{ top: hoveredTooltip.top, left: 88 }}
+                >
+                    <div className={`absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 rotate-45 border-l border-b ${isDarkMode ? 'bg-[#1E293B] border-white/10' : 'bg-white border-slate-200'}`}></div>
+                    <span className="text-xs font-bold relative z-10 tracking-wide">{hoveredTooltip.label}</span>
+                </motion.div>
+            )}
+        </AnimatePresence>
+        </>
     );
 };
 
