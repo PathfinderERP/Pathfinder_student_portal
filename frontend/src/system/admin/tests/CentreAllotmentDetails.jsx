@@ -31,6 +31,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     // Bulk Actions State
     const [selectedAllotmentIds, setSelectedAllotmentIds] = useState([]);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+    const [shouldSendBulk, setShouldSendBulk] = useState(false);
     const [bulkEditForm, setBulkEditForm] = useState({
         start_time: '',
         end_time: ''
@@ -161,10 +162,19 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
             );
             await Promise.all(codeGens);
 
+            // 3. Send emails if requested
+            if (shouldSendBulk) {
+                const sendEmails = selectedAllotmentIds.map(id =>
+                    axios.post(`${apiUrl}/api/tests/allotments/${id}/send_email/`, {}, getAuthConfig())
+                );
+                await Promise.all(sendEmails);
+            }
+
             fetchAllotments();
             setIsBulkEditModalOpen(false);
+            setShouldSendBulk(false);
             setSelectedAllotmentIds([]);
-            triggerAlert(`${selectedAllotmentIds.length} Centres updated and codes generated successfully!`, 'success');
+            triggerAlert(`${selectedAllotmentIds.length} Centres updated${shouldSendBulk ? ' and codes sent' : ''} successfully!`, 'success');
         } catch (err) {
             console.error('Bulk update error:', err);
             triggerAlert('Failed to update centres or generate codes', 'error');
@@ -628,6 +638,23 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                         value={bulkEditForm.end_time}
                                         onChange={e => setBulkEditForm({ ...bulkEditForm, end_time: e.target.value })}
                                     />
+                                </div>
+
+                                {/* Generate & Send Option */}
+                                <div 
+                                    onClick={() => setShouldSendBulk(!shouldSendBulk)}
+                                    className={`p-4 rounded-[5px] border-2 border-dashed cursor-pointer transition-all flex items-center justify-between group ${shouldSendBulk ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${shouldSendBulk ? 'bg-emerald-500 border-emerald-500 scale-110' : 'border-white/20'}`}>
+                                            {shouldSendBulk && <Check size={12} className="text-white" strokeWidth={4} />}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${shouldSendBulk ? 'text-emerald-500' : 'opacity-40'}`}>Generate & Send</span>
+                                            <span className="text-[8px] font-bold opacity-30 uppercase">Codes will be sent after update</span>
+                                        </div>
+                                    </div>
+                                    <Send size={14} className={shouldSendBulk ? 'text-emerald-500' : 'opacity-20'} />
                                 </div>
                             </div>
                             <button
