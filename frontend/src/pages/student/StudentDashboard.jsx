@@ -230,23 +230,23 @@ const StudentDashboard = () => {
             const mergedData = testsData
                 .filter(test => test.exam_type_details?.name !== 'STUDY PLANNER')
                 .map(test => {
-                const result = resultsData.find(r => r.code === test.code || r.id === test.id);
-                if (result) {
-                    return {
-                        ...test,
-                        submission: {
-                            ...(test.submission || {}),
-                            score: result.marks != null && result.total > 0
-                                ? (result.marks / result.total) * 100
-                                : (test.submission?.score ?? 0),
-                            rank: result.rank || test.submission?.rank || null,
-                            is_finalized: true,
-                            section_stats: result.section_stats
-                        }
-                    };
-                }
-                return test;
-            });
+                    const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                    if (result) {
+                        return {
+                            ...test,
+                            submission: {
+                                ...(test.submission || {}),
+                                score: result.marks != null && result.total > 0
+                                    ? (result.marks / result.total) * 100
+                                    : (test.submission?.score ?? 0),
+                                rank: result.rank || test.submission?.rank || null,
+                                is_finalized: true,
+                                section_stats: result.section_stats
+                            }
+                        };
+                    }
+                    return test;
+                });
 
             // Calculate GPA and Rank from merged results
             const completedTests = mergedData.filter(t => t.submission?.is_finalized);
@@ -511,7 +511,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                 e.submission.section_stats.forEach(sec => {
                     const sName = sec.name || 'General';
                     if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
-                    
+
                     const pct = sec.total > 0 ? (sec.marks / sec.total) * 100 : 0;
                     subjects[sName].scores.push(pct);
                     subjects[sName].total += pct;
@@ -599,7 +599,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                 date: new Date(e.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
                 score: Math.round(e.submission.score)
             }));
-        
+
         // Ensure at least 2 points for the line
         if (data.length === 1) return [{ date: 'Start', score: 0 }, ...data];
         return data;
@@ -612,13 +612,13 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             subtext: dashboardStats?.attendance?.subtext || 'Calculating attendance...',
             trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance'
         },
-        { 
-            label: 'CURRENT GPA', 
-            value: dashboardStats?.gpa?.value || '—/10', 
+        {
+            label: 'CURRENT GPA',
+            value: dashboardStats?.gpa?.value || '—/10',
             subtext: dashboardStats?.gpa?.subtext || 'Processing results...',
             pill: dashboardStats?.rank?.value ? `Rank: ${dashboardStats.rank.value}` : 'Calculating Rank',
-            color: 'indigo', 
-            icon: GraduationCap 
+            color: 'indigo',
+            icon: GraduationCap
         },
         {
             label: 'NEXT EXAM',
@@ -635,13 +635,13 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             icon: CalendarDays,
             tab: 'Exams'
         },
-        { 
-            label: 'STUDY STREAK', 
-            value: dashboardStats?.streak?.value || '— days', 
-            subtext: dashboardStats?.streak?.subtext || 'Keep it up!', 
-            pill: 'Daily Engagement', 
-            color: 'purple', 
-            icon: Flame 
+        {
+            label: 'STUDY STREAK',
+            value: dashboardStats?.streak?.value || '— days',
+            subtext: dashboardStats?.streak?.subtext || 'Keep it up!',
+            pill: 'Daily Engagement',
+            color: 'purple',
+            icon: Flame
         },
     ], [dashboardStats, nextExam, nextExamValue]);
 
@@ -774,10 +774,12 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                             </div>
                         </div>
 
-                        <div className={`text-3xl font-black tracking-tight mb-2 ${stat.color === 'blue' ? 'text-blue-500' :
-                            stat.color === 'indigo' ? 'text-indigo-500' :
-                                stat.color === 'orange' ? 'text-orange-500' :
-                                    'text-purple-500'
+                        <div className={`font-black tracking-tight mb-2 leading-tight ${String(stat.value).length > 20 ? 'text-2xl' :
+                            String(stat.value).length > 10 ? 'text-2xl' : 'text-3xl'
+                            } ${stat.color === 'blue' ? 'text-blue-500' :
+                                stat.color === 'indigo' ? 'text-indigo-500' :
+                                    stat.color === 'orange' ? 'text-orange-500' :
+                                        'text-purple-500'
                             }`}>
                             {stat.value}
                         </div>
