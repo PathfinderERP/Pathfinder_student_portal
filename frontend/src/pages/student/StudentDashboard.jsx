@@ -536,13 +536,52 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
         };
     }, [exams]);
 
-    const nextExam = useMemo(() => {
-        if (!exams || !Array.isArray(exams)) return null;
+    const nextExamsList = useMemo(() => {
+        if (!exams || !Array.isArray(exams)) return [];
         const now = new Date();
         return exams
-            .filter(e => e.start_time && new Date(e.start_time) > now)
-            .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0];
+            .filter(e => {
+                if (!e.start_time) return false;
+                
+                // Exclude completed or expired exams
+                const end = e.end_time ? new Date(e.end_time) : null;
+                const isExpired = end && now > end;
+                if (e.submission?.is_finalized || isExpired) return false;
+                
+                // Exclude resume/in-progress exams
+                const isUnlocked = e.submission?.allow_resume;
+                const hasStarted = (e.submission?.time_spent > 0);
+                if (isUnlocked || hasStarted) return false;
+                
+                return true;
+            })
+            .sort((a, b) => {
+                const startA = new Date(a.start_time);
+                const startB = new Date(b.start_time);
+                
+                const isLiveA = startA <= now;
+                const isLiveB = startB <= now;
+                
+                // Put live active exams first
+                if (isLiveA && !isLiveB) return -1;
+                if (!isLiveA && isLiveB) return 1;
+                
+                // Otherwise sort by start time ascending
+                return startA - startB;
+            });
     }, [exams]);
+
+    const nextExam = useMemo(() => {
+        return nextExamsList[0] || null;
+    }, [nextExamsList]);
+
+    const nextExamValue = useMemo(() => {
+        if (!nextExam) return 'NO EXAMS';
+        if (nextExamsList.length > 1) {
+            return `${nextExam.name} + ${nextExamsList.length - 1} more`;
+        }
+        return nextExam.name;
+    }, [nextExam, nextExamsList]);
 
     const trajectoryData = useMemo(() => {
         if (!exams || !Array.isArray(exams)) return [];
@@ -577,11 +616,15 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
         },
         {
             label: 'NEXT EXAM',
-            value: nextExam ? nextExam.name : 'NO EXAMS',
+            value: nextExamValue,
             subtext: nextExam
-                ? `${new Date(nextExam.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} | ${new Date(nextExam.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                ? (new Date(nextExam.start_time) <= new Date()
+                    ? `Live Now | ${nextExam.duration} MIN`
+                    : `${new Date(nextExam.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} | ${new Date(nextExam.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`)
                 : 'Enjoy your break!',
-            pill: nextExam ? `Duration: ${nextExam.duration}m` : 'Clear Sky',
+            pill: nextExam
+                ? (new Date(nextExam.start_time) <= new Date() ? 'Ongoing' : 'Upcoming')
+                : 'Clear Sky',
             color: 'orange',
             icon: CalendarDays,
             tab: 'Exams'
@@ -594,7 +637,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             color: 'purple', 
             icon: Flame 
         },
-    ], [dashboardStats, nextExam]);
+    ], [dashboardStats, nextExam, nextExamValue]);
 
     return (
         <div className="space-y-8 animate-fade-in-up">
