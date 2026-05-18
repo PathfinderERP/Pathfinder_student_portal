@@ -541,32 +541,38 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
         const now = new Date();
         return exams
             .filter(e => {
-                if (!e.start_time) return false;
-                
-                // Exclude completed or expired exams
+                // Exclude completed exams
+                if (e.submission?.is_finalized) return false;
+
+                // Exclude expired tests (only if end_time is set)
                 const end = e.end_time ? new Date(e.end_time) : null;
-                const isExpired = end && now > end;
-                if (e.submission?.is_finalized || isExpired) return false;
-                
+                if (end && now > end) return false;
+
                 // Exclude resume/in-progress exams
                 const isUnlocked = e.submission?.allow_resume;
                 const hasStarted = (e.submission?.time_spent > 0);
                 if (isUnlocked || hasStarted) return false;
-                
+
                 return true;
             })
             .sort((a, b) => {
-                const startA = new Date(a.start_time);
-                const startB = new Date(b.start_time);
-                
-                const isLiveA = startA <= now;
-                const isLiveB = startB <= now;
-                
-                // Put live active exams first
+                const now = new Date();
+
+                // No start_time = open/always-available = treat as live
+                const startA = a.start_time ? new Date(a.start_time) : null;
+                const startB = b.start_time ? new Date(b.start_time) : null;
+
+                const isLiveA = !startA || startA <= now;
+                const isLiveB = !startB || startB <= now;
+
+                // Live exams first
                 if (isLiveA && !isLiveB) return -1;
                 if (!isLiveA && isLiveB) return 1;
-                
-                // Otherwise sort by start time ascending
+
+                // Both live or both future: sort by start time ascending (null = earliest)
+                if (!startA && !startB) return 0;
+                if (!startA) return -1;
+                if (!startB) return 1;
                 return startA - startB;
             });
     }, [exams]);
@@ -618,12 +624,12 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             label: 'NEXT EXAM',
             value: nextExamValue,
             subtext: nextExam
-                ? (new Date(nextExam.start_time) <= new Date()
-                    ? `Live Now | ${nextExam.duration} MIN`
+                ? (!nextExam.start_time || new Date(nextExam.start_time) <= new Date()
+                    ? `Active Now | ${nextExam.duration} MIN`
                     : `${new Date(nextExam.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} | ${new Date(nextExam.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`)
                 : 'Enjoy your break!',
             pill: nextExam
-                ? (new Date(nextExam.start_time) <= new Date() ? 'Ongoing' : 'Upcoming')
+                ? (!nextExam.start_time || new Date(nextExam.start_time) <= new Date() ? 'Ongoing' : 'Upcoming')
                 : 'Clear Sky',
             color: 'orange',
             icon: CalendarDays,
