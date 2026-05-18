@@ -33,7 +33,7 @@ class TestViewSet(viewsets.ModelViewSet):
             queryset = Test.objects.all().select_related(
                 'session', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'target_exams'
+                'target_exams', 'sessions', 'centre_allotments'
             ).order_by('-created_at')
         else:
             # Full prefetch only for detail view or management tabs
