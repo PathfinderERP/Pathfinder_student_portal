@@ -1086,11 +1086,12 @@ class TestViewSet(viewsets.ModelViewSet):
         test = self.get_object()
 
         from sections.models import Section
-        # Use fresh query instead of prefetch to avoid caching/limit issues
-        sections = list(Section.objects.filter(test=test).order_by('priority'))
+        # Use fresh query with prefetch_related to load all questions in a single indexed query
+        sections = list(Section.objects.filter(test=test).prefetch_related('questions').order_by('priority'))
         # Build flat q_map and accumulation of max marks
         q_map = {} 
         sections_max = {}
+        section_questions_map = {}
         for sec in sections:
             if sec.name not in sections_max:
                 sections_max[sec.name] = 0
@@ -1098,7 +1099,10 @@ class TestViewSet(viewsets.ModelViewSet):
             c_marks = float(sec.correct_marks or 0)
             seen_q_local = set()
             
-            for q in sec.questions.all():
+            sec_questions = list(sec.questions.all())
+            section_questions_map[sec.pk] = sec_questions
+            
+            for q in sec_questions:
                 qid = str(q.pk)
                 if qid in seen_q_local: continue
                 seen_q_local.add(qid)
@@ -1173,9 +1177,10 @@ class TestViewSet(viewsets.ModelViewSet):
                 sec_earned = 0
                 sec_neg = 0
                 
-                # Fetch questions for this specific section allotment
+                # Fetch questions for this specific section allotment from in-memory cache
                 seen_in_sec = set()
-                for q in sec.questions.all():
+                sec_questions = section_questions_map.get(sec.pk, [])
+                for q in sec_questions:
                     qid = str(q.pk)
                     if qid in seen_in_sec: continue
                     seen_in_sec.add(qid)
@@ -1283,7 +1288,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 'totalTime': time_str,
                 'time_spent_raw': ts,
                 'submitted_at': sub.get('submitted_at') or sub.get('_id'),
-                'section_scores': {k: f"{round(v, 2)}/{int(sections_max[k]) if sections_max[k].is_integer() else sections_max[k]}" for k, v in section_scores.items()},
+                'section_scores': {k: f"{round(v, 2)}/{int(sections_max[k]) if float(sections_max[k] or 0).is_integer() else sections_max[k]}" for k, v in section_scores.items()},
                 'total_recalculated': round(total_recalculated, 2) # Adding this for debugging if needed
             })
 
