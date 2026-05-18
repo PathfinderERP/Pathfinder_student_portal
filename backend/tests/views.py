@@ -369,7 +369,12 @@ class TestViewSet(viewsets.ModelViewSet):
         all_subs_list = []
         if db is not None:
             try:
-                sub_docs = list(db['tests_testsubmission'].find({'test_id': test.pk}, {'student_id': 1}))
+                from bson import ObjectId
+                try:
+                    t_pk = ObjectId(test.pk)
+                except:
+                    t_pk = test.pk
+                sub_docs = list(db['tests_testsubmission'].find({'test_id': t_pk}, {'student_id': 1}))
                 if sub_docs:
                     student_pks = [d['student_id'] for d in sub_docs]
                     # Fetch student centre info and names for mapping
@@ -592,7 +597,12 @@ class TestViewSet(viewsets.ModelViewSet):
         all_subs_list = []
         if db is not None:
             try:
-                sub_docs = list(db['tests_testsubmission'].find({'test_id': test.pk}))
+                from bson import ObjectId
+                try:
+                    t_pk = ObjectId(test.pk)
+                except:
+                    t_pk = test.pk
+                sub_docs = list(db['tests_testsubmission'].find({'test_id': t_pk}))
                 if sub_docs:
                     sub_pks = [d['student_id'] for d in sub_docs]
                     users_map = {str(u.pk): u for u in CustomUser.objects.filter(pk__in=sub_pks)}
@@ -2198,9 +2208,13 @@ class TestViewSet(viewsets.ModelViewSet):
 
         # Enrich with student profiles (Limited fields for speed)
         try:
-            student_pks = list(student_data.keys())
+            student_pks = []
+            for sid in student_data.keys():
+                try: student_pks.append(ObjectId(sid))
+                except: student_pks.append(sid)
+
             users = CustomUser.objects.filter(pk__in=student_pks).only(
-                'id', 'first_name', 'last_name', 'username', 'admission_number'
+                'first_name', 'last_name', 'username', 'admission_number'
             )
             for u in users:
                 sid = str(u.pk)
@@ -2234,10 +2248,13 @@ class TestViewSet(viewsets.ModelViewSet):
                 prev_score = row['total']
             row['rank'] = prev_rank
 
-        return Response({
+        res_data = {
             'tests': [{'id': str(t.pk), 'name': t.name, 'code': t.code} for t in tests_list],
             'leaderboard': leaderboard
-        })
+        }
+        cache.set(cache_key, res_data, 600)
+
+        return Response(res_data)
 
 
     @action(detail=False, methods=['get'])
