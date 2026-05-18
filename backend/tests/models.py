@@ -7,7 +7,8 @@ class Test(models.Model):
     code = models.CharField(max_length=100, unique=True)
     
     # Relationships to Master Data
-    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, related_name='tests')
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='tests')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='tests_multi')
     target_exams = models.ManyToManyField(TargetExam, related_name='tests', blank=True)
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, related_name='tests')
     package = models.ForeignKey('packages.Package', on_delete=models.CASCADE, related_name='tests', null=True, blank=True)

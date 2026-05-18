@@ -307,6 +307,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         code: '',
         description: '',
         session: '',
+        sessions: [],
         exam_type: '',
         target_exam: '',
         target_exams: [],
@@ -702,7 +703,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             code: '',
             target_exam: '',
             description: '',
-            session: sessions[0]?.id || '',
+            sessions: [],
+            session: '',
             exam_type: '',
             class_level: classes[0]?.id || '',
             subject: subjects[0]?.id || '',
@@ -739,6 +741,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             setFormValues({
                 ...item,
                 session: item.session_id || item.session || '',
+                sessions: item.sessions || (item.session_id || item.session ? [item.session_id || item.session] : []),
                 exam_type: item.exam_type_id || item.exam_type || '',
                 target_exams: item.target_exams || (item.target_exam ? [item.target_exam] : []),
                 class_level: item.class_level_id || item.class_level || '',
@@ -989,7 +992,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const filteredData = useMemo(() => {
         return data.filter(item => {
             if (activeSubTab === 'Exam Details') {
-                const matchesSearch = item.session_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                const matchesSearch = item.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    item.code?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                    (Array.isArray(item.session_names) ? item.session_names.some(s => s.toLowerCase().includes(debouncedSearch.toLowerCase())) : item.session_name?.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
                     item.exam_type_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                     item.class_level_name?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
@@ -2136,7 +2141,13 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 </td>
                                                 <td className="py-5 px-4">
                                                     <div className="flex flex-col">
-                                                        <span className="font-extrabold text-xs">{item.session_name}</span>
+                                                        <span className="font-extrabold text-xs">
+                                                            {Array.isArray(item.session_names) && item.session_names.length > 0 
+                                                                ? (item.session_names.length > 2 
+                                                                    ? `${item.session_names.slice(0, 2).join(', ')} + ${item.session_names.length - 2}`
+                                                                    : item.session_names.join(', '))
+                                                                : (item.session_name || '-')}
+                                                        </span>
                                                         <span className="text-[9px] opacity-40 font-bold uppercase tracking-wider">Academic Year</span>
                                                     </div>
                                                 </td>
@@ -2558,13 +2569,14 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
                                                 />
                                             </div>
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1.5 text-left">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
                                                 <SearchableSelect
-                                                    options={sessions.filter(s => s.is_active || String(s.id) === String(formValues.session))}
-                                                    value={formValues.session}
-                                                    onChange={val => setFormValues({ ...formValues, session: val })}
-                                                    placeholder="Select Session"
+                                                    isMulti={true}
+                                                    options={sessions.filter(s => s.is_active || (Array.isArray(formValues.sessions) && formValues.sessions.map(String).includes(String(s.id))))}
+                                                    value={formValues.sessions}
+                                                    onChange={vals => setFormValues({ ...formValues, sessions: vals, session: vals.length > 0 ? vals[0] : '' })}
+                                                    placeholder="Select Sessions"
                                                     isDarkMode={isDarkMode}
                                                 />
                                             </div>

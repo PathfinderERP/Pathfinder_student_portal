@@ -419,6 +419,7 @@ const TestCreate = () => {
             name: item.name,
             code: item.code,
             session: item.session || '',
+            sessions: item.sessions || [],
             target_exams: item.target_exams || [],
             exam_type: item.exam_type || '',
             class_level: item.class_level || '',
@@ -618,7 +619,7 @@ const TestCreate = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-sm mb-1">{item.name}</span>
                                             <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
-                                                {item.session_details?.name} • {item.class_level_details?.name} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
+                                                {Array.isArray(item.sessions_details) && item.sessions_details.length > 0 ? (item.sessions_details.length > 3 ? `${item.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${item.sessions_details.length - 3} session` : item.sessions_details.map(s => s.name).join(', ')) : (item.session_details?.name || '-')} • {item.class_level_details?.name} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>
@@ -879,8 +880,17 @@ const TestCreate = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Session</label>
-                                            <div className={`px-4 py-3 rounded-[5px] border font-bold text-xs ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
-                                                {availableSessions.find(s => String(s.id) === String(formValues.session))?.name || '-'}
+                                            <div className={`px-4 py-2 min-h-[42px] rounded-[5px] border flex flex-wrap gap-1.5 ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-200'}`}>
+                                                {availableSessions.filter(s => Array.isArray(formValues.sessions) && formValues.sessions.map(String).includes(String(s.id))).map(s => (
+                                                    <span key={s.id} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tight ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-white/80 text-orange-600 border border-orange-200'}`}>
+                                                        {s.name}
+                                                    </span>
+                                                ))}
+                                                {(!formValues.sessions || formValues.sessions.length === 0) && (
+                                                    <div className={`text-xs font-bold pt-1 ${isDarkMode ? 'text-orange-200' : 'text-orange-700'}`}>
+                                                        {availableSessions.find(s => String(s.id) === String(formValues.session))?.name || '-'}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="space-y-1">

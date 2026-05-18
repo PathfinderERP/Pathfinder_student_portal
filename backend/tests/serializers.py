@@ -45,6 +45,7 @@ class TestCentreAllotmentSerializer(serializers.ModelSerializer):
 class TestSerializer(serializers.ModelSerializer):
     # For GET requests, we might want nested details
     session_details = SessionSerializer(source='session', read_only=True)
+    sessions_details = SessionSerializer(source='sessions', many=True, read_only=True)
     target_exam_details = TargetExamSerializer(source='target_exams', many=True, read_only=True)
     exam_type_details = ExamTypeSerializer(source='exam_type', read_only=True)
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
@@ -54,6 +55,12 @@ class TestSerializer(serializers.ModelSerializer):
     # Explicitly define centres to handle M2M with ObjectId pk
     centres = ObjectIdRelatedField(
         queryset=Centre.objects.all(),
+        many=True,
+        required=False
+    )
+    
+    sessions = ObjectIdRelatedField(
+        queryset=Session.objects.all(),
         many=True,
         required=False
     )
@@ -82,9 +89,9 @@ class TestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Test
         fields = [
-            'id', 'name', 'code', 'session', 'session_details', 'target_exams', 'target_exam_details',
+            'id', 'name', 'code', 'session', 'session_details', 'sessions', 'sessions_details', 'target_exams', 'target_exam_details',
             'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details',
-            'centres', 'centres_count', 'codes_sent_count', 'sections_count', 
+            'centres', 'centres_count', 'codes_sent_count', 'sections_count',  
             'duration', 'total_marks', 'description', 'instructions', 
             'is_completed', 'is_over', 'has_calculator', 'is_result_published', 'option_type_numeric', 'created_at', 'updated_at',
             'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count'

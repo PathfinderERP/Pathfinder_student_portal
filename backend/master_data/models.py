@@ -117,7 +117,8 @@ class ClassLevel(models.Model):
 class ExamDetail(models.Model):
     name = models.CharField(max_length=255, help_text="Exam Title", default='')
     code = models.CharField(max_length=100, help_text="Exam Code", unique=True, blank=True)
-    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='exam_details')
+    session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='exam_details')
+    sessions = models.ManyToManyField(Session, blank=True, related_name='exam_details_multi')
     target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='exam_details')
     exam_type = models.ForeignKey(ExamType, on_delete=models.CASCADE, related_name='exam_details')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='exam_details')
@@ -156,6 +157,7 @@ class ExamDetail(models.Model):
             # Sync Many-to-Many targets
             if self.pk:
                 test.target_exams.set(self.target_exams.all())
+                test.sessions.set(self.sessions.all())
                 
             # Clear admin test list cache if it exists
             from django.core.cache import cache
@@ -178,7 +180,18 @@ class ExamDetail(models.Model):
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.exam_type.name} - {self.class_level.name} ({self.session.name})"
+        return f"{self.exam_type.name} - {self.class_level.name}"
+
+@receiver(m2m_changed, sender=ExamDetail.sessions.through)
+def sync_exam_detail_sessions(sender, instance, action, **kwargs):
+    if action in ["post_add", "post_remove", "post_clear"]:
+        try:
+            from tests.models import Test
+            test = Test.objects.filter(code=instance.code).first()
+            if test:
+                test.sessions.set(instance.sessions.all())
+        except Exception as e:
+            print(f"Error syncing M2M sessions: {e}")
 
 @receiver(m2m_changed, sender=ExamDetail.target_exams.through)
 def sync_exam_detail_targets(sender, instance, action, **kwargs):
