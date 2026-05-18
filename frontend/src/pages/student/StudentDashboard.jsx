@@ -227,7 +227,9 @@ const StudentDashboard = () => {
             const resultsData = resultsRes.data || [];
 
             // Merge results data (rank, marks) into tests data
-            const mergedData = testsData.map(test => {
+            const mergedData = testsData
+                .filter(test => test.exam_type_details?.name !== 'STUDY PLANNER')
+                .map(test => {
                 const result = resultsData.find(r => r.code === test.code || r.id === test.id);
                 if (result) {
                     return {

@@ -422,6 +422,8 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
 
     const filteredTests = useMemo(() => {
         return (tests || []).filter(test =>
+            test.exam_type_details?.name !== 'STUDY PLANNER'
+        ).filter(test =>
             ((test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (test.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
         ).filter(test => {

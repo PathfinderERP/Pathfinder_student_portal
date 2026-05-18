@@ -947,6 +947,7 @@ class StudentStudyPlannerConfigView(views.APIView):
 
     def get(self, request):
         latest_plan = None
+        has_previous_plan = False
         try:
             from .models import StudentMasterPlan
             prev_plan = StudentMasterPlan.objects.filter(user=request.user).order_by('-created_at').first()
