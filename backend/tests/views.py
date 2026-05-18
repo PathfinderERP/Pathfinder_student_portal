@@ -100,7 +100,11 @@ class TestViewSet(viewsets.ModelViewSet):
             
             # Session filtering: Must match UNLESS it is a STUDY PLANNER exam
             if user.session:
-                academic_filter &= (Q(exam_type__name='STUDY PLANNER') | Q(session=user.session))
+                academic_filter &= (
+                    Q(exam_type__name='STUDY PLANNER') | 
+                    Q(session=user.session) | 
+                    Q(sessions=user.session)
+                )
             
             # Combine filters: Show tests that are either already submitted OR match both centre and academic criteria
             queryset = queryset.filter(
