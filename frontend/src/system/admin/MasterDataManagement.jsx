@@ -545,7 +545,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
             // Load master data from cache instead of making repeated API calls
             if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
-                await fetchMasterData(force);
+                await fetchMasterData(false);
             }
         } catch (err) {
             console.error(`Failed to fetch ${activeSubTab} data:`, err);
