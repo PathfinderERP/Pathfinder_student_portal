@@ -1425,6 +1425,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 qid = str(q.pk)
                 qi = q_map[qid]
                 res_obj = responses.get(qid)
+                if res_obj is None:
+                    try: res_obj = responses.get(int(qid))
+                    except: pass
                 ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
 
                 q_result = 'NA'
@@ -2076,6 +2079,9 @@ class TestViewSet(viewsets.ModelViewSet):
             q_obj = q_info['question']
             received_answer = response.get('answer')
             
+            if received_answer in (None, '', [], {}):
+                continue
+            
             # SCORING LOGIC
             is_correct = False
             
@@ -2374,8 +2380,12 @@ class TestViewSet(viewsets.ModelViewSet):
                         sec_total += c_marks
                         
                         qid = str(q.pk)
-                        if qid in user_res:
-                            ans = user_res[qid].get('answer')
+                        res_item = user_res.get(qid)
+                        if res_item is None:
+                            try: res_item = user_res.get(int(qid))
+                            except: pass
+                        if res_item is not None:
+                            ans = res_item.get('answer') if isinstance(res_item, dict) else res_item
                             if ans is not None:
                                 # Simplified scoring for performance; exact same logic as submit()
                                 is_correct = False
@@ -2511,6 +2521,9 @@ class TestViewSet(viewsets.ModelViewSet):
 
                 qid = str(q.pk)
                 ans_obj = user_responses.get(qid)
+                if ans_obj is None:
+                    try: ans_obj = user_responses.get(int(qid))
+                    except: pass
                 if not ans_obj:
                     chapter_data[chapter_name]['unattempted'] += 1
                     chapter_data[chapter_name]['topics'][topic_name]['unattempted'] += 1
