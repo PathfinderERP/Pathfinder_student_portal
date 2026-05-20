@@ -693,12 +693,6 @@ const ExamEngine = () => {
                                 >
                                     Re-Enter Full Screen & Resume
                                 </button>
-                                <button 
-                                    onClick={handleReturnToDashboard}
-                                    className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
-                                >
-                                    Quit and Return to Dashboard
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -1169,12 +1163,6 @@ const ExamEngine = () => {
                                 className="px-12 py-5 bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest hover:bg-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-red-600/20"
                             >
                                 Re-Enter Full Screen & Resume
-                            </button>
-                            <button 
-                                onClick={handleReturnToDashboard}
-                                className="text-gray-400 hover:text-red-600 font-bold tracking-tight transition-all uppercase text-xs"
-                            >
-                                Quit and Return to Dashboard
                             </button>
                         </div>
                     </div>
