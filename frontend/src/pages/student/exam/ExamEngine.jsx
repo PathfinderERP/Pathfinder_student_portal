@@ -831,6 +831,48 @@ const ExamEngine = () => {
                 .scrollbar-none::-webkit-scrollbar {
                     display: none;
                 }
+                /* Portrait: Back & Next appear on row 2 (order pushes them after the 3 action btns) */
+                .exam-btn-nav {
+                    order: 10;
+                }
+                .exam-btn-clear {
+                    order: 1;
+                }
+                .exam-btn-review {
+                    order: 2;
+                }
+                .exam-btn-save {
+                    order: 3;
+                }
+                /* Landscape small screen: all 5 buttons in a single row */
+                @media (orientation: landscape) and (max-height: 500px) {
+                    .exam-action-bar {
+                        padding: 5px 8px !important;
+                    }
+                    .exam-btn-all {
+                        flex-wrap: nowrap !important;
+                        gap: 5px !important;
+                    }
+                    .exam-btn-all button {
+                        flex: 1 1 0 !important;
+                        white-space: nowrap;
+                        min-width: 0;
+                        padding: 5px 3px !important;
+                        font-size: 9px !important;
+                    }
+                    .exam-btn-nav {
+                        order: 0 !important;
+                    }
+                    .exam-btn-clear {
+                        order: 2 !important;
+                    }
+                    .exam-btn-review {
+                        order: 3 !important;
+                    }
+                    .exam-btn-save {
+                        order: 4 !important;
+                    }
+                }
             `}</style>
 
             {/* Header - Row Based Styled Timer Area */}
@@ -1013,38 +1055,14 @@ const ExamEngine = () => {
                         </div>
                     </div>
 
-                    {/* Bottom Action Bar - Multi-row Layout per Requirement */}
-                    <div className={`p-2.5 sm:p-3 md:p-4 border-t transition-colors ${isDarkMode ? 'bg-[#0f172a] border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.2)]' : 'bg-white border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]'}`}>
-                        {/* Row 1: Main Actions */}
-                        <div className="flex flex-wrap gap-1.5 sm:gap-2 md:gap-3 mb-2 sm:mb-3 md:mb-4">
-                            <button 
-                                onClick={handleClear}
-                                className={`px-2.5 sm:px-3 md:px-5 py-1.5 sm:py-2 md:py-2.5 border-2 font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase transition-all shadow-sm
-                                    ${isDarkMode 
-                                        ? 'bg-transparent border-slate-700 text-slate-400 hover:bg-slate-800' 
-                                        : 'bg-white border-blue-400 text-blue-600 hover:bg-blue-50'}`}
-                            >
-                                Clear
-                            </button>
-                            <button 
-                                onClick={handleMarkForReview}
-                                className="px-2.5 sm:px-3 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-[#0D47A1] text-white font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase hover:bg-blue-900 shadow-md transition-all flex-1 md:flex-none text-center"
-                            >
-                                Review & Next
-                            </button>
-                            <button 
-                                onClick={handleSaveAndNext}
-                                className="px-3 sm:px-4 md:px-8 py-1.5 sm:py-2 md:py-2.5 bg-[#2E7D32] text-white font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase hover:bg-green-800 shadow-md transition-all flex-1 md:flex-none text-center"
-                            >
-                                Save & Next
-                            </button>
-                        </div>
-
-                        {/* Row 2: Navigation - Under Actions */}
-                        <div className="flex justify-start gap-1.5 sm:gap-2 md:gap-3">
+                    {/* Bottom Action Bar */}
+                    <div className={`p-2.5 sm:p-3 md:p-4 border-t transition-colors exam-action-bar ${isDarkMode ? 'bg-[#0f172a] border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.2)]' : 'bg-white border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]'}`}>
+                        {/* All 5 buttons — 2 rows on portrait, 1 row on landscape */}
+                        <div className="exam-btn-all flex flex-wrap gap-1.5 sm:gap-2 md:gap-3">
+                            {/* Back - first in DOM so it appears left on landscape row */}
                             <button 
                                 onClick={handleBack}
-                                className={`px-3 sm:px-4 md:px-8 py-1.5 sm:py-2 md:py-2.5 border-2 font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase transition-all active:scale-95
+                                className={`exam-btn-nav px-3 sm:px-4 md:px-8 py-1.5 sm:py-2 md:py-2.5 border-2 font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase transition-all active:scale-95
                                     ${isDarkMode 
                                         ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' 
                                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
@@ -1053,12 +1071,33 @@ const ExamEngine = () => {
                             </button>
                             <button 
                                 onClick={handleNext}
-                                className={`px-3 sm:px-4 md:px-8 py-1.5 sm:py-2 md:py-2.5 border-2 font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase transition-all active:scale-95
+                                className={`exam-btn-nav px-3 sm:px-4 md:px-8 py-1.5 sm:py-2 md:py-2.5 border-2 font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase transition-all active:scale-95
                                     ${isDarkMode 
                                         ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' 
                                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                             >
                                 Next &gt;&gt;
+                            </button>
+                            <button 
+                                onClick={handleClear}
+                                className={`exam-btn-clear px-2.5 sm:px-3 md:px-5 py-1.5 sm:py-2 md:py-2.5 border-2 font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase transition-all shadow-sm
+                                    ${isDarkMode 
+                                        ? 'bg-transparent border-slate-700 text-slate-400 hover:bg-slate-800' 
+                                        : 'bg-white border-blue-400 text-blue-600 hover:bg-blue-50'}`}
+                            >
+                                Clear
+                            </button>
+                            <button 
+                                onClick={handleMarkForReview}
+                                className="exam-btn-review px-2.5 sm:px-3 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-[#0D47A1] text-white font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase hover:bg-blue-900 shadow-md transition-all flex-1 md:flex-none text-center"
+                            >
+                                Review & Next
+                            </button>
+                            <button 
+                                onClick={handleSaveAndNext}
+                                className="exam-btn-save px-3 sm:px-4 md:px-8 py-1.5 sm:py-2 md:py-2.5 bg-[#2E7D32] text-white font-black text-[9px] sm:text-[10px] md:text-[12px] rounded-[3px] sm:rounded-[4px] uppercase hover:bg-green-800 shadow-md transition-all flex-1 md:flex-none text-center"
+                            >
+                                Save & Next
                             </button>
                         </div>
                     </div>
