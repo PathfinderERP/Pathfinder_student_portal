@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { FileText, Calendar, Clock, Award, TrendingUp, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
+import { getMyResults } from '../../../services/resultsService';
 import { useAuth } from '../../../context/AuthContext';
 import StartExamModal from './StartExamModal';
 import { useNavigate } from 'react-router-dom';
@@ -318,19 +319,19 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
         setError(null);
         try {
             const apiUrl = getApiUrl();
-            const [testsRes, resultsRes] = await Promise.all([
+            const [testsRes, resultsData] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
+                getMyResults().catch(() => [])
             ]);
             
             const testsData = testsRes.data || [];
-            const resultsData = resultsRes.data || [];
+            const resultsData2 = Array.isArray(resultsData) ? resultsData : (resultsData?.data || []);
 
             // Merge results data (rank, marks) into tests data
             const mergedData = testsData
                 .filter(test => test.exam_type_details?.name !== 'STUDY PLANNER')
                 .map(test => {
-                const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                const result = resultsData2.find(r => r.code === test.code || r.id === test.id);
                 if (result) {
                     return {
                         ...test,
@@ -444,8 +445,10 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
     }, [tests, searchTerm, activeTab]);
 
     return (
-        <AnimatePresence mode="wait">
-            <motion.div 
+        <>
+            <AnimatePresence mode="wait">
+                <motion.div 
+                    key="exams-main-content"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -556,7 +559,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                     const isMissed = isExpired && !hasStarted;
                                     
                                     return (
-                                        <tr key={test.id || test._id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
+                                        <tr key={test.id || test._id || `test-${index}`} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/50'}`}>
                                             <td className="py-5 px-6 text-center text-xs font-bold opacity-40">{index + 1}</td>
                                             <td className="py-5 px-6">
                                                 <div className="flex flex-col gap-1">
@@ -637,6 +640,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
             </div>
 
             </motion.div>
+            </AnimatePresence>
             
             <StartExamModal 
                 isOpen={isModalOpen}
@@ -645,7 +649,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                 test={selectedTest}
                 isDarkMode={isDarkMode}
             />
-        </AnimatePresence>
+        </>
     );
 };
 

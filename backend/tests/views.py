@@ -2277,37 +2277,99 @@ class TestViewSet(viewsets.ModelViewSet):
         user = request.user
         if not user or user.is_anonymous:
             return Response({'error': 'Unauthorized'}, status=401)
-            
+
+        # ── PER-USER CACHE ─────────────────────────────────────────────────────
+        from django.core.cache import cache
+        force_refresh = request.query_params.get('refresh') == '1'
+        cache_key = f"my_results_{user.pk}"
+        if not force_refresh:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response(cached)
+        # ───────────────────────────────────────────────────────────────────────
+
         from api.db_utils import get_db
         db = get_db()
         if db is None:
             return Response([])
-            
-        # Fast map creation for results
-        # OPTIMIZED: Fetch published tests with sections and questions prefetched to solve N+1 issue
+
+        from bson import ObjectId
+
+        # ── Build the set of test IDs the student has personally finalized ──────
+        # This ensures completed-but-unpublished tests still appear in Results tab.
+        student_mongo_ids = []
+        try: student_mongo_ids.append(ObjectId(user.pk))
+        except: pass
+        student_mongo_ids.append(str(user.pk))
+        try: student_mongo_ids.append(int(user.pk))
+        except: pass
+
+        finalized_subs = list(db['tests_testsubmission'].find(
+            {'student_id': {'$in': student_mongo_ids}, 'is_finalized': True},
+            {'test_id': 1}
+        ))
+        student_finalized_test_ids_raw = [str(sub.get('test_id')) for sub in finalized_subs if sub.get('test_id')]
+
+        # Convert raw IDs to integers where possible (Django PKs are integers)
+        student_finalized_django_ids = set()
+        for raw_id in student_finalized_test_ids_raw:
+            try: student_finalized_django_ids.add(int(raw_id))
+            except (ValueError, TypeError): student_finalized_django_ids.add(raw_id)
+
+        # ── Fetch qualifying tests: published OR personally completed by student ──
+        # Retrieve published tests and student's finalized tests in separate queries to bypass Djongo OR compiler bug
         published_tests = Test.objects.filter(is_result_published=True).prefetch_related(
             'sections', 'sections__questions'
         ).only('id', 'name', 'code', 'total_marks', 'created_at')
-        tests_map = {str(t.pk): t for t in published_tests}
-        
+
+        finalized_tests = Test.objects.filter(pk__in=student_finalized_django_ids).prefetch_related(
+            'sections', 'sections__questions'
+        ).only('id', 'name', 'code', 'total_marks', 'created_at')
+
+        # Merge them
+        visible_tests = list(published_tests)
+        seen_pks = {t.pk for t in visible_tests}
+        for t in finalized_tests:
+            if t.pk not in seen_pks:
+                visible_tests.append(t)
+                seen_pks.add(t.pk)
+
+        tests_map = {str(t.pk): t for t in visible_tests}
+
         # Prepare test_id array for Mongo matching
-        from bson import ObjectId
         mongo_test_ids = []
-        for t in published_tests:
+        for t in visible_tests:
             try: mongo_test_ids.append(ObjectId(t.pk))
             except: mongo_test_ids.append(t.pk)
-            # also append int version just in case
             try: mongo_test_ids.append(int(t.pk))
             except: pass
-            
+
         if not mongo_test_ids:
             return Response([])
             
+        # Fetch responses only for the current user to optimize performance and prevent massive payload transfers
+        mongo_student_ids = []
+        try:
+            from bson import ObjectId
+            mongo_student_ids.append(ObjectId(user.pk))
+        except:
+            pass
+        mongo_student_ids.append(str(user.pk))
+        try:
+            mongo_student_ids.append(int(user.pk))
+        except:
+            pass
+
+        user_subs = list(db['tests_testsubmission'].find(
+            {'test_id': {'$in': mongo_test_ids}, 'student_id': {'$in': mongo_student_ids}, 'is_finalized': True},
+            {'test_id': 1, 'responses': 1}
+        ))
+        user_responses_map = {str(sub.get('test_id')): sub.get('responses', {}) for sub in user_subs}
+
         # Optimize aggregation for ranking: fetch all finalized scores to calculate rank on the fly
-        # We also fetch responses for the current user to calculate section-wise performance
         pipeline = [
             {'$match': {'test_id': {'$in': mongo_test_ids}, 'is_finalized': True}},
-            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1, 'responses': 1}}
+            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1}}
         ]
         all_subs = list(db['tests_testsubmission'].aggregate(pipeline))
         
@@ -2326,7 +2388,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'id': tid,
                     'score': score,
                     'submitted_at': sub.get('submitted_at'),
-                    'responses': sub.get('responses', {})
+                    'responses': user_responses_map.get(tid, {})
                 }
                 
         results = []
@@ -2434,6 +2496,11 @@ class TestViewSet(viewsets.ModelViewSet):
             })
             
         results.sort(key=lambda x: x['date'], reverse=True)
+
+        # Cache for 2 minutes — short enough to stay fresh, long enough to
+        # absorb all 6 simultaneous frontend component calls.
+        cache.set(cache_key, results, timeout=120)
+
         return Response(results)
 
     @action(detail=True, methods=['get'], url_path='my_analysis')

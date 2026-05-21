@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Award, TrendingUp, Search, Filter, Loader2, Target, BarChart3, RotateCw } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import { getMyResults, getCachedResults } from '../../../services/resultsService';
 import ResultReport from './ResultReport';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -231,20 +232,37 @@ const Results = ({ isDarkMode }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('recent'); // 'recent', 'all'
     const [selectedReport, setSelectedReport] = useState(null);
-    const [detailedResults, setDetailedResults] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [detailedResults, setDetailedResults] = useState(() => {
+        // Synchronously hydrate from cache on mount — no flash on tab switch
+        return getCachedResults() || [];
+    });
+    const [isLoading, setIsLoading] = useState(() => !getCachedResults());
+    // Tracks whether we are doing a silent background refresh vs. a full reload
+    const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
 
-    const fetchResults = React.useCallback(async () => {
+    const fetchResults = React.useCallback(async (isRefresh = false) => {
         if (!token) return;
+        const hasCachedData = getCachedResults() !== null;
+
         try {
-            setIsLoading(true);
+            if (isRefresh) {
+                // Manual refresh — show spinner
+                setIsLoading(true);
+            } else if (!hasCachedData) {
+                // First load with no cache — show spinner
+                setIsLoading(true);
+            } else {
+                // We have stale data already displayed — refresh silently
+                setIsSilentRefreshing(true);
+            }
+
             const apiUrl = getApiUrl();
             const [resultsRes, testsRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { Authorization: `Bearer ${token}` } }),
+                isRefresh === true ? getMyResults({ force: true }) : getMyResults(),
                 axios.get(`${apiUrl}/api/tests/`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
-            const results = resultsRes.data || [];
+            const results = Array.isArray(resultsRes) ? resultsRes : (resultsRes.data || []);
             const allTests = (testsRes.data || []).filter(t => t.exam_type_details?.name !== 'STUDY PLANNER');
             const now = new Date();
 
@@ -282,6 +300,7 @@ const Results = ({ isDarkMode }) => {
             console.error("Error fetching results", err);
         } finally {
             setIsLoading(false);
+            setIsSilentRefreshing(false);
         }
     }, [token, getApiUrl]);
 
@@ -415,13 +434,17 @@ const Results = ({ isDarkMode }) => {
                             />
                         </div>
                         <button
-                            onClick={fetchResults}
+                            onClick={() => fetchResults(true)}
                             disabled={isLoading}
-                            className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode
+                            title="Force refresh results"
+                            className={`p-2.5 rounded-[5px] border transition-all relative ${isDarkMode
                                 ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
                                 : 'bg-white border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 shadow-sm'}`}
                         >
                             <RotateCw size={18} className={isLoading ? 'animate-spin' : ''} />
+                            {isSilentRefreshing && !isLoading && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                            )}
                         </button>
                         <button className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode
                             ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white'

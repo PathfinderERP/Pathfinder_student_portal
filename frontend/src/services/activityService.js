@@ -6,11 +6,11 @@ const logActivity = async (activityType, path, metadata = {}, duration = 0) => {
     const apiUrl = getBaseApiUrl();
 
     if (!token) {
-        console.warn('[Activity] Skipped: No auth_token');
+        // console.warn('[Activity] Skipped: No auth_token');
         return;
     }
 
-    console.log(`[Activity] Logging: ${activityType} on ${path}`, { metadata, duration });
+    // console.log(`[Activity] Logging: ${activityType} on ${path}`, { metadata, duration });
 
     try {
         const response = await axios.post(`${apiUrl}/api/activity-logs/`, {
@@ -21,9 +21,9 @@ const logActivity = async (activityType, path, metadata = {}, duration = 0) => {
         }, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        console.log('[Activity] Success:', response.status);
+        // console.log('[Activity] Success:', response.status);
     } catch (error) {
-        console.error('[Activity] Error:', error.response?.data || error.message);
+        // console.error('[Activity] Error:', error.response?.data || error.message);
     }
 };
 

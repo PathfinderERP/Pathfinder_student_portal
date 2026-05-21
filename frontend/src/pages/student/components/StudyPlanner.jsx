@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import { getMyResults } from '../../../services/resultsService';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate, useLocation } from 'react-router-dom';
 import StudentPsychometricForm from './StudentPsychometricForm';
@@ -488,19 +489,19 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
         setLoadingTests(true);
         try {
             const apiUrl = getApiUrl();
-            const [testsRes, resultsRes] = await Promise.all([
+            const [testsRes, resultsData] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
+                getMyResults().catch(() => [])
             ]);
 
             const testsData = (testsRes.data || []).filter(test => {
                 return test.exam_type_details?.name === 'STUDY PLANNER';
             });
-            const resultsData = resultsRes.data || [];
+            const resultsDataArr = Array.isArray(resultsData) ? resultsData : (resultsData?.data || []);
 
             // Create a lookup map for O(1) performance
             const resultsMap = {};
-            resultsData.forEach(r => {
+            resultsDataArr.forEach(r => {
                 if (r.code) resultsMap[r.code] = r;
                 if (r.id) resultsMap[r.id] = r;
             });

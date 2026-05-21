@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Award, Target, BarChart2, Loader2, Calendar, Zap, AlertCircle, Clock, CheckCircle, ArrowUpRight } from 'lucide-react';
 import axios from 'axios';
+import { getMyResults } from '../../../services/resultsService';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import ResultReport from './ResultReport';
@@ -27,14 +28,15 @@ const Performance = ({ isDarkMode }) => {
 
         try {
             const apiUrl = getApiUrl();
-            const [resultsRes, attendanceRes, reportRes] = await Promise.allSettled([
-                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { Authorization: `Bearer ${token}` } }),
+            const [resultsData, attendanceRes, reportRes] = await Promise.allSettled([
+                getMyResults(),
                 axios.get(`${apiUrl}/api/student/attendance/`, { headers: { Authorization: `Bearer ${token}` } }),
                 axios.get(`${apiUrl}/api/student-portal/report/`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
-            if (resultsRes.status === 'fulfilled') {
-                setResults(resultsRes.value.data || []);
+            if (resultsData.status === 'fulfilled') {
+                const data = resultsData.value;
+                setResults(Array.isArray(data) ? data : (data?.data || []));
             }
             
             if (attendanceRes.status === 'fulfilled') {

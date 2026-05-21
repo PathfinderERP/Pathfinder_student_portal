@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getMyResults } from '../../services/resultsService';
 import MyProfile from './components/MyProfile';
 import Attendance from './components/Attendance';
 import Classes from './components/Classes';
@@ -218,19 +219,19 @@ const StudentDashboard = () => {
         if (!token || !getApiUrl) return;
         try {
             const apiUrl = getApiUrl();
-            const [testsRes, resultsRes] = await Promise.all([
+            const [testsRes, resultsData] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                axios.get(`${apiUrl}/api/tests/my_results/`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ data: [] }))
+                getMyResults().catch(() => [])
             ]);
 
             const testsData = testsRes.data || [];
-            const resultsData = resultsRes.data || [];
+            const resultsData2 = Array.isArray(resultsData) ? resultsData : (resultsData?.data || []);
 
             // Merge results data (rank, marks) into tests data
             const mergedData = testsData
                 .filter(test => test.exam_type_details?.name !== 'STUDY PLANNER')
                 .map(test => {
-                    const result = resultsData.find(r => r.code === test.code || r.id === test.id);
+                    const result = resultsData2.find(r => r.code === test.code || r.id === test.id);
                     if (result) {
                         return {
                             ...test,

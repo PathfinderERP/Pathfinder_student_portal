@@ -8,6 +8,7 @@ import {
 import { motion } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import { getMyResults } from '../../../services/resultsService';
 
 const AdvancedAnalytics = ({ isDarkMode }) => {
     const { getApiUrl, token } = useAuth();
@@ -29,16 +30,16 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
             const headers = { 'Authorization': `Bearer ${token}` };
 
             // Fetch all analytics data in parallel to avoid sequential loading bottlenecks
-            const [activityRes, curriculumRes, resultsRes, reportRes] = await Promise.all([
+            const [activityRes, curriculumRes, resultsData, reportRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/student/activity-analytics/`, { headers }).catch(e => ({ data: null })),
                 axios.get(`${apiUrl}/api/student/curriculum-progress/`, { headers }).catch(e => ({ data: null })),
-                axios.get(`${apiUrl}/api/tests/my_results/`, { headers }).catch(e => ({ data: [] })),
+                getMyResults({ force: isManual }).catch(() => []),
                 axios.get(`${apiUrl}/api/student-portal/report/`, { headers }).catch(e => ({ data: null }))
             ]);
 
             const realData = activityRes.data;
             const curriculumData = curriculumRes.data;
-            const results = Array.isArray(resultsRes.data) ? resultsRes.data : [];
+            const results = Array.isArray(resultsData) ? resultsData : (Array.isArray(resultsData?.data) ? resultsData.data : []);
             const globalReport = reportRes?.data;
 
             setRealData(realData);
