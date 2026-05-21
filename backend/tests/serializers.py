@@ -46,7 +46,7 @@ class TestSerializer(serializers.ModelSerializer):
     # For GET requests, we might want nested details
     session_details = SessionSerializer(source='session', read_only=True)
     sessions_details = SessionSerializer(source='sessions', many=True, read_only=True)
-    target_exam_details = TargetExamSerializer(source='target_exams', many=True, read_only=True)
+    target_exam_details = serializers.SerializerMethodField()
     exam_type_details = ExamTypeSerializer(source='exam_type', read_only=True)
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
     package_name = serializers.ReadOnlyField(source='package.name')
@@ -101,6 +101,13 @@ class TestSerializer(serializers.ModelSerializer):
     total_students = serializers.SerializerMethodField()
     total_roster_count = serializers.SerializerMethodField()
     is_over = serializers.SerializerMethodField()
+
+    def get_target_exam_details(self, obj):
+        # Reuse the prefetched target_exams M2M result instead of triggering
+        # a second DB query (Djongo doesn't share the prefetch cache between
+        # a TargetExamSerializer(source='target_exams') field and the
+        # ObjectIdRelatedField for the same relation).
+        return TargetExamSerializer(obj.target_exams.all(), many=True).data
 
     def get_is_over(self, obj):
         from django.utils import timezone
@@ -297,17 +304,22 @@ class TestSerializer(serializers.ModelSerializer):
         c_name = getattr(user, 'centre_name', None)
         if not c_code and not c_name:
             return None
-            
-        # Optimization: Iterate in memory over the prefetched centre_allotments
-        # to avoid triggering extra DB joins that enter the Djongo SQL-to-Mongo parser bug.
-        allotments = obj.centre_allotments.all()
-        for allotment in allotments:
-            # centre is also prefetched (check views.py)
-            c = allotment.centre
-            if (c_code and c.code.strip().lower() == c_code.strip().lower()) or \
-               (c_name and c.name.strip().lower() == c_name.strip().lower()):
-                return allotment
-        return None
+
+        # Cache per-instance: start_time and end_time both call this method,
+        # so avoid iterating allotments twice.
+        cache_attr = '_cached_user_allotment'
+        if not hasattr(obj, cache_attr):
+            result = None
+            for allotment in obj.centre_allotments.all():
+                # centre is prefetched (see views.py list action)
+                c = allotment.centre
+                if (c_code and c.code.strip().lower() == str(c_code).strip().lower()) or \
+                   (c_name and c.name.strip().lower() == str(c_name).strip().lower()):
+                    result = allotment
+                    break
+            object.__setattr__(obj, cache_attr, result)
+        return getattr(obj, cache_attr)
+
 
     def get_start_time(self, obj):
         allotment = self._get_user_allotment(obj)

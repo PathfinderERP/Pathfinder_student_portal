@@ -88,27 +88,27 @@ def _is_profile_rich(data):
     # We previously required 2, but 1 is fine for a fast initial UI
     return real_count >= 1
 
-def get_student_lookup_index(force_refresh=False):
+def get_student_lookup_index(force_refresh=False, block=True):
     """
     Best Algorithm: O(1) Hash Map lookup instead of O(N) list iteration.
     Indexes all students by Email and Admission ID for instant retrieval.
     """
     index_key = 'erp_student_lookup_index_v1'
-    
+
     if force_refresh:
         cache.delete(index_key)
-        # We don't call the view, we just rely on get_all_students_erp_data view being called 
-        # or we could move the logic to a helper.
-    
+        cache.delete('erp_centre_student_index_v1')
+
     index = cache.get(index_key)
     if index and not force_refresh: return index
-    
+
     # helper for mass data fetch (reused by view and here)
-    bulk_cache = _fetch_all_students_erp(force_refresh=force_refresh)
+    bulk_cache = _fetch_all_students_erp(force_refresh=force_refresh, block=block)
     if not bulk_cache or not isinstance(bulk_cache, list): return None
-    
+
     print(f"[ERP] O(1) Indexing {len(bulk_cache)} records for high-performance lookup...")
     idx = {}
+    centre_idx = {}  # centre name (UPPER) -> set of dedupe ids
     # Helper to check if record has sections
     def has_sects(r):
         sa = (r or {}).get('sectionAllotment', {}) or {}
@@ -122,26 +122,81 @@ def get_student_lookup_index(force_refresh=False):
             # Overwrite only if the existing one has no sections and the new one does
             if key not in idx or (not has_sects(idx[key]) and has_sects(record)):
                 idx[key] = record
-        
+
         # Index by Student Emails (Normalizes to Lower/Strip)
         student_obj = record.get('student') or {}
         details = student_obj.get('studentsDetails', [])
+        em = ''
         for d in details:
             email = str(d.get('studentEmail') or '').strip().lower()
             if email:
+                if not em:
+                    em = email
                 key = f"email_{email}"
                 # Overwrite only if the existing one has no sections and the new one does
                 if key not in idx or (not has_sects(idx[key]) and has_sects(record)):
                     idx[key] = record
-                
+
+        # Centre-keyed reverse index (stored under a SEPARATE cache key so existing
+        # callers that iterate `idx.values()` expecting dicts are unaffected).
+        c_raw = record.get('centre')
+        if not c_raw:
+            v = record.get('venue')
+            c_raw = (v.get('centreName') or v.get('name')) if isinstance(v, dict) else v
+        s_centre = str(c_raw or '').upper().strip()
+        if s_centre:
+            dedupe_id = adm_no or em
+            if dedupe_id:
+                bucket = centre_idx.get(s_centre)
+                if bucket is None:
+                    bucket = set()
+                    centre_idx[s_centre] = bucket
+                bucket.add(dedupe_id)
+
     cache.set(index_key, idx, 3600) # 1 hour index life
+    cache.set('erp_centre_student_index_v1', centre_idx, 3600)
     return idx
 
-def _fetch_all_students_erp(force_refresh=False):
+
+def get_centre_student_index(force_refresh=False, block=True):
+    """Return {CENTRE_NAME_UPPER: set(dedupe_id)} for fast roster computation.
+
+    Side-effect of get_student_lookup_index — call that to (re)build both indexes.
+    """
+    centre_idx = cache.get('erp_centre_student_index_v1')
+    if centre_idx is not None and not force_refresh:
+        return centre_idx
+    get_student_lookup_index(force_refresh=force_refresh, block=block)
+    return cache.get('erp_centre_student_index_v1') or {}
+
+def _fetch_all_students_erp(force_refresh=False, block=True):
+    """Fetch full ERP student list.
+
+    When `block=False` and the cache is cold, return an empty list immediately
+    and spawn a background thread to populate the cache. This keeps caller
+    request latency O(ms) even if ERP is in cold-start (90s timeout).
+    """
     CACHE_KEY = 'erp_all_students_v1'
     if not force_refresh:
         cached = cache.get(CACHE_KEY)
         if cached is not None: return cached
+
+    if not block:
+        # Cache cold and caller refuses to wait — fire-and-forget refresh.
+        lock_key = f"{CACHE_KEY}_bg_lock"
+        if cache.add(lock_key, '1', 120):  # 2 min dedupe window
+            def _bg():
+                try:
+                    close_old_connections()
+                    _fetch_all_students_erp(force_refresh=True, block=True)
+                except Exception as e:
+                    print(f"[ERP SYNC BG ERROR] {e}")
+                finally:
+                    cache.delete(lock_key)
+                    close_old_connections()
+            t = threading.Thread(target=_bg, daemon=True)
+            t.start()
+        return []
 
     try:
         erp_url = _get_erp_url()
@@ -163,7 +218,7 @@ def _fetch_all_students_erp(force_refresh=False):
                 final_data = data.get('data') or data.get('admissions') or data.get('students') or []
             elif isinstance(data, list):
                 final_data = data
-            
+
             if final_data:
                 cache.set(CACHE_KEY, final_data, 86400)
                 return final_data
@@ -234,6 +289,7 @@ def get_student_erp_data(request):
     """
     Fast per-student ERP data lookup with multi-strategy resilience.
     Now optimized to filter rich data from mass records if local cache is thin.
+    OPTIMIZATION: Extended cache TTL from 300s to 3600s (1 hour) to reduce ERP calls.
     """
     user = request.user
     search_email = (user.email or user.username).strip().lower()
@@ -246,10 +302,11 @@ def get_student_erp_data(request):
     cached = cache.get(student_cache_key)
 
     # ── Strategy 1: Fast Cache Lookup ─────────────────────────────
-    # Standard behavior: Return cache immediately for speed.
+    # Standard behavior: Return cache immediately for speed (now 1 hour TTL).
     # Force-Refresh behavior: Bypassing cache to perform blocking real-time sync.
+    # OPTIMIZATION: Serving from cache avoids expensive ERP calls entirely
     if _is_profile_rich(cached) and not force_refresh:
-        print(f"[ERP] Serving {search_email} from cache.")
+        print(f"[ERP] ✓ Serving {search_email} from cache (avoiding expensive ERP call).")
         return Response(cached, status=200)
 
     # Strategy 2: High-Speed Index (Bypass if force_refresh)

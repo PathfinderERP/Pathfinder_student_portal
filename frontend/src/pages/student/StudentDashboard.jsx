@@ -80,6 +80,7 @@ const StudentDashboard = () => {
 
     // Flag to prevent multiple auto-sync attempts in one session
     const hasAutoSynced = useRef(false);
+    const initialLoadDone = useRef(false);
     const [statsData, setStatsData] = useState({
         attendance: { value: '—%', subtext: 'Syncing attendance...', loaded: false },
         gpa: { value: '—/10', subtext: 'Syncing GPA...', loaded: false },
@@ -278,10 +279,12 @@ const StudentDashboard = () => {
     }, [token, getApiUrl]);
 
     useEffect(() => {
-        const loadInitialData = async () => {
-            if (authLoading) return;
-            if (!user) return;
+        if (authLoading) return;
+        if (!user) return;
+        if (initialLoadDone.current) return;
+        initialLoadDone.current = true;
 
+        const loadInitialData = async () => {
             const data = await fetchStudentData(false);
 
             // Fix static data flicker in Attendance by ensuring cache status triggers fetch if needed

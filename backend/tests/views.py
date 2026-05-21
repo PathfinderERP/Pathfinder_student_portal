@@ -19,6 +19,196 @@ def clean_html(text):
     return re.sub('<[^<]+?>', '', str(text)).strip().lower()
 
 
+# --- Roster cache (admin Test list) ----------------------------------------
+# Decoupled from `admin_test_list` so saving a single test doesn't trigger
+# a full ERP rescan. The background refresher repopulates this; the list
+# endpoint only ever reads from it.
+ROSTER_CACHE_KEY = 'admin_test_roster_counts_v1'
+ROSTER_FRESHNESS_KEY = 'admin_test_roster_counts_v1_fresh'  # short TTL = "needs refresh?" sentinel
+ROSTER_LOCK_KEY = 'admin_test_roster_counts_v1_lock'
+
+
+def _compute_roster_counts():
+    """Compute {str(test_id): count} for every Test using the centre-keyed ERP index.
+
+    O(C × students-per-C) per test instead of O(S × N_tests). Safe to call from
+    a background thread — does not touch the request.
+    """
+    from django.db import close_old_connections
+    from api.erp_views import get_centre_student_index
+    from .models import Test
+    from api.models import CustomUser
+
+    close_old_connections()
+    try:
+        # Centre-keyed ERP index (block=False so a cold ERP fetch can't hang us).
+        centre_idx = get_centre_student_index(force_refresh=False, block=False)
+        if not centre_idx:
+            return None
+
+        tests = Test.objects.all().prefetch_related('centres')
+
+        # Pre-bucket local students by uppercased centre name AND code, so we
+        # avoid an extra DB query per test.
+        local_by_centre = {}
+        for u in CustomUser.objects.filter(user_type='student').only(
+            'username', 'admission_number', 'email', 'centre_code', 'centre_name'
+        ):
+            uid = (u.username or str(u.pk)).upper().strip()
+            adm = (u.admission_number or '').upper().strip()
+            em = (u.email or '').lower().strip()
+            dedupe = adm or em or uid
+            if not dedupe:
+                continue
+            for key in filter(None, [
+                (u.centre_code or '').upper().strip(),
+                (u.centre_name or '').upper().strip(),
+            ]):
+                local_by_centre.setdefault(key, set()).add(dedupe)
+
+        result = {}
+        for t in tests:
+            seen = set()
+            for c in t.centres.all():
+                c_name = (c.name or '').upper().strip()
+                c_code = (c.code or '').upper().strip()
+
+                # ERP students at this centre (centre-keyed reverse index).
+                if c_name:
+                    seen |= centre_idx.get(c_name, set())
+                if c_code and c_code != c_name:
+                    seen |= centre_idx.get(c_code, set())
+
+                # Local DB students at this centre.
+                if c_name:
+                    seen |= local_by_centre.get(c_name, set())
+                if c_code and c_code != c_name:
+                    seen |= local_by_centre.get(c_code, set())
+
+            result[str(t.pk)] = len(seen)
+
+        from django.core.cache import cache
+        cache.set(ROSTER_CACHE_KEY, result, 86400)         # 24h hard TTL
+        cache.set(ROSTER_FRESHNESS_KEY, '1', 1800)         # 30 min "fresh" window
+        print(f"[ROSTER] Refreshed counts for {len(result)} tests")
+        return result
+    except Exception as e:
+        print(f"[ROSTER ERROR] {e}")
+        return None
+    finally:
+        close_old_connections()
+
+
+def _warm_test_paper_cache(test_id):
+    """Pre-cache test paper data to avoid slow loads on first student request.
+    
+    Runs in background to avoid blocking user requests.
+    Caches the complete test paper with all sections and questions for 60 minutes.
+    """
+    from django.core.cache import cache
+    from django.db import close_old_connections
+    from questions.models import Question
+    
+    close_old_connections()
+    try:
+        cache_key = f"test_paper_{test_id}"
+        
+        # Skip if already cached
+        if cache.get(cache_key):
+            print(f"[CACHE] Test paper {test_id} already cached, skipping warm-up")
+            return
+        
+        try:
+            test = Test.objects.select_related('exam_type').get(pk=test_id)
+        except Test.DoesNotExist:
+            print(f"[CACHE] Test {test_id} not found, cannot warm cache")
+            return
+        
+        # Fetch sections
+        sections = list(test.sections.all().order_by('priority'))
+        
+        # Fetch ALL questions for ALL sections in ONE query
+        all_section_ids = [str(s.pk) for s in sections]
+        all_questions = list(Question.objects.filter(
+            section_id__in=all_section_ids
+        ).select_related(
+            'class_level', 'subject', 'chapter', 'topic',
+            'exam_type', 'target_exam', 'test_name'
+        ))
+        
+        # Build section->questions map
+        section_q_map = {}
+        for q in all_questions:
+            sec_id = str(q.section_id)
+            if sec_id not in section_q_map:
+                section_q_map[sec_id] = []
+            section_q_map[sec_id].append(q)
+        
+        # Build response
+        sections_data = []
+        from sections.serializers import SectionSerializer
+        from questions.serializers import QuestionSerializer
+        
+        for section in sections:
+            section_dict = SectionSerializer(section).data
+            section_questions = section_q_map.get(str(section.pk), [])
+            
+            # Deduplicate and order
+            seen_pks = set()
+            unique_qs_list = []
+            for q in section_questions:
+                if str(q.pk) not in seen_pks:
+                    seen_pks.add(str(q.pk))
+                    unique_qs_list.append(q)
+            
+            order_list = section.question_order or []
+            order_map = {str(oid): index for index, oid in enumerate(order_list)}
+            unique_qs_list.sort(key=lambda q: order_map.get(str(q.pk), 999999))
+            
+            section_dict['questions_detail'] = QuestionSerializer(unique_qs_list, many=True).data
+            sections_data.append(section_dict)
+        
+        response_data = {
+            'test_name': test.name,
+            'test_code': test.code,
+            'duration': test.duration,
+            'instructions': test.instructions,
+            'sections': sections_data,
+            'exam_type_name': test.exam_type.name if test.exam_type else None
+        }
+        
+        # Cache for 60 minutes
+        cache.set(cache_key, response_data, timeout=3600)
+        print(f"[CACHE] Warmed test paper {test_id} with {len(sections)} sections and {len(all_questions)} questions")
+        
+    except Exception as e:
+        print(f"[CACHE ERROR] Failed to warm test paper {test_id}: {e}")
+    finally:
+        close_old_connections()
+
+
+def _trigger_roster_refresh():
+    """Spawn a single-flight background thread to recompute roster counts.
+
+    A small delay before the heavy work lets the parent request flush its
+    response over the wire first. Without it, Python's GIL means the background
+    thread immediately fights the request thread for CPU during serialization
+    and the user perceives a slow response.
+    """
+    from django.core.cache import cache
+    import threading
+    if not cache.add(ROSTER_LOCK_KEY, '1', 300):  # 5 min single-flight window
+        return
+    def _bg():
+        try:
+            import time
+            time.sleep(1.0)  # Yield ~1s so the calling response flushes first.
+            _compute_roster_counts()
+        finally:
+            cache.delete(ROSTER_LOCK_KEY)
+    t = threading.Thread(target=_bg, daemon=True)
+    t.start()
+
 
 class TestViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
@@ -27,19 +217,31 @@ class TestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
-        # PERFORMANCE: List view doesn't need deep question details.
-        # Fetch only what's visible in the Table.
+        # PERFORMANCE: Optimize queries based on action
         if self.action == 'list':
+            # List view: prefetch all relations used by the serializer so every
+            # obj.X.all() call is served from the prefetch cache, not a new DB hit.
+            # 'sections' covers get_sections_count; 'centre_allotments__centre' covers
+            # _get_user_allotment which iterates allotment.centre per test.
             queryset = Test.objects.all().select_related(
                 'session', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'target_exams', 'sessions', 'centre_allotments'
+                'sections', 'target_exams', 'sessions', 'centres',
+                'centre_allotments', 'centre_allotments__centre'
+            ).order_by('-created_at')
+        elif self.action == 'question_paper':
+            # Question paper: bypass prefetch, use simple query + manual loading
+            # Prefetch doesn't work well with Djongo, so we keep it simple
+            queryset = Test.objects.all().select_related(
+                'exam_type'
             ).order_by('-created_at')
         else:
-            # Full prefetch only for detail view or management tabs
-            queryset = Test.objects.all().prefetch_related(
-                'session', 'target_exams', 'exam_type', 'exam_type__target_exams', 'class_level', 'package',
-                'centres', 'sections', 'centre_allotments', 'centre_allotments__centre'
+            # Detail/Other views: standard relationships
+            queryset = Test.objects.all().select_related(
+                'session', 'exam_type', 'class_level', 'package'
+            ).prefetch_related(
+                'sections', 'target_exams', 'sessions', 'centres', 
+                'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
         
         # If user is a student, enforce smart visibility rules
@@ -72,8 +274,9 @@ class TestViewSet(viewsets.ModelViewSet):
                     t.start()
                 except: pass
 
-            c_code = str(getattr(user, 'centre_code', '')).lower().strip()
-            c_name = str(getattr(user, 'centre_name', '')).lower().strip()
+            # Guard against None values: str(None) → 'none' which would match incorrectly
+            c_code = str(getattr(user, 'centre_code', '') or '').lower().strip()
+            c_name = str(getattr(user, 'centre_name', '') or '').lower().strip()
 
             # Pre-fetch submission test IDs for this student (FAST)
             submission_test_ids = []
@@ -83,33 +286,59 @@ class TestViewSet(viewsets.ModelViewSet):
                     submission_test_ids = [d['test_id'] for d in sub_docs]
                 except: pass
 
-            # Optimized Filtering: Use DB-level filtering as much as possible to avoid N+1
-            # Filter condition: (Submitted tests) OR (Matched Centre)
+            # Optimized Filtering: Pre-compute all M2M matches as plain PK lists so the
+            # final queryset uses ONLY simple pk__in conditions — no M2M JOINs, no DISTINCT.
+            # Djongo emulates DISTINCT in Python (full scan + dedup), causing 7+ second
+            # overhead. Replacing every M2M filter with a pre-fetched pk__in eliminates
+            # that entirely and brings the main query down to a single indexed lookup.
             from django.db.models import Q
-            
-            # Centre Filter: Student's centre must be in the test's allotted centres
-            centre_filter = Q(centres__code__iexact=c_code) | Q(centres__name__iexact=c_name)
-            
-            # Academic Filter: Test must match student's ClassLevel and TargetExam.
-            # Session check is bypassed for STUDY PLANNER exams to allow cross-year strategy access.
-            academic_filter = Q()
-            if user.class_level:
-                academic_filter &= Q(class_level=user.class_level)
-            if user.target_exam:
-                academic_filter &= Q(target_exams=user.target_exam)
-            
-            # Session filtering: Must match UNLESS it is a STUDY PLANNER exam
-            if user.session:
-                academic_filter &= (
-                    Q(exam_type__name='STUDY PLANNER') | 
-                    Q(session=user.session) | 
-                    Q(sessions=user.session)
+            from centres.models import Centre
+
+            # 1. Centre filter: resolve matching centre IDs, then find tests that include them.
+            centre_test_ids = []
+            if c_code or c_name:
+                matching_centre_ids = list(
+                    Centre.objects.filter(
+                        Q(code__iexact=c_code) | Q(name__iexact=c_name)
+                    ).values_list('_id', flat=True)
                 )
-            
-            # Combine filters: Show tests that are either already submitted OR match both centre and academic criteria
-            queryset = queryset.filter(
-                Q(id__in=submission_test_ids) | (centre_filter & academic_filter)
-            ).distinct()
+                if matching_centre_ids:
+                    # One extra query, but avoids M2M JOIN + DISTINCT on the main queryset.
+                    centre_test_ids = list(
+                        Test.objects.filter(centres__in=matching_centre_ids).values_list('pk', flat=True)
+                    )
+
+            # 2. Academic filter: resolve target_exam and session via pre-computed PK lists.
+            academic_test_ids = None  # None means "no academic restriction"
+            if user.class_level:
+                qs_academic = Test.objects.filter(class_level=user.class_level)
+            else:
+                qs_academic = Test.objects.all()
+
+            if user.target_exam:
+                te_test_ids = list(
+                    Test.objects.filter(target_exams=user.target_exam).values_list('pk', flat=True)
+                )
+                qs_academic = qs_academic.filter(pk__in=te_test_ids)
+
+            if user.session:
+                # Session: include STUDY PLANNER tests (any session) plus tests matching by FK or M2M.
+                session_m2m_ids = list(
+                    Test.objects.filter(sessions=user.session).values_list('pk', flat=True)
+                )
+                qs_academic = qs_academic.filter(
+                    Q(exam_type__name='STUDY PLANNER') |
+                    Q(session=user.session) |
+                    Q(pk__in=session_m2m_ids)
+                )
+
+            academic_test_ids = list(qs_academic.values_list('pk', flat=True))
+
+            # 3. Combine: submitted tests  OR  (centre match AND academic match) — no DISTINCT needed.
+            eligible_ids = set(str(pk) for pk in centre_test_ids) & set(str(pk) for pk in academic_test_ids)
+            final_ids = list(set(str(pk) for pk in submission_test_ids) | eligible_ids)
+
+            queryset = queryset.filter(pk__in=final_ids)
         
         package_id = self.request.query_params.get('package', None)
         if package_id:
@@ -249,77 +478,32 @@ class TestViewSet(viewsets.ModelViewSet):
                     pipeline = [{"$group": {"_id": "$test_id", "count": {"$sum": 1}}}]
                     counts = list(db['tests_testsubmission'].aggregate(pipeline))
                     count_map = {str(item["_id"]): item["count"] for item in counts}
-                    
+
                     data_items = response.data.get('results', []) if isinstance(response.data, dict) else response.data
                     if isinstance(data_items, list):
-                        # 1. Submission Counts (Attempts)
+                        # 1. Submission Counts (Attempts) — fast Mongo aggregation.
                         for item in data_items:
                             item['total_students'] = count_map.get(str(item.get('id')), 0)
-                            
-                        # 2. Roster Counts (Allocated) - Bulk calculation to avoid N+1 hang
-                        from api.db_utils import parse_section
-                        from .models import Test
-                        
-                        test_ids = [item.get('id') for item in data_items]
-                        all_tests = Test.objects.filter(id__in=test_ids).prefetch_related('centres')
-                        test_map = {t.id: t for t in all_tests}
-                        
-                        # Pre-process test criteria for fast matching
-                        test_criteria = {}
-                        for t_id in test_ids:
-                            t = test_map.get(t_id)
-                            if not t: continue
-                            test_criteria[t_id] = {
-                                'centres': set(c.name.strip().upper() for c in t.centres.all())
-                            }
-                        
-                        roster_scores = {t_id: 0 for t_id in test_ids}
-                        seen_students = {t_id: set() for t_id in test_ids}
-                        
-                        # Use the indexed values (already de-duplicated by ERP indexing logic)
-                        from api.erp_views import get_student_lookup_index
-                        erp_index = get_student_lookup_index(force_refresh=False)
-                        if not erp_index: erp_index = {}
 
-                        # Single pass over ERP students (O(S * N_page))
-                        for erp in erp_index.values():
-                            if not isinstance(erp, dict): continue
-                            
-                            # Identifiers for de-duplication per Test
-                            adm = str(erp.get('admissionNumber') or '').strip().upper()
-                            student_obj = erp.get('student') or {}
-                            details = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or []
-                            em = str(details[0].get('studentEmail') or '').strip().lower() if details else None
-                            
-                            # Get student's centre
-                            c_raw = erp.get('centre')
-                            if not c_raw:
-                                v = erp.get('venue')
-                                c_raw = (v.get('centreName') or v.get('name')) if isinstance(v, dict) else v
-                            s_centre = str(c_raw or '').upper().strip()
-                            if not s_centre: continue
-                            
-                            # Check against every test in current page
-                            for t_id, criteria in test_criteria.items():
-                                if s_centre in criteria['centres']:
-                                    # De-duplicate within the test's roster
-                                    is_seen = (adm and adm in seen_students[t_id]) or (em and em in seen_students[t_id])
-                                    if not is_seen:
-                                        if adm: seen_students[t_id].add(adm)
-                                        if em: seen_students[t_id].add(em)
-                                        roster_scores[t_id] += 1
-                        
-                        # Inject results back into response data
+                        # 2. Roster Counts (Allocated) — read from independent cache.
+                        # NEVER computed synchronously here; a background thread keeps it fresh.
+                        # This is the change that fixes the 20-90s admin hang.
+                        roster_map = cache.get(ROSTER_CACHE_KEY) or {}
                         for item in data_items:
-                            item['total_roster_count'] = roster_scores.get(item.get('id'), 0)
+                            item['total_roster_count'] = roster_map.get(str(item.get('id')), 0)
+
+                        # Trigger background recompute if cache is missing or stale.
+                        if not roster_map or cache.get(ROSTER_FRESHNESS_KEY) is None:
+                            _trigger_roster_refresh()
 
                 except Exception as e:
                     print(f"List Optimization Error: {e}")
 
-            # Cache for a longer time (10 mins) to ensure speed, while allowing force-refresh
-            cache.set("admin_test_list", response.data, 600)
+            # Cache the assembled list response. Length aligned with the roster cache so
+            # the two stay coherent; background refresher keeps both warm.
+            cache.set("admin_test_list", response.data, 1800)
             self.__class__._local_cache["admin_test_list"] = {'data': response.data, 'time': now}
-            
+
         return response
 
     def destroy(self, request, *args, **kwargs):
@@ -1895,29 +2079,47 @@ class TestViewSet(viewsets.ModelViewSet):
     def question_paper(self, request, pk=None):
         from django.core.cache import cache
         cache_key = f"test_paper_{pk}"
-        cached_data = cache.get(cache_key)
         
+        # OPTIMIZATION: Return cached data immediately if available
+        cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data)
 
+        # Cache miss - build response and cache it
         try:
-            test = Test.objects.get(pk=pk)
+            test = Test.objects.select_related('exam_type').get(pk=pk)
         except Test.DoesNotExist:
             return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
-            
-        # Order by priority
-        sections = test.sections.all().order_by('priority')
+        
+        from django.db.models import Prefetch
+        from questions.models import Question
+        
+        # OPTIMIZATION: Fetch sections and prefetch all questions with select_related in a single pass to eliminate N+1 queries
+        sections = list(test.sections.all().order_by('priority').prefetch_related(
+            Prefetch(
+                'questions',
+                queryset=Question.objects.select_related(
+                    'class_level', 'subject', 'chapter', 'topic',
+                    'exam_type', 'target_exam', 'test_name'
+                )
+            )
+        ))
         
         sections_data = []
         from sections.serializers import SectionSerializer
         from questions.serializers import QuestionSerializer
         
+        # Process each section using pre-fetched questions
         for section in sections:
             section_dict = SectionSerializer(section).data
-            # Fetch detailed questions and deduplicate/sort them
+            
+            # Get questions for this section directly from the prefetch cache
+            section_questions = section.questions.all()
+            
+            # Deduplicate and order
             seen_pks = set()
             unique_qs_list = []
-            for q in section.questions.all():
+            for q in section_questions:
                 if str(q.pk) not in seen_pks:
                     seen_pks.add(str(q.pk))
                     unique_qs_list.append(q)
@@ -1942,9 +2144,25 @@ class TestViewSet(viewsets.ModelViewSet):
             'exam_type_name': test.exam_type.name if test.exam_type else None
         }
         
-        # Cache for 60 minutes
+        # OPTIMIZATION: Cache for 60 minutes to avoid repeated DB hits
         cache.set(cache_key, response_data, timeout=3600)
-        # Forced reload marker to clear LocMemCache in dev server
+        
+        # Trigger background cache warm-up for other tests (if not already cached)
+        import threading
+        def warm_other_tests():
+            try:
+                # Warm cache for recently created/updated tests
+                active_tests = Test.objects.filter(
+                    is_completed=False
+                ).order_by('-updated_at').values_list('pk', flat=True)[:10]
+                for test_id in active_tests:
+                    if test_id != pk:  # Skip current test
+                        _warm_test_paper_cache(test_id)
+            except: pass
+        
+        t = threading.Thread(target=warm_other_tests, daemon=True)
+        t.start()
+        
         return Response(response_data)
 
     @action(detail=True, methods=['post'])
