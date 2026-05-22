@@ -692,6 +692,7 @@ const LibraryRegistry = () => {
                 multi_pdfs: [...newItem.multi_pdfs],
                 multi_videos: [...newItem.multi_videos],
                 multi_video_links: [...newItem.multi_video_links],
+                multi_dpps: [...(newItem.multi_dpps || [])],
                 questions: [...newItem.questions],
                 content_type: newItem.content_type
             };
@@ -700,7 +701,7 @@ const LibraryRegistry = () => {
         // Filter valid topics that have content
         const topicsToSubmit = Object.entries(allPopulatedData).filter(([tid, data]) => {
             if (String(tid).startsWith('dummy-')) return false;
-            const hasData = (data.multi_pdfs?.length > 0 || data.multi_videos?.length > 0 || data.multi_video_links?.length > 0 || data.questions?.length > 0);
+            const hasData = (data.multi_pdfs?.length > 0 || data.multi_videos?.length > 0 || data.multi_video_links?.length > 0 || data.multi_dpps?.length > 0 || data.questions?.length > 0);
             return hasData;
         });
 
@@ -943,22 +944,27 @@ const LibraryRegistry = () => {
             formData.append('update_granular', 'true');
 
             // Send IDs of existing granular resources to keep (if not sending an ID, the backend will delete it)
-            if (newItem.multi_pdfs) {
-                const keepPdfs = newItem.multi_pdfs.filter(item => item.id).map(item => item.id);
-                keepPdfs.forEach(id => formData.append('keep_pdfs', id));
-            }
-            if (newItem.multi_videos) {
-                const keepVideos = newItem.multi_videos.filter(item => item.id).map(item => item.id);
-                keepVideos.forEach(id => formData.append('keep_videos', id));
-            }
-            if (newItem.multi_video_links) {
-                const keepVideoLinks = newItem.multi_video_links.filter(item => item.id).map(item => item.id);
-                keepVideoLinks.forEach(id => formData.append('keep_video_links', id));
-            }
-            if (newItem.multi_dpps) {
-                const keepDpps = newItem.multi_dpps.filter(item => item.id).map(item => item.id);
-                keepDpps.forEach(id => formData.append('keep_dpps', id));
-            }
+            // IMPORTANT: Always send these fields when doing granular update, even if empty
+            // This signals the backend to delete items not in the keep list
+            const keepPdfs = newItem.multi_pdfs ? newItem.multi_pdfs.filter(item => item.id).map(item => item.id) : [];
+            keepPdfs.forEach(id => formData.append('keep_pdfs', id));
+            // Ensure field is always in request so backend processes deletions
+            if (keepPdfs.length === 0) formData.append('keep_pdfs', '');
+            
+            const keepVideos = newItem.multi_videos ? newItem.multi_videos.filter(item => item.id).map(item => item.id) : [];
+            keepVideos.forEach(id => formData.append('keep_videos', id));
+            // Ensure field is always in request so backend processes deletions
+            if (keepVideos.length === 0) formData.append('keep_videos', '');
+            
+            const keepVideoLinks = newItem.multi_video_links ? newItem.multi_video_links.filter(item => item.id).map(item => item.id) : [];
+            keepVideoLinks.forEach(id => formData.append('keep_video_links', id));
+            // Ensure field is always in request so backend processes deletions
+            if (keepVideoLinks.length === 0) formData.append('keep_video_links', '');
+            
+            const keepDpps = newItem.multi_dpps ? newItem.multi_dpps.filter(item => item.id).map(item => item.id) : [];
+            keepDpps.forEach(id => formData.append('keep_dpps', id));
+            // Ensure field is always in request so backend processes deletions
+            if (keepDpps.length === 0) formData.append('keep_dpps', '');
 
             // Handle Granular PDFs
             if (newItem.multi_pdfs && newItem.multi_pdfs.length > 0) {
@@ -2002,6 +2008,9 @@ const LibraryRegistry = () => {
                                         )}
                                         {(newItem.multi_videos?.length > 0 || newItem.multi_video_links?.length > 0) && tab.id === 'video' && (
                                             <span className="ml-1 px-1.5 py-0.5 rounded-full bg-white/20 text-[8px]">{newItem.multi_videos.length + newItem.multi_video_links.length}</span>
+                                        )}
+                                        {newItem.multi_dpps?.length > 0 && tab.id === 'dpp' && (
+                                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-white/20 text-[8px]">{newItem.multi_dpps.length}</span>
                                         )}
                                     </button>
                                 ))}

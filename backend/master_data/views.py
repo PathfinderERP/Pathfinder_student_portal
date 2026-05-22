@@ -771,8 +771,36 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
             'exam_type', 'target_exam', 'section'
         ).prefetch_related(
             'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
-        ).all().order_by('-created_at')
+        ).all().order_by('-created_at').distinct()
         return self.filter_by_section(queryset, 'section')
+
+    def get_object(self):
+        """Override get_object to avoid distinct() issues with detail lookups."""
+        # Use a simpler queryset for detail views that just selects related data
+        queryset = LibraryItem.objects.select_related(
+            'session', 'class_level', 'subject', 'chapter', 'topic', 
+            'exam_type', 'target_exam', 'section'
+        ).prefetch_related(
+            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
+        )
+        # Get the single object by primary key
+        pk = self.kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        try:
+            obj = queryset.get(pk=pk)
+        except LibraryItem.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("LibraryItem not found")
+        except LibraryItem.MultipleObjectsReturned:
+            # If there are still duplicates, this indicates data corruption
+            # Log the error and return the first one
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Multiple LibraryItems found with pk={pk}. Database corruption detected.")
+            obj = queryset.filter(pk=pk).first()
+            if not obj:
+                from rest_framework.exceptions import NotFound
+                raise NotFound("LibraryItem not found")
+        return obj
 
     def perform_create(self, serializer):
         item = serializer.save()
@@ -792,40 +820,40 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
 
         if is_update:
             # Handle Deletions for PDFs
+            # Default: if keep_pdfs is provided (even if empty), use it to determine what to delete
             if 'keep_pdfs' in request.data:
-                keep_pdf_ids = request.data.getlist('keep_pdfs')
+                keep_pdf_ids = [id for id in request.data.getlist('keep_pdfs') if id]  # Filter out empty strings
                 if keep_pdf_ids:
                     item.pdfs.exclude(pk__in=keep_pdf_ids).delete()
                 else:
                     item.pdfs.all().delete()
-            # If keep_pdfs not in request at all, leave PDFs untouched
                 
             # Handle Deletions for Videos (Files)
+            # Default: if keep_videos is provided (even if empty), use it to determine what to delete
             if 'keep_videos' in request.data:
-                keep_video_ids = request.data.getlist('keep_videos')
+                keep_video_ids = [id for id in request.data.getlist('keep_videos') if id]  # Filter out empty strings
                 if keep_video_ids:
                     item.videos.filter(video_file__isnull=False).exclude(pk__in=keep_video_ids).delete()
                 else:
                     item.videos.filter(video_file__isnull=False).delete()
-            # If keep_videos not in request at all, leave video files untouched
 
             # Handle Deletions for Video Links
+            # Default: if keep_video_links is provided (even if empty), use it to determine what to delete
             if 'keep_video_links' in request.data:
-                keep_video_link_ids = request.data.getlist('keep_video_links')
+                keep_video_link_ids = [id for id in request.data.getlist('keep_video_links') if id]  # Filter out empty strings
                 if keep_video_link_ids:
                     item.videos.filter(video_link__isnull=False).exclude(pk__in=keep_video_link_ids).delete()
                 else:
                     item.videos.filter(video_link__isnull=False).delete()
-            # If keep_video_links not in request at all, leave video links untouched
 
             # Handle Deletions for DPPs
+            # Default: if keep_dpps is provided (even if empty), use it to determine what to delete
             if 'keep_dpps' in request.data:
-                keep_dpp_ids = request.data.getlist('keep_dpps')
+                keep_dpp_ids = [id for id in request.data.getlist('keep_dpps') if id]  # Filter out empty strings
                 if keep_dpp_ids:
                     item.dpps.exclude(pk__in=keep_dpp_ids).delete()
                 else:
                     item.dpps.all().delete()
-            # If keep_dpps not in request at all, leave DPPs untouched
         
         # 1a. Update existing PDFs (metadata + optional new thumbnail)
         existing_pdfs_data = request.data.get('existing_pdfs_data', '[]')
