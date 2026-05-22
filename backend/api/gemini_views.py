@@ -12,6 +12,18 @@ from .models import UploadedFile, CustomUser, StudentMasterPlan, CollegeIntellig
 
 logger = logging.getLogger(__name__)
 
+
+def _get_gemini_api_key():
+    return (getattr(settings, 'GEMINI_API_KEY', None) or '').strip()
+
+
+def _gemini_not_configured_response():
+    return Response(
+        {"error": "AI service is not configured. Please contact admin."},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE
+    )
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_ai_study_plan(request):
@@ -50,9 +62,10 @@ def generate_ai_study_plan(request):
         daily_time = data.get('daily_time_hours', '4')
         exam_name = data.get('exam_name', 'JEE Main')
 
-        api_key = settings.GEMINI_API_KEY
+        api_key = _get_gemini_api_key()
         if not api_key:
-            return Response({"error": "Gemini API key not configured. Please contact admin."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error("[AI MENTOR] Gemini API key not found in settings.")
+            return _gemini_not_configured_response()
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-flash-latest')
@@ -241,10 +254,10 @@ def get_college_intelligence(request):
 
         logger.info(f"[AI COLLEGE] Cache miss. Requesting AI intelligence for: {college_name} ({exam_type})")
 
-        api_key = settings.GEMINI_API_KEY
+        api_key = _get_gemini_api_key()
         if not api_key:
             logger.error("[AI COLLEGE] Gemini API key not found in settings.")
-            return Response({"error": "Gemini API key not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return _gemini_not_configured_response()
 
         if genai is None:
             return Response({"error": "AI SDK not properly initialized"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -53,15 +53,35 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env_path = os.path.join(BASE_DIR, '.env')
 load_dotenv(env_path)
 
+GEMINI_ENV_KEYS = (
+    'GEMINI_API_KEY',
+    'GOOGLE_API_KEY',
+    'GOOGLE_GEMINI_API_KEY',
+    'GOOGLE_GENERATIVE_AI_API_KEY',
+)
+
+
+def get_first_env_value(*keys):
+    for key in keys:
+        value = os.getenv(key)
+        if value:
+            return value.strip()
+    return None
+
+
 # Manual fallback read if standard loading fails
-if not os.getenv('GEMINI_API_KEY'):
+if not get_first_env_value(*GEMINI_ENV_KEYS):
     try:
         if os.path.exists(env_path):
             with open(env_path, 'r') as f:
                 for line in f:
-                    if line.strip().startswith('GEMINI_API_KEY='):
-                        val = line.strip().split('=', 1)[1].strip().strip("'").strip('"')
-                        os.environ['GEMINI_API_KEY'] = val
+                    stripped = line.strip()
+                    for key in GEMINI_ENV_KEYS:
+                        if stripped.startswith(f'{key}='):
+                            val = stripped.split('=', 1)[1].strip().strip("'").strip('"')
+                            os.environ['GEMINI_API_KEY'] = val
+                            break
+                    if os.getenv('GEMINI_API_KEY'):
                         break
     except:
         pass
@@ -315,7 +335,7 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # AI Integration
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_API_KEY = get_first_env_value(*GEMINI_ENV_KEYS)
 
 # Cache Configuration (Redis with LocMem Fallback)
 _redis_url = os.getenv('REDIS_URL', None)

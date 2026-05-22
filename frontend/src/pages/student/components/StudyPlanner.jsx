@@ -447,11 +447,14 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 setIsQuotaExceeded(true);
             }
 
+            const isServiceNotConfigured = error.response?.status === 503;
             const fallback = {
                 summary: `Intelligence for ${collegeName} is being synchronized from national databases.`,
                 location: "Information currently unavailable",
                 is_compatible: false, // Strict mode: Block progression if AI cannot verify
-                compatibility_error: "Institutional validation failed due to high server traffic. Please wait a moment and try again.",
+                compatibility_error: isServiceNotConfigured
+                    ? "AI validation is temporarily unavailable. Please contact support."
+                    : "Institutional validation failed due to high server traffic. Please wait a moment and try again.",
                 validatedCollege: collegeName
             };
             setCollegeInfo(fallback);
