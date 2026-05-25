@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { MasterDataProvider } from './context/MasterDataContext';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -41,30 +42,32 @@ function App() {
       />
       <ThemeProvider>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            {/* Registration is now internal only */}
+          <MasterDataProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              {/* Registration is now internal only */}
 
-            <Route element={<PrivateRoute roles={['superadmin', 'admin', 'staff']} />}>
-              <Route path="/system/*" element={<SystemDashboard />} />
-            </Route>
+              <Route element={<PrivateRoute roles={['superadmin', 'admin', 'staff']} />}>
+                <Route path="/system/*" element={<SystemDashboard />} />
+              </Route>
 
-            <Route element={<PrivateRoute roles={['student']} />}>
-              <Route path="/student/exam/instructions/:id" element={<ExamInstructions />} />
-              <Route path="/student/exam/:id/paper" element={<ExamEngine />} />
-              <Route path="/student/*" element={<StudentDashboard />} />
-            </Route>
+              <Route element={<PrivateRoute roles={['student']} />}>
+                <Route path="/student/exam/instructions/:id" element={<ExamInstructions />} />
+                <Route path="/student/exam/:id/paper" element={<ExamEngine />} />
+                <Route path="/student/*" element={<StudentDashboard />} />
+              </Route>
 
-            <Route element={<PrivateRoute roles={['parent']} />}>
-              <Route path="/parent/*" element={<ParentDashboard />} />
-            </Route>
+              <Route element={<PrivateRoute roles={['parent']} />}>
+                <Route path="/parent/*" element={<ParentDashboard />} />
+              </Route>
 
-            <Route element={<PrivateRoute roles={['teacher']} />}>
-              <Route path="/teacher/*" element={<TeacherDashboard />} />
-            </Route>
+              <Route element={<PrivateRoute roles={['teacher']} />}>
+                <Route path="/teacher/*" element={<TeacherDashboard />} />
+              </Route>
 
-            <Route path="/" element={<Navigate to="/login" replace />} />
-          </Routes>
+              <Route path="/" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </MasterDataProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

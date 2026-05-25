@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, HelpCircle, Youtube, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, Filter, Layers, ChevronsLeft, ChevronsRight, ChevronRight, Video, PlayCircle, ArrowUpDown, ChevronDown, Check, Clock, Save, Download, Settings } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useMasterData } from '../../context/MasterDataContext';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import SmartEditor from '../admin/components/SmartEditor';
@@ -358,15 +359,8 @@ const LibraryRegistry = () => {
         return url.replace('watch?v=', 'embed/').split('&')[0].replace('m.youtube.com', 'www.youtube.com').replace('youtu.be/', 'www.youtube.com/embed/');
     };
 
-    // Master Data State
-    const [sessions, setSessions] = useState([]);
-    const [classes, setClasses] = useState([]);
-    const [subjects, setSubjects] = useState([]);
-    const [examTypes, setExamTypes] = useState([]);
-    const [targetExams, setTargetExams] = useState([]);
-    const [chapters, setChapters] = useState([]);
-    const [topics, setTopics] = useState([]);
-    const [sections, setSections] = useState([]);
+    // Master Data from Context
+    const { sessions, classes, subjects, examTypes, targetExams, chapters, topics, sections, fetchMasterData, isLoading: masterDataLoading } = useMasterData();
 
     // View Modal State
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -478,45 +472,12 @@ const LibraryRegistry = () => {
         }
     }, [getApiUrl, token, authLoading]);
 
-    const fetchMasterData = useCallback(async () => {
-        if (authLoading) return;
-        try {
-            const apiUrl = getApiUrl();
-            const config = token ? { headers: { 'Authorization': `Bearer ${token}` } } : {};
-            const [sessRes, classRes, subRes, etRes, teRes, secRes, chapRes, topRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/sessions/`, config),
-                axios.get(`${apiUrl}/api/master-data/classes/`, config),
-                axios.get(`${apiUrl}/api/master-data/subjects/`, config),
-                axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
-                axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
-                axios.get(`${apiUrl}/api/master-data/master-sections/`, config),
-                axios.get(`${apiUrl}/api/master-data/chapters/`, config),
-                axios.get(`${apiUrl}/api/master-data/topics/`, config)
-            ]);
-            const extract = (res) => {
-                const data = res?.data;
-                if (!data) return [];
-                if (Array.isArray(data)) return data;
-                return data.results || data.sections || data.chapters || data.topics || [];
-            };
 
-            setSessions(extract(sessRes).filter(s => s.is_active));
-            setClasses(extract(classRes));
-            setSubjects(extract(subRes));
-            setExamTypes(extract(etRes));
-            setTargetExams(extract(teRes));
-            setChapters(extract(chapRes));
-            setTopics(extract(topRes));
-            setSections(extract(secRes));
-        } catch (error) {
-            console.error("Failed to fetch master data", error);
-        }
-    }, [getApiUrl, token, authLoading]);
 
     useEffect(() => {
-        if (!authLoading) {
+        if (!authLoading && token) {
+            // Only fetch library items on initial load
             fetchLibraryItems();
-            fetchMasterData();
 
             // Check for pre-filled data from Master Data (Chapter List)
             const prefill = sessionStorage.getItem('library_prefill');
@@ -537,7 +498,14 @@ const LibraryRegistry = () => {
                 }
             }
         }
-    }, [fetchLibraryItems, fetchMasterData, authLoading]);
+    }, [fetchLibraryItems, authLoading, token]);
+
+    // Load master data only when add/edit modal is opened
+    useEffect(() => {
+        if ((isAddModalOpen || isEditModalOpen) && !masterDataLoading && (!sessions || sessions.length === 0)) {
+            fetchMasterData();
+        }
+    }, [isAddModalOpen, isEditModalOpen, masterDataLoading, sessions, fetchMasterData]);
 
     const handleMultiFileChange = (e, field) => {
         const files = Array.from(e.target.files);

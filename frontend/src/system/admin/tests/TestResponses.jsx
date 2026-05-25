@@ -50,6 +50,16 @@ const TestResponses = () => {
 
     useEffect(() => {
         fetchTests();
+
+        const handleTestsUpdated = () => fetchTests(true);
+        if (typeof window !== 'undefined') {
+            window.addEventListener('tests-updated', handleTestsUpdated);
+        }
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('tests-updated', handleTestsUpdated);
+            }
+        };
     }, []);
 
     const sessions = useMemo(() => {

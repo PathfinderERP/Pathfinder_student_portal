@@ -243,6 +243,7 @@ const TestCreate = () => {
         exam_type: '',
         class_level: '',
         duration: 180,
+        total_marks: 0,
         description: '',
         instructions: '',
         is_completed: false,
@@ -255,13 +256,21 @@ const TestCreate = () => {
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
 
+    const dispatchTestsUpdated = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('tests-updated'));
+        }
+    }, []);
+
     // Fetch master data with caching and deduplication
     const fetchMasterData = useCallback(async (force = false) => {
         const now = Date.now();
         const fetchKey = 'master-data-all';
         
         // Prevent concurrent identical requests
-        if (activeFetchKeysRef.current.has(fetchKey)) return;
+        if (activeFetchKeysRef.current.has(fetchKey)) {
+            return masterDataCacheRef.current;
+        }
 
         // Check cache (global check since it fetches all in this component)
         const isStale = !masterDataTimestampRef.current.lastGlobal || (now - masterDataTimestampRef.current.lastGlobal) > MASTER_DATA_CACHE_TTL;
@@ -272,7 +281,7 @@ const TestCreate = () => {
             setClasses(cached.classes || []);
             setTargetExams(cached.targetExams || []);
             setExamDetails(cached.examDetails || []);
-            return;
+            return cached;
         }
 
         const config = getAuthConfig();
@@ -305,8 +314,11 @@ const TestCreate = () => {
             setClasses(classRes.data);
             setTargetExams(targetRes.data);
             setExamDetails(detailRes.data);
+
+            return newCache;
         } catch (err) {
             console.error('Failed to fetch master data:', err);
+            return masterDataCacheRef.current;
         } finally {
             activeFetchKeysRef.current.delete(fetchKey);
         }
@@ -371,9 +383,6 @@ const TestCreate = () => {
 
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
             setData(Array.isArray(response.data) ? response.data : (response.data.results || []));
-
-            // Ensure master data is also loaded (it has its own deduplication)
-            fetchMasterData();
         } catch (err) {
             console.error('Failed to fetch test data:', err);
             setError('Failed to load test management data.');
@@ -381,7 +390,7 @@ const TestCreate = () => {
             setIsLoading(false);
             activeFetchKeysRef.current.delete(fetchKey);
         }
-    }, [getApiUrl, getAuthConfig, fetchMasterData, data.length]);
+    }, [getApiUrl, getAuthConfig, data.length]);
 
     // Handle debounced search
     useEffect(() => {
@@ -401,26 +410,104 @@ const TestCreate = () => {
         };
     }, [searchTerm]);
 
-    // Pre-load master data on mount
-    useEffect(() => {
-        fetchMasterData();
-    }, [fetchMasterData]);
-
+    // Load test list immediately; master data is fetched lazily when the modal is opened.
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    const handleCreate = () => {
+    useEffect(() => {
+        const handleMasterDataUpdated = async (event) => {
+            const key = event?.detail?.key;
+            if (!key) return;
+
+            const relevantKeys = ['sessions', 'examTypes', 'classes', 'targetExams', 'examDetails'];
+            if (!relevantKeys.includes(key)) return;
+
+            // Clear local cache and refresh master data so changes reflect everywhere
+            masterDataCacheRef.current = {};
+            try {
+                await fetchMasterData(true);
+            } catch (err) {
+                // swallow errors; fetchData will still work when user retries
+                console.error('Failed to refresh master data after update event:', err);
+            }
+            // Also refresh tests list from server to ensure embedded fields match updated master-data
+            try {
+                await fetchData(true);
+            } catch (err) {
+                console.error('Failed to refresh tests list after master-data update:', err);
+            }
+            // Update in-memory tests list from refreshed examDetails so UI shows authoritative values
+            try {
+                const ed = (masterDataCacheRef.current && masterDataCacheRef.current.examDetails) || examDetails;
+                if (Array.isArray(ed) && data.length > 0) {
+                    setData(prev => prev.map(test => {
+                        try {
+                            const match = ed.find(d =>
+                                d.name === (test.name || test.title || '') &&
+                                String(d.session) === String(test.session || test.session_details?.id || '') &&
+                                String(d.class_level) === String(test.class_level || test.class_level_details?.id || '') &&
+                                (Array.isArray(d.target_exams)
+                                    ? (Array.isArray(test.target_exams) ? test.target_exams.some(te => d.target_exams.map(String).includes(String(te))) : true)
+                                    : (String(d.target_exam) === String(test.target_exam) || true)) &&
+                                String(d.exam_type) === String(test.exam_type || test.exam_type_details?.id || '')
+                            );
+                            if (!match) return test;
+                            return {
+                                ...test,
+                                code: match.code || test.code,
+                                duration: match.duration || test.duration,
+                                total_marks: match.total_marks ?? test.total_marks,
+                                has_calculator: match.has_calculator ?? test.has_calculator,
+                                option_type_numeric: match.option_type_numeric ?? test.option_type_numeric
+                            };
+                        } catch (err) {
+                            return test;
+                        }
+                    }));
+                }
+            } catch (err) {
+                console.error('Failed to apply examDetails to tests list:', err);
+            }
+
+            // If modal is open, ensure formValues reflect authoritative examDetails (prevent stale overwrite)
+            if (isModalOpen) {
+                try {
+                    const match = examDetails.find(d =>
+                        d.name === formValues.name &&
+                        String(d.session) === String(formValues.session) &&
+                        String(d.class_level) === String(formValues.class_level) &&
+                        (Array.isArray(d.target_exams) && formValues.target_exams.length > 0
+                            ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
+                            : true) &&
+                        String(d.exam_type) === String(formValues.exam_type)
+                    );
+                    if (match && (match.total_marks ?? null) !== (formValues.total_marks ?? null)) {
+                        setFormValues(prev => ({ ...prev, total_marks: match.total_marks ?? prev.total_marks }));
+                    }
+                } catch (err) {
+                    console.error('Error syncing total_marks after master-data update:', err);
+                }
+            }
+        };
+
+        window.addEventListener('master-data-updated', handleMasterDataUpdated);
+        return () => window.removeEventListener('master-data-updated', handleMasterDataUpdated);
+    }, [fetchMasterData, isModalOpen]);
+
+    const handleCreate = async () => {
+        const loadedData = await fetchMasterData();
         setModalMode('create');
         setSelectedItem(null);
         setFormValues({
             name: '',
             code: '',
-            session: sessions[0]?.id || '',
+            session: loadedData?.sessions?.[0]?.id || sessions[0]?.id || '',
             target_exams: [],
             exam_type: '',
-            class_level: classes[0]?.id || '',
+            class_level: loadedData?.classes?.[0]?.id || classes[0]?.id || '',
             duration: 180,
+            total_marks: loadedData?.examDetails?.[0]?.total_marks || 0,
             description: '',
             instructions: '',
             is_completed: false,
@@ -430,7 +517,8 @@ const TestCreate = () => {
         setIsModalOpen(true);
     };
 
-    const handleEdit = (item) => {
+    const handleEdit = async (item) => {
+        await fetchMasterData();
         setModalMode('edit');
         setSelectedItem(item);
         setFormValues({
@@ -442,6 +530,7 @@ const TestCreate = () => {
             exam_type: item.exam_type || '',
             class_level: item.class_level || '',
             duration: item.duration,
+            total_marks: item.total_marks || 0,
             description: item.description || '',
             instructions: item.instructions || '',
             is_completed: item.is_completed,
@@ -461,6 +550,7 @@ const TestCreate = () => {
         try {
             const apiUrl = getApiUrl();
             await axios.delete(`${apiUrl}/api/tests/${id}/`, getAuthConfig());
+            dispatchTestsUpdated();
         } catch (err) {
             alert('Failed to delete test');
             fetchData(true); // Revert on error
@@ -481,6 +571,7 @@ const TestCreate = () => {
                 { is_completed: !item.is_completed },
                 getAuthConfig()
             );
+            dispatchTestsUpdated();
         } catch (err) {
             alert('Failed to update status');
             fetchData(true); // Revert on error
@@ -510,6 +601,7 @@ const TestCreate = () => {
                 // Optimistic update
                 setData(prev => prev.map(d => d.id === selectedItem.id ? result.data : d));
             }
+            dispatchTestsUpdated();
             setIsModalOpen(false);
         } catch (err) {
             alert(`Failed to ${modalMode} test: ` + (err.response?.data?.code || err.message));
@@ -552,7 +644,7 @@ const TestCreate = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={fetchData}
+                        onClick={() => fetchData(true)}
                         className={`p-3 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
                     >
                         <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
@@ -602,6 +694,7 @@ const TestCreate = () => {
                             <th className="pb-4 px-4 font-black">Test Name</th>
                             <th className="pb-4 px-4 font-black">Test Code</th>
                             <th className="pb-4 px-4 font-black text-center">Duration</th>
+                            <th className="pb-4 px-4 font-black text-center">Total Marks</th>
                             <th className="pb-4 px-4 font-black text-center">Completed</th>
                             <th className="pb-4 px-4 font-black text-center">Question Paper</th>
                             <th className="pb-4 px-4 font-black text-center">Question Sections</th>
@@ -621,6 +714,7 @@ const TestCreate = () => {
                                         </div>
                                     </td>
                                     <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                     <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                     <td className="py-5 px-4 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                     <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
@@ -650,6 +744,11 @@ const TestCreate = () => {
                                         <div className="flex items-center justify-center gap-1.5 font-black text-xs">
                                             <Clock size={14} className="text-orange-500" />
                                             {item.duration}m
+                                        </div>
+                                    </td>
+                                    <td className="py-5 px-4 text-center">
+                                        <div className="font-black text-xs">
+                                            {item.total_marks ?? 0} marks
                                         </div>
                                     </td>
                                     <td className="py-5 px-4">
@@ -813,7 +912,8 @@ const TestCreate = () => {
                     duration: match.duration || prev.duration,
                     has_calculator: match.has_calculator ?? prev.has_calculator,
                     option_type_numeric: match.option_type_numeric ?? prev.option_type_numeric,
-                    instructions: match.instructions || prev.instructions
+                    instructions: match.instructions || prev.instructions,
+                    total_marks: match.total_marks ?? prev.total_marks
                 }));
             }
         }
@@ -1027,7 +1127,7 @@ const TestCreate = () => {
                                     </>
                                 )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Duration (Mins) (Auto-selected)</label>
                                         {modalMode === 'edit' ? (
@@ -1043,6 +1143,30 @@ const TestCreate = () => {
                                                 className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                                             />
                                         )}
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Total Marks</label>
+                                        {modalMode === 'edit' ? (
+                                            <div className={`px-5 py-4 rounded-[5px] border font-bold text-sm ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                {formValues.total_marks ?? 0}
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                readOnly
+                                                required
+                                                value={formValues.total_marks}
+                                                className={`w-full px-5 py-4 rounded-[5px] border font-semibold text-sm outline-none transition-all opacity-60 cursor-not-allowed ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Exam Code</label>
+                                        <div className={`px-5 py-4 rounded-[5px] border font-bold text-sm ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                            {formValues.code || '-'}
+                                        </div>
                                     </div>
                                 </div>
 

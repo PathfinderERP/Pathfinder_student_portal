@@ -509,10 +509,29 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         'Chapter': ['classes', 'subjects'],
         'Topic': ['classes', 'subjects', 'chapters'],
         'SubTopic': ['topics'],
-        'Exam Type': ['targetExams'],
+        'Exam Type': ['examTypes'],
         'Exam Details': ['sessions', 'examTypes', 'classes', 'targetExams'],
         'Image': ['classes', 'subjects', 'topics', 'examTypes', 'targetExams'],
     }), []);
+
+    const getMasterDataEventKey = useCallback((subTab) => {
+        const mapping = {
+            'Exam Details': 'examDetails',
+            'Exam Type': 'examTypes',
+            'Target Exam': 'targetExams',
+            'Session': 'sessions',
+            'Classes': 'classes',
+            'Subject': 'subjects',
+            'Topic': 'topics',
+            'Chapter': 'chapters'
+        };
+        return mapping[subTab] || null;
+    }, []);
+
+    const dispatchMasterDataUpdate = useCallback((key) => {
+        if (!key || typeof window === 'undefined') return;
+        window.dispatchEvent(new CustomEvent('master-data-updated', { detail: { key } }));
+    }, []);
 
     const fetchData = useCallback(async (force = false, topicFilterId = null) => {
         if (!currentTabConfig || activeSubTab === 'Section Management') return;
@@ -847,6 +866,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
             await axios.delete(`${apiUrl}/api/${endpoint}/`, config);
             toast.success('Item deleted successfully!');
+            const eventKey = getMasterDataEventKey(activeSubTab);
+            if (eventKey) dispatchMasterDataUpdate(eventKey);
         } catch (err) {
             console.error('Delete failed:', err);
             toast.error('Failed to delete item');
@@ -869,6 +890,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 getAuthConfig()
             );
             toast.success('Status updated successfully');
+            const eventKey = getMasterDataEventKey(activeSubTab);
+            if (eventKey) dispatchMasterDataUpdate(eventKey);
         } catch (err) {
             toast.error('Failed to toggle status');
             fetchData(true); // Revert on error
@@ -914,8 +937,12 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             setIsModalOpen(false);
             toast.success(`${modalMode === 'create' ? 'Created' : 'Updated'} successfully!`);
 
-            // Clear cache and refetch to reflect changes everywhere
+            // Clear local cache and notify other pages about relevant master data changes.
             masterDataCacheRef.current = {};
+            const eventKey = getMasterDataEventKey(activeSubTab);
+            if (eventKey) dispatchMasterDataUpdate(eventKey);
+            // Also notify that tests may need refreshing (some UI shows embedded test fields)
+            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('tests-updated'));
             fetchData(true);
 
             // Automatically navigate to Library for newly created Chapters

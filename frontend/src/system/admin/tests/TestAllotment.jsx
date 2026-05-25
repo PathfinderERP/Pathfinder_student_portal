@@ -98,6 +98,15 @@ const TestAllotment = () => {
 
     useEffect(() => {
         fetchData();
+        const handleTestsUpdated = () => fetchData(true);
+        if (typeof window !== 'undefined') {
+            window.addEventListener('tests-updated', handleTestsUpdated);
+        }
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('tests-updated', handleTestsUpdated);
+            }
+        };
     }, [fetchData]);
 
     const handleEditCentres = async (test, isViewOnly = false) => {

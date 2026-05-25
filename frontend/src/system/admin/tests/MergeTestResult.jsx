@@ -51,7 +51,19 @@ const MergeTestResult = () => {
         }
     };
 
-    useEffect(() => { fetchTests(); }, []);
+    useEffect(() => {
+        fetchTests();
+
+        const handleTestsUpdated = () => fetchTests();
+        if (typeof window !== 'undefined') {
+            window.addEventListener('tests-updated', handleTestsUpdated);
+        }
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('tests-updated', handleTestsUpdated);
+            }
+        };
+    }, []);
 
     // ─── Filter/Pagination Logic ───────────────────────────────────────────────
     const sessions = useMemo(() => {

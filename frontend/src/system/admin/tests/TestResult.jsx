@@ -51,6 +51,16 @@ const TestResult = () => {
 
     useEffect(() => {
         fetchTests();
+
+        const handleTestsUpdated = () => fetchTests(true);
+        if (typeof window !== 'undefined') {
+            window.addEventListener('tests-updated', handleTestsUpdated);
+        }
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('tests-updated', handleTestsUpdated);
+            }
+        };
     }, []);
 
     // Smart Auto-Refresh logic to fulfill "update automatically when more student gave the exam"
