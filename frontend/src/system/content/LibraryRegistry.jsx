@@ -827,6 +827,7 @@ const LibraryRegistry = () => {
             multi_video_links: item.videos ? item.videos.filter(v => v.video_link).map(v => ({ id: v.id, name: v.title, description: v.description, link: v.video_link, thumbnail: null, existing_thumb: v.thumbnail })) : [],
             content_type: (item.videos?.length > 0 || item.video_link || item.video_file) ? 'video' : (item.dpp_file || item.dpps?.length > 0 ? 'dpp' : 'pdf'),
             existing_thumbnail: item.thumbnail,
+            remove_thumbnail: false, // track if we want to remove existing thumbnail
             existing_dpp: item.dpp_file,
             questions: item.questions && item.questions.length > 0 ? item.questions : [{
                 tempId: Date.now(),
@@ -847,11 +848,16 @@ const LibraryRegistry = () => {
     };
 
     const handleUpdateItem = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         try {
             setIsActionLoading(true);
             const apiUrl = getApiUrl();
             const formData = new FormData();
+            
+            // Handle top-level thumbnail removal
+            if (!newItem.thumbnail && !newItem.existing_thumbnail) {
+                formData.append('remove_thumbnail', 'true');
+            }
 
             // Item metadata
             if (newItem.multi_pdfs[0]?.name || newItem.multi_videos[0]?.name || newItem.multi_video_links[0]?.name || newItem.multi_dpps[0]?.name) {
@@ -884,7 +890,12 @@ const LibraryRegistry = () => {
                 const existingDpps = newItem.multi_dpps.filter(p => p.id);
                 if (existingDpps.length > 0) {
                     formData.append('existing_dpps_data', JSON.stringify(
-                        existingDpps.map(p => ({ id: p.id, name: p.name, description: p.description }))
+                        existingDpps.map(p => ({ 
+                            id: p.id, 
+                            name: p.name, 
+                            description: p.description,
+                            remove_thumb: !p.thumbnail && !p.existing_thumb 
+                        }))
                     ));
                     existingDpps.forEach(p => {
                         if (p.thumbnail) formData.append(`existing_dpp_${p.id}_thumb`, p.thumbnail);
@@ -940,7 +951,12 @@ const LibraryRegistry = () => {
                 const existingPdfs = newItem.multi_pdfs.filter(p => p.id);
                 if (existingPdfs.length > 0) {
                     formData.append('existing_pdfs_data', JSON.stringify(
-                        existingPdfs.map(p => ({ id: p.id, name: p.name, description: p.description }))
+                        existingPdfs.map(p => ({ 
+                            id: p.id, 
+                            name: p.name, 
+                            description: p.description,
+                            remove_thumb: Boolean(!p.thumbnail && !p.existing_thumb) 
+                        }))
                     ));
                     existingPdfs.forEach(p => {
                         if (p.thumbnail) formData.append(`existing_pdf_${p.id}_thumb`, p.thumbnail);
@@ -965,7 +981,12 @@ const LibraryRegistry = () => {
                 const existingVideos = newItem.multi_videos.filter(v => v.id);
                 if (existingVideos.length > 0) {
                     formData.append('existing_videos_data', JSON.stringify(
-                        existingVideos.map(v => ({ id: v.id, name: v.name, description: v.description }))
+                        existingVideos.map(v => ({ 
+                            id: v.id, 
+                            name: v.name, 
+                            description: v.description,
+                            remove_thumb: Boolean(!v.thumbnail && !v.existing_thumb) 
+                        }))
                     ));
                     existingVideos.forEach(v => {
                         if (v.thumbnail) formData.append(`existing_video_${v.id}_thumb`, v.thumbnail);
@@ -986,7 +1007,13 @@ const LibraryRegistry = () => {
 
             // Handle Granular Video Links
             if (newItem.multi_video_links && newItem.multi_video_links.length > 0) {
-                formData.append('multi_video_links_data', JSON.stringify(newItem.multi_video_links.map(v => ({ id: v.id, name: v.name, link: v.link, description: v.description }))));
+                formData.append('multi_video_links_data', JSON.stringify(newItem.multi_video_links.map(v => ({ 
+                    id: v.id, 
+                    name: v.name, 
+                    link: v.link, 
+                    description: v.description,
+                    remove_thumb: !v.thumbnail && !v.existing_thumb 
+                }))));
                 newItem.multi_video_links.forEach((v, i) => {
                     if (v.thumbnail) formData.append(`link_${i}_thumb`, v.thumbnail);
                 });
@@ -2043,11 +2070,37 @@ const LibraryRegistry = () => {
                                                                         }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
                                                                          {item.thumbnail ? (
                                                                             <>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const updated = [...newItem.multi_pdfs];
+                                                                                        updated[i].thumbnail = null;
+                                                                                        setNewItem({ ...newItem, multi_pdfs: updated });
+                                                                                    }}
+                                                                                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30"
+                                                                                    title="Remove Image"
+                                                                                >
+                                                                                    <Trash2 size={12} strokeWidth={3} />
+                                                                                </button>
                                                                                 <img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="Thumb" />
                                                                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black uppercase">Change Cover</div>
                                                                             </>
                                                                         ) : item.existing_thumb ? (
                                                                             <>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const updated = [...newItem.multi_pdfs];
+                                                                                        updated[i] = { ...updated[i], existing_thumb: null, thumbnail: null };
+                                                                                        setNewItem({ ...newItem, multi_pdfs: updated });
+                                                                                    }}
+                                                                                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30"
+                                                                                    title="Remove Image"
+                                                                                >
+                                                                                    <Trash2 size={12} strokeWidth={3} />
+                                                                                </button>
                                                                                 <img src={item.existing_thumb} className="w-full h-full object-cover" alt="Thumb" />
                                                                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black uppercase">Change Cover</div>
                                                                             </>
@@ -2181,10 +2234,10 @@ const LibraryRegistry = () => {
                                                                 <div className="md:col-span-3">
                                                                     <div className="relative group/thumb aspect-[16/9] md:aspect-[1/1] rounded-[10px] border-2 border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center justify-center overflow-hidden bg-slate-50 dark:bg-black/20 transition-all hover:border-amber-500/30 cursor-pointer">
                                                                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_videos]; updated[i].thumbnail = file; setNewItem({ ...newItem, multi_videos: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
-                                                                        {item.thumbnail ? (
-                                                                            <><img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
+                                                                         {item.thumbnail ? (
+                                                                            <><button type="button" onClick={(e) => { e.stopPropagation(); const updated = [...newItem.multi_videos]; updated[i].thumbnail = null; setNewItem({ ...newItem, multi_videos: updated }); }} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30" title="Remove Image"><Trash2 size={12} strokeWidth={3} /></button><img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
                                                                         ) : item.existing_thumb ? (
-                                                                            <><img src={item.existing_thumb} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
+                                                                            <><button type="button" onClick={(e) => { e.stopPropagation(); const updated = [...newItem.multi_videos]; updated[i] = { ...updated[i], existing_thumb: null, thumbnail: null }; setNewItem({ ...newItem, multi_videos: updated }); }} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30" title="Remove Image"><Trash2 size={12} strokeWidth={3} /></button><img src={item.existing_thumb} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
                                                                         ) : <div className="flex flex-col items-center gap-2 opacity-30"><Upload size={24} /><span className="text-[8px] font-black uppercase text-center px-2">Video Thumb</span></div>}
                                                                     </div>
                                                                 </div>
@@ -2206,10 +2259,10 @@ const LibraryRegistry = () => {
                                                                 <div className="md:col-span-3">
                                                                     <div className="relative group/thumb aspect-[16/9] md:aspect-[1/1] rounded-[10px] border-2 border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center justify-center overflow-hidden bg-slate-50 dark:bg-black/20 transition-all hover:border-red-500/30 cursor-pointer">
                                                                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_video_links]; updated[i].thumbnail = file; setNewItem({ ...newItem, multi_video_links: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
-                                                                        {item.thumbnail ? (
-                                                                            <><img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
+                                                                         {item.thumbnail ? (
+                                                                            <><button type="button" onClick={(e) => { e.stopPropagation(); const updated = [...newItem.multi_video_links]; updated[i].thumbnail = null; setNewItem({ ...newItem, multi_video_links: updated }); }} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30" title="Remove Image"><Trash2 size={12} strokeWidth={3} /></button><img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
                                                                         ) : item.existing_thumb ? (
-                                                                            <><img src={item.existing_thumb} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
+                                                                            <><button type="button" onClick={(e) => { e.stopPropagation(); const updated = [...newItem.multi_video_links]; updated[i] = { ...updated[i], existing_thumb: null, thumbnail: null }; setNewItem({ ...newItem, multi_video_links: updated }); }} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30" title="Remove Image"><Trash2 size={12} strokeWidth={3} /></button><img src={item.existing_thumb} className="w-full h-full object-cover" alt="T" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black">Change</div></>
                                                                         ) : <div className="flex flex-col items-center gap-2 opacity-30"><Youtube size={24} className="text-red-500" /><span className="text-[8px] font-black uppercase text-center px-2">Link Thumb</span></div>}
                                                                     </div>
                                                                 </div>
@@ -2314,13 +2367,39 @@ const LibraryRegistry = () => {
                                                                                             setNewItem({ ...newItem, multi_dpps: updated });
                                                                                         }
                                                                                     }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" />
-                                                                                    {item.thumbnail ? (
+                                                                                     {item.thumbnail ? (
                                                                                         <>
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const updated = [...newItem.multi_dpps];
+                                                                                                    updated[i].thumbnail = null;
+                                                                                                    setNewItem({ ...newItem, multi_dpps: updated });
+                                                                                                }}
+                                                                                                className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30"
+                                                                                                title="Remove Image"
+                                                                                            >
+                                                                                                <Trash2 size={12} strokeWidth={3} />
+                                                                                            </button>
                                                                                             <img src={URL.createObjectURL(item.thumbnail)} className="w-full h-full object-cover" alt="Thumb" />
                                                                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black uppercase">Change Cover</div>
                                                                                         </>
                                                                                     ) : item.existing_thumb ? (
                                                                                         <>
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const updated = [...newItem.multi_dpps];
+                                                                                                    updated[i].existing_thumb = null;
+                                                                                                    setNewItem({ ...newItem, multi_dpps: updated });
+                                                                                                }}
+                                                                                                className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-90 transition-all z-30"
+                                                                                                title="Remove Image"
+                                                                                            >
+                                                                                                <Trash2 size={12} strokeWidth={3} />
+                                                                                            </button>
                                                                                             <img src={item.existing_thumb} className="w-full h-full object-cover" alt="Thumb" />
                                                                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-black uppercase">Change Cover</div>
                                                                                         </>

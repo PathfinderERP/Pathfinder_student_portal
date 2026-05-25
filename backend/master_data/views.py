@@ -817,6 +817,11 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
         request = self.request
         
         is_update = request.data.get('update_granular') == 'true'
+        
+        # Handle top-level thumbnail removal
+        if request.data.get('remove_thumbnail') in [True, 'true', 'True']:
+            item.thumbnail = None
+            item.save()
 
         if is_update:
             # Handle Deletions for PDFs
@@ -871,6 +876,8 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                         thumb = request.FILES.get(f'existing_pdf_{pdf_id}_thumb')
                         if thumb:
                             pdf_obj.thumbnail = thumb
+                        elif p.get('remove_thumb') in [True, 'true', 'True']:
+                            pdf_obj.thumbnail = None
                         pdf_obj.save()
                     except LibraryPDF.DoesNotExist:
                         pass
@@ -907,6 +914,8 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                         thumb = request.FILES.get(f'existing_video_{video_id}_thumb')
                         if thumb:
                             video_obj.thumbnail = thumb
+                        elif v.get('remove_thumb') in [True, 'true', 'True']:
+                            video_obj.thumbnail = None
                         video_obj.save()
                     except LibraryVideo.DoesNotExist:
                         pass
@@ -943,6 +952,8 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                             video.description = v.get('description')
                             if thumb:
                                 video.thumbnail = thumb
+                            elif v.get('remove_thumb') in [True, 'true', 'True']:
+                                video.thumbnail = None
                             video.save()
                         except LibraryVideo.DoesNotExist:
                             pass
@@ -974,6 +985,8 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                         thumb = request.FILES.get(f'existing_dpp_{dpp_id}_thumb')
                         if thumb:
                             dpp_obj.thumbnail = thumb
+                        elif d.get('remove_thumb') in [True, 'true', 'True']:
+                            dpp_obj.thumbnail = None
                         dpp_obj.save()
                     except LibraryDPP.DoesNotExist:
                         pass
