@@ -25,12 +25,17 @@ const TestResult = () => {
     const [togglingStatusId, setTogglingStatusId] = useState(null);
     const [isAutoRefresh, setIsAutoRefresh] = useState(true);
     const [testToForcePublish, setTestToForcePublish] = useState(null); // For custom modal
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
-    const fetchTests = async () => {
-        setIsLoading(true);
+    const fetchTests = async (force = false) => {
+        const fetchKey = 'test-list';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
+        if (!force && tests.length === 0) setIsLoading(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/`, {
+            const res = await axios.get(`${apiUrl}/api/tests/${force ? '?refresh=true' : ''}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = res.data;
@@ -40,6 +45,7 @@ const TestResult = () => {
             console.error('Error fetching tests:', err);
         } finally {
             setIsLoading(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     };
 
@@ -275,7 +281,7 @@ const TestResult = () => {
                         </div>
 
                         <button
-                            onClick={fetchTests}
+                            onClick={() => fetchTests(true)}
                             className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
                         >
                             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />

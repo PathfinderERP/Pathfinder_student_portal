@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
@@ -20,6 +20,7 @@ const TestAllotment = () => {
     const [filterSession, setFilterSession] = useState('');
     const [filterStatus, setFilterStatus] = useState(''); // 'allotted', 'not_allotted'
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     // Allotment Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,12 +61,17 @@ const TestAllotment = () => {
 
     const fetchData = useCallback(async (force = false) => {
         if (!force && tests.length > 0) return;
+        
+        const fetchKey = 'test-allotment-list';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         setIsLoading(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const [testsRes, sessionsRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/tests/?${force ? 'refresh=true&' : ''}t=${new Date().getTime()}`, getAuthConfig()),
-                axios.get(`${apiUrl}/api/master-data/sessions/?t=${new Date().getTime()}`, getAuthConfig())
+                axios.get(`${apiUrl}/api/tests/${force ? '?refresh=true' : ''}`, getAuthConfig()),
+                axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig())
             ]);
 
             const testsData = Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []);

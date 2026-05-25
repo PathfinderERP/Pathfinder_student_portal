@@ -20,11 +20,16 @@ const TestResponses = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [successModal, setSuccessModal] = useState({ isOpen: false, message: '' });
     const [generatingId, setGeneratingId] = useState(null);
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     const fetchTests = async (forceRefresh = false) => {
+        const fetchKey = 'test-list';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         if (forceRefresh) setIsSyncing(true);
         else if (tests.length === 0) setIsLoading(true);
 
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const res = await axios.get(`${apiUrl}/api/tests/${forceRefresh ? '?refresh=true' : ''}`, {
@@ -39,6 +44,7 @@ const TestResponses = () => {
         } finally {
             setIsLoading(false);
             setIsSyncing(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     };
 
@@ -117,9 +123,13 @@ const TestResponses = () => {
     const [studentFilter, setStudentFilter] = useState('all'); // 'all', 'attempted', 'not_attempted', 'in_progress'
 
     const handleViewCentres = async (test) => {
+        const fetchKey = `centres-${test.id}`;
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         setSelectedTest(test);
         setViewMode('CENTRES');
         setIsCentresLoading(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const res = await axios.get(`${apiUrl}/api/tests/${test.id}/centres/`, {
@@ -130,16 +140,21 @@ const TestResponses = () => {
             console.error('Error fetching centres:', err);
         } finally {
             setIsCentresLoading(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     };
 
     const handleViewSubmissions = async (centre, forceRefresh = false) => {
+        const fetchKey = `submissions-${selectedTest.id}-${centre.centre_details?.code}-${forceRefresh}`;
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         setSubmissions([]); // Clear previous to prevent flickering
         setSelectedCentre(centre);
         setViewMode('STUDENTS');
         setStudentSearch('');
         setStudentFilter('all');
         setIsSubmissionsLoading(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/submissions/?centre_code=${centre.centre_details?.code}${forceRefresh ? '&refresh=true' : ''}`, {
@@ -152,6 +167,7 @@ const TestResponses = () => {
             toast.error('Failed to sync ERP data');
         } finally {
             setIsSubmissionsLoading(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     };
 

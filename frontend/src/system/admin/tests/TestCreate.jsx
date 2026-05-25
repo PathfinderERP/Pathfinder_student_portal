@@ -209,9 +209,10 @@ const TestCreate = () => {
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Master data caching
+    // Master data caching & deduplication
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight request keys
     const masterDataCacheRef = useRef({});
-    const masterDataTimestampRef = useRef(null);
+    const masterDataTimestampRef = useRef({}); // Track per-category timestamps
     const MASTER_DATA_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
     // Master Data for Dropdowns
@@ -254,14 +255,17 @@ const TestCreate = () => {
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
 
-    // Fetch master data with caching
-    const fetchMasterData = useCallback(async () => {
+    // Fetch master data with caching and deduplication
+    const fetchMasterData = useCallback(async (force = false) => {
         const now = Date.now();
+        const fetchKey = 'master-data-all';
+        
+        // Prevent concurrent identical requests
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
 
-        if (masterDataCacheRef.current &&
-            masterDataTimestampRef.current &&
-            (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
-            Object.keys(masterDataCacheRef.current).length > 0) {
+        // Check cache (global check since it fetches all in this component)
+        const isStale = !masterDataTimestampRef.current.lastGlobal || (now - masterDataTimestampRef.current.lastGlobal) > MASTER_DATA_CACHE_TTL;
+        if (!force && !isStale && Object.keys(masterDataCacheRef.current).length > 0) {
             const cached = masterDataCacheRef.current;
             setSessions((cached.sessions || []).filter(s => s.is_active));
             setExamTypes(cached.examTypes || []);
@@ -274,6 +278,7 @@ const TestCreate = () => {
         const config = getAuthConfig();
         if (!config.headers) return;
 
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const [sessRes, typeRes, classRes, targetRes, detailRes] = await Promise.all([
@@ -284,14 +289,16 @@ const TestCreate = () => {
                 axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
             ]);
 
-            masterDataCacheRef.current = {
+            const newCache = {
                 sessions: sessRes.data,
                 examTypes: typeRes.data,
                 classes: classRes.data,
                 targetExams: targetRes.data,
                 examDetails: detailRes.data
             };
-            masterDataTimestampRef.current = now;
+
+            masterDataCacheRef.current = newCache;
+            masterDataTimestampRef.current.lastGlobal = now;
 
             setSessions(sessRes.data.filter(s => s.is_active));
             setExamTypes(typeRes.data);
@@ -300,6 +307,8 @@ const TestCreate = () => {
             setExamDetails(detailRes.data);
         } catch (err) {
             console.error('Failed to fetch master data:', err);
+        } finally {
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     }, [getAuthConfig, getApiUrl]);
 
@@ -347,23 +356,32 @@ const TestCreate = () => {
 
     const fetchData = useCallback(async (force = false) => {
         if (!force && data.length > 0) return;
+        
+        const fetchKey = 'tests-list';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         setIsLoading(true);
         setError(null);
+        activeFetchKeysRef.current.add(fetchKey);
+        
         try {
             const apiUrl = getApiUrl();
             const config = getAuthConfig();
+            if (!config.headers) return;
+
             const response = await axios.get(`${apiUrl}/api/tests/`, config);
             setData(Array.isArray(response.data) ? response.data : (response.data.results || []));
 
-            // Use cached master data instead of repeated API calls
-            await fetchMasterData();
+            // Ensure master data is also loaded (it has its own deduplication)
+            fetchMasterData();
         } catch (err) {
             console.error('Failed to fetch test data:', err);
             setError('Failed to load test management data.');
         } finally {
             setIsLoading(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
-    }, [getApiUrl, getAuthConfig, fetchMasterData]);
+    }, [getApiUrl, getAuthConfig, fetchMasterData, data.length]);
 
     // Handle debounced search
     useEffect(() => {

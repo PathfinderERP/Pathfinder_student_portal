@@ -212,7 +212,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             const response = await axios.post(`${apiUrl}/api/master-data/${endpoint}/sync-erp/`, {}, config);
             toast.success(response.data.message || "Sync completed!", { id: loadToast });
             fetchData(true); // Refresh list
-            fetchMasterData(true); // Refresh dropdowns
+            const syncKeys = activeSubTab === 'Session' ? ['sessions'] : 
+                            activeSubTab === 'Class' ? ['classes'] : ['targetExams'];
+            fetchMasterData(syncKeys, true); // Refresh relevant dropdowns
         } catch (err) {
             console.error("ERP Sync failed:", err);
             toast.error(err.response?.data?.error || "Sync failed", { id: loadToast });
@@ -334,8 +336,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const bulkFileInputRef = useRef(null);
 
     const lastFetchedTab = useRef(null);
+    const activeFetchKeyRef = useRef(null); // Prevent duplicate simultaneous requests
     const masterDataCacheRef = useRef({}); // Cache master data in memory
-    const masterDataTimestampRef = useRef(null); // Track cache time
+    const masterDataTimestampRef = useRef({}); // Track cache time per endpoint
     const MASTER_DATA_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
     const sessionLabel = useMemo(() => {
@@ -447,75 +450,84 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         return { headers: { 'Authorization': `Bearer ${activeToken}` } };
     }, [token]);
 
-    // Function to fetch master data with caching (defined after getAuthConfig)
-    const fetchMasterData = useCallback(async (force = false) => {
+    // Function to fetch master data with caching (granular)
+    const fetchMasterData = useCallback(async (keys = [], force = false) => {
         const now = Date.now();
-
-        // Return cached data if available and not stale
-        if (!force && masterDataCacheRef.current &&
-            masterDataTimestampRef.current &&
-            (now - masterDataTimestampRef.current) < MASTER_DATA_CACHE_TTL &&
-            Object.keys(masterDataCacheRef.current).length > 0) {
-            const cached = masterDataCacheRef.current;
-            setSessions((cached.sessions || []).filter(s => s.is_active));
-            setExamTypes(cached.examTypes || []);
-            setClasses(cached.classes || []);
-            setTargetExams(cached.targetExams || []);
-            setSubjects(cached.subjects || []);
-            setTopics(cached.topics || []);
-            setChapters(cached.chapters || []);
-            return;
-        }
-
-        // Fetch all master data in parallel
         const config = getAuthConfig();
-        if (!config) return;
+        if (!config || !keys.length) return;
+
+        const endpoints = {
+            sessions: { url: 'sessions', setter: setSessions },
+            examTypes: { url: 'exam-types', setter: setExamTypes },
+            classes: { url: 'classes', setter: setClasses },
+            targetExams: { url: 'target-exams', setter: setTargetExams },
+            subjects: { url: 'subjects', setter: setSubjects },
+            topics: { url: 'topics', setter: setTopics },
+            chapters: { url: 'chapters', setter: setChapters },
+        };
+
+        // Determine which keys actually need fetching
+        const keysToFetch = keys.filter(key => {
+            if (force) return true;
+            const lastFetched = masterDataTimestampRef.current[key];
+            const isStale = !lastFetched || (now - lastFetched) > MASTER_DATA_CACHE_TTL;
+            const inCache = masterDataCacheRef.current[key];
+            
+            if (!isStale && inCache) {
+                // Populate state from cache
+                const data = masterDataCacheRef.current[key];
+                endpoints[key].setter(key === 'sessions' ? data.filter(s => s.is_active) : data);
+                return false;
+            }
+            return true;
+        });
+
+        if (keysToFetch.length === 0) return;
 
         try {
             const apiUrl = getApiUrl();
             const query = force ? '?refresh=true' : '';
-            const [sessRes, typeRes, classRes, targetRes, subRes, topicRes, chapRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/master-data/sessions/${query}`, config),
-                axios.get(`${apiUrl}/api/master-data/exam-types/${query}`, config),
-                axios.get(`${apiUrl}/api/master-data/classes/${query}`, config),
-                axios.get(`${apiUrl}/api/master-data/target-exams/${query}`, config),
-                axios.get(`${apiUrl}/api/master-data/subjects/${query}`, config),
-                axios.get(`${apiUrl}/api/master-data/topics/${query}`, config),
-                axios.get(`${apiUrl}/api/master-data/chapters/${query}`, config),
-            ]);
+            const responses = await Promise.all(keysToFetch.map(key => 
+                axios.get(`${apiUrl}/api/master-data/${endpoints[key].url}/${query}`, config)
+            ));
 
-            // Cache the data
-            masterDataCacheRef.current = {
-                sessions: sessRes.data,
-                examTypes: typeRes.data,
-                classes: classRes.data,
-                targetExams: targetRes.data,
-                subjects: subRes.data,
-                topics: topicRes.data,
-                chapters: chapRes.data,
-            };
-            masterDataTimestampRef.current = now;
-
-            // Update states
-            setSessions(sessRes.data.filter(s => s.is_active));
-            setExamTypes(typeRes.data);
-            setClasses(classRes.data);
-            setTargetExams(targetRes.data);
-            setSubjects(subRes.data);
-            setTopics(topicRes.data);
-            setChapters(chapRes.data);
+            responses.forEach((res, i) => {
+                const key = keysToFetch[i];
+                const resData = res.data;
+                masterDataCacheRef.current[key] = resData;
+                masterDataTimestampRef.current[key] = now;
+                
+                const ep = endpoints[key];
+                ep.setter(key === 'sessions' ? resData.filter(s => s.is_active) : resData);
+            });
         } catch (err) {
-            console.error('Failed to fetch master data:', err);
+            console.error('Failed to fetch granular master data:', err);
         }
     }, [getAuthConfig, getApiUrl]);
+
+    const tabDependencies = useMemo(() => ({
+        'Chapter': ['classes', 'subjects'],
+        'Topic': ['classes', 'subjects', 'chapters'],
+        'SubTopic': ['topics'],
+        'Exam Type': ['targetExams'],
+        'Exam Details': ['sessions', 'examTypes', 'classes', 'targetExams'],
+        'Image': ['classes', 'subjects', 'topics', 'examTypes', 'targetExams'],
+    }), []);
 
     const fetchData = useCallback(async (force = false, topicFilterId = null) => {
         if (!currentTabConfig || activeSubTab === 'Section Management') return;
 
+        // Prevent redundant parallel requests for the same tab/context
+        const fetchKey = `${activeSubTab}-${topicFilterId || 'none'}-${force}`;
+        if (activeFetchKeyRef.current === fetchKey && !force) return;
+        activeFetchKeyRef.current = fetchKey;
+
+        const requiredKeys = tabDependencies[activeSubTab] || [];
+
         // For SubTopic, skip the bulk data fetch - use topic filter instead
         if (activeSubTab === 'SubTopic' && !topicFilterId && !force) {
-            // Load master data from cache
-            await fetchMasterData();
+            // Load required master data (topics)
+            await fetchMasterData(requiredKeys);
             setData([]);
             lastFetchedTab.current = activeSubTab;
             return;
@@ -543,9 +555,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             setData(response.data);
             if (!topicFilterId) lastFetchedTab.current = activeSubTab;
 
-            // Load master data from cache instead of making repeated API calls
-            if (activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type' || activeSubTab === 'Topic' || activeSubTab === 'Chapter' || activeSubTab === 'SubTopic' || activeSubTab === 'Image') {
-                await fetchMasterData(false);
+            // Load master data required for this tab
+            if (requiredKeys.length > 0) {
+                await fetchMasterData(requiredKeys, force);
             }
         } catch (err) {
             console.error(`Failed to fetch ${activeSubTab} data:`, err);
@@ -556,6 +568,9 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             }
         } finally {
             setIsLoading(false);
+            if (activeFetchKeyRef.current === fetchKey) {
+                activeFetchKeyRef.current = null;
+            }
         }
     }, [currentTabConfig, getApiUrl, getAuthConfig, activeSubTab, fetchMasterData]);
 
@@ -603,11 +618,6 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             }
         };
     }, [searchTerm]);
-
-    // Pre-load master data on mount for faster tab switching
-    useEffect(() => {
-        fetchMasterData();
-    }, [fetchMasterData]);
 
     // Reset filters on tab change
     useEffect(() => {

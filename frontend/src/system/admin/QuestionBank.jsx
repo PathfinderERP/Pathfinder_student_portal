@@ -125,6 +125,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     // Debounced search state
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const debouncedSearchRef = useRef(null);
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     // Handle debounced search
     useEffect(() => {
@@ -308,6 +309,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
     // Fetch Master Data (with localStorage cache)
     const fetchMasterData = useCallback(async (force = false) => {
+        const fetchKey = 'master-data';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         // Check cache first
         const cached = localStorage.getItem('masterDataCache');
         const cacheTime = localStorage.getItem('masterDataCacheTime');
@@ -336,6 +340,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         if (!config) return;
 
         setIsLoadingMaster(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const [classRes, subRes, chapterRes, topicRes, typeRes, targetRes, detailRes] = await Promise.all([
@@ -375,15 +380,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             console.error("Failed to fetch master data", err);
         } finally {
             setIsLoadingMaster(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     }, [getApiUrl, getAuthConfig]);
 
     // Fetch Questions
     const fetchQuestions = useCallback(async (force = false) => {
+        const fetchKey = 'questions';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         const config = getAuthConfig();
         if (!config) return;
 
         setIsLoadingQuestions(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/questions/`, config);
@@ -394,15 +404,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             console.error("Failed to fetch questions", err);
         } finally {
             setIsLoadingQuestions(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     }, [getApiUrl, getAuthConfig]);
 
     // Fetch Images
     const fetchImages = useCallback(async (force = false) => {
+        const fetchKey = 'images';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         const config = getAuthConfig();
         if (!config) return;
 
         setIsLoadingImages(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const params = new URLSearchParams();
@@ -418,6 +433,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             console.error("Failed to fetch images", err);
         } finally {
             setIsLoadingImages(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     }, [getApiUrl, getAuthConfig, imageFilters]);
 
@@ -473,14 +489,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     });
 
     const fetchStats = useCallback(async (force = false) => {
+        const fetchKey = 'stats';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         const config = getAuthConfig();
         if (!config) return;
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const res = await axios.get(`${apiUrl}/api/questions/stats/`, config);
             setStats(res.data);
         } catch (err) {
             console.error("Failed to fetch stats", err);
+        } finally {
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     }, [getApiUrl, getAuthConfig]);
 

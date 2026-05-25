@@ -13,10 +13,15 @@ const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
     const [error, setError] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const containerRef = useRef(null);
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     useEffect(() => {
         const fetch = async () => {
+            const fetchKey = `qs-analysis-${testId}`;
+            if (activeFetchKeysRef.current.has(fetchKey)) return;
+
             setIsLoading(true);
+            activeFetchKeysRef.current.add(fetchKey);
             try {
                 const apiUrl = getApiUrl();
                 const res = await axios.get(
@@ -28,6 +33,7 @@ const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
                 setError(err.response?.data?.error || 'Failed to load analysis.');
             } finally {
                 setIsLoading(false);
+                activeFetchKeysRef.current.delete(fetchKey);
             }
         };
         fetch();

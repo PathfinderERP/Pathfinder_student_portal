@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Search, FileSpreadsheet, ArrowLeft,
-    ChevronRight, Download, FileText, Loader2
+    ChevronRight, Download, FileText, Loader2, Filter, X
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -18,6 +18,8 @@ const TestResultStudents = ({ test, onBack }) => {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [students, setStudents] = useState([]);
     const [sections, setSections] = useState([]);
+    const [selectedCentre, setSelectedCentre] = useState('');
+    const [selectedPerformance, setSelectedPerformance] = useState('all');
     const [isLoading, setIsLoading] = useState(true);
     const itemsPerPage = 8;
 
@@ -43,11 +45,68 @@ const TestResultStudents = ({ test, onBack }) => {
         fetchResults();
     }, [test]);
 
-    const filteredStudents = students.filter(s =>
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.enrollment.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.centre.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const centres = [...new Set(students.map(s => s.centre))].sort();
+
+    const filteredStudents = students.filter(s => {
+        const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            s.enrollment.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            s.centre.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesCentre = !selectedCentre || s.centre === selectedCentre;
+        
+        let matchesPerformance = true;
+        if (selectedPerformance === 'high') {
+            matchesPerformance = parseFloat(s.accuracy) >= 80;
+        } else if (selectedPerformance === 'mid') {
+            matchesPerformance = parseFloat(s.accuracy) >= 50 && parseFloat(s.accuracy) < 80;
+        } else if (selectedPerformance === 'low') {
+            matchesPerformance = parseFloat(s.accuracy) < 50;
+        }
+
+        return matchesSearch && matchesCentre && matchesPerformance;
+    });
+
+    const handleExport = () => {
+        if (filteredStudents.length === 0) return;
+
+        // Header construction
+        const headers = ['Rank', 'Student Name', 'Roll Number', 'Centre'];
+        sections.forEach(sec => headers.push(sec));
+        headers.push('Total Marks', 'Accuracy', 'Total Time');
+
+        // Row construction
+        const csvRows = [headers.join(',')];
+        
+        filteredStudents.forEach(s => {
+            const row = [
+                s.rank,
+                `"${s.name.replace(/"/g, '""')}"`,
+                `"${s.enrollment}"`,
+                `"${s.centre.replace(/"/g, '""')}"`
+            ];
+            
+            sections.forEach(sec => {
+                row.push(s.section_scores?.[sec] || 0);
+            });
+            
+            row.push(s.marks);
+            row.push(`"${s.accuracy}"`);
+            row.push(`"${s.totalTime}"`);
+            
+            csvRows.push(row.join(','));
+        });
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${testName.replace(/\s+/g, '_')}_Results.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const paginatedStudents = filteredStudents.slice(
         (currentPage - 1) * itemsPerPage,
@@ -82,24 +141,85 @@ const TestResultStudents = ({ test, onBack }) => {
                             <p className={`text-[10px] font-bold mt-1 uppercase tracking-widest leading-none ${isDarkMode ? 'text-slate-400 opacity-30' : 'text-slate-600 opacity-90'}`}>{testName}</p>
                         </div>
                     </div>
-                    <button className="px-8 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-[5px] font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-900/20 active:scale-95 whitespace-nowrap">
+                    <button 
+                        onClick={handleExport}
+                        className="px-8 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-[5px] font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all shadow-lg shadow-blue-900/20 active:scale-95 whitespace-nowrap">
                         <FileSpreadsheet size={18} />
                         <span>Export Data</span>
                     </button>
                 </div>
             </div>
 
-            {/* Search Bar */}
-            <div className={`p-4 rounded-[5px] border shadow-xl mb-8 flex items-center gap-4 ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
-                <div className="relative flex-1 group">
-                    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-500 group-focus-within:text-blue-500' : 'text-slate-400 group-focus-within:text-blue-500'}`} size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search student by name, enrollment or centre..."
-                        className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-bold text-sm ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500/50' : 'bg-slate-50 border-slate-100 focus:border-blue-500/50'}`}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {/* Search Bar & Filters */}
+            <div className="flex flex-col lg:flex-row gap-4 mb-8">
+                <div className={`flex-1 p-4 rounded-[5px] border shadow-xl flex items-center gap-4 ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                    <div className="relative flex-1 group">
+                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isDarkMode ? 'text-slate-500 group-focus-within:text-blue-500' : 'text-slate-400 group-focus-within:text-blue-500'}`} size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search student by name, enrollment or centre..."
+                            className={`w-full pl-12 pr-4 py-3 rounded-[5px] border transition-all outline-none font-bold text-sm ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-blue-500/50' : 'bg-slate-50 border-slate-100 focus:border-blue-500/50'}`}
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-4">
+                    {/* Centre Filter */}
+                    <div className={`p-4 rounded-[5px] border shadow-xl flex items-center gap-4 min-w-[200px] ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                        <Filter className={isDarkMode ? 'text-slate-500' : 'text-slate-400'} size={18} />
+                        <select
+                            value={selectedCentre}
+                            onChange={(e) => {
+                                setSelectedCentre(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className={`flex-1 bg-transparent border-none outline-none font-bold text-xs uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                        >
+                            <option value="">All Centres</option>
+                            {centres.map(centre => (
+                                <option key={centre} value={centre} className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>{centre}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Performance Filter */}
+                    <div className={`p-4 rounded-[5px] border shadow-xl flex items-center gap-4 min-w-[200px] ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                        <div className={`w-2 h-2 rounded-full ${selectedPerformance === 'high' ? 'bg-emerald-500' : selectedPerformance === 'mid' ? 'bg-orange-400' : selectedPerformance === 'low' ? 'bg-red-500' : 'bg-blue-500'}`} />
+                        <select
+                            value={selectedPerformance}
+                            onChange={(e) => {
+                                setSelectedPerformance(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className={`flex-1 bg-transparent border-none outline-none font-bold text-xs uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
+                        >
+                            <option value="all">All Performance</option>
+                            <option value="high" className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>High Accuracy (&gt;80%)</option>
+                            <option value="mid" className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>Average (50-80%)</option>
+                            <option value="low" className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>Needs Improvement (&lt;50%)</option>
+                        </select>
+                    </div>
+
+                    {(selectedCentre || selectedPerformance !== 'all' || searchTerm) && (
+                        <button 
+                            onClick={() => {
+                                setSelectedCentre('');
+                                setSelectedPerformance('all');
+                                setSearchTerm('');
+                                setCurrentPage(1);
+                            }}
+                            className={`p-4 rounded-[5px] border shadow-xl flex items-center justify-center gap-2 transition-all hover:text-red-500 ${isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-500' : 'bg-white border-slate-100 text-slate-400'}`}
+                            title="Clear All Filters"
+                        >
+                            <X size={18} />
+                            <span className="text-[10px] font-black uppercase tracking-widest md:hidden lg:inline">Clear</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

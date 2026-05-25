@@ -94,11 +94,16 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeSection, setActiveSection] = useState(0);
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     useEffect(() => {
         const fetch = async () => {
+            const fetchKey = `q-analysis-${testId}`;
+            if (activeFetchKeysRef.current.has(fetchKey)) return;
+
             setIsLoading(true);
             setError(null);
+            activeFetchKeysRef.current.add(fetchKey);
             try {
                 const apiUrl = getApiUrl();
                 const res = await axios.get(
@@ -110,6 +115,7 @@ const QuestionAnalysis = ({ testId, testName, onBack }) => {
                 setError(err.response?.data?.error || 'Failed to load analysis.');
             } finally {
                 setIsLoading(false);
+                activeFetchKeysRef.current.delete(fetchKey);
             }
         };
         fetch();

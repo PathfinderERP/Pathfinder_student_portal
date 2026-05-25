@@ -20,6 +20,7 @@ const MergeTestResult = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedTests, setSelectedTests] = useState([]);
+    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     // ─── Merge / Leaderboard State ─────────────────────────────────────────────
     const [isMerging, setIsMerging] = useState(false);
@@ -31,7 +32,11 @@ const MergeTestResult = () => {
     const axiosConfig = () => ({ headers: { Authorization: `Bearer ${token}` } });
 
     const fetchTests = async () => {
+        const fetchKey = 'test-list';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         setIsLoading(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const res = await axios.get(`${apiUrl}/api/tests/`, axiosConfig());
@@ -42,6 +47,7 @@ const MergeTestResult = () => {
             console.error('Error fetching tests:', err);
         } finally {
             setIsLoading(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     };
 
@@ -92,7 +98,12 @@ const MergeTestResult = () => {
             alert('Please select at least 2 tests to merge.');
             return;
         }
+
+        const fetchKey = 'merge-results';
+        if (activeFetchKeysRef.current.has(fetchKey)) return;
+
         setIsMerging(true);
+        activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const res = await axios.post(
@@ -107,6 +118,7 @@ const MergeTestResult = () => {
             alert(msg);
         } finally {
             setIsMerging(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     };
 

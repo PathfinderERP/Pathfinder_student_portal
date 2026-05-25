@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
     ArrowLeft, Search, RefreshCw, Smartphone, Calendar, Clock,
@@ -14,6 +14,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const activeFetchKeyRef = useRef(null); // Prevent duplicate simultaneous requests
 
     const getAuthConfig = useCallback(() => {
         const activeToken = token || localStorage.getItem('auth_token');
@@ -45,17 +46,24 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
     };
 
-    const fetchAllotments = useCallback(async () => {
+    const fetchAllotments = useCallback(async (force = false) => {
+        const fetchKey = `allotments-${test.id}-${force}`;
+        if (activeFetchKeyRef.current === fetchKey) return;
+
         setIsLoading(true);
+        activeFetchKeyRef.current = fetchKey;
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/tests/${test.id}/centres/?refresh=true&t=${new Date().getTime()}`, getAuthConfig());
+            const response = await axios.get(`${apiUrl}/api/tests/${test.id}/centres/${force ? '?refresh=true' : ''}`, getAuthConfig());
             setAllotments(response.data);
         } catch (err) {
             console.error('Error fetching allotments:', err);
             triggerAlert('Failed to load allotments', 'error');
         } finally {
             setIsLoading(false);
+            if (activeFetchKeyRef.current === fetchKey) {
+                activeFetchKeyRef.current = null;
+            }
         }
     }, [test.id, getApiUrl, getAuthConfig]);
 
@@ -362,7 +370,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                         />
                     </div>
                     <button
-                        onClick={fetchAllotments}
+                        onClick={() => fetchAllotments(true)}
                         className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
                     >
                         <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
