@@ -819,19 +819,24 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                 {/* Questions */}
                                 <div className="divide-y divide-transparent space-y-3 p-5">
                                     {(mockQuestions || []).map((q, qIndex) => {
-                                        const isCorrect   = q.result === 'CA';
-                                        const isPartial   = q.result === 'PA';
-                                        const isIncorrect = q.result === 'IA';
-                                        const isSkipped   = q.result === 'NA';
+                                        const isGrace     = q.is_wrong === true;
+                                        const isCorrect   = !isGrace && q.result === 'CA';
+                                        const isPartial   = !isGrace && q.result === 'PA';
+                                        const isIncorrect = !isGrace && q.result === 'IA';
+                                        const isSkipped   = !isGrace && q.result === 'NA';
 
                                         const correctOptionsStr = (q.correct_options || []).join(',');
                                         const userOptionsStr = Array.isArray(q.user_answer) ? q.user_answer.join(',') : q.user_answer;
 
                                         return (
-                                            <div key={q.id} className={`rounded-[8px] border overflow-hidden ${qBorder} ${qBg}`}>
+                                            <div key={q.id} className={`rounded-[8px] border overflow-hidden ${isGrace ? (isDarkMode ? 'border-amber-500/30' : 'border-amber-300') : qBorder} ${qBg}`}>
                                                 {/* Q Header */}
-                                                <div className={`flex items-center justify-between px-5 py-3 border-b ${isDarkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
-                                                    <div className="flex items-center gap-3">
+                                                <div className={`flex items-center justify-between px-5 py-3 border-b ${
+                                                    isGrace
+                                                        ? (isDarkMode ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200')
+                                                        : (isDarkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-slate-50 border-slate-100')
+                                                }`}>
+                                                    <div className="flex items-center gap-3 flex-wrap">
                                                         <span className={`text-[12px] font-black ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                                                             Q.{qIndex + 1}
                                                         </span>
@@ -839,6 +844,8 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                             Question Type : <span className={`font-black uppercase ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{q.type}</span>
                                                         </span>
                                                         {/* Status badge */}
+                                                        {isGrace     && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">⚠ Wrong Question</span>}
+                                                        {isGrace     && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">✦ Grace Marks</span>}
                                                         {isCorrect   && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">✓ Correct</span>}
                                                         {isPartial   && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">~ Partial</span>}
                                                         {isIncorrect && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">✗ Incorrect</span>}
@@ -907,10 +914,19 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                 </div>
 
                                                 {/* Meta & Solution */}
-                                                <div className={`flex flex-wrap items-center gap-4 px-5 py-3 border-t text-[11px] ${isDarkMode ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                                <div className={`flex flex-wrap items-center gap-4 px-5 py-3 border-t text-[11px] ${
+                                                    isGrace
+                                                        ? (isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/60')
+                                                        : (isDarkMode ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50')
+                                                }`}>
                                                     <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
                                                         Marks : <span className={`font-black ${q.earned > 0 ? 'text-emerald-500' : q.earned < 0 ? 'text-red-500' : (isDarkMode ? 'text-slate-300' : 'text-slate-600')}`}>{q.earned}</span>
                                                     </span>
+                                                    {isGrace && (
+                                                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                            ⚠ This question was flagged as incorrect by admin — Grace Marks: Full Marks awarded
+                                                        </span>
+                                                    )}
                                                     <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
                                                         Your Time : <span className={`font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-600'}`}>{q.time_spent ? `${parseInt(q.time_spent/60)}m ${q.time_spent%60}s` : 'N/A'}</span>
                                                     </span>

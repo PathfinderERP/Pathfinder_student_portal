@@ -1347,6 +1347,10 @@ class TestViewSet(viewsets.ModelViewSet):
                 except: raw_res = {}
             responses = raw_res if isinstance(raw_res, dict) else {}
 
+            # GRACE MARKS (gated): only applied for questions in the stored grace list, which is
+            # populated when admin clicks 'Generate Result'. Never applied on live is_wrong flag.
+            grace_qs = set(str(qid) for qid in (sub.get('grace_applied_questions') or []))
+
             section_scores = {sec_name: 0.0 for sec_name in sections_max.keys()}
             total_correct = 0
             total_attempted = 0
@@ -1384,7 +1388,14 @@ class TestViewSet(viewsets.ModelViewSet):
                     q_type = q.question_type or 'SINGLE_CHOICE'
                     c_marks = float(sec.correct_marks or 0)
                     n_marks = float(sec.negative_marks or 0)
-                    
+
+                    # GRACE MARKS: Question in the stored grace list → full marks, no negative
+                    if qid in grace_qs:
+                        earned = c_marks
+                        sec_earned += earned
+                        total_correct += 1
+                        continue
+
                     if q_type == 'SINGLE_CHOICE':
                         ans_str = str(ans).strip().lower()
                         clean_ans = clean_html(ans)
@@ -1488,6 +1499,192 @@ class TestViewSet(viewsets.ModelViewSet):
 
 
 
+    @action(detail=True, methods=['post'], url_path='generate_result')
+    def generate_result(self, request, pk=None):
+        """
+        Recalculates and persists scores for all finalized submissions for this test.
+        Applies grace marks for questions with is_wrong=True at the time of calling.
+        Stores grace_applied_questions and updated score in each submission document.
+        This is the gated action - marks only change when admin explicitly calls this.
+        """
+        from api.db_utils import get_db
+        from bson import ObjectId
+        from django.utils import timezone
+        import json
+
+        test = self.get_object()
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database unavailable.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        # Load all sections and questions, capturing is_wrong at the moment of generation
+        from sections.models import Section
+        sections = list(Section.objects.filter(test=test).prefetch_related('questions').order_by('priority'))
+
+        q_map = {}
+        section_questions_map = {}
+        for sec in sections:
+            sec_questions = list(sec.questions.all())
+            section_questions_map[sec.pk] = sec_questions
+            for q in sec_questions:
+                qid = str(q.pk)
+                if qid not in q_map:
+                    q_map[qid] = {
+                        'correct': float(sec.correct_marks or 0),
+                        'negative': float(sec.negative_marks or 0),
+                        'is_wrong': getattr(q, 'is_wrong', False),
+                        'type': q.question_type or 'SINGLE_CHOICE',
+                        'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
+                        'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
+                        'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
+                        'options': q.question_options or [],
+                    }
+
+        # Collect which question IDs have grace marks at time of generation
+        wrong_question_ids = [qid for qid, qi in q_map.items() if qi.get('is_wrong')]
+
+        # Fetch all finalized submissions
+        try:
+            try: t_pk = ObjectId(test.pk)
+            except: t_pk = test.pk
+            submissions = list(db['tests_testsubmission'].find(
+                {'test_id': t_pk, 'is_finalized': True}
+            ))
+        except Exception as e:
+            return Response({'error': f'Failed to fetch submissions: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if not submissions:
+            Test.objects.filter(pk=test.pk).update(is_completed=True)
+            return Response({
+                'message': 'No submissions found. Test marked as completed.',
+                'processed': 0,
+                'grace_questions': len(wrong_question_ids)
+            })
+
+        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+        processed = 0
+        errors = 0
+
+        for sub in submissions:
+            try:
+                raw_res = sub.get('responses') or {}
+                if isinstance(raw_res, str):
+                    try: raw_res = json.loads(raw_res)
+                    except: raw_res = {}
+                responses = raw_res if isinstance(raw_res, dict) else {}
+
+                total_score = 0.0
+
+                for sec in sections:
+                    sec_earned = 0.0
+                    sec_neg = 0.0
+                    seen = set()
+                    sec_questions = section_questions_map.get(sec.pk, [])
+
+                    for q in sec_questions:
+                        qid = str(q.pk)
+                        if qid in seen: continue
+                        seen.add(qid)
+
+                        qi = q_map.get(qid, {})
+                        c_marks = qi.get('correct', 0)
+                        n_marks = qi.get('negative', 0)
+
+                        res_obj = responses.get(qid)
+                        if res_obj is None:
+                            try: res_obj = responses.get(int(qid))
+                            except: pass
+                        ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+
+                        if ans in (None, '', [], {}): continue
+
+                        # GRACE MARKS: questions marked wrong at generation time
+                        if qi.get('is_wrong'):
+                            sec_earned += c_marks
+                            continue
+
+                        # Normal scoring
+                        earned = 0.0
+                        neg = 0.0
+                        q_type = qi.get('type', 'SINGLE_CHOICE')
+
+                        if q_type == 'SINGLE_CHOICE':
+                            ans_str = str(ans).strip().lower()
+                            clean_ans = clean_html(ans)
+                            is_correct = False
+                            for oi, opt in enumerate(qi.get('options', [])):
+                                opt_id = str(opt.get('id', ''))
+                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                opt_label = keys[oi] if oi < len(keys) else None
+                                if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                                    if opt.get('isCorrect'): is_correct = True
+                                    break
+                            if not is_correct:
+                                try:
+                                    idx = int(ans_str)
+                                    opts = qi.get('options', [])
+                                    if idx < len(opts) and opts[idx].get('isCorrect'): is_correct = True
+                                except: pass
+                            if is_correct: earned = c_marks
+                            else: neg = n_marks
+                        elif q_type == 'MULTI_CHOICE':
+                            raw_selected = ans if isinstance(ans, list) else [ans]
+                            normalized_selected = set()
+                            for item in raw_selected:
+                                item_str = str(item).strip().lower()
+                                for oi, opt in enumerate(qi.get('options', [])):
+                                    opt_id = str(opt.get('id', ''))
+                                    opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                    opt_label = keys[oi] if oi < len(keys) else None
+                                    if item_str == opt_id or item_str == opt_content or (opt_label and item_str == opt_label):
+                                        normalized_selected.add(opt_id)
+                                        break
+                            correct_set = set(qi.get('correct_options', []))
+                            if normalized_selected == correct_set: earned = c_marks
+                            elif normalized_selected & correct_set:
+                                fraction = len(normalized_selected & correct_set) / len(correct_set) if correct_set else 0
+                                earned = round(c_marks * fraction, 2)
+                            else: neg = n_marks
+                        elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                            try:
+                                val = float(ans)
+                                if qi.get('answer_from') is not None and qi.get('answer_to') is not None:
+                                    if qi['answer_from'] <= val <= qi['answer_to']: earned = c_marks
+                                    else: neg = n_marks
+                            except: neg = n_marks
+
+                        sec_earned += earned
+                        sec_neg += neg
+
+                    total_score += (sec_earned - sec_neg)
+
+                # Persist updated score + grace info to MongoDB
+                db['tests_testsubmission'].update_one(
+                    {'_id': sub['_id']},
+                    {'$set': {
+                        'score': round(total_score, 2),
+                        'grace_applied_questions': wrong_question_ids,
+                        'result_generated_at': timezone.now()
+                    }}
+                )
+                processed += 1
+            except Exception as e:
+                print(f"[generate_result] Error processing sub {sub.get('_id')}: {e}")
+                errors += 1
+
+        # Mark test as completed so frontend shows 'Regenerate' button next time
+        Test.objects.filter(pk=test.pk).update(is_completed=True)
+
+        grace_count = len(wrong_question_ids)
+        grace_msg = f" Grace marks applied to {grace_count} question(s)." if grace_count else " No grace marks applied."
+        return Response({
+            'message': f'Results generated successfully for {processed} student(s).{grace_msg}',
+            'processed': processed,
+            'grace_questions': grace_count,
+            'errors': errors
+        })
+
+
     @action(detail=True, methods=['get'], url_path='student_performance')
     def student_performance(self, request, pk=None):
         """
@@ -1543,6 +1740,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'section': sec.name,
                     'correct_marks': float(sec.correct_marks or 0),
                     'negative_marks': float(sec.negative_marks or 0),
+                    'is_wrong': False,  # Will be patched from grace_applied_questions after sub_doc is loaded
                     'type': q.question_type or 'SINGLE_CHOICE',
                     'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
                     'correct_contents': [clean_html(opt.get('content') or opt.get('text', '')) for opt in (q.question_options or []) if opt.get('isCorrect')],
@@ -1582,6 +1780,13 @@ class TestViewSet(viewsets.ModelViewSet):
             try: raw_res = json.loads(raw_res)
             except: raw_res = {}
         responses = raw_res if isinstance(raw_res, dict) else {}
+
+        # GRACE MARKS (gated): Patch q_map from stored grace_applied_questions.
+        # This list is ONLY set when admin runs 'Generate Result'. Before that, no grace is shown.
+        grace_applied_questions = set(str(qid) for qid in (sub_doc.get('grace_applied_questions') or []))
+        for qid_g in grace_applied_questions:
+            if qid_g in q_map:
+                q_map[qid_g]['is_wrong'] = True
 
         # 4. Evaluate per question + per section
         section_stats = {}
@@ -1627,7 +1832,14 @@ class TestViewSet(viewsets.ModelViewSet):
                     total_unattempted += 1
                 else:
                     qtype = qi['type']
-                    if qtype == 'SINGLE_CHOICE':
+                    # GRACE MARKS: Question flagged wrong → full marks regardless of answer, no negative
+                    if qi.get('is_wrong'):
+                        q_result = 'GR'
+                        earned = qi['correct_marks']
+                        neg = 0
+                        total_correct += 1
+                        section_stats[sec['name']]['correct'] += 1
+                    elif qtype == 'SINGLE_CHOICE':
                         ans_str = str(ans).strip().lower()
                         clean_ans = clean_html(ans)
                         
@@ -1728,6 +1940,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'type': qi['type'],
                     'correct_marks': qi['correct_marks'],
                     'negative_marks': qi['negative_marks'],
+                    'is_wrong': qi.get('is_wrong', False),  # GRACE MARKS: pass flag to frontend
                     'options': qi['options'],
                     'correct_options': qi['correct_options'],
                     'user_answer': user_answer,
@@ -1812,7 +2025,11 @@ class TestViewSet(viewsets.ModelViewSet):
                             earned = 0
                             neg = 0
                             q_type = q_info['type']
-                            if q_type == 'SINGLE_CHOICE':
+                            # GRACE MARKS: re-score wrong questions with full marks for rank calculation
+                            if q_info.get('is_wrong'):
+                                earned = q_info['correct_marks']
+                                d_correct += 1
+                            elif q_type == 'SINGLE_CHOICE':
                                 ans_str = str(ans).strip().lower()
                                 clean_ans = clean_html(ans)
                                 is_correct = False
