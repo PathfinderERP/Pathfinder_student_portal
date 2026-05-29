@@ -833,23 +833,23 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                 else:
                     item.pdfs.all().delete()
                 
-            # Handle Deletions for Videos (Files)
-            # Default: if keep_videos is provided (even if empty), use it to determine what to delete
+            # Handle Deletions for Videos (Unified Files & Links)
+            # Both keep_videos and keep_video_links fields are checked for backward compatibility
+            # but they now operate on the unified videos collection.
+            video_ids_to_keep = []
             if 'keep_videos' in request.data:
-                keep_video_ids = [id for id in request.data.getlist('keep_videos') if id]  # Filter out empty strings
-                if keep_video_ids:
-                    item.videos.filter(video_file__isnull=False).exclude(pk__in=keep_video_ids).delete()
-                else:
-                    item.videos.filter(video_file__isnull=False).delete()
-
-            # Handle Deletions for Video Links
-            # Default: if keep_video_links is provided (even if empty), use it to determine what to delete
+                video_ids_to_keep.extend([id for id in request.data.getlist('keep_videos') if id])
             if 'keep_video_links' in request.data:
-                keep_video_link_ids = [id for id in request.data.getlist('keep_video_links') if id]  # Filter out empty strings
-                if keep_video_link_ids:
-                    item.videos.filter(video_link__isnull=False).exclude(pk__in=keep_video_link_ids).delete()
+                video_ids_to_keep.extend([id for id in request.data.getlist('keep_video_links') if id])
+            
+            if 'keep_videos' in request.data or 'keep_video_links' in request.data:
+                # Remove duplicates from the keep list
+                unique_keep_ids = list(set(video_ids_to_keep))
+                if unique_keep_ids:
+                    # Correctly exclude and delete orphaned video records
+                    item.videos.exclude(pk__in=unique_keep_ids).delete()
                 else:
-                    item.videos.filter(video_link__isnull=False).delete()
+                    item.videos.all().delete()
 
             # Handle Deletions for DPPs
             # Default: if keep_dpps is provided (even if empty), use it to determine what to delete
@@ -911,6 +911,8 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
                             video_obj.title = v['name']
                         if v.get('description') is not None:
                             video_obj.description = v['description']
+                        if v.get('link'):
+                            video_obj.video_link = v['link']
                         thumb = request.FILES.get(f'existing_video_{video_id}_thumb')
                         if thumb:
                             video_obj.thumbnail = thumb

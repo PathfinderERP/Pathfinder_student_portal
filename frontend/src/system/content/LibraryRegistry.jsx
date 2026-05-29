@@ -823,8 +823,14 @@ const LibraryRegistry = () => {
             multi_dpps: item.dpps ? item.dpps.map(d => ({ id: d.id, name: d.title, description: d.description, file: null, thumbnail: null, existing_thumb: d.thumbnail, existing_file: d.file })) : (item.dpp_file ? [{ id: item.id, name: item.name, description: item.description, file: null, thumbnail: null, existing_thumb: item.thumbnail, existing_file: item.dpp_file }] : []),
             video_link: item.video_link || '',
             video_file: null,
-            multi_videos: item.videos ? item.videos.filter(v => v.video_file).map(v => ({ id: v.id, name: v.title, description: v.description, file: null, thumbnail: null, existing_thumb: v.thumbnail, existing_file: v.video_file })) : [],
-            multi_video_links: item.videos ? item.videos.filter(v => v.video_link).map(v => ({ id: v.id, name: v.title, description: v.description, link: v.video_link, thumbnail: null, existing_thumb: v.thumbnail })) : [],
+            multi_videos: (() => {
+                const seen = new Set();
+                return (item.videos || []).filter(v => v.video_file && !seen.has(v.id) && seen.add(v.id)).map(v => ({ id: v.id, name: v.title, description: v.description, file: null, thumbnail: null, existing_thumb: v.thumbnail, existing_file: v.video_file }));
+            })(),
+            multi_video_links: (() => {
+                const seen = new Set();
+                return (item.videos || []).filter(v => v.video_link && !seen.has(v.id) && seen.add(v.id)).map(v => ({ id: v.id, name: v.title, description: v.description, link: v.video_link, thumbnail: null, existing_thumb: v.thumbnail }));
+            })(),
             content_type: (item.videos?.length > 0 || item.video_link || item.video_file) ? 'video' : (item.dpp_file || item.dpps?.length > 0 ? 'dpp' : 'pdf'),
             existing_thumbnail: item.thumbnail,
             remove_thumbnail: false, // track if we want to remove existing thumbnail
@@ -930,15 +936,13 @@ const LibraryRegistry = () => {
             // Ensure field is always in request so backend processes deletions
             if (keepPdfs.length === 0) formData.append('keep_pdfs', '');
             
-            const keepVideos = newItem.multi_videos ? newItem.multi_videos.filter(item => item.id).map(item => item.id) : [];
+            const keepVideos = Array.from(new Set([
+                ...(newItem.multi_videos ? newItem.multi_videos.filter(item => item.id).map(item => item.id) : []),
+                ...(newItem.multi_video_links ? newItem.multi_video_links.filter(item => item.id).map(item => item.id) : [])
+            ]));
             keepVideos.forEach(id => formData.append('keep_videos', id));
             // Ensure field is always in request so backend processes deletions
             if (keepVideos.length === 0) formData.append('keep_videos', '');
-            
-            const keepVideoLinks = newItem.multi_video_links ? newItem.multi_video_links.filter(item => item.id).map(item => item.id) : [];
-            keepVideoLinks.forEach(id => formData.append('keep_video_links', id));
-            // Ensure field is always in request so backend processes deletions
-            if (keepVideoLinks.length === 0) formData.append('keep_video_links', '');
             
             const keepDpps = newItem.multi_dpps ? newItem.multi_dpps.filter(item => item.id).map(item => item.id) : [];
             keepDpps.forEach(id => formData.append('keep_dpps', id));
@@ -975,47 +979,51 @@ const LibraryRegistry = () => {
                 });
             }
 
-            // Handle Granular Videos
-            if (newItem.multi_videos && newItem.multi_videos.length > 0) {
-                // 1. Send updates for existing Videos (those with an id already in DB)
-                const existingVideos = newItem.multi_videos.filter(v => v.id);
-                if (existingVideos.length > 0) {
-                    formData.append('existing_videos_data', JSON.stringify(
-                        existingVideos.map(v => ({ 
-                            id: v.id, 
-                            name: v.name, 
-                            description: v.description,
-                            remove_thumb: Boolean(!v.thumbnail && !v.existing_thumb) 
-                        }))
-                    ));
-                    existingVideos.forEach(v => {
-                        if (v.thumbnail) formData.append(`existing_video_${v.id}_thumb`, v.thumbnail);
-                    });
-                }
-                // 2. Upload brand new Videos
-                let videoFileIdx = 0;
-                newItem.multi_videos.forEach((item) => {
-                    if (!item.id && item.file) {
-                        formData.append('multi_videos', item.file);
-                        formData.append(`video_${videoFileIdx}_title`, item.name);
-                        formData.append(`video_${videoFileIdx}_desc`, item.description);
-                        if (item.thumbnail) formData.append(`video_${videoFileIdx}_thumb`, item.thumbnail);
-                        videoFileIdx++;
-                    }
+            // Handle Granular Videos (Files & Links)
+            const existingVideos = [
+                ...(newItem.multi_videos || []).filter(v => v.id),
+                ...(newItem.multi_video_links || []).filter(v => v.id)
+            ];
+
+            if (existingVideos.length > 0) {
+                formData.append('existing_videos_data', JSON.stringify(
+                    existingVideos.map(v => ({ 
+                        id: v.id, 
+                        name: v.name, 
+                        description: v.description,
+                        link: v.link || null, // Include link if it exists
+                        remove_thumb: Boolean(!v.thumbnail && !v.existing_thumb) 
+                    }))
+                ));
+                existingVideos.forEach(v => {
+                    if (v.thumbnail) formData.append(`existing_video_${v.id}_thumb`, v.thumbnail);
                 });
             }
 
-            // Handle Granular Video Links
-            if (newItem.multi_video_links && newItem.multi_video_links.length > 0) {
-                formData.append('multi_video_links_data', JSON.stringify(newItem.multi_video_links.map(v => ({ 
-                    id: v.id, 
-                    name: v.name, 
-                    link: v.link, 
-                    description: v.description,
-                    remove_thumb: !v.thumbnail && !v.existing_thumb 
-                }))));
-                newItem.multi_video_links.forEach((v, i) => {
-                    if (v.thumbnail) formData.append(`link_${i}_thumb`, v.thumbnail);
+            // Upload brand new Video Files
+            let videoFileIdx = 0;
+            newItem.multi_videos.forEach((item) => {
+                if (!item.id && item.file) {
+                    formData.append('multi_videos', item.file);
+                    formData.append(`video_${videoFileIdx}_title`, item.name);
+                    formData.append(`video_${videoFileIdx}_desc`, item.description);
+                    if (item.thumbnail) formData.append(`video_${videoFileIdx}_thumb`, item.thumbnail);
+                    videoFileIdx++;
+                }
+            });
+
+            // Upload brand new Video Links
+            const newLinks = newItem.multi_video_links.filter(v => !v.id);
+            if (newLinks.length > 0) {
+                formData.append('multi_video_links_data', JSON.stringify(
+                    newLinks.map(v => ({ 
+                        name: v.name, 
+                        link: v.link, 
+                        description: v.description 
+                    }))
+                ));
+                newLinks.forEach((v, idx) => {
+                    if (v.thumbnail) formData.append(`link_${idx}_thumb`, v.thumbnail);
                 });
             }
 
@@ -1171,8 +1179,14 @@ const LibraryRegistry = () => {
         const itemsWithOrder = safeLibrary.map(item => {
             const chapterInfo = safeChapters.find(ch => String(ch.id) === String(item.chapter));
             const topicInfo = safeTopics.find(t => String(t.id) === String(item.topic));
+            
+            // Deduplicate videos for accurate display and counting
+            const seenVideoIds = new Set();
+            const uniqueVideos = (item.videos || []).filter(v => !seenVideoIds.has(v.id) && seenVideoIds.add(v.id));
+
             return {
                 ...item,
+                videos: uniqueVideos,
                 chapter_order: chapterInfo?.sort_order || 999,
                 topic_order: topicInfo?.sort_order || 999,
                 topic_name: item.topic_name || topicInfo?.name
@@ -1282,7 +1296,11 @@ const LibraryRegistry = () => {
             total: items.length,
             managed_chapters: chapters.length,
             pdfs: items.reduce((acc, item) => acc + (item.pdfs?.length || 0) + (item.pdf_file ? 1 : 0), 0),
-            videos: items.reduce((acc, item) => acc + (item.videos?.length || 0) + (item.video_file || item.video_link ? 1 : 0), 0),
+            videos: items.reduce((acc, item) => {
+                const seen = new Set();
+                const uniqueVideoCount = (item.videos || []).filter(v => !seen.has(v.id) && seen.add(v.id)).length;
+                return acc + uniqueVideoCount + (item.video_file || item.video_link ? 1 : 0);
+            }, 0),
             dpps: items.reduce((acc, item) => acc + (item.dpps?.length || 0) + (item.questions?.length > 0 ? 1 : 0), 0)
         };
     }, [libraryItems, chapters]);
@@ -1815,6 +1833,7 @@ const LibraryRegistry = () => {
                                                         required
                                                         onChange={(val) => {
                                                             const oldTopic = newItem.topic;
+                                                            if (String(oldTopic) === String(val)) return; // Already on this topic
                                                             if (oldTopic) {
                                                                 setTopicDataMap(prev => ({
                                                                     ...prev,
@@ -1878,6 +1897,7 @@ const LibraryRegistry = () => {
                                                                 type="button"
                                                                 onClick={() => {
                                                                     const oldTopic = newItem.topic;
+                                                                    if (String(oldTopic) === String(t.id)) return; // Already on this topic, avoid wiping state
                                                                     if (oldTopic) {
                                                                         setTopicDataMap(prev => ({
                                                                             ...prev,

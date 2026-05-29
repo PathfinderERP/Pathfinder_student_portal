@@ -167,6 +167,19 @@ class LibraryItemSerializer(serializers.ModelSerializer):
             ret['sessions'] = [str(s.pk) for s in instance.sessions.all()]
         if 'target_exams' in ret:
             ret['target_exams'] = [str(te.pk) for te in instance.target_exams.all()]
+            
+        # Explicitly deduplicate resources to fix potential DB/Serialization duplication issues
+        for resource_key in ['videos', 'pdfs', 'dpps']:
+            if resource_key in ret and isinstance(ret[resource_key], list):
+                seen_ids = set()
+                unique_resources = []
+                for res in ret[resource_key]:
+                    res_id = res.get('id')
+                    if res_id not in seen_ids:
+                        unique_resources.append(res)
+                        seen_ids.add(res_id)
+                ret[resource_key] = unique_resources
+                
         return ret
 
     def get_session_names(self, obj):
