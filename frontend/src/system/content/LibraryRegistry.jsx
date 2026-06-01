@@ -1292,10 +1292,13 @@ const LibraryRegistry = () => {
 
     // Stats logic
     const stats = useMemo(() => {
-        const items = safeArray(libraryItems);
+        const items = safeArray(filteredItems);
+        // Calculate assigned chapters based on filtered items (non-virtual ones with a chapter)
+        const activeChapters = new Set(items.filter(item => !item.is_virtual && item.chapter).map(item => String(item.chapter)));
+        
         return {
-            total: items.length,
-            managed_chapters: chapters.length,
+            total: items.filter(item => !item.is_virtual).length,
+            managed_chapters: activeChapters.size,
             pdfs: items.reduce((acc, item) => acc + (item.pdfs?.length || 0) + (item.pdf_file ? 1 : 0), 0),
             videos: items.reduce((acc, item) => {
                 const seen = new Set();
@@ -1304,7 +1307,7 @@ const LibraryRegistry = () => {
             }, 0),
             dpps: items.reduce((acc, item) => acc + (item.dpps?.length || 0) + (item.questions?.length > 0 ? 1 : 0), 0)
         };
-    }, [libraryItems, chapters]);
+    }, [filteredItems]);
 
     // Pagination logic
     const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
