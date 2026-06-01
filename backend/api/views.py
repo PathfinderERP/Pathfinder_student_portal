@@ -971,6 +971,7 @@ class StudentStudyPlannerConfigView(views.APIView):
                     return response.Response({
                         'id':             str(doc.get('_id', '')),
                         'target_college': doc.get('target_college', {}),
+                        'target_career':  doc.get('target_career', ''),
                         'updated_at':     doc.get('updated_at'),
                         'has_previous_plan': has_previous_plan,
                         'latest_plan': latest_plan
@@ -1010,6 +1011,7 @@ class StudentStudyPlannerConfigView(views.APIView):
                         {'_id': instance.pk},
                         {'$set': {
                             'target_college': request.data.get('target_college', {}),
+                            'target_career':  request.data.get('target_career', ''),
                             'user_id':        request.user.pk,
                             'updated_at':     datetime.utcnow()
                         }},

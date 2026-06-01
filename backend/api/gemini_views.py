@@ -31,6 +31,7 @@ def generate_ai_study_plan(request):
         data = request.data
         test_id = data.get('test_id')
         target_college = data.get('target_college', 'Top National Engineering College')
+        target_career = data.get('target_career', 'General Field')
         target_college_obj = data.get('target_college_obj', {})
         is_update_request = data.get('is_update_request', False)
         
@@ -106,6 +107,7 @@ INPUT DATA:
 Student Profile:
 - Class Level: {class_level}
 - Target College: {target_college}
+- Target Career/Field: {target_career}
 - Exam Type: {exam_name}
 
 CURRENT EXAM PERFORMANCE:
@@ -333,8 +335,14 @@ def search_college_ai(request):
         query = data.get('query', '').strip().lower()
         exam_type = data.get('exam_type', 'JEE')
 
-        if len(query) < 2:
-            return Response([], status=status.HTTP_200_OK)
+        if not query or len(query) < 2:
+            json_path = os.path.join(settings.BASE_DIR, '..', 'frontend', 'src', 'data', 'colleges.json')
+            colleges = []
+            if os.path.exists(json_path):
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    all_colleges = json.load(f)
+                    colleges = all_colleges[:50]
+            return Response(colleges, status=status.HTTP_200_OK)
 
         # LOCAL SEARCH from verified list (Converted from Merged_Institution_Names.xlsx)
         json_path = os.path.join(settings.BASE_DIR, '..', 'frontend', 'src', 'data', 'colleges.json')

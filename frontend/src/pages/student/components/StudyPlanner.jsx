@@ -11,6 +11,8 @@ import axios from 'axios';
 import { getMyResults } from '../../../services/resultsService';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Select from 'react-select';
+import AsyncSelect from 'react-select/async';
 import StudentPsychometricForm from './StudentPsychometricForm';
 
 
@@ -21,6 +23,29 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const studentClass = studentData?.class?.name || "N/A";
 
     const CLASSES = [studentClass];
+
+    const CAREER_OPTIONS = [
+        { value: "Computer Science & AI", label: "Computer Science & AI" },
+        { value: "Information Technology", label: "Information Technology" },
+        { value: "Electronics & Communication", label: "Electronics & Communication" },
+        { value: "Electrical Engineering", label: "Electrical Engineering" },
+        { value: "Mechanical Engineering", label: "Mechanical Engineering" },
+        { value: "Civil Engineering", label: "Civil Engineering" },
+        { value: "Chemical Engineering", label: "Chemical Engineering" },
+        { value: "Aerospace Engineering", label: "Aerospace Engineering" },
+        { value: "Marine Engineering", label: "Marine Engineering" },
+        { value: "Medicine (MBBS)", label: "Medicine (MBBS)" },
+        { value: "Dental (BDS)", label: "Dental (BDS)" },
+        { value: "Pharmacy", label: "Pharmacy" },
+        { value: "Architecture", label: "Architecture" },
+        { value: "Data Science & Analytics", label: "Data Science & Analytics" },
+        { value: "Biotechnology", label: "Biotechnology" },
+        { value: "Psychology", label: "Psychology" },
+        { value: "Economics", label: "Economics" },
+        { value: "Law", label: "Law" },
+        { value: "Commerce & Finance", label: "Commerce & Finance" },
+        { value: "Pure Sciences / Research", label: "Pure Sciences / Research" }
+    ];
 
     // Application Flow State: 1: Setup, 2: Test, 3: College/Review, 4: AI Plan
     const [currentStep, setCurrentStep] = useState(1);
@@ -76,38 +101,22 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
     const [filteredColleges, setFilteredColleges] = useState([]);
 
-    const searchColleges = async (query) => {
-        if (!query || query.length < 2 || !profile.targetExam) {
-            setFilteredColleges([]);
-            return;
-        }
-        
-        setIsSearchingColleges(true);
+    const loadColleges = async (inputValue) => {
         try {
             const apiUrl = getApiUrl();
             const response = await axios.post(`${apiUrl}/api/student/ai-mentor/college-search/`, {
-                query: query,
-                exam_type: profile.targetExam
+                query: inputValue || "",
+                exam_type: profile.targetExam || "JEE"
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setFilteredColleges(response.data || []);
+            const data = response.data || [];
+            return data.map(college => ({ value: college, label: college }));
         } catch (error) {
             console.error('Failed to search colleges:', error);
             if (error.response?.status === 429) setIsQuotaExceeded(true);
-        } finally {
-            setIsSearchingColleges(false);
+            return [];
         }
-    };
-
-    const handleSearchChange = (val) => {
-        setCollegeSearch(val);
-        setIsCollegeDropdownOpen(true);
-        
-        if (searchTimeout.current) clearTimeout(searchTimeout.current);
-        searchTimeout.current = setTimeout(() => {
-            searchColleges(val);
-        }, 800);
     };
 
     // Auto-sync profile and fetch tests on load
@@ -166,7 +175,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     if (res.data) {
                         if (res.data.target_college) {
                             const collegeObj = res.data.target_college;
-                            setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "" }));
+                            setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "", targetCareer: res.data.target_career || "" }));
                             setSelectedCollege(collegeObj);
                             setCollegeSearch(collegeObj.name || "");
                         }
@@ -467,7 +476,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     };
 
     const [planConfig, setPlanConfig] = useState({
-        targetCollege: ''
+        targetCollege: '',
+        targetCareer: ''
     });
 
     useEffect(() => {
@@ -561,6 +571,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             const payload = {
                 test_id: selectedTest?.id || selectedTest?._id,
                 target_college: selectedCollege?.name || planConfig.targetCollege || "Top National Engineering College",
+                target_career: planConfig.targetCareer || "General Field",
                 target_college_obj: selectedCollege,
                 class: profile.classLevel || "12",
                 total_score: (testScores?.total || 0).toString(),
@@ -919,51 +930,147 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 </div>
                             ) : (
                                 /* Editable search — first-time setup */
-                                <div className="relative">
-                                    <div className={`flex items-center gap-2 p-3 rounded-[4px] border ${isDarkMode ? 'bg-[#0a0d14] border-white/10' : 'bg-slate-50 border-slate-200 shadow-inner'}`}>
-                                        <Search size={14} className="text-slate-500" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search top colleges dynamically..."
-                                            value={collegeSearch}
-                                            onChange={(e) => handleSearchChange(e.target.value)}
-                                            onFocus={() => setIsCollegeDropdownOpen(true)}
-                                            className={`bg-transparent border-none outline-none text-xs font-bold w-full ${isDarkMode ? 'text-white' : 'text-slate-800'}`}
-                                        />
-                                        <button onClick={() => setIsCollegeDropdownOpen(!isCollegeDropdownOpen)} className="p-1 hover:bg-white/10 rounded transition-colors">
-                                            <ChevronDown size={14} className={`text-slate-500 transition-transform ${isCollegeDropdownOpen ? 'rotate-180' : ''}`} />
-                                        </button>
-                                    </div>
-                                    {isCollegeDropdownOpen && (
-                                        <div className={`absolute z-20 mt-1 w-full max-h-[200px] overflow-y-auto rounded-[4px] border shadow-2xl ${isDarkMode ? 'bg-[#0a0d14] border-white/10' : 'bg-white border-slate-200'}`}>
-                                            {isSearchingColleges && (
-                                                <div className="p-4 flex items-center justify-center gap-2">
-                                                    <Loader2 size={12} className="animate-spin text-indigo-500" />
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Searching API...</span>
-                                                </div>
-                                            )}
-                                            {filteredColleges.length > 0 ? filteredColleges.map(college => (
-                                                <button 
-                                                    key={college} 
-                                                    onClick={() => { 
-                                                        setPlanConfig({ ...planConfig, targetCollege: college }); 
-                                                        setSelectedCollege({ name: college });
-                                                        setCollegeSearch(college); 
-                                                        setIsCollegeDropdownOpen(false); 
-                                                    }} 
-                                                    className={`w-full p-3 text-left text-[11px] font-bold border-b last:border-b-0 transition-all ${planConfig.targetCollege === college ? 'bg-indigo-600 text-white border-indigo-600' : isDarkMode ? 'border-white/5 hover:bg-white/5 text-slate-400 hover:text-white' : 'border-slate-50 hover:bg-slate-50 text-slate-600 hover:text-slate-900'}`}
-                                                >
-                                                    {college}
-                                                </button>
-                                            )) : !isSearchingColleges && <div className="p-4 text-center text-[10px] font-bold text-slate-500 uppercase">No results found</div>}
-                                        </div>
-                                    )}
+                                <div className="relative z-50">
+                                    <AsyncSelect
+                                        cacheOptions
+                                        defaultOptions
+                                        loadOptions={loadColleges}
+                                        value={planConfig.targetCollege ? { value: planConfig.targetCollege, label: planConfig.targetCollege } : null}
+                                        onChange={(selected) => {
+                                            const collegeName = selected ? selected.value : '';
+                                            setPlanConfig({ ...planConfig, targetCollege: collegeName });
+                                            setSelectedCollege({ name: collegeName });
+                                            setCollegeSearch(collegeName);
+                                        }}
+                                        placeholder="Search top colleges dynamically..."
+                                        isClearable
+                                        styles={{
+                                            control: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#0a0d14' : '#f8fafc',
+                                                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                                padding: '2px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 'bold',
+                                                boxShadow: 'none',
+                                                '&:hover': {
+                                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                                }
+                                            }),
+                                            menu: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#0a0d14' : '#ffffff',
+                                                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 'bold'
+                                            }),
+                                            option: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: state.isSelected
+                                                    ? '#10b981'
+                                                    : state.isFocused
+                                                        ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                                        : 'transparent',
+                                                color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                                '&:active': {
+                                                    backgroundColor: '#10b981'
+                                                }
+                                            }),
+                                            singleValue: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#ffffff' : '#1e293b'
+                                            }),
+                                            input: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#ffffff' : '#1e293b'
+                                            }),
+                                            placeholder: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                            })
+                                        }}
+                                    />
                                 </div>
                             )}
                             <div className={`p-4 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-indigo-500/5 border-white/10' : 'bg-indigo-50/50 border-slate-200'}`}>
                                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Current Target</p>
                                 <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || "No Institution Selected"}</p>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Career Selection Section */}
+                    <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            <Brain size={18} className="text-indigo-500" /> Target Career Field
+                        </h3>
+                        <div className="space-y-4">
+                            {tests.some(t => t.submission?.is_finalized) ? (
+                                <div className={`p-4 rounded-[4px] border-2 border-indigo-500/30 flex items-center gap-3 ${isDarkMode ? 'bg-indigo-500/5' : 'bg-indigo-50'}`}>
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <CheckCircle2 size={16} className="text-indigo-500 shrink-0" />
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 mb-0.5">Career Locked</p>
+                                            <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCareer || 'No Career Selected'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <Select
+                                        options={CAREER_OPTIONS}
+                                        value={CAREER_OPTIONS.find(c => c.value === planConfig.targetCareer) || null}
+                                        onChange={(selected) => setPlanConfig({ ...planConfig, targetCareer: selected ? selected.value : '' })}
+                                        placeholder="-- Search or Select Target Career --"
+                                        isClearable
+                                        styles={{
+                                            control: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#0a0d14' : '#f8fafc',
+                                                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                                padding: '2px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 'bold',
+                                                boxShadow: 'none',
+                                                '&:hover': {
+                                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                                }
+                                            }),
+                                            menu: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#0a0d14' : '#ffffff',
+                                                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 'bold'
+                                            }),
+                                            option: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: state.isSelected
+                                                    ? '#4f46e5'
+                                                    : state.isFocused
+                                                        ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                                        : 'transparent',
+                                                color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                                '&:active': {
+                                                    backgroundColor: '#4f46e5'
+                                                }
+                                            }),
+                                            singleValue: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#ffffff' : '#1e293b'
+                                            }),
+                                            input: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#ffffff' : '#1e293b'
+                                            }),
+                                            placeholder: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                            })
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1001,7 +1108,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 try {
                                     const apiUrl = getApiUrl();
                                     await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
-                                        target_college: selectedCollege || { name: planConfig.targetCollege }
+                                        target_college: selectedCollege || { name: planConfig.targetCollege },
+                                        target_career: planConfig.targetCareer
                                     }, {
                                         headers: { 'Authorization': `Bearer ${token}` }
                                     });
