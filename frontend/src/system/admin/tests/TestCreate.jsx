@@ -241,6 +241,7 @@ const TestCreate = () => {
         session: '',
         target_exams: [],
         exam_type: '',
+        class_levels: [],
         class_level: '',
         duration: 180,
         total_marks: 0,
@@ -505,6 +506,7 @@ const TestCreate = () => {
             session: loadedData?.sessions?.[0]?.id || sessions[0]?.id || '',
             target_exams: [],
             exam_type: '',
+            class_levels: [],
             class_level: loadedData?.classes?.[0]?.id || classes[0]?.id || '',
             duration: 180,
             total_marks: loadedData?.examDetails?.[0]?.total_marks || 0,
@@ -528,6 +530,7 @@ const TestCreate = () => {
             sessions: item.sessions || [],
             target_exams: item.target_exams || [],
             exam_type: item.exam_type || '',
+            class_levels: item.class_levels || (item.class_level_id || item.class_level ? [item.class_level_id || item.class_level] : []),
             class_level: item.class_level || '',
             duration: item.duration,
             total_marks: item.total_marks || 0,
@@ -731,7 +734,7 @@ const TestCreate = () => {
                                         <div className="flex flex-col">
                                             <span className="font-extrabold text-sm mb-1">{item.name}</span>
                                             <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
-                                                {Array.isArray(item.sessions_details) && item.sessions_details.length > 0 ? (item.sessions_details.length > 3 ? `${item.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${item.sessions_details.length - 3} session` : item.sessions_details.map(s => s.name).join(', ')) : (item.session_details?.name || '-')} • {item.class_level_details?.name} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
+                                                {Array.isArray(item.sessions_details) && item.sessions_details.length > 0 ? (item.sessions_details.length > 3 ? `${item.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${item.sessions_details.length - 3} session` : item.sessions_details.map(s => s.name).join(', ')) : (item.session_details?.name || '-')} • {Array.isArray(item.class_levels_details) && item.class_levels_details.length > 0 ? item.class_levels_details.map(c => c.name).join(', ') : (item.class_level_details?.name || '-')} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>
@@ -896,15 +899,31 @@ const TestCreate = () => {
     // Auto-populate Code, Duration, and Marks based on Selected Exam Title (Name)
     useEffect(() => {
         if (formValues.name) {
-            const match = examDetails.find(d =>
-                d.name === formValues.name &&
-                String(d.session) === String(formValues.session) &&
-                String(d.class_level) === String(formValues.class_level) &&
-                (Array.isArray(d.target_exams) && formValues.target_exams.length > 0
-                    ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
-                    : true) &&
-                String(d.exam_type) === String(formValues.exam_type)
-            );
+            const matchSessions = Array.isArray(formValues.sessions) && formValues.sessions.length > 0 
+                ? formValues.sessions.map(String) 
+                : (formValues.session ? [String(formValues.session)] : []);
+            const matchClasses = Array.isArray(formValues.class_levels) && formValues.class_levels.length > 0
+                ? formValues.class_levels.map(String)
+                : (formValues.class_level ? [String(formValues.class_level)] : []);
+
+            const match = examDetails.find(d => {
+                const dSessions = d.sessions ? d.sessions.map(String) : (d.session ? [String(d.session)] : []);
+                const sessionMatch = dSessions.some(ds => matchSessions.includes(ds)) || (matchSessions.length===0);
+                
+                const dClasses = d.class_levels ? d.class_levels.map(String) : (d.class_level ? [String(d.class_level)] : []);
+                const classMatch = dClasses.some(dc => matchClasses.includes(dc)) || (matchClasses.length===0);
+                
+                const dTargets = Array.isArray(d.target_exams) ? d.target_exams.map(String) : (d.target_exam ? [String(d.target_exam)] : []);
+                const targetMatch = Array.isArray(formValues.target_exams) && formValues.target_exams.length > 0 
+                    ? dTargets.some(dt => formValues.target_exams.map(String).includes(dt))
+                    : true;
+                    
+                return d.name === formValues.name &&
+                    sessionMatch &&
+                    classMatch &&
+                    targetMatch &&
+                    String(d.exam_type) === String(formValues.exam_type);
+            });
             if (match) {
                 setFormValues(prev => ({
                     ...prev,
@@ -917,46 +936,86 @@ const TestCreate = () => {
                 }));
             }
         }
-    }, [formValues.name, formValues.session, formValues.class_level, formValues.target_exams, formValues.exam_type, examDetails]);
+    }, [formValues.name, formValues.session, formValues.sessions, formValues.class_level, formValues.class_levels, formValues.target_exams, formValues.exam_type, examDetails]);
 
-    // Cascading Filter Logic based on Exam Details Master
     const availableSessions = useMemo(() => {
-        const sessionIds = [...new Set(examDetails.map(d => String(d.session)))];
-        return sessions.filter(s => sessionIds.includes(String(s.id)) && (s.is_active || String(s.id) === String(formValues.session)));
-    }, [sessions, examDetails, formValues.session]);
+        const sessionIds = [...new Set(examDetails.flatMap(d => d.sessions ? d.sessions.map(String) : (d.session ? [String(d.session)] : [])))];
+        return sessions.filter(s => sessionIds.includes(String(s.id)) && (s.is_active || (Array.isArray(formValues.sessions) ? formValues.sessions.map(String).includes(String(s.id)) : String(s.id) === String(formValues.session))));
+    }, [sessions, examDetails, formValues.session, formValues.sessions]);
 
     const availableClasses = useMemo(() => {
-        if (!formValues.session) return [];
+        const matchSessions = Array.isArray(formValues.sessions) && formValues.sessions.length > 0 
+            ? formValues.sessions.map(String) 
+            : (formValues.session ? [String(formValues.session)] : []);
+            
+        if (matchSessions.length === 0) return [];
+        
         const classIds = [...new Set(examDetails
-            .filter(d => String(d.session) === String(formValues.session))
-            .map(d => String(d.class_level)))];
-        return classes.filter(c => classIds.includes(String(c.id)) && (c.is_active || String(c.id) === String(formValues.class_level)));
-    }, [classes, examDetails, formValues.session, formValues.class_level]);
+            .filter(d => {
+                const dSessions = d.sessions ? d.sessions.map(String) : (d.session ? [String(d.session)] : []);
+                return dSessions.some(ds => matchSessions.includes(ds));
+            })
+            .flatMap(d => d.class_levels ? d.class_levels.map(String) : (d.class_level ? [String(d.class_level)] : [])))];
+            
+        return classes.filter(c => classIds.includes(String(c.id)) && (c.is_active || (Array.isArray(formValues.class_levels) ? formValues.class_levels.map(String).includes(String(c.id)) : String(c.id) === String(formValues.class_level))));
+    }, [classes, examDetails, formValues.session, formValues.sessions, formValues.class_level, formValues.class_levels]);
 
     const availableTargetExams = useMemo(() => {
-        if (!formValues.session || !formValues.class_level) return [];
+        const matchSessions = Array.isArray(formValues.sessions) && formValues.sessions.length > 0 
+            ? formValues.sessions.map(String) 
+            : (formValues.session ? [String(formValues.session)] : []);
+            
+        const matchClasses = Array.isArray(formValues.class_levels) && formValues.class_levels.length > 0
+            ? formValues.class_levels.map(String)
+            : (formValues.class_level ? [String(formValues.class_level)] : []);
+            
+        if (matchSessions.length === 0 || matchClasses.length === 0) return [];
+        
         const targetIds = [...new Set(examDetails
-            .filter(d =>
-                String(d.session) === String(formValues.session) &&
-                String(d.class_level) === String(formValues.class_level)
-            )
-            .flatMap(d => Array.isArray(d.target_exams) ? d.target_exams.map(String) : d.target_exam ? [String(d.target_exam)] : []))];
+            .filter(d => {
+                const dSessions = d.sessions ? d.sessions.map(String) : (d.session ? [String(d.session)] : []);
+                const sessionMatch = dSessions.some(ds => matchSessions.includes(ds));
+                
+                const dClasses = d.class_levels ? d.class_levels.map(String) : (d.class_level ? [String(d.class_level)] : []);
+                const classMatch = dClasses.some(dc => matchClasses.includes(dc));
+                
+                return sessionMatch && classMatch;
+            })
+            .flatMap(d => Array.isArray(d.target_exams) ? d.target_exams.map(String) : (d.target_exam ? [String(d.target_exam)] : [])))];
+            
         return targetExams.filter(t => targetIds.includes(String(t.id)) && (t.is_active || (Array.isArray(formValues.target_exams) && formValues.target_exams.map(String).includes(String(t.id)))));
-    }, [targetExams, examDetails, formValues.session, formValues.class_level, formValues.target_exams]);
+    }, [targetExams, examDetails, formValues.session, formValues.sessions, formValues.class_level, formValues.class_levels, formValues.target_exams]);
 
     const availableExamTypes = useMemo(() => {
-        if (!formValues.session || !formValues.class_level || formValues.target_exams.length === 0) return [];
+        const matchSessions = Array.isArray(formValues.sessions) && formValues.sessions.length > 0 
+            ? formValues.sessions.map(String) 
+            : (formValues.session ? [String(formValues.session)] : []);
+            
+        const matchClasses = Array.isArray(formValues.class_levels) && formValues.class_levels.length > 0
+            ? formValues.class_levels.map(String)
+            : (formValues.class_level ? [String(formValues.class_level)] : []);
+            
+        const matchTargets = Array.isArray(formValues.target_exams) ? formValues.target_exams.map(String) : [];
+            
+        if (matchSessions.length === 0 || matchClasses.length === 0 || matchTargets.length === 0) return [];
+        
         const typeIds = [...new Set(examDetails
-            .filter(d =>
-                String(d.session) === String(formValues.session) &&
-                String(d.class_level) === String(formValues.class_level) &&
-                (Array.isArray(d.target_exams)
-                    ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
-                    : false)
-            )
+            .filter(d => {
+                const dSessions = d.sessions ? d.sessions.map(String) : (d.session ? [String(d.session)] : []);
+                const sessionMatch = dSessions.some(ds => matchSessions.includes(ds));
+                
+                const dClasses = d.class_levels ? d.class_levels.map(String) : (d.class_level ? [String(d.class_level)] : []);
+                const classMatch = dClasses.some(dc => matchClasses.includes(dc));
+                
+                const dTargets = Array.isArray(d.target_exams) ? d.target_exams.map(String) : (d.target_exam ? [String(d.target_exam)] : []);
+                const targetMatch = dTargets.some(dt => matchTargets.includes(dt));
+                
+                return sessionMatch && classMatch && targetMatch;
+            })
             .map(d => String(d.exam_type)))];
+            
         return examTypes.filter(et => typeIds.includes(String(et.id)));
-    }, [examTypes, examDetails, formValues.session, formValues.class_level, formValues.target_exams]);
+    }, [examTypes, examDetails, formValues.session, formValues.sessions, formValues.class_level, formValues.class_levels, formValues.target_exams]);
 
     const availableTitles = useMemo(() => {
         if (!formValues.session || !formValues.class_level || formValues.target_exams.length === 0 || !formValues.exam_type) return [];
@@ -1013,8 +1072,17 @@ const TestCreate = () => {
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
-                                            <div className={`px-4 py-3 rounded-[5px] border font-bold text-xs ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10 text-orange-200' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
-                                                {availableClasses.find(c => String(c.id) === String(formValues.class_level))?.name || '-'}
+                                            <div className={`px-4 py-2 min-h-[42px] rounded-[5px] border flex flex-wrap gap-1.5 ${isDarkMode ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-200'}`}>
+                                                {availableClasses.filter(c => Array.isArray(formValues.class_levels) && formValues.class_levels.map(String).includes(String(c.id))).map(c => (
+                                                    <span key={c.id} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tight ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-white/80 text-orange-600 border border-orange-200'}`}>
+                                                        {c.name}
+                                                    </span>
+                                                ))}
+                                                {(!formValues.class_levels || formValues.class_levels.length === 0) && (
+                                                    <div className={`text-xs font-bold pt-1 ${isDarkMode ? 'text-orange-200' : 'text-orange-700'}`}>
+                                                        {availableClasses.find(c => String(c.id) === String(formValues.class_level))?.name || '-'}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="space-y-1 col-span-1 md:col-span-2">
@@ -1051,10 +1119,11 @@ const TestCreate = () => {
                                             <SearchableSelect
                                                 disabled={!formValues.session}
                                                 options={availableClasses}
-                                                value={formValues.class_level}
-                                                onChange={val => setFormValues({ ...formValues, class_level: val, target_exams: [], exam_type: '', name: '', code: '' })}
+                                                value={formValues.class_levels}
+                                                onChange={vals => setFormValues({ ...formValues, class_levels: vals, class_level: vals.length > 0 ? vals[0] : '', target_exams: [], exam_type: '', name: '', code: '' })}
                                                 placeholder="Select Class"
                                                 isDarkMode={isDarkMode}
+                                                isMulti={true}
                                             />
                                         </div>
                                         <div className="space-y-1">

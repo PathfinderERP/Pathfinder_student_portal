@@ -671,7 +671,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const handleToggleOption = (qIndex, optId) => {
         setForm(prev => {
             const updatedQuestions = [...prev.questions];
-            const currentQ = updatedQuestions[qIndex];
+            const currentQ = { ...updatedQuestions[qIndex] };
             const isMulti = currentQ.question_type === 'MULTI_CHOICE';
 
             currentQ.options = currentQ.options.map(opt => {
@@ -681,6 +681,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 return { ...opt, isCorrect: isMulti ? opt.isCorrect : false };
             });
 
+            updatedQuestions[qIndex] = currentQ;
             return { ...prev, questions: updatedQuestions };
         });
     };
@@ -1543,11 +1544,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 { value: '', label: 'All Types' },
                                 { value: 'SINGLE_CHOICE', label: 'Single Choice' },
                                 { value: 'MULTI_CHOICE', label: 'Multi Choice' },
-                                { value: 'INTEGER_TYPE', label: 'Integer' },
-                                { value: 'NUMERICAL', label: 'Numerical' },
-                                { value: 'MATRIX', label: 'Matrix' },
-                                { value: 'ASSERTION', label: 'Assertion' },
-                                { value: 'PARAGRAPH', label: 'Paragraph' }
+                                { value: 'INTEGER_TYPE', label: 'Integer' }
                             ]}
                             placeholder="All Types"
                             onChange={(val) => setFilters({ ...filters, question_type: val })}
@@ -1911,20 +1908,33 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 {/* Expanded details */}
                                                 {isSelected && (
                                                     <div className="mt-10 pt-10 border-t-2 border-dashed border-slate-200/20 space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 cursor-auto" onClick={(e) => e.stopPropagation()}>
-                                                        {/* Options */}
+                                                        {/* Options / Answer Range */}
                                                         <div className="space-y-4">
                                                             <label className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-2 block">Response Parameters</label>
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                {q.question_options && q.question_options.map((opt, idx) => {
-                                                                    const isCorrect = opt.isCorrect;
-                                                                    return (
-                                                                        <div key={idx} className={`p-5 rounded-[5px] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
-                                                                            <span className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
-                                                                            <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
+                                                            {['NUMERICAL', 'INTEGER_TYPE'].includes(q.question_type || q.type) ? (
+                                                                <div className="flex gap-4">
+                                                                    <div className={`p-5 rounded-[5px] border-2 flex-1 flex flex-col gap-2 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'}`}>
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Min Value</span>
+                                                                        <span className="text-xl font-bold">{q.answer_from}</span>
+                                                                    </div>
+                                                                    <div className={`p-5 rounded-[5px] border-2 flex-1 flex flex-col gap-2 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'}`}>
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Max Value</span>
+                                                                        <span className="text-xl font-bold">{q.answer_to}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                    {q.question_options && q.question_options.map((opt, idx) => {
+                                                                        const isCorrect = opt.isCorrect;
+                                                                        return (
+                                                                            <div key={idx} className={`p-5 rounded-[5px] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
+                                                                                <span className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
+                                                                                <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
                                                         </div>
 
                                                         {/* Answer display */}
@@ -1936,12 +1946,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                 <div>
                                                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Verified Key</p>
                                                                     <div className="flex items-center gap-3 text-emerald-500 font-black text-lg">
-                                                                        {q.question_options?.filter(o => o.isCorrect).map((o, i) => (
-                                                                            <span key={i} className="flex items-center gap-1">
-                                                                                <span>Option {String.fromCharCode(65 + q.question_options.findIndex(opt => opt === o))}</span>
-                                                                                {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
-                                                                            </span>
-                                                                        ))}
+                                                                        {['NUMERICAL', 'INTEGER_TYPE'].includes(q.question_type || q.type) ? (
+                                                                            <span>{q.answer_from} to {q.answer_to}</span>
+                                                                        ) : (
+                                                                            q.question_options?.filter(o => o.isCorrect).map((o, i) => (
+                                                                                <span key={i} className="flex items-center gap-1">
+                                                                                    <span>Option {String.fromCharCode(65 + q.question_options.findIndex(opt => opt === o))}</span>
+                                                                                    {i < q.question_options.filter(opt => opt.isCorrect).length - 1 && <span>, </span>}
+                                                                                </span>
+                                                                            ))
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -2256,11 +2270,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 options={[
                                                     { value: 'SINGLE_CHOICE', label: 'SINGLE_CHOICE' },
                                                     { value: 'MULTI_CHOICE', label: 'MULTI_CHOICE' },
-                                                    { value: 'NUMERICAL', label: 'NUMERICAL' },
-                                                    { value: 'MATRIX', label: 'MATRIX' },
-                                                    { value: 'ASSERTION', label: 'ASSERTION' },
                                                     { value: 'INTEGER_TYPE', label: 'INTEGER_TYPE' },
-                                                    { value: 'PARAGRAPH', label: 'PARAGRAPH' },
                                                 ]}
                                                 placeholder="Select Type"
                                                 onChange={(val) => {

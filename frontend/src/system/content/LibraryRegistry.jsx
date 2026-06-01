@@ -605,7 +605,7 @@ const LibraryRegistry = () => {
 
     const toggleOption = (qIdx, optId) => {
         const updated = [...newItem.questions];
-        const q = updated[qIdx];
+        const q = { ...updated[qIdx] };
         if (q.question_type === 'SINGLE_CHOICE') {
             q.options = q.options.map(opt => ({
                 ...opt,
@@ -616,6 +616,7 @@ const LibraryRegistry = () => {
                 opt.id === optId ? { ...opt, isCorrect: !opt.isCorrect } : opt
             ));
         }
+        updated[qIdx] = q;
         setNewItem({ ...newItem, questions: updated });
     };
 
@@ -2603,11 +2604,7 @@ const LibraryRegistry = () => {
                                                             options={[
                                                                 { value: 'SINGLE_CHOICE', label: 'SINGLE_CHOICE' },
                                                                 { value: 'MULTI_CHOICE', label: 'MULTI_CHOICE' },
-                                                                { value: 'NUMERICAL', label: 'NUMERICAL' },
-                                                                { value: 'MATRIX', label: 'MATRIX' },
-                                                                { value: 'ASSERTION', label: 'ASSERTION' },
                                                                 { value: 'INTEGER_TYPE', label: 'INTEGER_TYPE' },
-                                                                { value: 'PARAGRAPH', label: 'PARAGRAPH' },
                                                             ]}
                                                             placeholder="Select Type"
                                                             onChange={(val) => {

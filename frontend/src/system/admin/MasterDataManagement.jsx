@@ -313,6 +313,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         exam_type: '',
         target_exam: '',
         target_exams: [],
+        class_levels: [],
         class_level: '',
         subject: '',
         topic: '',
@@ -735,6 +736,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             sessions: [],
             session: '',
             exam_type: '',
+            class_levels: [],
             class_level: classes[0]?.id || '',
             subject: subjects[0]?.id || '',
             sub_topic: '',
@@ -773,6 +775,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 sessions: item.sessions || (item.session_id || item.session ? [item.session_id || item.session] : []),
                 exam_type: item.exam_type_id || item.exam_type || '',
                 target_exams: item.target_exams || (item.target_exam ? [item.target_exam] : []),
+                class_levels: item.class_levels || (item.class_level_id || item.class_level ? [item.class_level_id || item.class_level] : []),
                 class_level: item.class_level_id || item.class_level || '',
                 duration: item.duration,
                 total_marks: item.total_marks || 0,
@@ -2189,7 +2192,13 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     </div>
                                                 </td>
                                                 <td className="py-5 px-4 text-center">
-                                                    <span className="font-bold text-sm tracking-tight">{item.class_level_name}</span>
+                                                    <span className="font-bold text-sm tracking-tight">
+                                                        {Array.isArray(item.class_level_names) && item.class_level_names.length > 0
+                                                            ? (item.class_level_names.length > 2
+                                                                ? `${item.class_level_names.slice(0, 2).join(', ')} + ${item.class_level_names.length - 2}`
+                                                                : item.class_level_names.join(', '))
+                                                            : (item.class_level_name || '-')}
+                                                    </span>
                                                 </td>
                                                 <td className="py-5 px-4">
                                                     <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
@@ -2620,10 +2629,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <div className="space-y-1.5 text-left">
                                                 <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Class</label>
                                                 <SearchableSelect
-                                                    options={classes.filter(c => c.is_active || String(c.id) === String(formValues.class_level))}
-                                                    value={formValues.class_level}
-                                                    onChange={val => setFormValues({ ...formValues, class_level: val })}
-                                                    placeholder="Select Class"
+                                                    isMulti={true}
+                                                    options={classes.filter(c => c.is_active || (Array.isArray(formValues.class_levels) && formValues.class_levels.map(String).includes(String(c.id))))}
+                                                    value={formValues.class_levels}
+                                                    onChange={vals => setFormValues({ ...formValues, class_levels: vals, class_level: vals.length > 0 ? vals[0] : '' })}
+                                                    placeholder="Select Classes"
                                                     isDarkMode={isDarkMode}
                                                 />
                                             </div>

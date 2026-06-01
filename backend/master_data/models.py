@@ -121,7 +121,8 @@ class ExamDetail(models.Model):
     sessions = models.ManyToManyField(Session, blank=True, related_name='exam_details_multi')
     target_exams = models.ManyToManyField(TargetExam, blank=True, related_name='exam_details')
     exam_type = models.ForeignKey(ExamType, on_delete=models.CASCADE, related_name='exam_details')
-    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='exam_details')
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE, related_name='exam_details', null=True, blank=True)
+    class_levels = models.ManyToManyField(ClassLevel, blank=True, related_name='exam_details_multi')
     duration = models.IntegerField(help_text="Duration in minutes")
     total_marks = models.IntegerField(default=0)
     has_calculator = models.BooleanField(default=False)
@@ -158,6 +159,7 @@ class ExamDetail(models.Model):
             if self.pk:
                 test.target_exams.set(self.target_exams.all())
                 test.sessions.set(self.sessions.all())
+                test.class_levels.set(self.class_levels.all())
                 
             # Clear admin test list cache if it exists
             from django.core.cache import cache
@@ -203,6 +205,17 @@ def sync_exam_detail_targets(sender, instance, action, **kwargs):
                 test.target_exams.set(instance.target_exams.all())
         except Exception as e:
             print(f"Error syncing M2M target_exams: {e}")
+
+@receiver(m2m_changed, sender=ExamDetail.class_levels.through)
+def sync_exam_detail_class_levels(sender, instance, action, **kwargs):
+    if action in ["post_add", "post_remove", "post_clear"]:
+        try:
+            from tests.models import Test
+            test = Test.objects.filter(code=instance.code).first()
+            if test:
+                test.class_levels.set(instance.class_levels.all())
+        except Exception as e:
+            print(f"Error syncing M2M class_levels: {e}")
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)

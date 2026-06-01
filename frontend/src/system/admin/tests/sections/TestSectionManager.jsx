@@ -474,6 +474,8 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                                         className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] appearance-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                         <option value="regular">Regular</option>
                                         <option value="partial">Partial</option>
+                                        <option value="wbjee">WBJEE</option>
+                                        <option value="jee_advanced">JEE Advanced</option>
                                         <option value="none">None</option>
                                     </select>
                                 </div>

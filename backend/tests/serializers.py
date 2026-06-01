@@ -49,6 +49,7 @@ class TestSerializer(serializers.ModelSerializer):
     target_exam_details = serializers.SerializerMethodField()
     exam_type_details = ExamTypeSerializer(source='exam_type', read_only=True)
     class_level_details = ClassLevelSerializer(source='class_level', read_only=True)
+    class_levels_details = ClassLevelSerializer(source='class_levels', many=True, read_only=True)
     package_name = serializers.ReadOnlyField(source='package.name')
     
     
@@ -61,6 +62,12 @@ class TestSerializer(serializers.ModelSerializer):
     
     sessions = ObjectIdRelatedField(
         queryset=Session.objects.all(),
+        many=True,
+        required=False
+    )
+    
+    class_levels = ObjectIdRelatedField(
+        queryset=ClassLevel.objects.all(),
         many=True,
         required=False
     )
@@ -90,7 +97,7 @@ class TestSerializer(serializers.ModelSerializer):
         model = Test
         fields = [
             'id', 'name', 'code', 'session', 'session_details', 'sessions', 'sessions_details', 'target_exams', 'target_exam_details',
-            'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details',
+            'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details', 'class_levels', 'class_levels_details',
             'centres', 'centres_count', 'codes_sent_count', 'sections_count',  
             'duration', 'total_marks', 'description', 'instructions', 
             'is_completed', 'is_over', 'has_calculator', 'is_result_published', 'option_type_numeric', 'created_at', 'updated_at',

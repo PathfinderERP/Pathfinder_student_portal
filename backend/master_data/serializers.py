@@ -72,6 +72,8 @@ class ExamDetailSerializer(serializers.ModelSerializer):
     target_exams = ObjectIdRelatedField(many=True, queryset=TargetExam.objects.all(), required=False)
     session_names = serializers.SerializerMethodField()
     sessions = ObjectIdRelatedField(many=True, queryset=Session.objects.all(), required=False)
+    class_level_names = serializers.SerializerMethodField()
+    class_levels = ObjectIdRelatedField(many=True, queryset=ClassLevel.objects.all(), required=False)
 
     class Meta:
         model = ExamDetail
@@ -83,6 +85,8 @@ class ExamDetailSerializer(serializers.ModelSerializer):
             ret['sessions'] = [str(s.pk) for s in instance.sessions.all()]
         if 'target_exams' in ret:
             ret['target_exams'] = [str(te.pk) for te in instance.target_exams.all()]
+        if 'class_levels' in ret:
+            ret['class_levels'] = [str(c.pk) for c in instance.class_levels.all()]
         return ret
 
     def get_session_names(self, obj):
@@ -94,6 +98,12 @@ class ExamDetailSerializer(serializers.ModelSerializer):
     def get_target_exam_names(self, obj):
         try:
             return [te.name for te in obj.target_exams.all()]
+        except:
+            return []
+
+    def get_class_level_names(self, obj):
+        try:
+            return [c.name for c in obj.class_levels.all()]
         except:
             return []
 

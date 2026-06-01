@@ -271,14 +271,14 @@ const ExamEngine = () => {
         }
     }, [paperData, activeSectionIdx, currentQuestion]);
 
-    const updateStatus = useCallback((status, option = null) => {
+    const updateStatus = useCallback((status, option = undefined) => {
         if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
         setResponses(prev => ({
             ...prev,
             [qId]: { 
                 status, 
-                selectedOption: option || prev[qId]?.selectedOption || null 
+                selectedOption: option !== undefined ? option : (prev[qId]?.selectedOption || null) 
             }
         }));
     }, [currentQuestion, activeSectionIdx, activeQuestionIdx]);
@@ -1002,7 +1002,11 @@ const ExamEngine = () => {
                                     {(currentQuestion.question_options || []).map((opt, idx) => {
                                         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
                                         const label = String.fromCharCode(65 + idx); // 0 -> A, 1 -> B, etc.
-                                        const isSelected = responses[qId]?.selectedOption === label;
+                                        const isMulti = currentQuestion.question_type === 'MULTI_CHOICE';
+                                        const currentSel = responses[qId]?.selectedOption;
+                                        const isSelected = isMulti 
+                                            ? (Array.isArray(currentSel) && currentSel.includes(label)) 
+                                            : currentSel === label;
                                         
                                         return (
                                             <label key={idx} className={`flex items-start gap-2.5 sm:gap-4 p-2.5 sm:p-4 border rounded-[4px] sm:rounded-[5px] cursor-pointer transition-colors shadow-sm
@@ -1012,11 +1016,23 @@ const ExamEngine = () => {
                                                 
                                                 <div className="pt-0.5 sm:pt-1">
                                                     <input 
-                                                        type="radio" 
-                                                        name={`q-${activeSectionIdx}-${activeQuestionIdx}`}
+                                                        type={isMulti ? "checkbox" : "radio"} 
+                                                        name={`q-${activeSectionIdx}-${activeQuestionIdx}${isMulti ? `-${idx}` : ''}`}
                                                         checked={isSelected}
-                                                        onChange={() => updateStatus(responses[qId]?.status || 'VISITED', label)}
-                                                        className="w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 cursor-pointer" 
+                                                        onChange={() => {
+                                                            let newOption = label;
+                                                            if (isMulti) {
+                                                                let arr = Array.isArray(currentSel) ? [...currentSel] : (currentSel ? [currentSel] : []);
+                                                                if (arr.includes(label)) {
+                                                                    arr = arr.filter(l => l !== label);
+                                                                } else {
+                                                                    arr.push(label);
+                                                                }
+                                                                newOption = arr;
+                                                            }
+                                                            updateStatus(responses[qId]?.status || 'VISITED', newOption);
+                                                        }}
+                                                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 cursor-pointer ${isMulti ? 'rounded-sm' : ''}`} 
                                                     />
                                                 </div>
 
@@ -1036,20 +1052,61 @@ const ExamEngine = () => {
                             {(currentQuestion.question_type === 'NUMERICAL' || currentQuestion.question_type === 'INTEGER_TYPE') && (
                                 <div className={`p-4 sm:p-6 rounded-[4px] sm:rounded-[5px] border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-gray-50 border-gray-200'}`}>
                                     <p className={`text-[10px] sm:text-xs font-black uppercase tracking-widest mb-3 ${isDarkMode ? 'text-slate-500' : 'text-gray-400'}`}>Numerical Answer :</p>
-                                    <div className="max-w-xs">
+                                    <div className="max-w-xs space-y-4">
                                         <input 
-                                            type="number"
-                                            step="any"
-                                            placeholder="Enter your answer here..."
+                                            type="text"
+                                            readOnly
+                                            placeholder="Use keypad to answer..."
                                             value={responses[currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`]?.selectedOption || ''}
-                                            onChange={(e) => updateStatus('ANSWERED', e.target.value)}
-                                            className={`w-full px-3.5 sm:px-5 py-2.5 sm:py-4 text-sm sm:text-lg font-black rounded-[4px] sm:rounded-[5px] border outline-none transition-all
+                                            className={`w-full px-3.5 sm:px-5 py-2.5 sm:py-4 text-sm sm:text-lg font-black rounded-[4px] sm:rounded-[5px] border outline-none transition-all text-center
                                                 ${isDarkMode 
                                                     ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10' 
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/5'}`}
                                         />
+
+                                        {/* On-Screen Virtual Numpad */}
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0, '⌫'].map((key) => (
+                                                <button
+                                                    key={key}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
+                                                        const currentVal = responses[qId]?.selectedOption || '';
+                                                        let newVal = currentVal.toString();
+                                                        
+                                                        if (key === '⌫') {
+                                                            newVal = newVal.slice(0, -1);
+                                                        } else {
+                                                            if (key === '.' && newVal.includes('.')) return; // Prevent multiple decimals
+                                                            newVal += key;
+                                                        }
+                                                        updateStatus('ANSWERED', newVal);
+                                                    }}
+                                                    className={`p-3 text-lg font-black rounded-[5px] border transition-all active:scale-95 flex items-center justify-center
+                                                        ${isDarkMode 
+                                                            ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' 
+                                                            : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50 shadow-sm'}`}
+                                                >
+                                                    {key}
+                                                </button>
+                                            ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
+                                                    updateStatus('ANSWERED', '');
+                                                }}
+                                                className={`col-span-3 p-3 text-sm font-black rounded-[5px] border transition-all active:scale-95 uppercase tracking-widest
+                                                    ${isDarkMode 
+                                                        ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20' 
+                                                        : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100 shadow-sm'}`}
+                                            >
+                                                Clear Input
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="mt-3 text-[9px] sm:text-[10px] font-bold opacity-40 uppercase italic tracking-wider">Note: Answer can be a decimal or an integer as per the question requirements.</p>
+                                    <p className="mt-4 text-[9px] sm:text-[10px] font-bold opacity-40 uppercase italic tracking-wider">Note: Answer can be a decimal or an integer as per the question requirements. Use the on-screen keypad to input your answer.</p>
                                 </div>
                             )}
                         </div>
