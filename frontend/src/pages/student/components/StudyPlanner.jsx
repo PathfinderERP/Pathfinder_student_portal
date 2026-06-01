@@ -1187,134 +1187,185 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             <ChevronLeft size={16} />
                         </button>
                         <Activity className="text-emerald-500" />
-                        <h3 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Evaluate Real Exams</h3>
+                        <h3 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Evaluation Modules</h3>
                     </div>
                 </div>
 
                 <p className={`text-xs font-bold leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Choose an active exam set by the institution to establish your baseline. Your target institution is <strong>{planConfig.targetCollege}</strong>.
+                    Complete both baseline modules below to synthesize your custom Master Plan for <strong>{planConfig.targetCollege}</strong>.
                 </p>
 
-                <div className={`rounded-[4px] border overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                    {loadingTests ? (
-                        <div className="p-12 flex justify-center flex-col items-center gap-4">
-                            <Loader2 size={32} className="animate-spin text-indigo-500" />
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Synchronizing Master Database</p>
+                <div className="grid grid-cols-1 gap-6">
+                    {/* Module 1: Academic Baseline */}
+                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500">
+                                <BookOpen size={16} /> Module 1: Academic Baseline
+                            </label>
+                            {selectedTest && <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-[2px] flex items-center gap-1"><CheckCircle2 size={12}/> Selected</span>}
                         </div>
-                    ) : tests.length === 0 ? (
-                        <div className="p-12 text-center text-xs font-bold text-slate-500 uppercase">
-                            No exams configured by administration
-                        </div>
-                    ) : (
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className={`text-[9px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                    <th className="py-4 px-6">Available Assessments</th>
-                                    <th className="py-4 px-6 text-center">Status</th>
-                                    <th className="py-4 px-6 text-center">Your Score</th>
-                                    <th className="py-4 px-6 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className={`divide-y text-xs font-bold ${isDarkMode ? 'divide-white/5 text-slate-300' : 'divide-slate-50 text-slate-600'}`}>
-                                {tests.map(test => {
-                                    const now = new Date();
-                                    const isCompleted = test.submission?.is_finalized;
-                                    const end = test.end_time ? new Date(test.end_time) : null;
-                                    const isExpired = end && now > end;
-                                    const tId = test.id || test._id;
-                                    // Study Planner exams are ONE-TIME ONLY — no cooldown, no retake
-                                    const canLaunch = !isCompleted && !isExpired;
-
-                                    return (
-                                        <tr key={tId} className={`border-b last:border-b-0 ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-50 hover:bg-slate-50/50'} transition-colors`}>
-                                            <td className="py-4 px-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center ${isDarkMode ? 'bg-white/5 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
-                                                        <BookOpen size={16} />
-                                                    </div>
-                                                    <div>
-                                                        <div className={isDarkMode ? 'text-white' : 'text-slate-900 font-bold'}>{test.name}</div>
-                                                        <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{test.duration} Min • {test.total_marks} Marks</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 text-center">
-                                                {isCompleted ? (
-                                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest">Completed</span>
-                                                ) : isExpired ? (
-                                                    <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase tracking-widest">Expired</span>
-                                                ) : (
-                                                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[9px] font-black uppercase tracking-widest">Available</span>
-                                                )}
-                                            </td>
-                                            <td className="py-4 px-6 text-center">
-                                                <div className={`text-sm font-black ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
-                                                    {isCompleted ? `${Math.floor(Number(test.submission?.score) || 0)}%` : '—'}
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 text-center">
-                                                {isCompleted ? (
-                                                    <button 
-                                                        disabled={analyzingId === tId}
-                                                        onClick={async () => {
-                                                            setAnalyzingId(tId);
-                                                            setSelectedTest(test);
-                                                            // Reset plan lock for this new exam selection
-                                                            setAiPlan('');
-                                                            setPlanSavedForCurrentTest(false);
-                                                            const score = Math.floor(test.submission?.score || 0);
-                                                            
-                                                            let sectionScores = [];
-                                                            try {
-                                                                const res = await axios.get(`${getApiUrl()}/api/tests/${tId}/student_performance/`, {
-                                                                    headers: { Authorization: `Bearer ${token}` }
-                                                                });
-                                                                if (res.data.section_stats) {
-                                                                    sectionScores = res.data.section_stats.map(s => ({
-                                                                        name: s.name,
-                                                                        score: s.total_max > 0 ? (s.net_marks / s.total_max) * 100 : 0
-                                                                    }));
-                                                                }
-                                                                setPerformanceData(res.data);
-                                                                if (res.data.all_section_names?.length > 0) {
-                                                                    setActiveSolutionSection(res.data.all_section_names[0]);
-                                                                }
-                                                            } catch (err) {
-                                                                console.error("Error fetching performance:", err);
-                                                            }
-
-                                                            setTestScores({ 
-                                                                total: score, 
-                                                                sections: sectionScores,
-                                                                q1Score: score, q2Score: score, q3Score: score 
-                                                            });
-                                                            setAnalyzingId(null);
-                                                            if (psychometricResult) {
-                                                                setViewMode('cutoff');
-                                                                setCurrentStep(4);
-                                                            } else {
-                                                                setShowPsychometric(true);
-                                                            }
-                                                        }} 
-                                                        className="px-4 py-2 bg-indigo-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2"
-                                                    >
-                                                        {analyzingId === tId ? <Loader2 size={12} className="animate-spin" /> : null}
-                                                        {analyzingId === tId ? 'Analyzing...' : 'Analyze Result'}
-                                                    </button>
-                                                ) : canLaunch ? (
-                                                    <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-emerald-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md">
-                                                        Launch Exam
-                                                    </button>
-                                                ) : (
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>—</span>
-                                                )}
-                                            </td>
+                        <div className={`rounded-[4px] border overflow-hidden ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                            {loadingTests ? (
+                                <div className="p-12 flex justify-center flex-col items-center gap-4">
+                                    <Loader2 size={32} className="animate-spin text-indigo-500" />
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Synchronizing Master Database</p>
+                                </div>
+                            ) : tests.length === 0 ? (
+                                <div className="p-12 text-center text-xs font-bold text-slate-500 uppercase">
+                                    No exams configured by administration
+                                </div>
+                            ) : (
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className={`text-[9px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                            <th className="py-4 px-6">Available Assessments</th>
+                                            <th className="py-4 px-6 text-center">Status</th>
+                                            <th className="py-4 px-6 text-center">Your Score</th>
+                                            <th className="py-4 px-6 text-center">Action</th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
+                                    </thead>
+                                    <tbody className={`divide-y text-xs font-bold ${isDarkMode ? 'divide-white/5 text-slate-300' : 'divide-slate-50 text-slate-600'}`}>
+                                        {tests.map(test => {
+                                            const now = new Date();
+                                            const isCompleted = test.submission?.is_finalized;
+                                            const end = test.end_time ? new Date(test.end_time) : null;
+                                            const isExpired = end && now > end;
+                                            const tId = test.id || test._id;
+                                            const canLaunch = !isCompleted && !isExpired;
+                                            const isSelected = selectedTest && (selectedTest.id === tId || selectedTest._id === tId);
+
+                                            return (
+                                                <tr key={tId} className={`border-b last:border-b-0 ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-50 hover:bg-slate-50/50'} transition-colors ${isSelected ? (isDarkMode ? 'bg-indigo-500/10' : 'bg-indigo-50') : ''}`}>
+                                                    <td className="py-4 px-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center ${isDarkMode ? 'bg-white/5 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                                                                <BookOpen size={16} />
+                                                            </div>
+                                                            <div>
+                                                                <div className={isDarkMode ? 'text-white' : 'text-slate-900 font-bold'}>{test.name}</div>
+                                                                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{test.duration} Min • {test.total_marks} Marks</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-center">
+                                                        {isCompleted ? (
+                                                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest">Completed</span>
+                                                        ) : isExpired ? (
+                                                            <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase tracking-widest">Expired</span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[9px] font-black uppercase tracking-widest">Available</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-4 px-6 text-center">
+                                                        <div className={`text-sm font-black ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                                            {isCompleted ? `${Math.floor(Number(test.submission?.score) || 0)}%` : '—'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-center w-32">
+                                                        {isCompleted ? (
+                                                            <button 
+                                                                disabled={analyzingId === tId || isSelected}
+                                                                onClick={async () => {
+                                                                    setAnalyzingId(tId);
+                                                                    setSelectedTest(test);
+                                                                    setAiPlan('');
+                                                                    setPlanSavedForCurrentTest(false);
+                                                                    const score = Math.floor(test.submission?.score || 0);
+                                                                    
+                                                                    let sectionScores = [];
+                                                                    try {
+                                                                        const res = await axios.get(`${getApiUrl()}/api/tests/${tId}/student_performance/`, {
+                                                                            headers: { Authorization: `Bearer ${token}` }
+                                                                        });
+                                                                        if (res.data.section_stats) {
+                                                                            sectionScores = res.data.section_stats.map(s => ({
+                                                                                name: s.name,
+                                                                                score: s.total_max > 0 ? (s.net_marks / s.total_max) * 100 : 0
+                                                                            }));
+                                                                        }
+                                                                        setPerformanceData(res.data);
+                                                                        if (res.data.all_section_names?.length > 0) {
+                                                                            setActiveSolutionSection(res.data.all_section_names[0]);
+                                                                        }
+                                                                    } catch (err) {
+                                                                        console.error("Error fetching performance:", err);
+                                                                    }
+
+                                                                    setTestScores({ 
+                                                                        total: score, 
+                                                                        sections: sectionScores,
+                                                                        q1Score: score, q2Score: score, q3Score: score 
+                                                                    });
+                                                                    setAnalyzingId(null);
+                                                                }} 
+                                                                className={`px-4 py-2 rounded-[2px] font-black text-[9px] uppercase tracking-widest transition-all shadow-md flex items-center gap-2 justify-center w-full ${isSelected ? 'bg-emerald-600 text-white cursor-default' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                                                            >
+                                                                {analyzingId === tId ? <Loader2 size={12} className="animate-spin" /> : (isSelected ? <CheckCircle2 size={12} /> : null)}
+                                                                {analyzingId === tId ? 'Wait...' : (isSelected ? 'Selected' : 'Select')}
+                                                            </button>
+                                                        ) : canLaunch ? (
+                                                            <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-emerald-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md w-full">
+                                                                Launch
+                                                            </button>
+                                                        ) : (
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Module 2: Cognitive Profile */}
+                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-amber-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div>
+                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1">
+                                    <Brain size={16} /> Module 2: Cognitive Profile
+                                </label>
+                                <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Identify your learning style to personalize your AI Master Plan schedule.
+                                </p>
+                            </div>
+                            
+                            {psychometricResult ? (
+                                <div className={`flex items-center gap-3 p-3 rounded-[4px] border shrink-0 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+                                    <div className="w-8 h-8 rounded-[4px] bg-emerald-500 text-white flex items-center justify-center">
+                                        <CheckCircle2 size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Completed</div>
+                                        <div className={`text-[11px] font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{psychometricResult.classification || 'Profile Saved'}</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={() => setShowPsychometric(true)}
+                                    className="px-6 py-3 bg-amber-500 text-white rounded-[2px] font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-md flex items-center gap-2 shrink-0"
+                                >
+                                    Take Assessment <ArrowRight size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-8 border-t border-slate-500/20 mt-8">
+                    <button
+                        disabled={!selectedTest || !psychometricResult}
+                        onClick={() => { setViewMode('cutoff'); setCurrentStep(4); }}
+                        className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
+                            !selectedTest || !psychometricResult
+                            ? 'bg-slate-500 opacity-50 text-white cursor-not-allowed'
+                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        }`}
+                    >
+                        Generate AI Master Plan <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
                 </div>
             </div>
 
@@ -1805,6 +1856,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                         <StudentPsychometricForm 
                             isDarkMode={isDarkMode} 
                             studentData={studentData}
+                            onCancel={() => setShowPsychometric(false)}
                             onSubmit={async (res) => {
                                 try {
                                     const apiUrl = getApiUrl();
@@ -1813,13 +1865,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                     });
                                     setPsychometricResult(saveRes.data);
                                     setShowPsychometric(false);
-                                    setCurrentStep(4);
                                 } catch (err) {
                                     console.error("Failed to save psychometric profile:", err);
                                     // Fallback to local state if backend fails
                                     setPsychometricResult(res);
                                     setShowPsychometric(false);
-                                    setCurrentStep(4);
                                 }
                             }}
                         />

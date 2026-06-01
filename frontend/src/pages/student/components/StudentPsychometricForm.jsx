@@ -6,269 +6,204 @@ import {
     X, ShieldCheck, HeartPulse, User, School, Trophy, Timer, AlertCircle
 } from 'lucide-react';
 
-const getSections = (targetExam = "") => {
-    const isNEET = targetExam?.toUpperCase().includes('NEET');
-    const isJEE = targetExam?.toUpperCase().includes('JEE');
-
-    const commonSections = [
+const getSections = () => {
+    return [
+        {
+            title: "Basic Info",
+            questions: [
+                { id: "basic_name", text: "Name", type: "text", required: true },
+                { id: "basic_number", text: "Number", type: "text", required: true },
+                { id: "basic_class", text: "Class", type: "text", required: true },
+                { id: "basic_school", text: "School", type: "text", required: true },
+                { id: "basic_center", text: "Center", type: "text", required: true },
+                { id: "basic_career", text: "Dream career (if any)", type: "text", required: false }
+            ]
+        },
         {
             title: "How You Study",
             questions: [
                 { 
-                    id: "q5", 
+                    id: "q1", 
                     text: "When you sit to study, what usually happens?", 
                     type: "radio", 
                     required: true,
                     options: ["I focus easily", "I get distracted after some time", "I struggle to even start", "Depends on the subject"] 
                 },
                 { 
-                    id: "q6", 
+                    id: "q2", 
                     text: "Which way helps you understand best?", 
                     type: "radio", 
                     required: true,
                     options: ["Teacher explaining", "Solving questions", "Watching videos", "Reading notes"] 
                 },
                 { 
-                    id: "q7", 
+                    id: "q3", 
                     text: "How often do you revise what you study?", 
                     type: "radio", 
                     required: true,
                     options: ["Daily", "Sometimes", "Rarely"] 
                 },
                 { 
-                    id: "q8", 
+                    id: "q4", 
                     text: "What is your biggest problem while studying?", 
                     type: "radio", 
                     required: true,
                     options: ["I get distracted", "I don’t understand concepts", "I feel lazy", "I forget what I study", "I get stressed"] 
-                },
+                }
             ]
         },
         {
             title: "Focus & Discipline",
             questions: [
                 { 
-                    id: "q9", 
+                    id: "q5", 
                     text: "How long can you study without checking your phone?", 
                     type: "radio", 
                     required: true,
                     options: ["Less than 20 minutes", "20–40 minutes", "40–60 minutes", "More than 1 hour"] 
                 },
                 { 
-                    id: "q10", 
+                    id: "q6", 
                     text: "Do you follow a study plan or timetable?", 
                     type: "radio", 
                     required: true,
                     options: ["Yes, strictly", "Sometimes", "No"] 
                 },
                 { 
-                    id: "q11", 
+                    id: "q7", 
                     text: "How regular are you with homework?", 
                     type: "radio", 
                     required: true,
                     options: ["Always on time", "Mostly on time", "Sometimes late", "Often skip"] 
-                },
+                }
             ]
         },
         {
             title: "Confidence & Mindset",
             questions: [
                 { 
-                    id: "q12", 
+                    id: "q8", 
                     text: "How confident are you in your studies?", 
                     type: "radio", 
                     required: true,
                     options: ["Very confident", "Somewhat confident", "Not confident"] 
                 },
                 { 
-                    id: "q13", 
+                    id: "q9", 
                     text: "What do you feel when exams are near?", 
                     type: "radio", 
                     required: true,
                     options: ["Excited", "Nervous", "Very stressed", "I avoid thinking about it"] 
                 },
                 { 
-                    id: "q14", 
+                    id: "q10", 
                     text: "What do you do when you get low marks?", 
                     type: "radio", 
                     required: true,
                     options: ["Work harder", "Feel bad but try again", "Lose motivation", "Ignore it"] 
-                },
+                }
             ]
-        }
-    ];
-
-    const competitiveSection = {
-        title: isNEET ? "NEET Path Strategy" : isJEE ? "JEE Path Strategy" : "Competitive Focus",
-        questions: []
-    };
-
-    if (isNEET) {
-        competitiveSection.questions = [
-            { 
-                id: "q26", 
-                text: "Biology requires extensive memorization. What is your primary technique?", 
-                type: "radio", 
-                required: true,
-                options: ["Visualizing Diagrams", "Multiple Revisions", "Mnemonics/Shortcuts", "Struggling with it"] 
-            },
-            { 
-                id: "q27", 
-                text: "The NEET Physics section often involves application of concepts. How confident are you in numericals?", 
-                type: "radio", 
-                required: true,
-                options: ["Very Confident", "Need more practice", "It's my weakest link", "Avoid it"] 
-            },
-            { 
-                id: "q28", 
-                text: "In Chemistry, which part do you find most scoring for NEET?", 
-                type: "radio", 
-                required: true,
-                options: ["Organic", "Inorganic", "Physical", "All are equal"] 
-            }
-        ];
-    } else if (isJEE) {
-        competitiveSection.questions = [
-            { 
-                id: "q26", 
-                text: "JEE Mathematics demands high-level problem-solving. How do you approach new, complex problems?", 
-                type: "radio", 
-                required: true,
-                options: ["Break down into parts", "Look for similar examples", "Try for a bit then see solution", "Struggle to start"] 
-            },
-            { 
-                id: "q27", 
-                text: "JEE Physics is highly conceptual. Do you focus more on:", 
-                type: "radio", 
-                required: true,
-                options: ["Deep theory & derivations", "Solving diverse problems", "Speed & Shortcuts", "Just NCERT basics"] 
-            },
-            { 
-                id: "q28", 
-                text: "In JEE Chemistry, which section do you prioritize for maximum rank boost?", 
-                type: "radio", 
-                required: true,
-                options: ["Organic (Mechanism based)", "Inorganic (Direct memory)", "Physical (Calculation based)", "Balancing all three"] 
-            }
-        ];
-    } else {
-        competitiveSection.questions = [
-            { 
-                id: "q26", 
-                text: "How do you handle competitive pressure among peers?", 
-                type: "radio", 
-                required: true,
-                options: ["It motivates me", "I ignore it and focus", "It makes me anxious", "I avoid comparisons"] 
-            }
-        ];
-    }
-
-    const finalSections = [
-        ...commonSections,
-        competitiveSection,
+        },
         {
             title: "Subject & Difficulty",
             questions: [
-                { id: "q15", text: "Which subjects do you find difficult?", type: "textarea", required: true },
+                { id: "q11", text: "Which subjects do you find difficult?", type: "textarea", required: true },
                 { 
-                    id: "q16", 
+                    id: "q12", 
                     text: "Why do you think those subjects are difficult?", 
                     type: "radio", 
                     required: true,
                     options: ["Concepts are hard", "Teaching is not clear", "I don’t practice enough", "I lose interest"] 
-                },
+                }
             ]
         },
         {
             title: "Motivation & Goals",
             questions: [
                 { 
-                    id: "q17", 
+                    id: "q13", 
                     text: "Why do you study?", 
                     type: "radio", 
                     required: true,
                     options: ["To achieve my dream", "For good marks", "Because parents tell me", "I am not sure"] 
                 },
                 { 
-                    id: "q18", 
+                    id: "q14", 
                     text: "How clear are you about your future?", 
                     type: "radio", 
                     required: true,
                     options: ["Very clear", "Some idea", "No idea"] 
-                },
+                }
             ]
         },
         {
             title: "Stress & Pressure",
             questions: [
                 { 
-                    id: "q19", 
+                    id: "q15", 
                     text: "Do you feel pressure from studies?", 
                     type: "radio", 
                     required: true,
                     options: ["A lot", "Sometimes", "Very little"] 
                 },
                 { 
-                    id: "q20", 
+                    id: "q16", 
                     text: "What stresses you the most?", 
                     type: "radio", 
                     required: true,
                     options: ["Exams", "Expectations", "Not understanding", "Managing time"] 
-                },
+                }
             ]
         },
         {
             title: "Learning Support",
             questions: [
                 { 
-                    id: "q21", 
+                    id: "q17", 
                     text: "What kind of help do you think you need?", 
                     type: "radio", 
                     required: true,
                     options: ["Better explanation", "More practice", "Motivation", "Study plan", "Doubt solving"] 
                 },
                 { 
-                    id: "q22", 
-                    text: "Would you like a system that tells you how to study better, where you are going wrong, etc?", 
+                    id: "q18", 
+                    text: "Would you like a system that tells you how to study better, where you are going wrong, and how to improve step-by-step?", 
                     type: "radio", 
                     required: true,
                     options: ["Yes", "Maybe", "No"] 
-                },
+                }
             ]
         },
         {
             title: "Digital Learning",
             questions: [
                 { 
-                    id: "q23", 
+                    id: "q19", 
                     text: "Do you like learning through:", 
                     type: "radio", 
                     required: true,
                     options: ["Live classes", "Recorded videos", "Tests & quizzes", "Apps/portals"] 
                 },
                 { 
-                    id: "q24", 
+                    id: "q20", 
                     text: "Would you prefer studying in your own language (e.g., Bengali) for better understanding?", 
                     type: "radio", 
                     required: true,
                     options: ["Yes", "No", "Depends"] 
-                },
+                }
             ]
         },
         {
             title: "Final Reflection",
             questions: [
-                { id: "q25", text: "If you could improve one thing about your studies, what would it be?", type: "textarea", required: true },
+                { id: "q21", text: "If you could improve one thing about your studies, what would it be?", type: "textarea", required: true }
             ]
         }
     ];
-
-    return finalSections;
 };
 
-const StudentPsychometricForm = ({ isDarkMode, onSubmit, studentData }) => {
-    // Dynamically derive sections based on target exam
-    const SECTIONS = getSections(studentData?.targetExam || studentData?.target_exam);
+const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }) => {
+    const SECTIONS = getSections();
     
     const [currentSection, setCurrentSection] = useState(0);
     const [answers, setAnswers] = useState({});
@@ -310,30 +245,24 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, studentData }) => {
             highPotential: 0
         };
 
-        // q5: "I focus easily", "I get distracted after some time", "I struggle to even start", "Depends on the subject"
-        if (answers.q5 === "I focus easily") scores.highPotential += 2;
-        if (answers.q5 === "I get distracted after some time") scores.distracted += 1;
-        if (answers.q5 === "I struggle to even start") scores.distracted += 2;
+        if (answers.q1 === "I focus easily") scores.highPotential += 2;
+        if (answers.q1 === "I get distracted after some time") scores.distracted += 1;
+        if (answers.q1 === "I struggle to even start") scores.distracted += 2;
 
-        // q8: "I get distracted", "I don’t understand concepts", "I feel lazy", "I forget what I study", "I get stressed"
-        if (answers.q8 === "I get distracted") scores.distracted += 2;
-        if (answers.q8 === "I don’t understand concepts") scores.confused += 2;
-        if (answers.q8 === "I feel lazy") scores.distracted += 1;
-        if (answers.q8 === "I get stressed") scores.lowConfidence += 1;
+        if (answers.q4 === "I get distracted") scores.distracted += 2;
+        if (answers.q4 === "I don’t understand concepts") scores.confused += 2;
+        if (answers.q4 === "I feel lazy") scores.distracted += 1;
+        if (answers.q4 === "I get stressed") scores.lowConfidence += 1;
 
-        // q9: "Less than 20 minutes", "20–40 minutes", "40–60 minutes", "More than 1 hour"
-        if (answers.q9 === "Less than 20 minutes") scores.distracted += 2;
-        if (answers.q9 === "More than 1 hour") scores.highPotential += 2;
+        if (answers.q5 === "Less than 20 minutes") scores.distracted += 2;
+        if (answers.q5 === "More than 1 hour") scores.highPotential += 2;
 
-        // q12: "Very confident", "Somewhat confident", "Not confident"
-        if (answers.q12 === "Very confident") scores.highPotential += 2;
-        if (answers.q12 === "Not confident") scores.lowConfidence += 2;
+        if (answers.q8 === "Very confident") scores.highPotential += 2;
+        if (answers.q8 === "Not confident") scores.lowConfidence += 2;
 
-        // q13: "Excited", "Nervous", "Very stressed", "I avoid thinking about it"
-        if (answers.q13 === "Very stressed") scores.lowConfidence += 2;
-        if (answers.q13 === "Excited") scores.highPotential += 1;
+        if (answers.q9 === "Very stressed") scores.lowConfidence += 2;
+        if (answers.q9 === "Excited") scores.highPotential += 1;
 
-        // Determine max score
         const maxScore = Math.max(scores.distracted, scores.confused, scores.lowConfidence, scores.highPotential);
         
         if (maxScore === scores.highPotential) return "High Potential Performer";
@@ -341,13 +270,12 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, studentData }) => {
         if (maxScore === scores.confused) return "Hardworking but Confused";
         if (maxScore === scores.lowConfidence) return "Low Confidence Student";
         
-        return "High Potential Performer"; // Default fallback
+        return "High Potential Performer";
     };
 
     const handleFinalSubmit = () => {
         const classification = classifyStudent();
         
-        // Map traits and summaries based on classification
         let traits = [];
         let summary = "";
 
@@ -404,6 +332,11 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, studentData }) => {
                             <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-indigo-500" />
                         </div>
                     </div>
+                    {onCancel && (
+                        <button onClick={onCancel} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`} title="Close Assessment">
+                            <X size={20} />
+                        </button>
+                    )}
                 </div>
             </div>
 
