@@ -942,6 +942,108 @@ class StudentPsychometricProfileView(views.APIView):
             return response.Response(serializer.data, status=status.HTTP_201_CREATED)
         return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class AdminStudentPsychometricProfileView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated] # Assuming admin validation is handled by UI/middleware or could add IsAdminUser if standard
+
+    def get(self, request, email):
+        try:
+            from .db_utils import get_db
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            user = User.objects.filter(email__iexact=email).first()
+            if not user:
+                return response.Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            db = get_db()
+            if db is not None:
+                doc = db['api_studentpsychometricprofile'].find_one({'user_id': user.pk})
+                if doc:
+                    return response.Response({
+                        'id':             str(doc.get('id', '')),
+                        'classification': doc.get('classification', ''),
+                        'traits':         doc.get('traits', []),
+                        'summary':        doc.get('summary', ''),
+                        'raw_responses':  doc.get('raw_responses', {}),
+                        'created_at':     doc.get('created_at'),
+                    })
+        except Exception as e:
+            print(f"[AdminPsychometricView] PyMongo get failed: {e}")
+
+        # Fallback to ORM
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.filter(email__iexact=email).first()
+            if not user:
+                return response.Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+                
+            profile = StudentPsychometricProfile.objects.filter(user=user).first()
+            if profile:
+                serializer = StudentPsychometricProfileSerializer(profile)
+                return response.Response(serializer.data)
+        except Exception as e:
+            pass
+            
+        return response.Response(None, status=status.HTTP_200_OK)
+
+    def delete(self, request, email):
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.filter(email__iexact=email).first()
+            
+            if not user:
+                return response.Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            # Delete from ORM
+            StudentPsychometricProfile.objects.filter(user=user).delete()
+
+            # Delete from PyMongo
+            try:
+                from .db_utils import get_db
+                db = get_db()
+                if db is not None:
+                    db['api_studentpsychometricprofile'].delete_many({'user_id': user.pk})
+            except Exception as e:
+                print(f"[AdminPsychometricView] PyMongo delete failed: {e}")
+
+            return response.Response({"status": "success"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class AdminAllPsychometricProfilesView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            # Fetch from ORM
+            profiles = StudentPsychometricProfile.objects.select_related('user').all()
+            
+            data = []
+            for profile in profiles:
+                user = profile.user
+                
+                # Default data
+                item = {
+                    'email': user.email if user else '',
+                    'name': f"{user.first_name} {user.last_name}".strip() if user else 'Unknown',
+                    'id': profile.id,
+                    'classification': profile.classification,
+                    'traits': profile.traits,
+                    'summary': profile.summary,
+                    'raw_responses': profile.raw_responses,
+                    'created_at': profile.created_at,
+                }
+                data.append(item)
+                
+            return response.Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class StudentStudyPlannerConfigView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 

@@ -190,13 +190,16 @@ Give short motivational guidance:
 - Keep it practical, not emotional
 - Focus on consistency and improvement
 
----
-
-OUTPUT STYLE:
-- Use clear headings
-- Use bullet points
-- Keep it structured and student-friendly
-- Avoid overly long paragraphs
+OUTPUT STYLE & FORMATTING RULES:
+OUTPUT STYLE & FORMATTING RULES:
+- IMPORTANT: Use highly visual and engaging Markdown.
+- MUST USE proper markdown syntax for ALL headings (e.g. `# Heading 1`, `## Heading 2`, `### Heading 3`). Do NOT use plain text numbers like "1. Heading".
+- Add relevant emojis to ALL headings and key bullet points.
+- Structure daily routines and weekly plans using **Markdown Tables**.
+- Use `> blockquotes` for crucial insights or warnings.
+- Provide deep, extensive text and analysis. Do not summarize; go into granular detail for each subject.
+- Use **bold** and *italic* text frequently to highlight important concepts and action items.
+- Segment clearly by subject (e.g. `### ⚛️ Physics`, `### 🧪 Chemistry`) with specific actionable advice for each.
 """
 
         response = model.generate_content(prompt)
@@ -228,6 +231,10 @@ OUTPUT STYLE:
 
     except Exception as e:
         logger.error(f"[AI MENTOR] Error generating study plan: {str(e)}", exc_info=True)
+        # Check if it's a deadline exceeded exception (timeout)
+        if 'DeadlineExceeded' in type(e).__name__:
+            return Response({"error": "The AI is experiencing high traffic and timed out. Please try generating the plan again."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+            
         return Response({"error": "Failed to generate AI study plan"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])

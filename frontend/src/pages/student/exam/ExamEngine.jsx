@@ -14,7 +14,6 @@ import {
     Moon,
     Lock
 } from 'lucide-react';
-import StudentPsychometricForm from '../components/StudentPsychometricForm';
 
 const ExamEngine = () => {
     const { id: testId } = useParams();
@@ -46,7 +45,6 @@ const ExamEngine = () => {
     const [submissionType, setSubmissionType] = useState('MANUAL'); // 'MANUAL', 'TIME_UP', 'VIOLATION'
     const [questionTimes, setQuestionTimes] = useState({}); // { qId: seconds }
     const [lastViewedPerSection, setLastViewedPerSection] = useState({});
-    const [showPsychometric, setShowPsychometric] = useState(false);
     const [psychometricResult, setPsychometricResult] = useState(null);
     const [mobileShowPalette, setMobileShowPalette] = useState(false);
 
@@ -63,9 +61,6 @@ const ExamEngine = () => {
     const isSubmittedRef = useRef(false);
 
     const handleReturnToDashboard = () => {
-        // SAFETY: Block any accidental redirect if the psychometric form is active
-        if (showPsychometric) return;
-        
         try {
             if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
                 document.exitFullscreen().catch(() => {});
@@ -142,13 +137,7 @@ const ExamEngine = () => {
                 setPaperData(paper);
 
                 if (sData.is_finalized && !sData.allow_resume) {
-                    // If it's a study planner and we don't have results, show psychometric
-                    if (paper.exam_type_name === 'STUDY PLANNER' && !psychometricResult) {
-                        setShowPsychometric(true);
-                        isSubmittedRef.current = true;
-                    } else {
-                        setIsSubmitted(true);
-                    }
+                    setIsSubmitted(true);
                     setIsLoading(false);
                     return;
                 }
@@ -413,15 +402,8 @@ const ExamEngine = () => {
 
             setReportData(summary);
             
-            // Only show Psychometric Form if it is a STUDY PLANNER exam
-            if (paperData?.exam_type_name === 'STUDY PLANNER') {
-                setShowPsychometric(true);
-                // CRITICAL: Update ref immediately to prevent race condition with fullscreenchange event
-                isSubmittedRef.current = true;
-            } else {
-                setIsSubmitted(true);
-                isSubmittedRef.current = true;
-            }
+            setIsSubmitted(true);
+            isSubmittedRef.current = true;
             
             exitFullscreen();
         } catch (err) {
@@ -434,8 +416,8 @@ const ExamEngine = () => {
 
     // Use a ref to track submission status for event listeners
     useEffect(() => {
-        isSubmittedRef.current = isSubmitted || showPsychometric;
-    }, [isSubmitted, showPsychometric]);
+        isSubmittedRef.current = isSubmitted;
+    }, [isSubmitted]);
 
     // Handlers (Moved outside useEffect for stability)
     const handleFullscreenChange = useCallback(() => {
@@ -517,11 +499,11 @@ const ExamEngine = () => {
     // Violation Auto-Submit Timer
     useEffect(() => {
         let interval = null;
-        if (showViolation && !isSubmitted && !showPsychometric && violationTimer > 0) {
+        if (showViolation && !isSubmitted && violationTimer > 0) {
             interval = setInterval(() => {
                 setViolationTimer(prev => prev - 1);
             }, 1000);
-        } else if (showViolation && !isSubmitted && !showPsychometric && violationTimer === 0) {
+        } else if (showViolation && !isSubmitted && violationTimer === 0) {
             handleSubmit('VIOLATION');
         }
 
@@ -532,7 +514,7 @@ const ExamEngine = () => {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [showViolation, violationTimer, isSubmitted, showPsychometric]);
+    }, [showViolation, violationTimer, isSubmitted]);
 
     // Individual Question Timer (Persistent per question)
     useEffect(() => {
@@ -621,32 +603,7 @@ const ExamEngine = () => {
     );
 
 
-    if (showPsychometric) {
-        return (
-            <div className={`min-h-screen w-full flex items-center justify-center p-4 ${isDarkMode ? 'bg-[#0a0d14]' : 'bg-slate-50'}`}>
-                <div className={`w-full max-w-5xl h-[90vh] rounded-2xl overflow-hidden shadow-2xl border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
-                    <StudentPsychometricForm 
-                        isDarkMode={isDarkMode} 
-                        studentData={studentData || { name: studentName, email: studentEmail }}
-                        onSubmit={async (res) => {
-                            try {
-                                const apiUrl = getApiUrl();
-                                await axios.post(`${apiUrl}/api/student/psychometric-profile/`, res, {
-                                    headers: { 'Authorization': `Bearer ${token}` }
-                                });
-                                setPsychometricResult(res);
-                            } catch (err) {
-                                console.error("Failed to persist psychometric profile:", err);
-                                setPsychometricResult(res);
-                            }
-                            setShowPsychometric(false);
-                            setIsSubmitted(true);
-                        }}
-                    />
-                </div>
-            </div>
-        );
-    }
+
 
     if (isSubmitted) {
         const totalAttempted = reportData.reduce((acc, curr) => acc + curr.attempted, 0);
@@ -946,7 +903,13 @@ const ExamEngine = () => {
                 {/* Left Side - Question Content */}
                 <div className={`flex-1 flex flex-col overflow-y-auto overflow-x-hidden ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-gray-200'} border-r relative transition-colors ${mobileShowPalette ? 'hidden md:flex' : 'flex'}`}>
                     <div className={`px-3 sm:px-6 py-2 sm:py-3 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50 text-slate-400' : 'border-gray-100 bg-gray-50/50 text-gray-600'} flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 sm:gap-4 text-[10px] sm:text-xs font-bold`}>
-                        <span>Question Type : {currentQuestion.question_type || 'MCQ'}</span>
+                        <span>Question Type : {
+                            currentQuestion.question_type === 'MULTI_CHOICE' ? 'Multiple Choice' :
+                            currentQuestion.question_type === 'SINGLE_CHOICE' ? 'MCQ' :
+                            currentQuestion.question_type === 'INTEGER_TYPE' ? 'Integer' :
+                            currentQuestion.question_type === 'NUMERICAL' ? 'Numerical' :
+                            currentQuestion.question_type || 'MCQ'
+                        }</span>
                         <div className="flex gap-3 sm:gap-4 justify-between sm:justify-end w-full sm:w-auto">
                             <span className="text-green-600 dark:text-green-400">Max Mark : {currentSection.correct_marks}</span>
                             <span className="text-[#EF6C00]">Negative Mark : {currentSection.negative_marks}</span>

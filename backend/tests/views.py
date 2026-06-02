@@ -1943,6 +1943,8 @@ class TestViewSet(viewsets.ModelViewSet):
                     'is_wrong': qi.get('is_wrong', False),  # GRACE MARKS: pass flag to frontend
                     'options': qi['options'],
                     'correct_options': qi['correct_options'],
+                    'answer_from': qi.get('answer_from'),
+                    'answer_to': qi.get('answer_to'),
                     'user_answer': user_answer,
                     'result': q_result,
                     'earned': round(earned - neg, 2),
@@ -2361,8 +2363,8 @@ class TestViewSet(viewsets.ModelViewSet):
             'exam_type_name': test.exam_type.name if test.exam_type else None
         }
         
-        # OPTIMIZATION: Cache for 60 minutes to avoid repeated DB hits
-        cache.set(cache_key, response_data, timeout=3600)
+        # OPTIMIZATION: Cache for 2 minutes (short enough to see question edits quickly)
+        cache.set(cache_key, response_data, timeout=120)
         
         # Trigger background cache warm-up for other tests (if not already cached)
         import threading
@@ -2924,7 +2926,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 'code': test.code,
                 'date': date_str,
                 'marks': round(u_data['score'], 2),
-                'total': test.total_marks,
+                'total': test.total_marks if (test.total_marks and test.total_marks > 0) else (sum(s['total'] for s in section_stats) or 100),
                 'rank': rank,
                 'percentile': percentile,
                 'section_stats': section_stats

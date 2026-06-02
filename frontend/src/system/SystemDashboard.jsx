@@ -33,6 +33,7 @@ import TestAllotment from './admin/tests/TestAllotment';
 import TestResponses from './admin/tests/TestResponses';
 import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
+import PsychometricResponses from './admin/tests/PsychometricResponses';
 import QuestionBank from './admin/QuestionBank';
 
 // Package Components
@@ -354,7 +355,8 @@ const SystemDashboard = () => {
                 { id: 'test_allotment', label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
                 { id: 'test_responses', label: 'Test Responses', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
                 { id: 'merge_test_result', label: 'Merge Test Result', active: activeTab === 'Merge Test Result', onClick: () => setActiveTab('Merge Test Result') },
-                { id: 'test_result', label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') }
+                { id: 'test_result', label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') },
+                { id: 'psychometric_responses', label: 'Psychometric Test', active: activeTab === 'Psychometric Test', onClick: () => setActiveTab('Psychometric Test') }
             ].filter(sub => hasPermission('test_mgmt', sub.id))
         },
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
@@ -555,6 +557,8 @@ const SystemDashboard = () => {
                 return <MergeTestResult />;
             case 'Test Result':
                 return <TestResult />;
+            case 'Psychometric Test':
+                return <PsychometricResponses />;
             case 'Create Package':
                 return <PackageRegistry />;
             case 'Add Test':
@@ -633,7 +637,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework',
+            'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework',
             'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide'
         ];
 

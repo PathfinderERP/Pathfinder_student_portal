@@ -5,7 +5,7 @@ from .views import (
     system_status, FileViewSet, CustomTokenObtainPairView, ProfileView, 
     UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, DoubtViewSet,
     StudyTaskViewSet, NoticeViewSet, UserSearchView, 
-    StudentPsychometricProfileView, StudentStudyPlannerConfigView,
+    StudentPsychometricProfileView, StudentStudyPlannerConfigView, AdminStudentPsychometricProfileView, AdminAllPsychometricProfilesView,
     UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress
 )
 from .erp_views import (
@@ -58,6 +58,8 @@ urlpatterns = [
     path('student-portal/profile/<str:studentId>', get_student_portal_profile),
     path('student-portal/report/<str:studentId>', get_student_portal_report),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
+    path('admin/student-psychometric-profile/<str:email>/', AdminStudentPsychometricProfileView.as_view(), name='admin-student-psychometric-profile'),
+    path('admin/all-psychometric-profiles/', AdminAllPsychometricProfilesView.as_view(), name='admin-all-psychometric-profiles'),
     path('admin/erp-centres/', get_all_centres_erp_data, name='admin-erp-centres'),
     path('admin/erp-teachers/', get_all_teachers_erp_data, name='admin-erp-teachers'),
     path('student/scholarlab/simulations/', get_scholarlab_simulations, name='scholarlab-simulations'),

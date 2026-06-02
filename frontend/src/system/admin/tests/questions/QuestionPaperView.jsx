@@ -112,7 +112,13 @@ const QuestionPaperView = ({ test, onBack }) => {
                                     <div key={q.id || q._id} className="question-item">
                                         <div className="flex items-center gap-1 mb-2">
                                             <span className="text-red-600 text-[11px] font-black italic">
-                                                Question No:{qIdx + 1} ({q.question_type === 'SINGLE_CHOICE' ? 'MCQ' : q.question_type})
+                                                Question No:{qIdx + 1} ({
+                                                q.question_type === 'SINGLE_CHOICE' ? 'MCQ' :
+                                                q.question_type === 'MULTI_CHOICE' ? 'Multiple' :
+                                                q.question_type === 'INTEGER_TYPE' ? 'Integer' :
+                                                q.question_type === 'NUMERICAL' ? 'Numerical' :
+                                                q.question_type
+                                            })
                                             </span>
                                         </div>
 
@@ -131,7 +137,7 @@ const QuestionPaperView = ({ test, onBack }) => {
                                         )}
 
                                         {/* Options */}
-                                        {q.question_options && q.question_options.length > 0 && (
+                                        {q.question_type !== 'INTEGER_TYPE' && q.question_type !== 'NUMERICAL' && q.question_options && q.question_options.length > 0 && (
                                             <div className="space-y-3 ml-2">
                                                 {q.question_options.map((opt, oIdx) => (
                                                     <div key={oIdx} className={`flex gap-2 items-start text-[12px] ${isDarkMode ? 'text-slate-400' : 'text-slate-700'}`}>
@@ -149,19 +155,17 @@ const QuestionPaperView = ({ test, onBack }) => {
                                             </div>
                                             <div className="ml-2">
                                                 {q.question_type === 'SINGLE_CHOICE' || q.question_type === 'MULTI_CHOICE' ? (
-                                                    <div className={`flex gap-2 items-start text-[12px] font-medium italic ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
-                                                        <span className="font-black">
-                                                            {q.question_options
-                                                                .map((opt, idx) => opt.isCorrect ? String.fromCharCode(97 + idx) : null)
-                                                                .filter(Boolean)
-                                                                .join(', ')}.
-                                                        </span>
-                                                        <div dangerouslySetInnerHTML={{
-                                                            __html: q.question_options
-                                                                .map((opt, idx) => opt.isCorrect ? opt.content : null)
-                                                                .filter(Boolean)
-                                                                .join(', ')
-                                                        }} />
+                                                    <div className="space-y-2">
+                                                        {q.question_options
+                                                            .map((opt, idx) => opt.isCorrect ? { opt, idx } : null)
+                                                            .filter(Boolean)
+                                                            .map(({ opt, idx }) => (
+                                                                <div key={idx} className={`flex gap-2 items-start text-[12px] font-medium italic ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
+                                                                    <span className="font-black shrink-0">{String.fromCharCode(97 + idx)}.</span>
+                                                                    <div dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                </div>
+                                                            ))
+                                                        }
                                                     </div>
                                                 ) : (
                                                     <div className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>

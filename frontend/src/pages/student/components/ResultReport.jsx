@@ -841,7 +841,13 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                             Q.{qIndex + 1}
                                                         </span>
                                                         <span className={`text-[11px] font-semibold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                            Question Type : <span className={`font-black uppercase ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{q.type}</span>
+                                                            Question Type : <span className={`font-black uppercase ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                                {q.type === 'SINGLE_CHOICE' ? 'MCQ' :
+                                                                 q.type === 'MULTI_CHOICE' ? 'Multiple' :
+                                                                 q.type === 'INTEGER_TYPE' ? 'Integer' :
+                                                                 q.type === 'NUMERICAL' ? 'Numerical' :
+                                                                 q.type}
+                                                            </span>
                                                         </span>
                                                         {/* Status badge */}
                                                         {isGrace     && <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">⚠ Wrong Question</span>}
@@ -865,7 +871,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
 
                                                 {/* Options */}
                                                 <div className="px-5 pb-4 space-y-2">
-                                                    {(q.options || []).map((opt, oi) => {
+                                                    {q.type !== 'INTEGER_TYPE' && q.type !== 'NUMERICAL' && (q.options || []).map((opt, oi) => {
                                                         const optLabel = ['A','B','C','D','E','F'][oi];
                                                         const uAnsOpts = Array.isArray(q.user_answer) 
                                                             ? q.user_answer.map(x => String(x).toLowerCase().trim()) 
@@ -903,7 +909,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                             </div>
                                                         );
                                                     })}
-                                                    {q.type === 'NUMERICAL' && (
+                                                    {(q.type === 'NUMERICAL' || q.type === 'INTEGER_TYPE') && (
                                                         <div className={`p-4 rounded-[6px] border mt-2 ${isDarkMode ? 'bg-white/[0.02] border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
                                                             <div className="flex items-center gap-6 text-[12px] font-semibold">
                                                                 <div>Your Answer: <span className="font-black tracking-widest text-blue-500">{q.user_answer || 'N/A'}</span></div>

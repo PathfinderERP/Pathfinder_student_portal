@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+import Select from 'react-select';
+import { useAuth } from '../../../context/AuthContext';
 import { 
     Brain, Target, GraduationCap, ChevronLeft, ChevronRight, Activity, 
     CheckCircle2, BookOpen, Calculator, Sparkles, Loader2, ArrowRight, 
@@ -15,7 +18,7 @@ const getSections = () => {
                 { id: "basic_number", text: "Number", type: "text", required: true },
                 { id: "basic_class", text: "Class", type: "text", required: true },
                 { id: "basic_school", text: "School", type: "text", required: true },
-                { id: "basic_center", text: "Center", type: "text", required: true },
+                { id: "basic_center", text: "Center", type: "select", required: true },
                 { id: "basic_career", text: "Dream career (if any)", type: "text", required: false }
             ]
         },
@@ -204,10 +207,32 @@ const getSections = () => {
 
 const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }) => {
     const SECTIONS = getSections();
+    const { getApiUrl, token } = useAuth();
     
     const [currentSection, setCurrentSection] = useState(0);
     const [answers, setAnswers] = useState({});
     const [showError, setShowError] = useState(false);
+    const [centres, setCentres] = useState([]);
+    
+    useEffect(() => {
+        const fetchCentres = async () => {
+            if (!token) return;
+            try {
+                const response = await axios.get(`${getApiUrl()}/api/admin/erp-centres/`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const fetchedData = response.data || [];
+                const formatted = fetchedData.map(c => ({
+                    value: c.enterCode || c.centreName || c.name,
+                    label: c.centreName || c.name || 'Unknown Center'
+                }));
+                setCentres(formatted);
+            } catch (error) {
+                console.error("Failed to fetch centres", error);
+            }
+        };
+        fetchCentres();
+    }, [token, getApiUrl]);
 
     const handleInputChange = (id, value) => {
         setAnswers(prev => ({ ...prev, [id]: value }));
@@ -378,6 +403,58 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
                                         onChange={(e) => handleInputChange(q.id, e.target.value)}
                                         className={`w-full py-3 px-4 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-indigo-500 text-white' : 'bg-white border-slate-200 focus:border-indigo-500'}`}
                                         placeholder={`Enter your ${q.text.toLowerCase()}...`}
+                                    />
+                                )}
+
+                                {q.type === "select" && (
+                                    <Select 
+                                        options={q.id === "basic_center" ? centres : []}
+                                        value={q.id === "basic_center" ? centres.find(c => c.value === answers[q.id]) : null}
+                                        onChange={(selected) => handleInputChange(q.id, selected ? selected.value : '')}
+                                        placeholder={`Select your ${q.text.toLowerCase()}...`}
+                                        className="react-select-container"
+                                        classNamePrefix="react-select"
+                                        styles={{
+                                            control: (base, state) => ({
+                                                ...base,
+                                                padding: '4px',
+                                                borderRadius: '8px',
+                                                borderColor: state.isFocused ? '#6366f1' : (isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'),
+                                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                                                boxShadow: 'none',
+                                                '&:hover': {
+                                                    borderColor: state.isFocused ? '#6366f1' : (isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1')
+                                                }
+                                            }),
+                                            menu: (base) => ({
+                                                ...base,
+                                                backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                                                zIndex: 9999
+                                            }),
+                                            option: (base, state) => ({
+                                                ...base,
+                                                backgroundColor: state.isSelected 
+                                                    ? '#6366f1' 
+                                                    : state.isFocused 
+                                                        ? (isDarkMode ? 'rgba(99,102,241,0.2)' : '#e0e7ff') 
+                                                        : 'transparent',
+                                                color: state.isSelected 
+                                                    ? 'white' 
+                                                    : (isDarkMode ? '#f8fafc' : '#334155'),
+                                                '&:active': {
+                                                    backgroundColor: '#6366f1'
+                                                }
+                                            }),
+                                            singleValue: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                                fontWeight: 'bold'
+                                            }),
+                                            input: (base) => ({
+                                                ...base,
+                                                color: isDarkMode ? '#f8fafc' : '#0f172a'
+                                            })
+                                        }}
                                     />
                                 )}
 

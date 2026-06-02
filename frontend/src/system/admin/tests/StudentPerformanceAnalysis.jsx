@@ -408,7 +408,7 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                         />
 
                                         <div className="space-y-3">
-                                            {(q.options || []).map((opt, oi) => {
+                                            {q.type !== 'INTEGER_TYPE' && q.type !== 'NUMERICAL' && (q.options || []).map((opt, oi) => {
                                                 const keys = ['a', 'b', 'c', 'd', 'e', 'f'];
                                                 const optIdStr = String(opt.id || opt._id || oi);
                                                 const isCorrect = q.correct_options.includes(optIdStr);
@@ -458,12 +458,21 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                                     </div>
                                                 );
                                             })}
-                                            {/* Numerical type: show user's answer */}
+                                            {/* Numerical type: show user's answer and correct answer */}
                                             {(q.type === 'NUMERICAL' || q.type === 'INTEGER_TYPE') && (
                                                 <div className={`p-4 rounded-[4px] border ${q.result === 'CA' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                                                    <span className={`text-xs font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
-                                                        Your Answer: <span className={q.result === 'CA' ? 'text-emerald-600' : 'text-red-600'}>{q.user_answer ?? 'Not Attempted'}</span>
-                                                    </span>
+                                                    <div className="flex items-center gap-6 flex-wrap">
+                                                        <span className={`text-xs font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                                                            Your Answer: <span className={q.result === 'CA' ? 'text-emerald-600' : 'text-red-600'}>{q.user_answer ?? 'Not Attempted'}</span>
+                                                        </span>
+                                                        {(q.answer_from != null || q.answer_to != null) && (
+                                                            <span className={`text-xs font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                                                                Correct Answer: <span className="text-emerald-600">
+                                                                    {q.answer_from === q.answer_to ? q.answer_to : `${q.answer_from} – ${q.answer_to}`}
+                                                                </span>
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

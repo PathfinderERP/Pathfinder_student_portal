@@ -852,7 +852,7 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                             <div className={`prose prose-sm max-w-none ${isDarkMode ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
                         </div>
 
-                        {selectedQuestion.question_options && selectedQuestion.question_options.length > 0 && (
+                        {!['NUMERICAL', 'INTEGER_TYPE'].includes(selectedQuestion.question_type || selectedQuestion.type) && selectedQuestion.question_options && selectedQuestion.question_options.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {selectedQuestion.question_options.map((opt, i) => (
                                     <div key={i} className={`p-5 rounded-[5px] border transition-all ${opt.isCorrect
@@ -868,6 +868,14 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                        {['NUMERICAL', 'INTEGER_TYPE'].includes(selectedQuestion.question_type || selectedQuestion.type) && (
+                            <div className="p-8 rounded-[5px] bg-black/5 border border-white/5">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 ml-1">Answer Range</h4>
+                                <div className="flex items-center gap-3 text-emerald-500 font-black text-lg">
+                                    <span>{selectedQuestion.answer_from ?? 0} to {selectedQuestion.answer_to ?? 0}</span>
+                                </div>
                             </div>
                         )}
                     </div>

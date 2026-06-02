@@ -10,6 +10,7 @@ import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 import { getMyResults } from '../../../services/resultsService';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
@@ -100,6 +101,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const searchTimeout = useRef(null);
 
     const [filteredColleges, setFilteredColleges] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const loadColleges = async (inputValue) => {
         try {
@@ -523,10 +525,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 const result = resultsMap[test.code] || resultsMap[test.id];
                 
                 let percentageScore = 0;
-                if (result && result.marks != null && result.total > 0) {
-                    percentageScore = (result.marks / result.total) * 100;
-                } else if (test.submission && test.submission.score != null && test.total_marks > 0) {
-                    percentageScore = (test.submission.score / test.total_marks) * 100;
+                const totalMarks = Number(result?.total || test.total_marks || 0);
+                const rawScore = Number(result?.marks || test.submission?.score || 0);
+                if (totalMarks > 0) {
+                    percentageScore = (rawScore / totalMarks) * 100;
+                } else {
+                    percentageScore = rawScore <= 100 ? rawScore : 100;
                 }
 
                 if (result) {
@@ -551,13 +555,83 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     } : null
                 };
             });
-
             setTests(mergedData);
+
+            // Auto-select the most recently completed test if none is selected
+            const completedTests = mergedData.filter(t => t.submission?.is_finalized);
+            if (completedTests.length > 0) {
+                // Sort by submission date or use the first one if dates are missing
+                completedTests.sort((a, b) => {
+                    const dateA = new Date(a.submission?.submitted_date || 0);
+                    const dateB = new Date(b.submission?.submitted_date || 0);
+                    return dateB - dateA;
+                });
+                
+                // We only auto-select if no test is currently selected to avoid overwriting user choice
+                if (!selectedTest) {
+                    handleSelectTest(completedTests[0]);
+                }
+            }
+
         } catch (error) {
             console.error('Failed to load real exams:', error);
         } finally {
             setLoadingTests(false);
         }
+    };
+
+    const handleSelectTest = async (test) => {
+        const tId = test.id || test._id;
+        setAnalyzingId(tId);
+        setSelectedTest(test);
+        setAiPlan('');
+        setPlanSavedForCurrentTest(false);
+        
+        let sectionScores = [];
+        let correctPercentage = Math.floor(Number(test.submission?.score) || 0); // fallback to stored score
+        try {
+            const res = await axios.get(`${getApiUrl()}/api/tests/${tId}/student_performance/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Use the correct percentage from the performance API (not the incorrectly computed one)
+            if (res.data.percentage != null) {
+                correctPercentage = Math.round(res.data.percentage);
+            }
+            if (res.data.section_stats) {
+                const stats = res.data.section_stats;
+                if (Array.isArray(stats)) {
+                    // Backend returns an array: [{name, net_marks, total_max, ...}, ...]
+                    sectionScores = stats.map(s => ({
+                        name: s.name,
+                        score: s.total_max > 0 ? (s.net_marks / s.total_max) * 100 : 0
+                    }));
+                } else {
+                    // Fallback: treat as a dict keyed by section name
+                    sectionScores = Object.entries(stats).map(([name, s]) => ({
+                        name: name,
+                        score: s.total_max > 0 ? (s.net_marks / s.total_max) * 100 : 0
+                    }));
+                }
+            }
+            setPerformanceData(res.data);
+            // Update the test's stored score with the correct percentage so the table shows it correctly
+            setTests(prev => prev.map(t => (t.id === tId || t._id === tId)
+                ? { ...t, submission: { ...t.submission, score: correctPercentage } }
+                : t
+            ));
+            if (res.data.all_section_names?.length > 0) {
+                setActiveSolutionSection(res.data.all_section_names[0]);
+            }
+        } catch (err) {
+            console.error("Error fetching performance:", err);
+        }
+
+        setTestScores({ 
+            total: correctPercentage, 
+            sections: sectionScores,
+            q1Score: correctPercentage, q2Score: correctPercentage, q3Score: correctPercentage 
+        });
+        setAnalyzingId(null);
     };
 
     const generateAIPlan = async (isUpdate = false) => {
@@ -619,7 +693,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             }
         } catch (error) {
             console.error('Failed to generate AI plan:', error);
-            alert("Error generating plan. Please ensure Gemini API Key is configured.");
+            const errorMsg = error.response?.data?.error || "Error generating plan. Please ensure Gemini API Key is configured.";
+            alert(errorMsg);
         } finally {
             setAiLoading(false);
         }
@@ -633,52 +708,65 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
     // Shared Static Side Panel
     const renderSidePanel = () => (
-        <div className={`hidden lg:flex flex-col w-[300px] shrink-0 p-6 border-r ${isDarkMode ? 'border-white/5 bg-[#0a0d14]' : 'border-slate-200 bg-slate-50'} min-h-full`}>
-            <div className="flex items-center gap-3 mb-10">
-                <div className="w-10 h-10 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white">
-                    <Brain size={20} />
-                </div>
-                <div>
-                    <h2 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Strategy</h2>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">v2.0 Beta Engine</p>
-                </div>
-            </div>
-
-            <div className="space-y-8 flex-1">
-                <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-500/20 pb-2">Evaluation Core</h3>
-                    <ul className="space-y-3">
-                        <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            <Database size={14} className="text-indigo-500" /> Deep Analytics Engine
-                        </li>
-                        <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            <Cpu size={14} className="text-emerald-500" /> Gemini Pro Processing
-                        </li>
-                        <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            <Network size={14} className="text-emerald-500" /> Neural Gap Detection
-                        </li>
-                    </ul>
-                </div>
-
-                <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-500/20 pb-2">Global Stats</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
-                            <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>1.2M+</div>
-                            <div className="text-[9px] font-black uppercase text-slate-500">Plans</div>
+        <AnimatePresence initial={false}>
+            {isSidebarOpen && (
+                <motion.div 
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 300, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    className={`hidden lg:flex flex-col shrink-0 border-r ${isDarkMode ? 'border-white/5 bg-[#0a0d14]' : 'border-slate-200 bg-slate-50'} min-h-full overflow-hidden`}
+                >
+                    <div className="w-[300px] p-6 flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-[4px] bg-indigo-600 flex items-center justify-center text-white">
+                                    <Brain size={20} />
+                                </div>
+                                <div>
+                                    <h2 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>AI Strategy</h2>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">v2.0 Beta Engine</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
-                            <div className={`text-lg font-black text-emerald-500`}>98%</div>
-                            <div className="text-[9px] font-black uppercase text-slate-500">Success</div>
+
+                        <div className="space-y-8 flex-1">
+                            <div className="space-y-4">
+                                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-500/20 pb-2">Evaluation Core</h3>
+                                <ul className="space-y-3">
+                                    <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                        <Database size={14} className="text-indigo-500" /> Deep Analytics Engine
+                                    </li>
+                                    <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                        <Cpu size={14} className="text-emerald-500" /> Gemini Pro Processing
+                                    </li>
+                                    <li className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                        <Network size={14} className="text-emerald-500" /> Neural Gap Detection
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-500/20 pb-2">Global Stats</h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+                                        <div className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>1.2M+</div>
+                                        <div className="text-[9px] font-black uppercase text-slate-500">Plans</div>
+                                    </div>
+                                    <div className={`p-3 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200'}`}>
+                                        <div className={`text-lg font-black text-emerald-500`}>98%</div>
+                                        <div className="text-[9px] font-black uppercase text-slate-500">Success</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pt-6 border-t border-slate-500/20 flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">
+                            <ShieldCheck size={14} className="text-indigo-500" /> End-to-end encrypted
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-slate-500/20 flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
-                <ShieldCheck size={14} className="text-indigo-500" /> End-to-end encrypted
-            </div>
-        </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 
     const renderStep1 = () => (
@@ -1196,11 +1284,44 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 </p>
 
                 <div className="grid grid-cols-1 gap-6">
-                    {/* Module 1: Academic Baseline */}
+                    {/* Module 1: Cognitive Profile */}
+                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-amber-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div>
+                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1">
+                                    <Brain size={16} /> Module 1: Cognitive Profile
+                                </label>
+                                <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Identify your learning style to personalize your AI Master Plan schedule.
+                                </p>
+                            </div>
+                            
+                            {psychometricResult ? (
+                                <div className={`flex items-center gap-3 p-3 rounded-[4px] border shrink-0 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+                                    <div className="w-8 h-8 rounded-[4px] bg-emerald-500 text-white flex items-center justify-center">
+                                        <CheckCircle2 size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Completed</div>
+                                        <div className={`text-[11px] font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{psychometricResult.classification || 'Profile Saved'}</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={() => setShowPsychometric(true)}
+                                    className="px-6 py-3 bg-amber-500 text-white rounded-[2px] font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-md flex items-center gap-2 shrink-0"
+                                >
+                                    Take Assessment <ArrowRight size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Module 2: Academic Baseline */}
                     <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
                         <div className="flex items-center justify-between mb-4">
                             <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500">
-                                <BookOpen size={16} /> Module 1: Academic Baseline
+                                <BookOpen size={16} /> Module 2: Academic Baseline
                             </label>
                             {selectedTest && <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-[2px] flex items-center gap-1"><CheckCircle2 size={12}/> Selected</span>}
                         </div>
@@ -1265,46 +1386,24 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                         {isCompleted ? (
                                                             <button 
                                                                 disabled={analyzingId === tId || isSelected}
-                                                                onClick={async () => {
-                                                                    setAnalyzingId(tId);
-                                                                    setSelectedTest(test);
-                                                                    setAiPlan('');
-                                                                    setPlanSavedForCurrentTest(false);
-                                                                    const score = Math.floor(test.submission?.score || 0);
-                                                                    
-                                                                    let sectionScores = [];
-                                                                    try {
-                                                                        const res = await axios.get(`${getApiUrl()}/api/tests/${tId}/student_performance/`, {
-                                                                            headers: { Authorization: `Bearer ${token}` }
-                                                                        });
-                                                                        if (res.data.section_stats) {
-                                                                            sectionScores = res.data.section_stats.map(s => ({
-                                                                                name: s.name,
-                                                                                score: s.total_max > 0 ? (s.net_marks / s.total_max) * 100 : 0
-                                                                            }));
-                                                                        }
-                                                                        setPerformanceData(res.data);
-                                                                        if (res.data.all_section_names?.length > 0) {
-                                                                            setActiveSolutionSection(res.data.all_section_names[0]);
-                                                                        }
-                                                                    } catch (err) {
-                                                                        console.error("Error fetching performance:", err);
-                                                                    }
-
-                                                                    setTestScores({ 
-                                                                        total: score, 
-                                                                        sections: sectionScores,
-                                                                        q1Score: score, q2Score: score, q3Score: score 
-                                                                    });
-                                                                    setAnalyzingId(null);
-                                                                }} 
+                                                                onClick={() => handleSelectTest(test)}
                                                                 className={`px-4 py-2 rounded-[2px] font-black text-[9px] uppercase tracking-widest transition-all shadow-md flex items-center gap-2 justify-center w-full ${isSelected ? 'bg-emerald-600 text-white cursor-default' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                                                             >
                                                                 {analyzingId === tId ? <Loader2 size={12} className="animate-spin" /> : (isSelected ? <CheckCircle2 size={12} /> : null)}
                                                                 {analyzingId === tId ? 'Wait...' : (isSelected ? 'Selected' : 'Select')}
                                                             </button>
                                                         ) : canLaunch ? (
-                                                            <button onClick={() => navigate(`/student/exam/instructions/${test.id}`)} className="px-4 py-2 bg-emerald-600 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md w-full">
+                                                            <button 
+                                                                onClick={() => {
+                                                                    if (!psychometricResult) {
+                                                                        alert("Please complete Module 1: Cognitive Profile first.");
+                                                                    } else {
+                                                                        navigate(`/student/exam/instructions/${test.id}`);
+                                                                    }
+                                                                }} 
+                                                                title={!psychometricResult ? "Complete Cognitive Profile first" : "Launch Exam"}
+                                                                className={`px-4 py-2 text-white rounded-[2px] font-black text-[9px] uppercase tracking-widest transition-all shadow-md w-full ${!psychometricResult ? 'bg-slate-400 cursor-not-allowed hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                                                            >
                                                                 Launch
                                                             </button>
                                                         ) : (
@@ -1316,39 +1415,6 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                         })}
                                     </tbody>
                                 </table>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Module 2: Cognitive Profile */}
-                    <div className={`p-6 rounded-[4px] border border-l-4 border-l-amber-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                            <div>
-                                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1">
-                                    <Brain size={16} /> Module 2: Cognitive Profile
-                                </label>
-                                <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    Identify your learning style to personalize your AI Master Plan schedule.
-                                </p>
-                            </div>
-                            
-                            {psychometricResult ? (
-                                <div className={`flex items-center gap-3 p-3 rounded-[4px] border shrink-0 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
-                                    <div className="w-8 h-8 rounded-[4px] bg-emerald-500 text-white flex items-center justify-center">
-                                        <CheckCircle2 size={16} />
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Completed</div>
-                                        <div className={`text-[11px] font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{psychometricResult.classification || 'Profile Saved'}</div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <button 
-                                    onClick={() => setShowPsychometric(true)}
-                                    className="px-6 py-3 bg-amber-500 text-white rounded-[2px] font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-md flex items-center gap-2 shrink-0"
-                                >
-                                    Take Assessment <ArrowRight size={14} />
-                                </button>
                             )}
                         </div>
                     </div>
@@ -1373,8 +1439,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     const renderStep4 = () => (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
-            <div className="max-w-5xl mx-auto space-y-8">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto custom-scrollbar">
+            <div className="w-full max-w-[1600px] mx-auto space-y-8">
                 {/* Header Sequence Tracker */}
                 <div className="flex items-center justify-between mb-12">
                     <div className="flex items-center gap-2 opacity-40">
@@ -1659,22 +1725,56 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 </div>
                                 
                                 {!aiPlan ? (
-                                    <div className={`p-12 text-center border-2 border-dashed rounded-[4px] flex flex-col items-center gap-4 justify-center ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
-                                        <Brain size={48} className="text-indigo-500 opacity-20" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 max-w-md leading-relaxed">Master Plan not yet generated. Click synthesize to analyze your psychometric profile and performance gaps.</p>
-                                    </div>
+                                    aiLoading ? (
+                                        <div className={`p-16 text-center border-2 border-dashed rounded-[4px] flex flex-col items-center gap-8 justify-center transition-all ${isDarkMode ? 'border-indigo-500/30 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50'}`}>
+                                            <div className="relative flex items-center justify-center">
+                                                <div className="absolute w-24 h-24 border-t-4 border-indigo-500 rounded-full animate-spin"></div>
+                                                <div className="absolute w-20 h-20 border-b-4 border-purple-500 rounded-full animate-spin animation-delay-200"></div>
+                                                <Brain size={40} className="text-indigo-500 animate-pulse" />
+                                            </div>
+                                            <div className="space-y-3">
+                                                <h3 className={`text-base font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-500 animate-pulse`}>
+                                                    Synthesizing Neural Strategy...
+                                                </h3>
+                                                <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    Analyzing psychometric vector space, performance data, and curriculum targets. Please wait...
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={`p-12 text-center border-2 border-dashed rounded-[4px] flex flex-col items-center gap-4 justify-center ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                            <Brain size={48} className="text-indigo-500 opacity-20" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 max-w-md leading-relaxed">Master Plan not yet generated. Click synthesize to analyze your psychometric profile and performance gaps.</p>
+                                        </div>
+                                    )
                                 ) : (
-                                    <div className={`p-8 md:p-12 rounded-[4px] border relative ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                                    <div className={`p-6 md:p-8 lg:p-10 rounded-[4px] border relative overflow-hidden w-full ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
                             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
-                            <div className={`prose prose-sm md:prose-base max-w-none relative z-10 
-                                ${isDarkMode ? 'prose-invert prose-headings:text-white prose-p:text-slate-400 prose-strong:text-white prose-li:text-slate-400 prose-hr:border-white/10' : 'prose-headings:text-slate-900 prose-p:text-slate-700 prose-strong:text-slate-900 prose-li:text-slate-700 prose-hr:border-slate-200'}
-                                prose-h2:font-black prose-h2:text-2xl prose-h2:uppercase prose-h2:tracking-tight prose-h2:mt-12 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b prose-h2:border-slate-500/20
-                                prose-h3:font-bold prose-h3:text-lg prose-h3:text-indigo-500 prose-h3:uppercase prose-h3:tracking-wide
-                                prose-a:text-emerald-500
-                                prose-blockquote:border-l-4 prose-blockquote:border-l-indigo-500 prose-blockquote:bg-indigo-500/5 prose-blockquote:p-4 prose-blockquote:rounded-r-[4px] prose-blockquote:font-medium prose-blockquote:not-italic
-                                prose-ul:list-square
+                            <div className={`prose prose-sm md:prose-base max-w-full w-full relative z-10 break-words overflow-x-hidden 
+                                ${isDarkMode ? 'prose-invert prose-p:text-slate-300 prose-strong:text-indigo-400 prose-li:text-slate-300 prose-hr:border-white/10' : 'prose-p:text-slate-700 prose-strong:text-indigo-600 prose-li:text-slate-700 prose-hr:border-slate-200'}
+                                prose-h1:font-black prose-h1:text-4xl prose-h1:text-transparent prose-h1:bg-clip-text prose-h1:bg-gradient-to-r prose-h1:from-indigo-500 prose-h1:to-purple-500 prose-h1:mb-8
+                                prose-h2:font-black prose-h2:text-2xl prose-h2:uppercase prose-h2:tracking-tight prose-h2:mt-16 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b prose-h2:border-indigo-500/20 prose-h2:text-transparent prose-h2:bg-clip-text prose-h2:bg-gradient-to-r prose-h2:from-emerald-400 prose-h2:to-teal-500
+                                prose-h3:font-bold prose-h3:text-xl prose-h3:text-indigo-500 prose-h3:uppercase prose-h3:tracking-wide prose-h3:mt-10
+                                prose-a:text-emerald-500 hover:prose-a:text-emerald-400 prose-a:transition-colors
+                                prose-blockquote:border-l-4 prose-blockquote:border-l-emerald-500 prose-blockquote:bg-emerald-500/10 prose-blockquote:p-6 prose-blockquote:rounded-r-lg prose-blockquote:font-bold prose-blockquote:text-lg prose-blockquote:shadow-sm prose-blockquote:my-8
+                                prose-ul:list-none prose-ul:pl-0 prose-li:relative prose-li:pl-6 prose-li:my-2 before:prose-li:absolute before:prose-li:left-0 before:prose-li:top-2 before:prose-li:w-2 before:prose-li:h-2 before:prose-li:bg-indigo-500 before:prose-li:rounded-full
+                                prose-table:w-full
+                                prose-th:bg-indigo-600 prose-th:text-white prose-th:p-4 prose-th:text-left prose-th:uppercase prose-th:text-xs prose-th:tracking-widest
+                                prose-td:p-4 prose-td:border-b ${isDarkMode ? 'prose-td:border-white/5 prose-td:bg-white/5' : 'prose-td:border-slate-100 prose-td:bg-slate-50'}
+                                prose-tr:transition-colors ${isDarkMode ? 'hover:prose-tr:bg-white/10' : 'hover:prose-tr:bg-indigo-50'}
                             `}>
-                                <ReactMarkdown>{aiPlan}</ReactMarkdown>
+                                <ReactMarkdown 
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        table: ({node, ...props}) => (
+                                            <div className={`overflow-x-auto w-full my-8 rounded-xl shadow-lg border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                                <table className="w-full min-w-[1200px] m-0" {...props} />
+                                            </div>
+                                        )
+                                    }}
+                                >
+                                    {aiPlan}
+                                </ReactMarkdown>
                             </div>
                             </div>
                                 )}
@@ -1705,7 +1805,23 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             {(performanceData?.section_questions?.[activeSolutionSection] || []).map((q, idx) => (
                                 <div key={idx} className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                                     <div className="flex items-center justify-between mb-4">
-                                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Question {idx + 1}</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Question {idx + 1}</span>
+                                            {q.type && (
+                                                <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-wider ${
+                                                    q.type === 'MULTI_CHOICE' ? 'bg-blue-500/10 text-blue-500' :
+                                                    q.type === 'SINGLE_CHOICE' ? 'bg-indigo-500/10 text-indigo-500' :
+                                                    q.type === 'INTEGER_TYPE' || q.type === 'NUMERICAL' ? 'bg-amber-500/10 text-amber-600' :
+                                                    'bg-slate-500/10 text-slate-500'
+                                                }`}>
+                                                    {q.type === 'MULTI_CHOICE' ? 'Multiple' :
+                                                     q.type === 'SINGLE_CHOICE' ? 'Single' :
+                                                     q.type === 'INTEGER_TYPE' ? 'Integer' :
+                                                     q.type === 'NUMERICAL' ? 'Numerical' :
+                                                     q.type.replace('_', ' ')}
+                                                </span>
+                                            )}
+                                        </div>
                                         {(() => {
                                             const isCorrect = q.result === 'CA' || q.is_correct;
                                             const isUnattempted = q.result === 'NA' || q.is_unattempted;
@@ -1724,48 +1840,80 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                     </div>
                                     <div className={`text-sm font-bold mb-6 leading-relaxed ${isDarkMode ? 'text-white' : 'text-slate-800'}`} dangerouslySetInnerHTML={{ __html: q.content || q.question_text }} />
                                     
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {q.options?.map((opt, oIdx) => {
-                                            const optLabel = ['A','B','C','D','E','F'][oIdx];
-                                            const uAnsOpts = Array.isArray(q.user_answer) 
-                                                ? q.user_answer.map(x => String(x).toLowerCase().trim()) 
-                                                : (q.user_answer ? [String(q.user_answer).toLowerCase().trim()] : []);
+                                    <div className="space-y-3">
+                                        {q.type !== 'INTEGER_TYPE' && q.type !== 'NUMERICAL' && q.options?.map((opt, oIdx) => {
+                                            const keys = ['a', 'b', 'c', 'd', 'e', 'f'];
+                                            const optIdStr = String(opt.id || opt._id || oIdx);
                                             
-                                            const isYours = uAnsOpts.some(ans => 
-                                                ans === String(opt.id).toLowerCase() || 
-                                                ans === optLabel?.toLowerCase() || 
-                                                (opt.content && ans === String(opt.content).replace(/(<([^>]+)>)/gi, "").toLowerCase())
-                                            ) || opt.id === q.student_answer_id;
+                                            // Handle correct options array matching
+                                            const correctOptionsArr = Array.isArray(q.correct_options) 
+                                                ? q.correct_options.map(String) 
+                                                : (q.correct_options ? [String(q.correct_options)] : []);
+                                            
+                                            const isCorrect = correctOptionsArr.some(c => c.toLowerCase() === optIdStr.toLowerCase()) 
+                                                || opt.isCorrect || opt.is_correct || opt.id === q.correct_option_id;
 
-                                            const correctOptionsArr = Array.isArray(q.correct_options) ? q.correct_options : [];
-                                            const isCorrectOpt = correctOptionsArr.some(c => String(c).toLowerCase() === String(opt.id).toLowerCase()) 
-                                                || opt.is_correct || opt.id === q.correct_option_id;
-                                            
+                                            // Robust matching for user answer (by ID, by index, or by label)
+                                            const userAnswerStr = Array.isArray(q.user_answer)
+                                                ? q.user_answer.map(String)
+                                                : q.user_answer != null ? [String(q.user_answer)] : [];
+
+                                            const isUserAnswer = userAnswerStr.some(ua => {
+                                                const uaStr = String(ua).toLowerCase().trim();
+                                                return (
+                                                    uaStr === optIdStr.toLowerCase() ||
+                                                    uaStr === String(oIdx) ||
+                                                    uaStr === keys[oIdx] ||
+                                                    uaStr === (opt?.content?.toLowerCase().trim() || '') ||
+                                                    uaStr === (opt?.text?.toLowerCase().trim() || '')
+                                                );
+                                            }) || opt.id === q.student_answer_id;
+
                                             return (
-                                                <div 
-                                                    key={oIdx} 
-                                                    className={`p-4 rounded-[4px] border text-xs font-bold transition-all flex items-center justify-between ${
-                                                        isCorrectOpt ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
-                                                        isYours && !isCorrectOpt ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' :
-                                                        isDarkMode ? 'bg-white/5 border-white/5 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-600'
+                                                <div
+                                                    key={optIdStr}
+                                                    className={`p-4 rounded-[4px] border transition-all flex justify-between items-center ${
+                                                        isCorrect && isUserAnswer ? 'border-emerald-500/40 bg-emerald-500/8 text-emerald-500' :
+                                                        isCorrect ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-500' :
+                                                        isUserAnswer ? 'border-red-500/30 bg-red-500/5 text-red-500' :
+                                                        isDarkMode ? 'border-white/5 text-slate-400 bg-white/5' : 'border-slate-100 text-slate-600 bg-slate-50'
                                                     }`}
                                                 >
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-start gap-2">
-                                                            <span className="opacity-50 shrink-0">{optLabel}.</span>
-                                                            <div className="flex-1 overflow-hidden" dangerouslySetInnerHTML={{ __html: opt.content || opt.text }} />
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2 ml-6">
-                                                            {isCorrectOpt && <span className="text-[8px] uppercase tracking-widest font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-[1px]">Correct Answer</span>}
-                                                            {isYours && <span className={`text-[8px] uppercase tracking-widest font-black px-1.5 py-0.5 rounded-[1px] ${isCorrectOpt ? 'bg-white/20 text-white' : 'bg-rose-500 text-white'}`}>Your Answer</span>}
-                                                        </div>
+                                                    <div className="flex gap-4 items-start">
+                                                        <span className={`text-xs font-black uppercase min-w-[16px] ${isDarkMode ? 'opacity-50' : 'text-slate-600 opacity-80'}`}>{keys[oIdx] ?? oIdx})</span>
+                                                        <div
+                                                            className={`text-xs font-bold leading-relaxed prose-sm max-w-none ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}
+                                                            dangerouslySetInnerHTML={{ __html: opt.content || opt.text || optIdStr }}
+                                                        />
                                                     </div>
-                                                    {isCorrectOpt && <CheckCircle2 size={14} className="shrink-0" />}
-                                                    {isYours && !isCorrectOpt && <XCircle size={14} className="shrink-0" />}
+                                                    <div className="flex items-center gap-2 shrink-0 ml-4">
+                                                        {isCorrect && isUserAnswer && (
+                                                            <span className="flex items-center gap-1 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
+                                                                Your Answer (Correct) <CheckCircle2 size={14} />
+                                                            </span>
+                                                        )}
+                                                        {isCorrect && !isUserAnswer && (
+                                                            <span className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Correct Option</span>
+                                                        )}
+                                                        {!isCorrect && isUserAnswer && (
+                                                            <span className="flex items-center gap-1 text-red-500 text-[10px] font-black uppercase tracking-widest">
+                                                                Your Answer <XCircle size={14} />
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
+                                    
+                                    {(q.type === 'NUMERICAL' || q.type === 'INTEGER_TYPE') && (
+                                        <div className={`p-4 rounded-[4px] border mt-2 ${isDarkMode ? 'bg-white/[0.02] border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                                            <div className="flex items-center gap-6 text-[12px] font-semibold">
+                                                <div>Your Answer: <span className="font-black tracking-widest text-blue-500">{q.user_answer || 'N/A'}</span></div>
+                                                <div>Correct Answer: <span className="font-black tracking-widest text-emerald-500">{q.answer_from === q.answer_to ? q.answer_to : `${q.answer_from} - ${q.answer_to}`}</span></div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {q.solution && (
                                         <div className={`mt-6 p-4 rounded-[4px] ${isDarkMode ? 'bg-indigo-500/5 text-slate-400' : 'bg-indigo-50 text-slate-600'}`}>
@@ -1785,8 +1933,16 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     return (
-        <div className={`flex flex-col lg:flex-row h-full min-h-[800px] rounded-[4px] border overflow-hidden ${isDarkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-slate-200'}`}>
+        <div className={`flex flex-col lg:flex-row h-full min-h-[800px] rounded-[4px] border overflow-hidden relative ${isDarkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-slate-200'}`}>
             {renderSidePanel()}
+            
+            <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`hidden lg:flex absolute left-0 top-45 z-50 p-1.5 rounded-r-[4px] border-y border-r transition-all ${isDarkMode ? 'bg-[#10141D] border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800'} ${isSidebarOpen ? 'translate-x-[300px]' : 'translate-x-0'}`}
+                title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+            >
+                {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            </button>
             <AnimatePresence mode="wait">
                 {currentStep === 1 && <motion.div key="s1" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep1()}</motion.div>}
                 {currentStep === 2 && <motion.div key="s2" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep2()}</motion.div>}
