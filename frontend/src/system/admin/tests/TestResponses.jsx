@@ -1064,6 +1064,67 @@ const TestResponses = ({ isOMR = false }) => {
                     </div>
                 );
             })()}
+            
+            {uploadModal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className={`w-full max-w-md rounded-xl shadow-2xl border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'} overflow-hidden flex flex-col`}>
+                        <div className={`p-6 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                            <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
+                                <UploadCloud size={20} className="text-blue-500" />
+                                Upload OMR Excel
+                            </h2>
+                            <p className={`mt-1 text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                For test: <span className="text-blue-500">{uploadModal.testName}</span>
+                            </p>
+                        </div>
+                        
+                        <div className="p-6 flex flex-col gap-4">
+                            <div className={`w-full border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-colors ${isDarkMode ? 'border-white/10 hover:border-blue-500/50 bg-white/2' : 'border-slate-200 hover:border-blue-500/50 bg-slate-50'}`}>
+                                <UploadCloud size={32} className={`mb-3 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
+                                <label className="cursor-pointer text-center">
+                                    <span className="px-4 py-2 rounded-md bg-blue-500 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-colors inline-block mb-2">
+                                        Choose File
+                                    </span>
+                                    <input 
+                                        type="file" 
+                                        accept=".xlsx, .xls, .csv" 
+                                        className="hidden" 
+                                        onChange={(e) => setUploadFile(e.target.files[0])}
+                                    />
+                                </label>
+                                <p className={`text-xs font-bold text-center mt-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    {uploadFile ? uploadFile.name : 'No file selected'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className={`p-4 border-t flex justify-end gap-3 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                            <button
+                                onClick={() => {
+                                    setUploadModal({ isOpen: false, testId: null, testName: '' });
+                                    setUploadFile(null);
+                                }}
+                                className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleUploadExcel}
+                                disabled={!uploadFile || isUploading}
+                                className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                                    !uploadFile || isUploading 
+                                    ? 'bg-blue-500/50 cursor-not-allowed text-white/70' 
+                                    : 'bg-blue-500 hover:bg-blue-600 active:scale-95 text-white shadow-lg shadow-blue-500/20'
+                                }`}
+                            >
+                                {isUploading ? <RefreshCw size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                                {isUploading ? 'Uploading...' : 'Upload Data'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ConfirmationModal />
             <SuccessModal />
         </div>
