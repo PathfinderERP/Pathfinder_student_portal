@@ -226,7 +226,7 @@ class TestViewSet(viewsets.ModelViewSet):
             queryset = Test.objects.all().select_related(
                 'session', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'sections', 'target_exams', 'sessions', 'centres',
+                'sections', 'target_exams', 'sessions', 'centres', 'class_levels',
                 'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
         elif self.action == 'question_paper':
@@ -240,7 +240,7 @@ class TestViewSet(viewsets.ModelViewSet):
             queryset = Test.objects.all().select_related(
                 'session', 'exam_type', 'class_level', 'package'
             ).prefetch_related(
-                'sections', 'target_exams', 'sessions', 'centres', 
+                'sections', 'target_exams', 'sessions', 'centres', 'class_levels',
                 'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
         

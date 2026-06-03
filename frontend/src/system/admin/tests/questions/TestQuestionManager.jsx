@@ -311,11 +311,15 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
 
     useEffect(() => {
         fetchSections();
-    }, [fetchSections]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [test?.id]);
 
     useEffect(() => {
-        fetchSectionQuestions();
-    }, [fetchSectionQuestions]);
+        if (sections.length > 0) {
+            fetchSectionQuestions();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, sections.length]);
 
     const handleRemoveQuestion = async (qid) => {
         if (!window.confirm('Are you sure you want to remove this question from all selected sections?')) return;

@@ -347,96 +347,24 @@ def get_student_erp_data(request):
             if cached: return Response(cached, status=200)
             return Response({"status": "syncing", "message": "First-time enrichment in progress"}, status=202)
 
-    # Strategy 3: Targeted Fetch
-    # We prefer the Admin Token for enrichment (Strategy 3) because /api/admission 
-    # often requires higher privileges than a standard student token holds.
-    student_erp_token = cache.get(f"erp_token_{user.pk}")
-    admin_token = _get_erp_admin_token()
-    
-    # If force refresh, we MUST use admin token to get a "God view" of the record
+    # Strategy 3: Targeted Fetch (Non-blocking)
     if force_refresh:
-        active_token = admin_token
-        is_admin_sync = True
-    else:
-        # Otherwise try student token first, fallback to admin
-        active_token = student_erp_token or admin_token
-        is_admin_sync = not bool(student_erp_token)
-
-    if active_token:
+        # Trigger the background sync instead of blocking the request
         cache.set(lock_key, True, 60) # 60s lock
-        try:
-            print(f"[ERP] Strategy 3: TARGETED fetch for {search_email} (Force: {force_refresh}, Admin: {is_admin_sync})...")
-            target_record = None
-            
-            # Sub-Strategy 3a: Email Filter (Primary)
-            try:
-                resp = requests.get(f"{erp_url}/api/admission?studentEmail={search_email}", 
-                                    headers={"Authorization": f"Bearer {active_token}"}, timeout=60)
-                
-                # Handle 401 Escallation
-                if resp.status_code == 401 and not is_admin_sync and admin_token:
-                    print(f"[ERP] 401 on student token. Escalating to Admin session for {search_email}...")
-                    active_token = admin_token
-                    is_admin_sync = True
-                    resp = requests.get(f"{erp_url}/api/admission?studentEmail={search_email}", 
-                                        headers={"Authorization": f"Bearer {active_token}"}, timeout=60)
-
-                print(f"[ERP] Targeted Email Fetch Status: {resp.status_code}")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if isinstance(data, list) and len(data) > 0: 
-                        potential_record = data[0]
-                    elif isinstance(data, dict):
-                        # Handle wrapped response {message, student} or direct response {student, ...}
-                        if data.get('student') and data.get('message'):
-                            potential_record = data.get('student')
-                        else:
-                            potential_record = data
-                    
-                    if potential_record:
-                        # VERIFY this is actually the right student
-                        student_obj = potential_record.get('student') or {}
-                        details = student_obj.get('studentsDetails', [])
-                        adm_num = str(potential_record.get('admissionNumber') or '').strip().upper()
-                        email_match = any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details)
-                        
-                        if email_match or (search_username and adm_num == search_username):
-                            target_record = potential_record
-                            print(f"[ERP] Found verified record via email filter.")
-                        else:
-                            print(f"[ERP] Email filter returned non-matching record (expected {search_email}). Falling back...")
-            except Exception as e: 
-                print(f"[ERP] Email Filter fetch error: {e}")
-
-            # Sub-Strategy 3b: Global Cache Search / Fallback Full Fetch
-            if not target_record:
-                print(f"[ERP] Strategy 3b: Targeted search failed, searching global pool...")
-                # We use the centralized fetcher which handles caching and 90s timeout
-                all_students = _fetch_all_students_erp(force_refresh=force_refresh)
-                if all_students:
-                    print(f"[ERP] Searching through {len(all_students)} records for match...")
-                    for admission in all_students:
-                        student_obj = admission.get('student') or {}
-                        details = student_obj.get('studentsDetails', [])
-                        admission_num = str(admission.get('admissionNumber') or '').strip().upper()
-                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details) or \
-                           (search_username and admission_num == search_username):
-                            target_record = admission
-                            break
-            
-            if target_record:
-                print(f"[ERP] Strategy 3 SUCCESS: Fresh record obtained for {search_email}.")
-                # Add a metadata flag to indicate fresh sync
-                target_record['sync_completed'] = True
-                _sync_user_to_erp(user, target_record)
-                cache.set(student_cache_key, target_record, 300)
-                return Response(target_record, status=200)
-            else:
-                print(f"[ERP] Strategy 3 FAILED: Record for {search_email} not found in targeted search.")
-        except Exception as e:
-            print(f"[ERP ERROR] Strategy 3 failed: {e}")
-        finally:
-            cache.delete(lock_key)
+        t = threading.Thread(
+            target=_perform_background_erp_sync,
+            args=(user.pk, search_email, student_cache_key, force_refresh),
+            daemon=True
+        )
+        t.start()
+        
+        # Return whatever we have (even if it's stale) while background sync runs
+        if cached:
+            print(f"[ERP] Strategy 3: Started background sync. Serving stale cached data.")
+            return Response(cached, status=200)
+        else:
+            print(f"[ERP] Strategy 3: Started background sync. No cached data, returning syncing status.")
+            return Response({"status": "syncing", "message": "Enrichment started in background"}, status=202)
     
     # If we got here, it's either an initial load OR Strategy 3 failed
     if not force_refresh:

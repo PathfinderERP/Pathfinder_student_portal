@@ -93,6 +93,7 @@ const TestAllotment = ({ isOMR = false }) => {
             console.error('Failed to fetch data:', err);
         } finally {
             setIsLoading(false);
+            activeFetchKeysRef.current.delete(fetchKey);
         }
     }, [getApiUrl, getAuthConfig, tests.length]); // Removed filterSession from here
 
@@ -118,42 +119,52 @@ const TestAllotment = ({ isOMR = false }) => {
         try {
             const apiUrl = getApiUrl();
 
-            // Fetch ERP Centres (via Backend Proxy) and Local Centres concurrently
-            const [erpCentresRes, localCentresRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/admin/erp-centres/`, getAuthConfig()),
-                axios.get(`${apiUrl}/api/centres/`, getAuthConfig())
-            ]);
+            let uniqueErpData = availableCentres;
+            let localData = localCentres;
 
-            const erpDataRaw = erpCentresRes.data || [];
-            const erpData = Array.isArray(erpDataRaw) ? erpDataRaw : (erpDataRaw.data || []);
+            if (availableCentres.length === 0 || localCentres.length === 0) {
+                // Fetch ERP Centres (via Backend Proxy) and Local Centres concurrently
+                const [erpCentresRes, localCentresRes] = await Promise.all([
+                    axios.get(`${apiUrl}/api/admin/erp-centres/`, getAuthConfig()),
+                    axios.get(`${apiUrl}/api/centres/`, getAuthConfig())
+                ]);
 
-            // Highly robust deduplication by normalized code
-            const uniqueErpData = [];
-            const seenCodes = new Set();
-            erpData.forEach(c => {
-                const rawCode = c.enterCode || c.code || c.id || "";
-                const normalizedCode = rawCode.toString().trim().toUpperCase();
-                if (normalizedCode && !seenCodes.has(normalizedCode)) {
-                    uniqueErpData.push(c);
-                    seenCodes.add(normalizedCode);
-                }
-            });
+                const erpDataRaw = erpCentresRes.data || [];
+                const erpData = Array.isArray(erpDataRaw) ? erpDataRaw : (erpDataRaw.data || []);
 
-            const localData = localCentresRes.data || [];
+                // Highly robust deduplication by normalized code
+                uniqueErpData = [];
+                const seenCodes = new Set();
+                erpData.forEach(c => {
+                    const rawCode = c.enterCode || c.code || c.id || "";
+                    const normalizedCode = rawCode.toString().trim().toUpperCase();
+                    if (normalizedCode && !seenCodes.has(normalizedCode)) {
+                        uniqueErpData.push(c);
+                        seenCodes.add(normalizedCode);
+                    }
+                });
 
-            // Map ERP centres to available list
-            setAvailableCentres(uniqueErpData);
-            setLocalCentres(localData);
+                localData = localCentresRes.data || [];
+
+                // Map ERP centres to available list
+                setAvailableCentres(uniqueErpData);
+                setLocalCentres(localData);
+            }
 
             // Map the test's existing allotted local IDs back to ERP codes
             const alreadyAllottedCodes = localData
                 .filter(lc => test.centres?.includes(lc.id))
                 .map(lc => lc.code);
 
-            setSelectedCentreIds(alreadyAllottedCodes);
+            if (isOMR && alreadyAllottedCodes.length === 0) {
+                // By default select all centres for OMR if none are allotted yet
+                setSelectedCentreIds(uniqueErpData.map(c => c.enterCode || c.code || c.id).filter(Boolean));
+            } else {
+                setSelectedCentreIds(alreadyAllottedCodes);
+            }
             setIsModalOpen(true);
         } catch (err) {
-            console.error("❌ Allotment Sync Error:", err);
+            console.error("🚀 Allotment Sync Error:", err);
             triggerAlert('Failed to load ERP centre registry: ' + (err.response?.data?.error || err.message), 'error');
         } finally {
             setIsActionLoading(false);

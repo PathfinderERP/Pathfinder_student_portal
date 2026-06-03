@@ -500,7 +500,7 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
 
 
 class ExamDetailViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
-    queryset = ExamDetail.objects.select_related('session', 'exam_type', 'class_level').prefetch_related('target_exams', 'sessions').all().order_by('-created_at')
+    queryset = ExamDetail.objects.select_related('session', 'exam_type', 'class_level').prefetch_related('target_exams', 'sessions', 'class_levels').all().order_by('-created_at')
     serializer_class = ExamDetailSerializer
 
 class SubjectViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
@@ -763,15 +763,22 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
     serializer_class = LibraryItemSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         queryset = LibraryItem.objects.select_related(
             'session', 'class_level', 'subject', 'chapter', 'topic', 
             'exam_type', 'target_exam', 'section'
-        ).prefetch_related(
-            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
-        ).all().order_by('-created_at').distinct()
+        )
+        
+        if self.action == 'list':
+            queryset = queryset.prefetch_related('sessions', 'target_exams')
+        else:
+            queryset = queryset.prefetch_related(
+                'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
+            )
+            
+        queryset = queryset.all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
     def get_object(self):

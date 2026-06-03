@@ -688,7 +688,7 @@ const LibraryRegistry = () => {
             const apiUrl = getApiUrl();
             let successCount = 0;
 
-            for (const [topicId, data] of topicsToSubmit) {
+            const savePromises = topicsToSubmit.map(async ([topicId, data]) => {
                 const formData = new FormData();
                 
                 // Name for the main Library item record
@@ -751,6 +751,7 @@ const LibraryRegistry = () => {
                     const dppTargetExamId = (targetExams || []).find(tx => tx.name.toUpperCase() === 'DPP')?.id;
 
                     const questionIds = [];
+                    // Process questions sequentially to avoid overwhelming the server with image uploads
                     for (const q of data.questions) {
                         const cleanContent = await processEditorImages(q.question);
                         const cleanSolution = await processEditorImages(q.solution);
@@ -787,8 +788,12 @@ const LibraryRegistry = () => {
                 await axios.post(`${apiUrl}/api/master-data/library/`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
                 });
-                successCount++;
-            }
+                return true;
+            });
+
+            // Execute all topic saves concurrently
+            await Promise.all(savePromises);
+            successCount = topicsToSubmit.length;
 
             toast.success(`Resources saved for ${successCount} topic(s)!`);
             setIsAddModalOpen(false);
