@@ -11,6 +11,7 @@ import { useAuth } from '../../../context/AuthContext';
 import SmartEditor from '../components/SmartEditor';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import { toast } from 'react-hot-toast';
 import TestSectionManager from './sections/TestSectionManager';
 import TestQuestionManager from './questions/TestQuestionManager';
 import QuestionPaperView from './questions/QuestionPaperView';
@@ -195,7 +196,7 @@ const MathPreview = ({ tex, isDarkMode }) => {
     );
 };
 
-const TestCreate = () => {
+const TestCreate = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
@@ -564,19 +565,21 @@ const TestCreate = () => {
 
     const handleToggleStatus = async (item) => {
         setIsActionLoading(true);
+        const newStatus = !item.is_completed;
 
         // Optimistic toggle
-        setData(prev => prev.map(d => d.id === item.id ? { ...d, is_completed: !d.is_completed } : d));
+        setData(prev => prev.map(d => d.id === item.id ? { ...d, is_completed: newStatus } : d));
+        toast.success(`Test marked as ${newStatus ? 'Completed' : 'Pending'}`, { duration: 2000 });
 
         try {
             const apiUrl = getApiUrl();
             await axios.patch(`${apiUrl}/api/tests/${item.id}/`,
-                { is_completed: !item.is_completed },
+                { is_completed: newStatus },
                 getAuthConfig()
             );
             dispatchTestsUpdated();
         } catch (err) {
-            alert('Failed to update status');
+            toast.error('Failed to update status');
             fetchData(true); // Revert on error
         } finally {
             setIsActionLoading(false);
@@ -622,9 +625,18 @@ const TestCreate = () => {
             if (statusFilter === 'completed') matchesStatus = item.is_completed === true;
             if (statusFilter === 'pending') matchesStatus = item.is_completed === false;
 
-            return matchesSearch && matchesStatus;
+            let matchesOMR = true;
+            const examTypeName = item.exam_type_details?.name?.toLowerCase() || '';
+            const isOMRTest = examTypeName.includes('omr');
+            if (isOMR) {
+                matchesOMR = isOMRTest;
+            } else {
+                matchesOMR = !isOMRTest;
+            }
+
+            return matchesSearch && matchesStatus && matchesOMR;
         });
-    }, [data, debouncedSearch, statusFilter]);
+    }, [data, debouncedSearch, statusFilter, isOMR]);
 
     // Reset page on filter change
     useEffect(() => {

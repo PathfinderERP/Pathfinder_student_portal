@@ -339,6 +339,11 @@ class TestViewSet(viewsets.ModelViewSet):
             final_ids = list(set(str(pk) for pk in submission_test_ids) | eligible_ids)
 
             queryset = queryset.filter(pk__in=final_ids)
+
+            # Hide OMR tests from students unless results are published
+            queryset = queryset.exclude(
+                Q(exam_type__name__icontains='omr') & Q(is_result_published=False)
+            )
         
         package_id = self.request.query_params.get('package', None)
         if package_id:
@@ -959,6 +964,145 @@ class TestViewSet(viewsets.ModelViewSet):
             'is_completed': True,
             'is_result_published': True
         })
+
+    @action(detail=True, methods=['post'], url_path='upload_omr_excel')
+    def upload_omr_excel(self, request, pk=None):
+        import pandas as pd
+        from django.db.models import Q
+        from .models import TestSubmission
+        from api.models import CustomUser
+
+        test = self.get_object()
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded'}, status=400)
+
+        try:
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file)
+            else:
+                df = pd.read_excel(file)
+            
+            original_columns = list(df.columns)
+            df.columns = [str(c).strip().lower() for c in df.columns]
+            
+            # Check for OMR Raw Format
+            is_omr_raw = 'frmid' in df.columns or 'f001' in df.columns
+            
+            success_count = 0
+            errors = []
+
+            if is_omr_raw:
+                # 1. Fetch and sort questions
+                questions = []
+                for section in test.sections.all().order_by('priority'):
+                    seen = set()
+                    order_list = section.question_order or []
+                    order_map = {str(oid): i for i, oid in enumerate(order_list)}
+                    
+                    sec_qs = []
+                    for q in section.questions.all():
+                        if str(q.pk) not in seen:
+                            seen.add(str(q.pk))
+                            sec_qs.append(q)
+                    sec_qs.sort(key=lambda q: order_map.get(str(q.pk), 999999))
+                    questions.extend(sec_qs)
+
+                enroll_col = next((c for c in ['frmid', 'enrollment number', 'enrollment'] if c in df.columns), None)
+                if not enroll_col:
+                    return Response({'error': 'Could not find enrollment column (FRMID) in OMR sheet.'}, status=400)
+
+                for index, row in df.iterrows():
+                    if pd.isna(row[enroll_col]):
+                        continue
+                        
+                    enroll_raw = str(row[enroll_col]).strip().upper()
+                    # Prepend PATH if it's just digits
+                    if enroll_raw.isdigit():
+                        enroll_raw = f"PATH{enroll_raw}"
+                    elif enroll_raw.endswith('.0'):
+                        enroll_raw = f"PATH{enroll_raw[:-2]}"
+                        
+                    student = CustomUser.objects.filter(Q(admission_number__iexact=enroll_raw) | Q(username__iexact=enroll_raw)).first()
+                    if not student:
+                        errors.append(f"Student not found: {enroll_raw}")
+                        continue
+                        
+                    responses = {}
+                    for i, q in enumerate(questions):
+                        col_name = f"f{i+1:03d}"
+                        if col_name in df.columns:
+                            ans_val = row[col_name]
+                            if pd.isna(ans_val):
+                                continue
+                                
+                            ans_str = str(ans_val).strip().upper()
+                            if ans_str in ('NAN', 'NONE', '', 'NULL'):
+                                continue
+                                
+                            options = q.question_options or []
+                            ans_list = []
+                            for char in ans_str:
+                                if 'A' <= char <= 'Z':
+                                    idx = ord(char) - ord('A')
+                                    if 0 <= idx < len(options):
+                                        ans_list.append(str(options[idx].get('id', '')))
+                                elif '1' <= char <= '9':
+                                    idx = int(char) - 1
+                                    if 0 <= idx < len(options):
+                                        ans_list.append(str(options[idx].get('id', '')))
+                            
+                            if ans_list:
+                                if q.question_type == 'SINGLE_CHOICE':
+                                    responses[str(q.pk)] = {'answer': ans_list[0]}
+                                else:
+                                    responses[str(q.pk)] = {'answer': ans_list}
+                    
+                    sub, _ = TestSubmission.objects.get_or_create(test=test, student=student)
+                    sub.responses = responses
+                    sub.is_finalized = True
+                    sub.submission_type = 'OMR_EXCEL'
+                    sub.save()
+                    success_count += 1
+            else:
+                # Old Format (Enrollment + Score)
+                enroll_col = next((c for c in ['enrollment number', 'enrollment', 'admission number', 'admission', 'student id', 'id', 'username'] if c in df.columns), None)
+                score_col = next((c for c in ['score', 'total score', 'marks', 'total marks', 'total'] if c in df.columns), None)
+                
+                if not enroll_col or not score_col:
+                    return Response({'error': f'Could not identify enrollment or score columns. Please use "Enrollment Number" and "Score". Found: {original_columns}'}, status=400)
+
+                for index, row in df.iterrows():
+                    if pd.isna(row[enroll_col]):
+                        continue
+                    enroll_num = str(row[enroll_col]).strip().upper()
+                    try:
+                        score = float(row[score_col])
+                    except (ValueError, TypeError):
+                        errors.append(f"Invalid score for {enroll_num}")
+                        continue
+                    
+                    student = CustomUser.objects.filter(Q(admission_number__iexact=enroll_num) | Q(username__iexact=enroll_num)).first()
+                    if not student:
+                        errors.append(f"Student not found: {enroll_num}")
+                        continue
+                    
+                    sub, _ = TestSubmission.objects.get_or_create(test=test, student=student)
+                    sub.score = score
+                    sub.is_finalized = True
+                    sub.submission_type = 'OMR_EXCEL'
+                    sub.save()
+                    success_count += 1
+
+            return Response({
+                'message': f'Successfully uploaded records for {success_count} students.',
+                'errors': errors
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
 
     @action(detail=True, methods=['get'], url_path='question_analysis')
     def question_analysis(self, request, pk=None):

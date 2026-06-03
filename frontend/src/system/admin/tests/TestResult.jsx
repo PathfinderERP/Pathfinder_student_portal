@@ -8,7 +8,7 @@ import QuestionAnalysis from './QuestionAnalysis';
 import QuestionStudentAnalysis from './QuestionStudentAnalysis';
 import TestResultStudents from './TestResultStudents';
 
-const TestResult = () => {
+const TestResult = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const navigate = useNavigate();
@@ -89,9 +89,18 @@ const TestResult = () => {
             const matchesSession = selectedSession === 'all' ||
                 test.session_details?.name === selectedSession;
 
-            return matchesSearch && matchesStatus && matchesSession;
+            let matchesOMR = true;
+            const examTypeName = test.exam_type_details?.name?.toLowerCase() || '';
+            const isOMRTest = examTypeName.includes('omr');
+            if (isOMR) {
+                matchesOMR = isOMRTest;
+            } else {
+                matchesOMR = !isOMRTest;
+            }
+
+            return matchesSearch && matchesStatus && matchesSession && matchesOMR;
         });
-    }, [tests, searchTerm, testFilter, selectedSession]);
+    }, [tests, searchTerm, testFilter, selectedSession, isOMR]);
 
     // Reset page on filter change
     useEffect(() => {

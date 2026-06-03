@@ -7,7 +7,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 
-const MergeTestResult = () => {
+const MergeTestResult = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
@@ -80,9 +80,19 @@ const MergeTestResult = () => {
                 (testFilter === 'in_progress' && !test.is_completed);
             const matchesSession = selectedSession === 'all' ||
                 test.session_details?.name === selectedSession;
-            return matchesSearch && matchesStatus && matchesSession;
+
+            let matchesOMR = true;
+            const examTypeName = test.exam_type_details?.name?.toLowerCase() || '';
+            const isOMRTest = examTypeName.includes('omr');
+            if (isOMR) {
+                matchesOMR = isOMRTest;
+            } else {
+                matchesOMR = !isOMRTest;
+            }
+
+            return matchesSearch && matchesStatus && matchesSession && matchesOMR;
         });
-    }, [tests, searchTerm, testFilter, selectedSession]);
+    }, [tests, searchTerm, testFilter, selectedSession, isOMR]);
 
     useEffect(() => { setCurrentPage(1); }, [searchTerm, testFilter, selectedSession]);
 

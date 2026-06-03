@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const TestResponses = () => {
+const TestResponses = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const navigate = useNavigate();
@@ -20,6 +20,9 @@ const TestResponses = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [successModal, setSuccessModal] = useState({ isOpen: false, message: '' });
     const [generatingId, setGeneratingId] = useState(null);
+    const [uploadModal, setUploadModal] = useState({ isOpen: false, testId: null, testName: '' });
+    const [uploadFile, setUploadFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     const fetchTests = async (forceRefresh = false) => {
@@ -79,9 +82,18 @@ const TestResponses = () => {
             const matchesSession = selectedSession === 'all' ||
                 test.session_details?.name === selectedSession;
 
-            return matchesSearch && matchesStatus && matchesSession;
+            let matchesOMR = true;
+            const examTypeName = test.exam_type_details?.name?.toLowerCase() || '';
+            const isOMRTest = examTypeName.includes('omr');
+            if (isOMR) {
+                matchesOMR = isOMRTest;
+            } else {
+                matchesOMR = !isOMRTest;
+            }
+
+            return matchesSearch && matchesStatus && matchesSession && matchesOMR;
         });
-    }, [tests, searchTerm, testFilter, selectedSession]);
+    }, [tests, searchTerm, testFilter, selectedSession, isOMR]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -214,6 +226,39 @@ const TestResponses = () => {
 
     const attemptedCountSummary = useMemo(() => submissions.filter(s => getNormalizedStatus(s.status) !== 'available').length, [submissions]);
     const showingCountSummary = filteredSubmissions.length;
+
+    const handleUploadExcel = async () => {
+        if (!uploadFile || !uploadModal.testId) {
+            toast.error('Please select a file first.');
+            return;
+        }
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(`${apiUrl}/api/tests/${uploadModal.testId}/upload_omr_excel/`, formData, {
+                headers: { 
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            toast.success(res.data.message || 'Scores uploaded successfully.');
+            if (res.data.errors && res.data.errors.length > 0) {
+                toast.error(`Some errors occurred:\n${res.data.errors.slice(0, 5).join('\n')}${res.data.errors.length > 5 ? '\n...' : ''}`);
+            }
+            setUploadModal({ isOpen: false, testId: null, testName: '' });
+            setUploadFile(null);
+            fetchTests(true);
+        } catch (err) {
+            console.error('Error uploading Excel:', err);
+            toast.error(err.response?.data?.error || 'Failed to upload Excel file.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleGenerateResult = async (testId) => {
         setGeneratingId(testId);
@@ -398,6 +443,15 @@ const TestResponses = () => {
                                 </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-4">
+                                {/* Refresh Button */}
+                                <button
+                                    onClick={() => fetchTests(false)}
+                                    title="Manual Refresh"
+                                    className={`p-2.5 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                >
+                                    <RefreshCw size={18} className={isLoading && !isSyncing ? 'animate-spin' : ''} />
+                                </button>
+
                                 {/* Search */}
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
@@ -529,12 +583,22 @@ const TestResponses = () => {
                                                 </button>
                                             </td>
                                             <td className="py-5 px-6 text-center">
-                                                <button
+                                                <div className="flex flex-col gap-2 justify-center">
+                                                    {isOMR && (
+                                                        <button
+                                                            onClick={() => setUploadModal({ isOpen: true, testId: test.id, testName: test.name })}
+                                                            className={`px-4 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5 w-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20`}
+                                                        >
+                                                            <UploadCloud size={11} />
+                                                            Upload Excel
+                                                        </button>
+                                                    )}
+                                                    <button
                                                     onClick={() => handleGenerateResult(test.id)}
-                                                    disabled={(!test.is_over && !test.is_completed) || generatingId === test.id}
-                                                    title={(!test.is_over && !test.is_completed) ? "Exam is still in progress. Can only generate after end time of all centres." : "Click to generate result"}
+                                                    disabled={isOMR ? (!test.is_completed || generatingId === test.id) : ((!test.is_over && !test.is_completed) || generatingId === test.id)}
+                                                    title={isOMR ? (!test.is_completed ? "Turn on Completed toggle in Test Management first." : "Click to generate result") : ((!test.is_over && !test.is_completed) ? "Exam is still in progress. Can only generate after end time of all centres." : "Click to generate result")}
                                                     className={`px-4 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1.5 mx-auto
-                                                        ${(test.is_over || test.is_completed)
+                                                        ${(isOMR ? test.is_completed : (test.is_over || test.is_completed))
                                                             ? (generatingId === test.id ? 'bg-green-500/50 text-white cursor-wait' : 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-600/20')
                                                             : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none'}
                                                      `}
@@ -542,6 +606,7 @@ const TestResponses = () => {
                                                     {generatingId === test.id ? <RefreshCw size={11} className="animate-spin" /> : <FileText size={11} />}
                                                     {generatingId === test.id ? 'Processing...' : (test.is_completed ? 'Regenerate' : 'Generate Result')}
                                                 </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

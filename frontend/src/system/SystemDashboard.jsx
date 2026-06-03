@@ -362,12 +362,15 @@ const SystemDashboard = () => {
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
         {
             id: 'omr_mgmt', icon: FileText, label: 'OMR Management',
-            active: activeTab === 'OMR Result Generate' || activeTab === 'OMR Result',
+            active: activeTab.startsWith('OMR ') || activeTab === 'OMR Result Generate' || activeTab === 'OMR Result',
             subItems: [
-                { id: 'result_generate', icon: RefreshCw, label: 'Result Generate', active: activeTab === 'OMR Result Generate', onClick: () => setActiveTab('OMR Result Generate') },
-                { id: 'result', icon: PieChart, label: 'Result', active: activeTab === 'OMR Result', onClick: () => setActiveTab('OMR Result') }
+                { id: 'test_create', label: 'Test Create', active: activeTab === 'OMR Test Create', onClick: () => setActiveTab('OMR Test Create') },
+                { id: 'test_allotment', label: 'Test Allotment', active: activeTab === 'OMR Test Allotment', onClick: () => setActiveTab('OMR Test Allotment') },
+                { id: 'test_responses', label: 'Test Responses', active: activeTab === 'OMR Test Responses', onClick: () => setActiveTab('OMR Test Responses') },
+                { id: 'merge_test_result', label: 'Merge Test Result', active: activeTab === 'OMR Merge Test Result', onClick: () => setActiveTab('OMR Merge Test Result') },
+                { id: 'test_result', label: 'Test Result', active: activeTab === 'OMR Test Result', onClick: () => setActiveTab('OMR Test Result') }
             ].filter(sub => {
-                return hasPermission('test_mgmt', sub.id.replace('result_generate', 'merge_test_result').replace('result', 'test_result'));
+                return hasPermission('test_mgmt', sub.id);
             })
         },
         {
@@ -548,15 +551,25 @@ const SystemDashboard = () => {
                     if (subTab) setMasterSubTab(subTab);
                 }} />;
             case 'Test Create':
-                return <TestCreate />;
+                return <TestCreate isOMR={false} />;
+            case 'OMR Test Create':
+                return <TestCreate isOMR={true} />;
             case 'Test Allotment':
-                return <TestAllotment />;
+                return <TestAllotment isOMR={false} />;
+            case 'OMR Test Allotment':
+                return <TestAllotment isOMR={true} />;
             case 'Test Responses':
-                return <TestResponses />;
+                return <TestResponses isOMR={false} />;
+            case 'OMR Test Responses':
+                return <TestResponses isOMR={true} />;
             case 'Merge Test Result':
-                return <MergeTestResult />;
+                return <MergeTestResult isOMR={false} />;
+            case 'OMR Merge Test Result':
+                return <MergeTestResult isOMR={true} />;
             case 'Test Result':
-                return <TestResult />;
+                return <TestResult isOMR={false} />;
+            case 'OMR Test Result':
+                return <TestResult isOMR={true} />;
             case 'Psychometric Test':
                 return <PsychometricResponses />;
             case 'Create Package':
@@ -638,7 +651,8 @@ const SystemDashboard = () => {
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
             'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework',
-            'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide'
+            'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide',
+            'OMR Test Create', 'OMR Test Allotment', 'OMR Test Responses', 'OMR Merge Test Result', 'OMR Test Result'
         ];
 
         return (

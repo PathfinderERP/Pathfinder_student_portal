@@ -100,7 +100,7 @@ class TestSerializer(serializers.ModelSerializer):
             'exam_type', 'exam_type_details', 'package', 'package_name', 'class_level', 'class_level_details', 'class_levels', 'class_levels_details',
             'centres', 'centres_count', 'codes_sent_count', 'sections_count',  
             'duration', 'total_marks', 'description', 'instructions', 
-            'is_completed', 'is_over', 'has_calculator', 'is_result_published', 'option_type_numeric', 'created_at', 'updated_at',
+            'is_completed', 'is_over', 'has_calculator', 'is_result_published', 'option_type_numeric', 'is_omr_based', 'created_at', 'updated_at',
             'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count'
         ]
         

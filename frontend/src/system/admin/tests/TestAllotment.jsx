@@ -5,7 +5,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import CentreAllotmentDetails from './CentreAllotmentDetails';
 
-const TestAllotment = () => {
+const TestAllotment = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
@@ -295,9 +295,18 @@ const TestAllotment = () => {
                 : filterStatus === 'not_allotted' ? (t.centres_count === 0)
                     : true;
 
-            return matchesSearch && matchesSession && matchesStatus;
+            let matchesOMR = true;
+            const examTypeName = t.exam_type_details?.name?.toLowerCase() || '';
+            const isOMRTest = examTypeName.includes('omr');
+            if (isOMR) {
+                matchesOMR = isOMRTest;
+            } else {
+                matchesOMR = !isOMRTest;
+            }
+
+            return matchesSearch && matchesSession && matchesStatus && matchesOMR;
         });
-    }, [tests, searchTerm, filterSession, filterStatus]);
+    }, [tests, searchTerm, filterSession, filterStatus, isOMR]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -398,7 +407,7 @@ const TestAllotment = () => {
                                 <th className="py-6 px-6">Test Code</th>
 
                                 <th className="py-6 px-6 text-center">Centres Allotted</th>
-                                <th className="py-6 px-6 text-center">Codes Sent</th>
+                                {!isOMR && <th className="py-6 px-6 text-center">Codes Sent</th>}
                                 <th className="py-6 px-6 text-center">Manage Centres</th>
                                 <th className="py-6 px-6 text-center">Remove Allotment</th>
                             </tr>
@@ -417,7 +426,7 @@ const TestAllotment = () => {
                                         <td className="py-5 px-6"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
 
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                        <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        {!isOMR && <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>}
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                         <td className="py-5 px-6 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
@@ -448,6 +457,7 @@ const TestAllotment = () => {
                                             {test.centres_count || 0} Centres
                                         </button>
                                     </td>
+                                    {!isOMR && (
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => {
@@ -458,6 +468,7 @@ const TestAllotment = () => {
                                             Manage Schedules ({test.codes_sent_count || 0} Sent)
                                         </button>
                                     </td>
+                                    )}
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleEditCentres(test, false)}

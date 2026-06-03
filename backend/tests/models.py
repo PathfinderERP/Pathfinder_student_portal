@@ -26,6 +26,7 @@ class Test(models.Model):
     has_calculator = models.BooleanField(default=False)
     is_result_published = models.BooleanField(default=False)
     option_type_numeric = models.BooleanField(default=False, help_text="If True, options are 1,2,3,4")
+    is_omr_based = models.BooleanField(default=False, help_text="If True, this is an OMR-based exam")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
