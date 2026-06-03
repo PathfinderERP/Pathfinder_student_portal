@@ -480,12 +480,23 @@ class TestViewSet(viewsets.ModelViewSet):
             db = get_db()
             if db is not None:
                 try:
-                    pipeline = [{"$group": {"_id": "$test_id", "count": {"$sum": 1}}}]
-                    counts = list(db['tests_testsubmission'].aggregate(pipeline))
-                    count_map = {str(item["_id"]): item["count"] for item in counts}
-
                     data_items = response.data.get('results', []) if isinstance(response.data, dict) else response.data
-                    if isinstance(data_items, list):
+                    if isinstance(data_items, list) and len(data_items) > 0:
+                        from bson import ObjectId
+                        test_ids = []
+                        for item in data_items:
+                            try:
+                                test_ids.append(ObjectId(item.get('id')))
+                            except:
+                                test_ids.append(item.get('id'))
+                        
+                        pipeline = [
+                            {"$match": {"test_id": {"$in": test_ids}}},
+                            {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
+                        ]
+                        counts = list(db['tests_testsubmission'].aggregate(pipeline))
+                        count_map = {str(item["_id"]): item["count"] for item in counts}
+
                         # 1. Submission Counts (Attempts) — fast Mongo aggregation.
                         for item in data_items:
                             item['total_students'] = count_map.get(str(item.get('id')), 0)
@@ -649,30 +660,31 @@ class TestViewSet(viewsets.ModelViewSet):
                     break
 
         # C. Assign Remaining ERP Students (Using O(1) Index for faster matching)
-        # We only iterate over ALL erp students once here, but the checks are now simpler
-        erp_pool = erp_index.values() # Unique records from Hash Map
-        for erp in erp_pool:
-            if not isinstance(erp, dict): continue
-            adm = str(erp.get('admissionNumber') or '').upper().strip()
-            student_obj = erp.get('student') or {}
-            details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
-            details = details_list[0] if (isinstance(details_list, list) and details_list) else {}
-            email = str((details.get('studentEmail') if isinstance(details, dict) else None) or "").lower().strip()
-            
-            if (adm and adm in global_seen_uids) or (email and email in global_seen_uids): continue
-            
-            e_centre_raw = erp.get('centre') or (erp.get('venue', {}) if isinstance(erp.get('venue'), dict) else {}).get('centreName')
-            e_centre = str(e_centre_raw or '').upper().strip()
-            if not e_centre: continue
-            
+        from api.erp_views import get_centre_student_index
+        centre_idx = get_centre_student_index(force_refresh=False)
+        if centre_idx:
             for c in all_target_centres:
                 cn = c.name.upper().strip()
                 cc = c.code.upper().strip()
-                if cn == e_centre or cc == e_centre or cn in e_centre or e_centre in cn:
+                matched_dedupe_ids = set()
+                for c_key, ids_set in centre_idx.items():
+                    if cn == c_key or cc == c_key or cn in c_key or c_key in cn:
+                        matched_dedupe_ids.update(ids_set)
+                
+                for d_id in matched_dedupe_ids:
+                    erp = erp_index.get(f"adm_{d_id}") or erp_index.get(f"email_{d_id}")
+                    if not erp: continue
+                    adm = str(erp.get('admissionNumber') or '').upper().strip()
+                    student_obj = erp.get('student') or {}
+                    details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
+                    details = details_list[0] if (isinstance(details_list, list) and details_list) else {}
+                    email = str((details.get('studentEmail') if isinstance(details, dict) else None) or "").lower().strip()
+                    
+                    if (adm and adm in global_seen_uids) or (email and email in global_seen_uids): continue
+                    
                     centre_counts[str(c.pk)]['roster'] += 1
                     if adm: global_seen_uids.add(adm)
                     if email: global_seen_uids.add(email)
-                    break
 
         # 5. Format Data
         from .serializers import TestCentreAllotmentSerializer
@@ -839,9 +851,14 @@ class TestViewSet(viewsets.ModelViewSet):
         # We also need a fast map for finalized status etc.
         sub_map = {str(s['pk']): s['doc'] for s in all_subs_list}
 
-        # Build ERP index EARLY for O(1) performance
+        # Build ERP index LAZY for O(1) performance
         # PERFORMANCE: We never force synchronous ERP refresh here as it takes 13s+
-        erp_index = get_student_lookup_index(force_refresh=False)
+        erp_index = None
+        def get_erp_idx():
+            nonlocal erp_index
+            if erp_index is None:
+                erp_index = get_student_lookup_index(force_refresh=False)
+            return erp_index
 
         # Step A: Assigned Submitted Students
         for sub in all_subs_list:
@@ -879,37 +896,42 @@ class TestViewSet(viewsets.ModelViewSet):
                 if s.email: global_seen_uids.add(s.email.lower().strip())
 
         # Step C: Assign ERP Mock Students (Only those belonging to target centre)
-        if target_c_obj:
+        from api.erp_views import get_centre_student_index
+        centre_idx = get_centre_student_index(force_refresh=False)
+        if target_c_obj and centre_idx:
             tcn = target_c_obj.name.upper().strip()
             tcc = target_c_obj.code.upper().strip()
             
-            for erp in erp_index.values():
+            matched_dedupe_ids = set()
+            for c_key, ids_set in centre_idx.items():
+                if tcn == c_key or tcc == c_key or tcn in c_key or c_key in tcn:
+                    matched_dedupe_ids.update(ids_set)
+                    
+            for d_id in matched_dedupe_ids:
+                idx = get_erp_idx()
+                erp = idx.get(f"adm_{d_id}") or idx.get(f"email_{d_id}")
+                if not erp: continue
+                
                 adm = str(erp.get('admissionNumber') or '').upper().strip()
                 student_obj = erp.get('student') or {}
                 details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
                 det = details_list[0] if (isinstance(details_list, list) and details_list) else {}
                 em = str((det.get('studentEmail') if isinstance(det, dict) else None) or "").lower().strip()
                 
-                # Check for existing local student or already processed ERP student
                 if (adm and adm in global_seen_uids) or (em and em in global_seen_uids): continue
                 
-                # 2. Centre Matching
-                ecr = erp.get('centre') or (erp.get('venue', {}) if isinstance(erp.get('venue'), dict) else {}).get('centreName')
-                ec = str(ecr or '').upper().strip()
-                
-                if ec == tcn or ec == tcc or tcn in ec or ec in tcn:
-                    sn = str(det.get('studentName') or 'Student').strip()
-                    sp = sn.split(' ')
-                    final_list.append((SimpleNamespace(
-                        pk=None, username=adm, email=em or f"{adm.lower()}@unknown.com",
-                        first_name=sp[0], last_name=' '.join(sp[1:]) if len(sp) > 1 else '',
-                        admission_number=adm, 
-                        exam_section=(erp.get('sectionAllotment') or {}).get('examSection'),
-                        study_section=(erp.get('sectionAllotment') or {}).get('studySection'),
-                        rm_code=None, omr_code=None, employee_id=None, user_type='student'
-                    ), False))
-                    if adm: global_seen_uids.add(adm)
-                    if em: global_seen_uids.add(em)
+                sn = str(det.get('studentName') or 'Student').strip()
+                sp = sn.split(' ')
+                final_list.append((SimpleNamespace(
+                    pk=None, username=adm, email=em or f"{adm.lower()}@unknown.com",
+                    first_name=sp[0], last_name=' '.join(sp[1:]) if len(sp) > 1 else '',
+                    admission_number=adm, 
+                    exam_section=(erp.get('sectionAllotment') or {}).get('examSection'),
+                    study_section=(erp.get('sectionAllotment') or {}).get('studySection'),
+                    rm_code=None, omr_code=None, employee_id=None, user_type='student'
+                ), False))
+                if adm: global_seen_uids.add(adm)
+                if em: global_seen_uids.add(em)
 
         # 5. Format and Enrich Final Response
         data = []
@@ -921,7 +943,8 @@ class TestViewSet(viewsets.ModelViewSet):
             sub = sub_map.get(uid_str) if uid_str else None
             
             # Use Index for enrichment (FAST)
-            erp_data = erp_index.get(f"email_{str(s.email).lower()}") or erp_index.get(f"adm_{str(s.username).upper()}")
+            idx = get_erp_idx()
+            erp_data = idx.get(f"email_{str(s.email).lower()}") or idx.get(f"adm_{str(s.username).upper()}")
             
             enroll = str(erp_data.get('admissionNumber') if erp_data else (s.admission_number or 'ID MISSING')).upper().strip()
             section = str((erp_data.get('sectionAllotment', {}).get('examSection') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else s.exam_section) or '—').upper().strip()

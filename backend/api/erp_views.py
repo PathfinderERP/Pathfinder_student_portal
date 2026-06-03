@@ -88,19 +88,28 @@ def _is_profile_rich(data):
     # We previously required 2, but 1 is fine for a fast initial UI
     return real_count >= 1
 
+_MEMORY_CACHE = {}
+
 def get_student_lookup_index(force_refresh=False, block=True):
     """
     Best Algorithm: O(1) Hash Map lookup instead of O(N) list iteration.
     Indexes all students by Email and Admission ID for instant retrieval.
     """
     index_key = 'erp_student_lookup_index_v1'
+    global _MEMORY_CACHE
 
     if force_refresh:
         cache.delete(index_key)
         cache.delete('erp_centre_student_index_v1')
+        _MEMORY_CACHE.clear()
+
+    if not force_refresh and index_key in _MEMORY_CACHE:
+        return _MEMORY_CACHE[index_key]
 
     index = cache.get(index_key)
-    if index and not force_refresh: return index
+    if index and not force_refresh:
+        _MEMORY_CACHE[index_key] = index
+        return index
 
     # helper for mass data fetch (reused by view and here)
     bulk_cache = _fetch_all_students_erp(force_refresh=force_refresh, block=block)
@@ -163,11 +172,21 @@ def get_centre_student_index(force_refresh=False, block=True):
 
     Side-effect of get_student_lookup_index — call that to (re)build both indexes.
     """
-    centre_idx = cache.get('erp_centre_student_index_v1')
+    global _MEMORY_CACHE
+    c_key = 'erp_centre_student_index_v1'
+    if not force_refresh and c_key in _MEMORY_CACHE:
+        return _MEMORY_CACHE[c_key]
+
+    centre_idx = cache.get(c_key)
     if centre_idx is not None and not force_refresh:
+        _MEMORY_CACHE[c_key] = centre_idx
         return centre_idx
+    
     get_student_lookup_index(force_refresh=force_refresh, block=block)
-    return cache.get('erp_centre_student_index_v1') or {}
+    
+    res = cache.get(c_key) or {}
+    _MEMORY_CACHE[c_key] = res
+    return res
 
 def _fetch_all_students_erp(force_refresh=False, block=True):
     """Fetch full ERP student list.

@@ -143,6 +143,8 @@ const TestResponses = ({ isOMR = false }) => {
     // Student search & filter
     const [studentSearch, setStudentSearch] = useState('');
     const [studentFilter, setStudentFilter] = useState('all'); // 'all', 'attempted', 'not_attempted', 'in_progress'
+    const [studentCurrentPage, setStudentCurrentPage] = useState(1);
+    const studentItemsPerPage = 50;
 
     const handleViewCentres = async (test) => {
         const fetchKey = `centres-${test.id}`;
@@ -175,6 +177,7 @@ const TestResponses = ({ isOMR = false }) => {
         setViewMode('STUDENTS');
         setStudentSearch('');
         setStudentFilter('all');
+        setStudentCurrentPage(1);
         setIsSubmissionsLoading(true);
         activeFetchKeysRef.current.add(fetchKey);
         try {
@@ -223,6 +226,14 @@ const TestResponses = ({ isOMR = false }) => {
             return true;
         });
     }, [submissions, studentFilter, studentSearch]);
+
+    // Reset student page on filter change
+    useEffect(() => {
+        setStudentCurrentPage(1);
+    }, [studentSearch, studentFilter]);
+
+    const studentPageCount = Math.ceil(filteredSubmissions.length / studentItemsPerPage);
+    const currentSubmissions = filteredSubmissions.slice((studentCurrentPage - 1) * studentItemsPerPage, studentCurrentPage * studentItemsPerPage);
 
     const attemptedCountSummary = useMemo(() => submissions.filter(s => getNormalizedStatus(s.status) !== 'available').length, [submissions]);
     const showingCountSummary = filteredSubmissions.length;
@@ -886,7 +897,7 @@ const TestResponses = ({ isOMR = false }) => {
                                             <tr>
                                                 <td colSpan="9" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Students Found</td>
                                             </tr>
-                                        ) : filteredSubmissions.map((sub, index) => {
+                                        ) : currentSubmissions.map((sub, index) => {
                                             const hasSession = getNormalizedStatus(sub.status) !== 'available';
                                             const canUnlock = hasSession && !sub.allow_resume;
                                             const alreadyUnlocked = sub.allow_resume;
@@ -989,6 +1000,67 @@ const TestResponses = ({ isOMR = false }) => {
                                 </table>
                             </div>
                         </div>
+
+                        {/* Student Pagination */}
+                        {studentPageCount > 1 && (
+                            <div className={`mt-4 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                                <div className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Showing {(studentCurrentPage - 1) * studentItemsPerPage + 1} to {Math.min(studentCurrentPage * studentItemsPerPage, filteredSubmissions.length)} of {filteredSubmissions.length} Students
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setStudentCurrentPage(1)}
+                                        disabled={studentCurrentPage === 1}
+                                        className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase transition-all ${studentCurrentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                                    >
+                                        First
+                                    </button>
+                                    <button
+                                        onClick={() => setStudentCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={studentCurrentPage === 1}
+                                        className={`p-2 rounded-[5px] transition-all ${studentCurrentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                                    >
+                                        <ChevronLeft size={16} />
+                                    </button>
+
+                                    <div className="flex items-center gap-1 mx-2">
+                                        {Array.from({ length: Math.min(studentPageCount, 5) }, (_, i) => {
+                                            let pageNum;
+                                            if (studentPageCount <= 5) pageNum = i + 1;
+                                            else if (studentCurrentPage <= 3) pageNum = i + 1;
+                                            else if (studentCurrentPage >= studentPageCount - 2) pageNum = studentPageCount - 4 + i;
+                                            else pageNum = studentCurrentPage - 2 + i;
+
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => setStudentCurrentPage(pageNum)}
+                                                    className={`w-8 h-8 rounded-[5px] text-xs font-black transition-all ${studentCurrentPage === pageNum ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' : `hover:bg-orange-500/10 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <button
+                                        onClick={() => setStudentCurrentPage(p => Math.min(studentPageCount, p + 1))}
+                                        disabled={studentCurrentPage === studentPageCount}
+                                        className={`p-2 rounded-[5px] transition-all ${studentCurrentPage === studentPageCount ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => setStudentCurrentPage(studentPageCount)}
+                                        disabled={studentCurrentPage === studentPageCount}
+                                        className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase transition-all ${studentCurrentPage === studentPageCount ? 'opacity-30 cursor-not-allowed' : 'hover:bg-orange-500 hover:text-white'} ${isDarkMode ? 'bg-white/5' : 'bg-white border border-slate-200'}`}
+                                    >
+                                        Last
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             })()}
