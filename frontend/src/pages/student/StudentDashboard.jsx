@@ -230,7 +230,10 @@ const StudentDashboard = () => {
 
             // Merge results data (rank, marks) into tests data
             const mergedData = testsData
-                .filter(test => test.exam_type_details?.name !== 'STUDY PLANNER')
+                .filter(test => {
+                    const name = (test.exam_type_details?.name || '').toUpperCase().replace(/_/g, ' ');
+                    return !name.includes('STUDY PLANNER');
+                })
                 .map(test => {
                     const result = resultsData2.find(r => r.code === test.code || r.id === test.id);
                     if (result) {

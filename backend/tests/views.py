@@ -327,7 +327,8 @@ class TestViewSet(viewsets.ModelViewSet):
                     Test.objects.filter(sessions=user.session).values_list('pk', flat=True)
                 )
                 qs_academic = qs_academic.filter(
-                    Q(exam_type__name='STUDY PLANNER') |
+                    Q(exam_type__name__icontains='STUDY PLANNER') |
+                    Q(exam_type__name__icontains='STUDY_PLANNER') |
                     Q(session=user.session) |
                     Q(pk__in=session_m2m_ids)
                 )
@@ -340,10 +341,17 @@ class TestViewSet(viewsets.ModelViewSet):
 
             queryset = queryset.filter(pk__in=final_ids)
 
-            # Hide OMR tests from students unless results are published
-            queryset = queryset.exclude(
-                Q(exam_type__name__icontains='omr') & Q(is_result_published=False)
+            # Hide OMR tests from students unless results are published.
+            # Pre-compute unpublished OMR test IDs to bypass Djongo's SQL JOIN/double-negation translation bug in exclude().
+            from master_data.models import ExamType
+            omr_type_ids = list(ExamType.objects.filter(name__icontains='omr').values_list('pk', flat=True))
+            omr_unpublished_test_ids = list(
+                Test.objects.filter(
+                    Q(exam_type_id__in=omr_type_ids) | Q(is_omr_based=True),
+                    is_result_published=False
+                ).values_list('pk', flat=True)
             )
+            queryset = queryset.exclude(pk__in=omr_unpublished_test_ids)
         
         package_id = self.request.query_params.get('package', None)
         if package_id:

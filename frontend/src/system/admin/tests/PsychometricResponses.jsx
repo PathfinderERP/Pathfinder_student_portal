@@ -51,6 +51,11 @@ const PsychometricResponses = () => {
     const [filterClass, setFilterClass] = useState('');
     const [filterCareer, setFilterCareer] = useState('');
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [jumpPageInput, setJumpPageInput] = useState('');
+
     useEffect(() => {
         fetchResponses();
         fetchCentres();
@@ -120,6 +125,18 @@ const PsychometricResponses = () => {
 
     const uniqueClasses = [...new Set(responses.map(r => (r.raw_responses || {}).basic_class).filter(Boolean))].sort((a, b) => a - b);
 
+    const totalPages = Math.ceil(filteredResponses.length / itemsPerPage);
+    const paginatedResponses = filteredResponses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const handleJumpToPage = (e) => {
+        e.preventDefault();
+        const page = parseInt(jumpPageInput);
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            setJumpPageInput('');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className={`p-8 rounded-[5px] border shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
@@ -140,7 +157,7 @@ const PsychometricResponses = () => {
                             type="text"
                             placeholder="Search by name, email..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                             className={`w-full pl-9 pr-4 py-2.5 rounded-[5px] text-sm border focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                         />
                     </div>
@@ -168,7 +185,7 @@ const PsychometricResponses = () => {
                         <label className={`block text-xs font-bold mb-2 uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Center</label>
                         <select 
                             value={filterCenter}
-                            onChange={(e) => setFilterCenter(e.target.value)}
+                            onChange={(e) => { setFilterCenter(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-4 py-2.5 rounded-[5px] text-sm border focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                         >
                             <option value="">All Centers</option>
@@ -181,7 +198,7 @@ const PsychometricResponses = () => {
                         <label className={`block text-xs font-bold mb-2 uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Class</label>
                         <select 
                             value={filterClass}
-                            onChange={(e) => setFilterClass(e.target.value)}
+                            onChange={(e) => { setFilterClass(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-4 py-2.5 rounded-[5px] text-sm border focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                         >
                             <option value="">All Classes</option>
@@ -196,7 +213,7 @@ const PsychometricResponses = () => {
                             type="text"
                             placeholder="e.g. NEET, JEE..."
                             value={filterCareer}
-                            onChange={(e) => setFilterCareer(e.target.value)}
+                            onChange={(e) => { setFilterCareer(e.target.value); setCurrentPage(1); }}
                             className={`w-full px-4 py-2.5 rounded-[5px] text-sm border focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                         />
                     </div>
@@ -216,7 +233,8 @@ const PsychometricResponses = () => {
                         <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No psychometric evaluations match your search.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                        <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className={`text-[10px] uppercase font-black tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-50 text-slate-500'} border-b ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
                                 <tr>
@@ -228,7 +246,7 @@ const PsychometricResponses = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-white/5">
-                                {filteredResponses.map((res, index) => (
+                                {paginatedResponses.map((res, index) => (
                                     <React.Fragment key={res.id}>
                                         <tr 
                                             className={`cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${expandedRow === res.id ? (isDarkMode ? 'bg-white/5' : 'bg-slate-50') : ''}`}
@@ -238,7 +256,7 @@ const PsychometricResponses = () => {
                                             }}
                                         >
                                             <td className="px-6 py-4 text-xs font-bold text-slate-400">
-                                                {index + 1}
+                                                {(currentPage - 1) * itemsPerPage + index + 1}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold">{res.name}</div>
@@ -342,6 +360,76 @@ const PsychometricResponses = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 0 && (
+                        <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/2">
+                            <div className="flex items-center gap-4">
+                                <span className="text-xs font-bold opacity-50 uppercase tracking-widest">Show</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                                    className={`px-3 py-2 rounded-[5px] border outline-none font-black text-[10px] transition-all cursor-pointer ${isDarkMode
+                                        ? 'bg-[#10141d] border-white/10 text-white focus:border-purple-500/50'
+                                        : 'bg-white border-slate-200 text-slate-800 focus:border-purple-500/50'
+                                        }`}
+                                >
+                                    {[5, 10, 20, 50].map(val => (
+                                        <option key={val} value={val}>{val} Rows</option>
+                                    ))}
+                                </select>
+                                <span className="text-xs font-bold opacity-50 uppercase tracking-widest">per page</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 border border-white/10' : 'bg-slate-100 hover:bg-slate-200 border border-slate-200'}`}
+                                >
+                                    Prev
+                                </button>
+                                <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-[5px] gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <button
+                                            key={page}
+                                            onClick={() => setCurrentPage(page)}
+                                            className={`w-8 h-8 rounded-[5px] font-black text-[10px] transition-all ${currentPage === page
+                                                ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/40'
+                                                : 'hover:bg-white/10 opacity-50 hover:opacity-100'
+                                                }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    className={`px-4 py-2 rounded-[5px] font-bold text-xs transition-all active:scale-95 disabled:opacity-30 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 border border-white/10' : 'bg-slate-100 hover:bg-slate-200 border border-slate-200'}`}
+                                >
+                                    Next
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-bold opacity-50 uppercase tracking-widest">Jump to</span>
+                                <form onSubmit={handleJumpToPage} className="relative">
+                                    <input
+                                        type="number"
+                                        value={jumpPageInput}
+                                        onChange={(e) => setJumpPageInput(e.target.value)}
+                                        placeholder="Page #"
+                                        className={`w-20 px-3 py-2 rounded-[5px] border outline-none font-black text-[10px] transition-all text-center ${isDarkMode
+                                            ? 'bg-[#10141d] border-white/10 text-white focus:border-purple-500/50'
+                                            : 'bg-white border-slate-200 text-slate-800 focus:border-purple-500/50'
+                                            }`}
+                                    />
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                    </>
                 )}
             </div>
         </div>

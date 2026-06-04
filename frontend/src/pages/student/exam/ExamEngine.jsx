@@ -68,7 +68,10 @@ const ExamEngine = () => {
         } catch (err) {}
 
         // If it's a study planner exam, redirect back to the Study Planner tab specifically at Step 3 (Results)
-        if (paperData?.exam_type_name === 'STUDY PLANNER') {
+        const isStudyPlannerType = paperData?.exam_type_name
+            ? paperData.exam_type_name.toUpperCase().replace(/_/g, ' ').includes('STUDY PLANNER')
+            : false;
+        if (isStudyPlannerType) {
             navigate('/student?tab=Study%20Planner&step=3');
         } else {
             navigate('/student');

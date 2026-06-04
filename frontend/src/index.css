@@ -150,4 +150,10 @@ html.dark {
     font-family: 'Playwrite GB S', cursive !important;
 }
 
-/* eufrhfu */
+/* Fix select option background color in dark mode */
+.dark select,
+.dark option,
+.dark select option {
+    background-color: #10141d !important;
+    color: #ffffff !important;
+}

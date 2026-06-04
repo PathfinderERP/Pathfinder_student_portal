@@ -329,7 +329,10 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
 
             // Merge results data (rank, marks) into tests data
             const mergedData = testsData
-                .filter(test => test.exam_type_details?.name !== 'STUDY PLANNER')
+                .filter(test => {
+                    const name = (test.exam_type_details?.name || '').toUpperCase().replace(/_/g, ' ');
+                    return !name.includes('STUDY PLANNER');
+                })
                 .map(test => {
                 const result = resultsData2.find(r => r.code === test.code || r.id === test.id);
                 if (result) {
@@ -422,9 +425,10 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
     }, []);
 
     const filteredTests = useMemo(() => {
-        return (tests || []).filter(test =>
-            test.exam_type_details?.name !== 'STUDY PLANNER'
-        ).filter(test =>
+        return (tests || []).filter(test => {
+            const name = (test.exam_type_details?.name || '').toUpperCase().replace(/_/g, ' ');
+            return !name.includes('STUDY PLANNER');
+        }).filter(test =>
             ((test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (test.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
         ).filter(test => {

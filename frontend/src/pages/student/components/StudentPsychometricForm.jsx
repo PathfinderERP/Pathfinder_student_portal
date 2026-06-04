@@ -213,6 +213,7 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
     const [answers, setAnswers] = useState({});
     const [showError, setShowError] = useState(false);
     const [centres, setCentres] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     useEffect(() => {
         const fetchCentres = async () => {
@@ -240,6 +241,7 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
     };
 
     const nextSection = () => {
+        if (isSubmitting) return;
         const section = SECTIONS[currentSection];
         const unansweredRequired = section.questions.filter(q => q.required && !answers[q.id]);
         
@@ -257,6 +259,7 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
     };
 
     const prevSection = () => {
+        if (isSubmitting) return;
         if (currentSection > 0) {
             setCurrentSection(prev => prev - 1);
         }
@@ -298,40 +301,47 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
         return "High Potential Performer";
     };
 
-    const handleFinalSubmit = () => {
-        const classification = classifyStudent();
-        
-        let traits = [];
-        let summary = "";
+    const handleFinalSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            const classification = classifyStudent();
+            
+            let traits = [];
+            let summary = "";
 
-        switch (classification) {
-            case "High Potential Performer":
-                traits = ["Strong Focus", "Analytical Thinking", "Strategic Planner", "Self-Motivated"];
-                summary = "Displays a high level of academic discipline and focus. Capable of handling complex concepts and maintaining a consistent study schedule.";
-                break;
-            case "Distracted Learner":
-                traits = ["Short Attention Span", "Impulsive", "Digital Native", "Creative Thinker"];
-                summary = "Highly creative but struggles with sustained focus. Needs structured environment and micro-goal setting to stay on track.";
-                break;
-            case "Hardworking but Confused":
-                traits = ["Diligent", "Rote Learner", "Anxious", "Persistent"];
-                summary = "Puts in significant effort but lacks conceptual clarity. Needs focus on foundational principles and application-based learning.";
-                break;
-            case "Low Confidence Student":
-                traits = ["Self-Critical", "Reserved", "Fear of Failure", "Observational"];
-                summary = "Academic potential is often masked by anxiety and low self-esteem. Needs positive reinforcement and incremental confidence building.";
-                break;
-            default:
-                traits = ["General Learner"];
-                summary = "Standard cognitive profile with balanced learning attributes.";
+            switch (classification) {
+                case "High Potential Performer":
+                    traits = ["Strong Focus", "Analytical Thinking", "Strategic Planner", "Self-Motivated"];
+                    summary = "Displays a high level of academic discipline and focus. Capable of handling complex concepts and maintaining a consistent study schedule.";
+                    break;
+                case "Distracted Learner":
+                    traits = ["Short Attention Span", "Impulsive", "Digital Native", "Creative Thinker"];
+                    summary = "Highly creative but struggles with sustained focus. Needs structured environment and micro-goal setting to stay on track.";
+                    break;
+                case "Hardworking but Confused":
+                    traits = ["Diligent", "Rote Learner", "Anxious", "Persistent"];
+                    summary = "Puts in significant effort but lacks conceptual clarity. Needs focus on foundational principles and application-based learning.";
+                    break;
+                case "Low Confidence Student":
+                    traits = ["Self-Critical", "Reserved", "Fear of Failure", "Observational"];
+                    summary = "Academic potential is often masked by anxiety and low self-esteem. Needs positive reinforcement and incremental confidence building.";
+                    break;
+                default:
+                    traits = ["General Learner"];
+                    summary = "Standard cognitive profile with balanced learning attributes.";
+            }
+
+            await onSubmit({ 
+                classification, 
+                traits, 
+                summary, 
+                raw_responses: answers 
+            });
+        } catch (error) {
+            console.error("Submission failed:", error);
+        } finally {
+            setIsSubmitting(false);
         }
-
-        onSubmit({ 
-            classification, 
-            traits, 
-            summary, 
-            raw_responses: answers 
-        });
     };
 
     const section = SECTIONS[currentSection];
@@ -358,7 +368,12 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
                         </div>
                     </div>
                     {onCancel && (
-                        <button onClick={onCancel} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`} title="Close Assessment">
+                        <button 
+                            onClick={onCancel} 
+                            disabled={isSubmitting}
+                            className={`p-2 rounded-full transition-colors ${isSubmitting ? 'opacity-30 cursor-not-allowed' : isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`} 
+                            title="Close Assessment"
+                        >
                             <X size={20} />
                         </button>
                     )}
@@ -490,17 +505,26 @@ const StudentPsychometricForm = ({ isDarkMode, onSubmit, onCancel, studentData }
             <div className={`py-4 px-6 border-t ${isDarkMode ? 'border-white/5 bg-[#0a0d14]' : 'border-slate-200 bg-white'} flex items-center justify-between`}>
                 <button 
                     onClick={prevSection}
-                    disabled={currentSection === 0}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currentSection === 0 ? 'opacity-0' : 'hover:bg-slate-100 dark:hover:bg-white/5'}`}
+                    disabled={currentSection === 0 || isSubmitting}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${currentSection === 0 ? 'opacity-0 pointer-events-none' : isSubmitting ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-white/5'}`}
                 >
                     <ChevronLeft size={16} /> Previous
                 </button>
 
                 <button 
                     onClick={nextSection}
-                    className="flex items-center gap-3 px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-xl hover:shadow-indigo-500/20"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-3 px-10 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-xl hover:shadow-indigo-500/20"
                 >
-                    {currentSection === SECTIONS.length - 1 ? "Complete Evaluation" : "Next Section"} <ArrowRight size={16} />
+                    {isSubmitting ? (
+                        <>
+                            Processing... <Loader2 className="animate-spin" size={16} />
+                        </>
+                    ) : (
+                        <>
+                            {currentSection === SECTIONS.length - 1 ? "Complete Evaluation" : "Next Section"} <ArrowRight size={16} />
+                        </>
+                    )}
                 </button>
             </div>
         </div>

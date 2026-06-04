@@ -383,7 +383,8 @@ const TestCreate = ({ isOMR = false }) => {
             const config = getAuthConfig();
             if (!config.headers) return;
 
-            const response = await axios.get(`${apiUrl}/api/tests/`, config);
+            const url = force ? `${apiUrl}/api/tests/?refresh=true` : `${apiUrl}/api/tests/`;
+            const response = await axios.get(url, config);
             setData(Array.isArray(response.data) ? response.data : (response.data.results || []));
         } catch (err) {
             console.error('Failed to fetch test data:', err);

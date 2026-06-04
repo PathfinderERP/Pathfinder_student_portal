@@ -133,6 +133,14 @@ class ExamDetail(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
+        original_code = None
+        if self.pk:
+            try:
+                original = ExamDetail.objects.get(pk=self.pk)
+                original_code = original.code
+            except ExamDetail.DoesNotExist:
+                pass
+
         if not self.code and self.name:
             self.code = generate_unique_code(ExamDetail, self.name)
         super().save(*args, **kwargs)
@@ -140,6 +148,10 @@ class ExamDetail(models.Model):
         # Auto-sync to Test model
         try:
             from tests.models import Test
+            # If the code was updated, update the corresponding Test's code first to avoid duplicates
+            if original_code and original_code != self.code:
+                Test.objects.filter(code=original_code).update(code=self.code)
+
             # Find or create a Test with the same code
             test, created = Test.objects.get_or_create(code=self.code)
             
@@ -165,6 +177,13 @@ class ExamDetail(models.Model):
             from django.core.cache import cache
             cache.delete('admin_test_list')
             cache.delete(f"test_paper_{test.pk}")
+
+            # Clear TestViewSet local burst cache
+            try:
+                from tests.views import TestViewSet
+                TestViewSet._local_cache = {}
+            except Exception as cache_err:
+                print(f"Error clearing TestViewSet local cache: {cache_err}")
         except Exception as e:
             print(f"Error syncing ExamDetail to Test: {e}")
 

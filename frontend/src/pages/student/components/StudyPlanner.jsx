@@ -23,6 +23,16 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
     const studentClass = studentData?.class?.name || "N/A";
 
+    const isClass5to10 = (classLevel) => {
+        if (!classLevel) return false;
+        const match = classLevel.match(/\d+/);
+        if (match) {
+            const num = parseInt(match[0], 10);
+            return num >= 5 && num <= 10;
+        }
+        return false;
+    };
+
     const CLASSES = [studentClass];
 
     const CAREER_OPTIONS = [
@@ -80,6 +90,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
     // Form / Data States
     const [profile, setProfile] = useState({ classLevel: 'N/A', targetExam: '' });
+    const [targetScores, setTargetScores] = useState({
+        mathematics: 90,
+        physics: 90,
+        chemistry: 90
+    });
 
     // New search state for colleges
     const [collegeSearch, setCollegeSearch] = useState('');
@@ -177,9 +192,13 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     if (res.data) {
                         if (res.data.target_college) {
                             const collegeObj = res.data.target_college;
-                            setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "", targetCareer: res.data.target_career || "" }));
-                            setSelectedCollege(collegeObj);
-                            setCollegeSearch(collegeObj.name || "");
+                            if (collegeObj.is_class_5_10 && collegeObj.target_scores) {
+                                setTargetScores(collegeObj.target_scores);
+                            } else {
+                                setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "", targetCareer: res.data.target_career || "" }));
+                                setSelectedCollege(collegeObj);
+                                setCollegeSearch(collegeObj.name || "");
+                            }
                         }
                         // Track whether the student already has a previous master plan
                         if (res.data.has_previous_plan) {
@@ -216,6 +235,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [selectedTest, setSelectedTest] = useState(null);
     const [viewMode, setViewMode] = useState('cutoff'); // 'cutoff', 'solutions', 'plan'
     const [activeSolutionSection, setActiveSolutionSection] = useState("");
+
+    useEffect(() => {
+        if (isClass5to10(profile.classLevel)) {
+            setViewMode('plan');
+        }
+    }, [profile.classLevel]);
     const [showPsychometric, setShowPsychometric] = useState(false);
     const [psychometricResult, setPsychometricResult] = useState(null);
     const [hasPreviousPlan, setHasPreviousPlan] = useState(false); // true if any plan ever saved in DB
@@ -510,7 +535,8 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             ]);
 
             const testsData = (testsRes.data || []).filter(test => {
-                return test.exam_type_details?.name === 'STUDY PLANNER';
+                const name = (test.exam_type_details?.name || '').toUpperCase().replace(/_/g, ' ');
+                return name.includes('STUDY PLANNER');
             });
             const resultsDataArr = Array.isArray(resultsData) ? resultsData : (resultsData?.data || []);
 
@@ -642,11 +668,15 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             // Build section-wise score breakdown for richer AI context
             const sectionScoreText = (testScores?.sections || []).map(s => `${s.name}: ${Math.round(s.score)}%`).join(', ');
 
+            const isJunior = isClass5to10(profile.classLevel);
             const payload = {
                 test_id: selectedTest?.id || selectedTest?._id,
-                target_college: selectedCollege?.name || planConfig.targetCollege || "Top National Engineering College",
-                target_career: planConfig.targetCareer || "General Field",
-                target_college_obj: selectedCollege,
+                target_college: isJunior 
+                    ? `Math: ${targetScores.mathematics}%, Physics: ${targetScores.physics}%, Chemistry: ${targetScores.chemistry}%` 
+                    : (selectedCollege?.name || planConfig.targetCollege || "Top National Engineering College"),
+                target_career: isJunior ? "" : (planConfig.targetCareer || "General Field"),
+                target_college_obj: isJunior ? { is_class_5_10: true, target_scores: targetScores } : selectedCollege,
+                target_scores: isJunior ? targetScores : undefined,
                 class: profile.classLevel || "12",
                 total_score: (testScores?.total || 0).toString(),
                 math_score: isMedical ? "N/A" : (testScores?.q3Score || testScores?.total || 0).toString(),
@@ -770,7 +800,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     const renderStep1 = () => (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar relative">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar relative min-w-0 w-full">
             {/* Subtle Grid Background */}
             <div className={`absolute inset-0 pointer-events-none ${isDarkMode ? 'bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]' : 'bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[24px_24px]'}`}></div>
 
@@ -966,7 +996,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     const renderStep2 = () => (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar min-w-0 w-full">
             <div className="max-w-5xl mx-auto space-y-8">
                 {/* Header Sequence Tracker */}
                 <div className="flex items-center justify-between mb-12">
@@ -998,169 +1028,217 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                    <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            <Target size={18} className="text-emerald-500" /> Target Destination
-                        </h3>
-                        <div className="space-y-4">
-                            {tests.some(t => t.submission?.is_finalized) ? (
-                                /* Locked view — exam already completed */
-                                <div className={`p-4 rounded-[4px] border-2 border-emerald-500/30 flex items-center gap-3 ${isDarkMode ? 'bg-emerald-500/5' : 'bg-emerald-50'}`}>
-                                    <CollegeLogo name={planConfig.targetCollege} size={52} aiLogoUrl={collegeInfo?.logo_url} />
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Target Locked</p>
-                                            <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || 'No Institution Selected'}</p>
-                                            <p className="text-[9px] font-bold text-slate-500 mt-0.5 uppercase tracking-widest">Your target is set. Complete more exams to update your master plan.</p>
+                    {isClass5to10(profile.classLevel) ? (
+                        <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                <Target size={18} className="text-indigo-500" /> Target Subject Scores (out of 100)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {['Mathematics', 'Physics', 'Chemistry'].map(subject => {
+                                    const key = subject.toLowerCase();
+                                    return (
+                                        <div key={subject} className="space-y-2">
+                                            <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                {subject} Target Score
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    value={targetScores[key] ?? ''}
+                                                    onChange={(e) => {
+                                                        const rawVal = e.target.value;
+                                                        if (rawVal === '') {
+                                                            setTargetScores(prev => ({ ...prev, [key]: '' }));
+                                                            return;
+                                                        }
+                                                        const val = Math.min(100, Math.max(0, parseInt(rawVal, 10) || 0));
+                                                        setTargetScores(prev => ({ ...prev, [key]: val }));
+                                                    }}
+                                                    className={`w-full p-4 pr-12 text-sm font-black rounded-[4px] border transition-all ${
+                                                        isDarkMode 
+                                                        ? 'bg-[#0a0d14] border-white/10 text-white focus:border-indigo-500' 
+                                                        : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-600'
+                                                    }`}
+                                                    placeholder="e.g. 90"
+                                                />
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase">
+                                                    / 100
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                /* Editable search — first-time setup */
-                                <div className="relative z-50">
-                                    <AsyncSelect
-                                        cacheOptions
-                                        defaultOptions
-                                        loadOptions={loadColleges}
-                                        value={planConfig.targetCollege ? { value: planConfig.targetCollege, label: planConfig.targetCollege } : null}
-                                        onChange={(selected) => {
-                                            const collegeName = selected ? selected.value : '';
-                                            setPlanConfig({ ...planConfig, targetCollege: collegeName });
-                                            setSelectedCollege({ name: collegeName });
-                                            setCollegeSearch(collegeName);
-                                        }}
-                                        placeholder="Search top colleges dynamically..."
-                                        isClearable
-                                        styles={{
-                                            control: (base) => ({
-                                                ...base,
-                                                backgroundColor: isDarkMode ? '#0a0d14' : '#f8fafc',
-                                                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
-                                                padding: '2px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 'bold',
-                                                boxShadow: 'none',
-                                                '&:hover': {
-                                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
-                                                }
-                                            }),
-                                            menu: (base) => ({
-                                                ...base,
-                                                backgroundColor: isDarkMode ? '#0a0d14' : '#ffffff',
-                                                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 'bold'
-                                            }),
-                                            option: (base, state) => ({
-                                                ...base,
-                                                backgroundColor: state.isSelected
-                                                    ? '#10b981'
-                                                    : state.isFocused
-                                                        ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
-                                                        : 'transparent',
-                                                color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
-                                                '&:active': {
-                                                    backgroundColor: '#10b981'
-                                                }
-                                            }),
-                                            singleValue: (base) => ({
-                                                ...base,
-                                                color: isDarkMode ? '#ffffff' : '#1e293b'
-                                            }),
-                                            input: (base) => ({
-                                                ...base,
-                                                color: isDarkMode ? '#ffffff' : '#1e293b'
-                                            }),
-                                            placeholder: (base) => ({
-                                                ...base,
-                                                color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
-                                            })
-                                        }}
-                                    />
-                                </div>
-                            )}
-                            <div className={`p-4 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-indigo-500/5 border-white/10' : 'bg-indigo-50/50 border-slate-200'}`}>
-                                <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Current Target</p>
-                                <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || "No Institution Selected"}</p>
+                                    );
+                                })}
                             </div>
                         </div>
-                    </div>
-
-                    {/* Career Selection Section */}
-                    <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            <Brain size={18} className="text-indigo-500" /> Target Career Field
-                        </h3>
-                        <div className="space-y-4">
-                            {tests.some(t => t.submission?.is_finalized) ? (
-                                <div className={`p-4 rounded-[4px] border-2 border-indigo-500/30 flex items-center gap-3 ${isDarkMode ? 'bg-indigo-500/5' : 'bg-indigo-50'}`}>
-                                    <div className="flex items-center gap-3 flex-1">
-                                        <CheckCircle2 size={16} className="text-indigo-500 shrink-0" />
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 mb-0.5">Career Locked</p>
-                                            <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCareer || 'No Career Selected'}</p>
+                    ) : (
+                        <>
+                            <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    <Target size={18} className="text-emerald-500" /> Target Destination
+                                </h3>
+                                <div className="space-y-4">
+                                    {tests.some(t => t.submission?.is_finalized) ? (
+                                        /* Locked view — exam already completed */
+                                        <div className={`p-4 rounded-[4px] border-2 border-emerald-500/30 flex items-center gap-3 ${isDarkMode ? 'bg-emerald-500/5' : 'bg-emerald-50'}`}>
+                                            <CollegeLogo name={planConfig.targetCollege} size={52} aiLogoUrl={collegeInfo?.logo_url} />
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                                <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-emerald-500 mb-0.5">Target Locked</p>
+                                                    <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || 'No Institution Selected'}</p>
+                                                    <p className="text-[9px] font-bold text-slate-500 mt-0.5 uppercase tracking-widest">Your target is set. Complete more exams to update your master plan.</p>
+                                                </div>
+                                            </div>
                                         </div>
+                                    ) : (
+                                        /* Editable search — first-time setup */
+                                        <div className="relative z-50">
+                                            <AsyncSelect
+                                                cacheOptions
+                                                defaultOptions
+                                                loadOptions={loadColleges}
+                                                value={planConfig.targetCollege ? { value: planConfig.targetCollege, label: planConfig.targetCollege } : null}
+                                                onChange={(selected) => {
+                                                    const collegeName = selected ? selected.value : '';
+                                                    setPlanConfig({ ...planConfig, targetCollege: collegeName });
+                                                    setSelectedCollege({ name: collegeName });
+                                                    setCollegeSearch(collegeName);
+                                                }}
+                                                placeholder="Search top colleges dynamically..."
+                                                isClearable
+                                                styles={{
+                                                    control: (base) => ({
+                                                        ...base,
+                                                        backgroundColor: isDarkMode ? '#0a0d14' : '#f8fafc',
+                                                        borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                                        padding: '2px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 'bold',
+                                                        boxShadow: 'none',
+                                                        '&:hover': {
+                                                            borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                                        }
+                                                    }),
+                                                    menu: (base) => ({
+                                                        ...base,
+                                                        backgroundColor: isDarkMode ? '#0a0d14' : '#ffffff',
+                                                        border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 'bold'
+                                                    }),
+                                                    option: (base, state) => ({
+                                                        ...base,
+                                                        backgroundColor: state.isSelected
+                                                            ? '#10b981'
+                                                            : state.isFocused
+                                                                ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                                                : 'transparent',
+                                                        color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                                        '&:active': {
+                                                            backgroundColor: '#10b981'
+                                                        }
+                                                    }),
+                                                    singleValue: (base) => ({
+                                                        ...base,
+                                                        color: isDarkMode ? '#ffffff' : '#1e293b'
+                                                    }),
+                                                    input: (base) => ({
+                                                        ...base,
+                                                        color: isDarkMode ? '#ffffff' : '#1e293b'
+                                                    }),
+                                                    placeholder: (base) => ({
+                                                        ...base,
+                                                        color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                                    })
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className={`p-4 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-indigo-500/5 border-white/10' : 'bg-indigo-50/50 border-slate-200'}`}>
+                                        <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Current Target</p>
+                                        <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCollege || "No Institution Selected"}</p>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="relative">
-                                    <Select
-                                        options={CAREER_OPTIONS}
-                                        value={CAREER_OPTIONS.find(c => c.value === planConfig.targetCareer) || null}
-                                        onChange={(selected) => setPlanConfig({ ...planConfig, targetCareer: selected ? selected.value : '' })}
-                                        placeholder="-- Search or Select Target Career --"
-                                        isClearable
-                                        styles={{
-                                            control: (base) => ({
-                                                ...base,
-                                                backgroundColor: isDarkMode ? '#0a0d14' : '#f8fafc',
-                                                borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
-                                                padding: '2px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 'bold',
-                                                boxShadow: 'none',
-                                                '&:hover': {
-                                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
-                                                }
-                                            }),
-                                            menu: (base) => ({
-                                                ...base,
-                                                backgroundColor: isDarkMode ? '#0a0d14' : '#ffffff',
-                                                border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 'bold'
-                                            }),
-                                            option: (base, state) => ({
-                                                ...base,
-                                                backgroundColor: state.isSelected
-                                                    ? '#4f46e5'
-                                                    : state.isFocused
-                                                        ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
-                                                        : 'transparent',
-                                                color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
-                                                '&:active': {
-                                                    backgroundColor: '#4f46e5'
-                                                }
-                                            }),
-                                            singleValue: (base) => ({
-                                                ...base,
-                                                color: isDarkMode ? '#ffffff' : '#1e293b'
-                                            }),
-                                            input: (base) => ({
-                                                ...base,
-                                                color: isDarkMode ? '#ffffff' : '#1e293b'
-                                            }),
-                                            placeholder: (base) => ({
-                                                ...base,
-                                                color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
-                                            })
-                                        }}
-                                    />
+                            </div>
+
+                            {/* Career Selection Section */}
+                            <div className={`p-6 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    <Brain size={18} className="text-indigo-500" /> Target Career Field
+                                </h3>
+                                <div className="space-y-4">
+                                    {tests.some(t => t.submission?.is_finalized) ? (
+                                        <div className={`p-4 rounded-[4px] border-2 border-indigo-500/30 flex items-center gap-3 ${isDarkMode ? 'bg-indigo-500/5' : 'bg-indigo-50'}`}>
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <CheckCircle2 size={16} className="text-indigo-500 shrink-0" />
+                                                <div>
+                                                    <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500 mb-0.5">Career Locked</p>
+                                                    <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{planConfig.targetCareer || 'No Career Selected'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <Select
+                                                options={CAREER_OPTIONS}
+                                                value={CAREER_OPTIONS.find(c => c.value === planConfig.targetCareer) || null}
+                                                onChange={(selected) => setPlanConfig({ ...planConfig, targetCareer: selected ? selected.value : '' })}
+                                                placeholder="-- Search or Select Target Career --"
+                                                isClearable
+                                                styles={{
+                                                    control: (base) => ({
+                                                        ...base,
+                                                        backgroundColor: isDarkMode ? '#0a0d14' : '#f8fafc',
+                                                        borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                                        padding: '2px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 'bold',
+                                                        boxShadow: 'none',
+                                                        '&:hover': {
+                                                            borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                                        }
+                                                    }),
+                                                    menu: (base) => ({
+                                                        ...base,
+                                                        backgroundColor: isDarkMode ? '#0a0d14' : '#ffffff',
+                                                        border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 'bold'
+                                                    }),
+                                                    option: (base, state) => ({
+                                                        ...base,
+                                                        backgroundColor: state.isSelected
+                                                            ? '#4f46e5'
+                                                            : state.isFocused
+                                                                ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                                                : 'transparent',
+                                                        color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                                        '&:active': {
+                                                            backgroundColor: '#4f46e5'
+                                                        }
+                                                    }),
+                                                    singleValue: (base) => ({
+                                                        ...base,
+                                                        color: isDarkMode ? '#ffffff' : '#1e293b'
+                                                    }),
+                                                    input: (base) => ({
+                                                        ...base,
+                                                        color: isDarkMode ? '#ffffff' : '#1e293b'
+                                                    }),
+                                                    placeholder: (base) => ({
+                                                        ...base,
+                                                        color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                                    })
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    </div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Intelligence section removed from here to be shown in Step 4 */}
@@ -1168,7 +1246,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 <div className="flex justify-end pt-4 border-t border-slate-500/20">
                     {tests.some(t => t.submission?.is_finalized) ? (
                         <button
-                            onClick={() => { setViewMode('cutoff'); setCurrentStep(4); }}
+                            onClick={() => { setViewMode(isClass5to10(profile.classLevel) ? 'plan' : 'cutoff'); setCurrentStep(4); }}
                             className="px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg bg-emerald-600 text-white hover:bg-emerald-700"
                         >
                             Go to My Analysis <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -1176,6 +1254,24 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                     ) : (
                         <button 
                             onClick={async () => { 
+                                const isJunior = isClass5to10(profile.classLevel);
+                                if (isJunior) {
+                                    try {
+                                        const apiUrl = getApiUrl();
+                                        await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
+                                            target_college: { is_class_5_10: true, target_scores: targetScores },
+                                            target_career: ""
+                                        }, {
+                                            headers: { 'Authorization': `Bearer ${token}` }
+                                        });
+                                    } catch (err) {
+                                        console.error("Failed to save planner config:", err);
+                                    }
+                                    setCurrentStep(3);
+                                    fetchTests();
+                                    return;
+                                }
+
                                 if (!planConfig.targetCollege) {
                                     setAlertMessage("Please select a target institution from the list to establish your academic benchmark.");
                                     setShowAlert(true);
@@ -1209,7 +1305,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 fetchTests(); 
                             }} 
                             className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
-                                !planConfig.targetCollege
+                                (!isClass5to10(profile.classLevel) && !planConfig.targetCollege)
                                 ? 'bg-slate-500 opacity-50 text-white' 
                                 : 'bg-emerald-600 text-white hover:bg-emerald-700'
                             }`}
@@ -1244,7 +1340,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     const renderStep3 = () => (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar min-w-0 w-full">
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header Sequence Tracker */}
                 <div className="flex items-center justify-between mb-12">
@@ -1280,7 +1376,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 </div>
 
                 <p className={`text-xs font-bold leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Complete both baseline modules below to synthesize your custom Master Plan for <strong>{planConfig.targetCollege}</strong>.
+                    {isClass5to10(profile.classLevel)
+                        ? "Complete both baseline modules below to synthesize your custom Master Plan for your target subject scores."
+                        : `Complete both baseline modules below to synthesize your custom Master Plan for `}
+                    {!isClass5to10(profile.classLevel) && <strong>{planConfig.targetCollege}</strong>}
+                    {!isClass5to10(profile.classLevel) && "."}
                 </p>
 
                 <div className="grid grid-cols-1 gap-6">
@@ -1423,7 +1523,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 <div className="flex justify-end pt-8 border-t border-slate-500/20 mt-8">
                     <button
                         disabled={!selectedTest || !psychometricResult}
-                        onClick={() => { setViewMode('cutoff'); setCurrentStep(4); }}
+                        onClick={() => { setViewMode(isClass5to10(profile.classLevel) ? 'plan' : 'cutoff'); setCurrentStep(4); }}
                         className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
                             !selectedTest || !psychometricResult
                             ? 'bg-slate-500 opacity-50 text-white cursor-not-allowed'
@@ -1439,7 +1539,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     const renderStep4 = () => (
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto custom-scrollbar">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto custom-scrollbar min-w-0 w-full">
             <div className="w-full max-w-[1600px] mx-auto space-y-8">
                 {/* Header Sequence Tracker */}
                 <div className="flex items-center justify-between mb-12">
@@ -1497,7 +1597,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                 <CheckCircle2 className="text-emerald-500" /> Assessment Analyzed
                                             </h2>
                                             <p className={`text-xs font-bold leading-relaxed mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                Baseline established against <strong>{planConfig.targetCollege}</strong> thresholds.
+                                                {isClass5to10(profile.classLevel)
+                                                    ? "Baseline established against your target subject scores."
+                                                    : `Baseline established against `}
+                                                {!isClass5to10(profile.classLevel) && <strong>{planConfig.targetCollege}</strong>}
+                                                {!isClass5to10(profile.classLevel) && " thresholds."}
                                             </p>
                                         </div>
                                     <div className={`grid gap-4 p-4 rounded-[4px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 ${
@@ -1520,7 +1624,9 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
 
                         {/* TAB NAVIGATION */}
                         <div className={`flex items-center gap-2 border-b ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pb-px overflow-x-auto custom-scrollbar mt-8`}>
-                            <button onClick={() => setViewMode('cutoff')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${viewMode === 'cutoff' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>Intelligence & Cutoff</button>
+                            {!isClass5to10(profile.classLevel) && (
+                                <button onClick={() => setViewMode('cutoff')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${viewMode === 'cutoff' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>Intelligence & Cutoff</button>
+                            )}
                             <button onClick={() => setViewMode('solutions')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${viewMode === 'solutions' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>Correct Answers</button>
                             <button onClick={() => setViewMode('plan')} className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${viewMode === 'plan' ? 'border-indigo-500 text-indigo-500' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>
                                 {aiPlan ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Sparkles size={14} className={viewMode === 'plan' ? "text-indigo-500" : "text-slate-400"} />} Master Plan
@@ -1674,7 +1780,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                         )}
 
                         {viewMode === 'plan' && (
-                            <div className="space-y-6 mt-6">
+                            <div className="space-y-6 mt-6 w-full min-w-0">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div>
                                         <h2 className={`text-xl font-black uppercase tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -1682,7 +1788,13 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                             {aiPlan ? 'Master Strategy Vector' : 'Synthesize Master Plan'}
                                         </h2>
                                         <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
+                                            {isClass5to10(profile.classLevel) ? (
+                                                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">
+                                                    Targets: Math: {targetScores.mathematics}%, Physics: {targetScores.physics}%, Chemistry: {targetScores.chemistry}%
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
+                                            )}
                                             {aiPlan && planSavedForCurrentTest && (
                                                 <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-[2px] flex items-center gap-1">
                                                     <CheckCircle2 size={10} /> Plan Locked
@@ -1750,7 +1862,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                 ) : (
                                     <div className={`p-6 md:p-8 lg:p-10 rounded-[4px] border relative overflow-hidden w-full ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
                             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
-                            <div className={`prose prose-sm md:prose-base max-w-full w-full relative z-10 break-words overflow-x-hidden 
+                            <div className={`prose prose-sm md:prose-base max-w-full w-full min-w-0 relative z-10 break-words overflow-x-hidden 
                                 ${isDarkMode ? 'prose-invert prose-p:text-slate-300 prose-strong:text-indigo-400 prose-li:text-slate-300 prose-hr:border-white/10' : 'prose-p:text-slate-700 prose-strong:text-indigo-600 prose-li:text-slate-700 prose-hr:border-slate-200'}
                                 prose-h1:font-black prose-h1:text-4xl prose-h1:text-transparent prose-h1:bg-clip-text prose-h1:bg-gradient-to-r prose-h1:from-indigo-500 prose-h1:to-purple-500 prose-h1:mb-8
                                 prose-h2:font-black prose-h2:text-2xl prose-h2:uppercase prose-h2:tracking-tight prose-h2:mt-16 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b prose-h2:border-indigo-500/20 prose-h2:text-transparent prose-h2:bg-clip-text prose-h2:bg-gradient-to-r prose-h2:from-emerald-400 prose-h2:to-teal-500
@@ -1933,7 +2045,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     );
 
     return (
-        <div className={`flex flex-col lg:flex-row h-full min-h-[800px] rounded-[4px] border overflow-hidden relative ${isDarkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-slate-200'}`}>
+        <div className={`w-full min-w-0 flex flex-col lg:flex-row h-full min-h-[800px] rounded-[4px] border overflow-hidden relative ${isDarkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-slate-200'}`}>
             {renderSidePanel()}
             
             <button
@@ -1944,10 +2056,10 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
             </button>
             <AnimatePresence mode="wait">
-                {currentStep === 1 && <motion.div key="s1" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep1()}</motion.div>}
-                {currentStep === 2 && <motion.div key="s2" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep2()}</motion.div>}
-                {currentStep === 3 && <motion.div key="s3" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep3()}</motion.div>}
-                {currentStep === 4 && <motion.div key="s4" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">{renderStep4()}</motion.div>}
+                {currentStep === 1 && <motion.div key="s1" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col min-w-0">{renderStep1()}</motion.div>}
+                {currentStep === 2 && <motion.div key="s2" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col min-w-0">{renderStep2()}</motion.div>}
+                {currentStep === 3 && <motion.div key="s3" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col min-w-0">{renderStep3()}</motion.div>}
+                {currentStep === 4 && <motion.div key="s4" exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col min-w-0">{renderStep4()}</motion.div>}
             </AnimatePresence>
 
             {/* Custom Sliding Alert (Toast Style) - Rendered via Portal to escape stacking context */}

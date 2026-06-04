@@ -263,7 +263,10 @@ const Results = ({ isDarkMode }) => {
             ]);
 
             const results = Array.isArray(resultsRes) ? resultsRes : (resultsRes.data || []);
-            const allTests = (testsRes.data || []).filter(t => t.exam_type_details?.name !== 'STUDY PLANNER');
+            const allTests = (testsRes.data || []).filter(t => {
+                const name = (t.exam_type_details?.name || '').toUpperCase().replace(/_/g, ' ');
+                return !name.includes('STUDY PLANNER');
+            });
             const now = new Date();
 
             // Identify all tests not taken yet
