@@ -763,7 +763,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
     serializer_class = LibraryItemSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardPagination
+    pagination_class = None
 
     def get_queryset(self):
         queryset = LibraryItem.objects.select_related(

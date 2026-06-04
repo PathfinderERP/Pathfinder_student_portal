@@ -478,6 +478,7 @@ const LibraryRegistry = () => {
         if (!authLoading && token) {
             // Only fetch library items on initial load
             fetchLibraryItems();
+            fetchMasterData();
 
             // Check for pre-filled data from Master Data (Chapter List)
             const prefill = sessionStorage.getItem('library_prefill');
