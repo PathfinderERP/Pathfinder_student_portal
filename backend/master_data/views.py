@@ -71,6 +71,15 @@ class StudentSectionFilterMixin:
 
         return queryset.filter(filter_q).distinct()
 
+def deep_serialize(data):
+    """Recursively convert DRF ReturnList / OrderedDict / ReturnDict to plain Python
+    types (list / dict) so they can be safely pickled into Redis or any cache backend."""
+    if isinstance(data, dict):
+        return {k: deep_serialize(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [deep_serialize(item) for item in data]
+    return data
+
 class CachedListViewSetMixin(object):
     """Mixin to cache the list response for master data and invalidate on change."""
     _local_cache = {} # Server-level fast memory to handle parallel request bursts
@@ -130,14 +139,8 @@ class CachedListViewSetMixin(object):
             print(f"⚡ Force Refresh: Bypassing cache for {self.__class__.__name__}")
             res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
             
-            # Serialize ReturnList/ReturnDict before caching
-            data_to_cache = res.data
-            if isinstance(res.data, list):
-                data_to_cache = [dict(item) for item in res.data]
-            elif isinstance(res.data, dict):
-                data_to_cache = dict(res.data)
-                if 'results' in data_to_cache and isinstance(data_to_cache['results'], list):
-                    data_to_cache['results'] = [dict(item) for item in data_to_cache['results']]
+            # Deep-convert all nested DRF types to plain Python before caching in Redis
+            data_to_cache = deep_serialize(res.data)
             
             cache.set(cache_key, data_to_cache, timeout=86400)
             self.__class__._local_cache[cache_key] = {'data': data_to_cache, 'time': now}
@@ -159,14 +162,8 @@ class CachedListViewSetMixin(object):
         res = super(CachedListViewSetMixin, self).list(request, *args, **kwargs)
         timeout = 86400 if not isinstance(self, StudentSectionFilterMixin) else 3600
         
-        # Serialize ReturnList/ReturnDict before caching
-        data_to_cache = res.data
-        if isinstance(res.data, list):
-            data_to_cache = [dict(item) for item in res.data]
-        elif isinstance(res.data, dict):
-            data_to_cache = dict(res.data)
-            if 'results' in data_to_cache and isinstance(data_to_cache['results'], list):
-                data_to_cache['results'] = [dict(item) for item in data_to_cache['results']]
+        # Deep-convert all nested DRF types to plain Python before caching in Redis
+        data_to_cache = deep_serialize(res.data)
 
         cache.set(cache_key, data_to_cache, timeout=timeout)
         
@@ -769,14 +766,9 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
         queryset = LibraryItem.objects.select_related(
             'session', 'class_level', 'subject', 'chapter', 'topic', 
             'exam_type', 'target_exam', 'section'
+        ).prefetch_related(
+            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
         )
-        
-        if self.action == 'list':
-            queryset = queryset.prefetch_related('sessions', 'target_exams')
-        else:
-            queryset = queryset.prefetch_related(
-                'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
-            )
             
         queryset = queryset.all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
