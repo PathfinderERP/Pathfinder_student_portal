@@ -1029,8 +1029,9 @@ class TestViewSet(viewsets.ModelViewSet):
             # Check for OMR Raw Format
             is_omr_raw = 'frmid' in df.columns or 'f001' in df.columns
             
-            success_count = 0
             errors = []
+            seen_enrollments = set()
+            validated_rows = []
 
             if is_omr_raw:
                 # 1. Fetch and sort questions
@@ -1052,20 +1053,26 @@ class TestViewSet(viewsets.ModelViewSet):
                 if not enroll_col:
                     return Response({'error': 'Could not find enrollment column (FRMID) in OMR sheet.'}, status=400)
 
+                # Validation Pass
                 for index, row in df.iterrows():
+                    row_num = index + 2
                     if pd.isna(row[enroll_col]):
                         continue
                         
                     enroll_raw = str(row[enroll_col]).strip().upper()
-                    # Prepend PATH if it's just digits
+                    if enroll_raw.endswith('.0'):
+                        enroll_raw = enroll_raw[:-2]
                     if enroll_raw.isdigit():
                         enroll_raw = f"PATH{enroll_raw}"
-                    elif enroll_raw.endswith('.0'):
-                        enroll_raw = f"PATH{enroll_raw[:-2]}"
                         
+                    if enroll_raw in seen_enrollments:
+                        errors.append(f"Row {row_num}: Duplicate student record '{enroll_raw}' found in sheet.")
+                        continue
+                    seen_enrollments.add(enroll_raw)
+
                     student = CustomUser.objects.filter(Q(admission_number__iexact=enroll_raw) | Q(username__iexact=enroll_raw)).first()
                     if not student:
-                        errors.append(f"Student not found: {enroll_raw}")
+                        errors.append(f"Row {row_num}: Student not found with enrollment '{enroll_raw}'.")
                         continue
                         
                     responses = {}
@@ -1098,6 +1105,23 @@ class TestViewSet(viewsets.ModelViewSet):
                                 else:
                                     responses[str(q.pk)] = {'answer': ans_list}
                     
+                    validated_rows.append({
+                        'student': student,
+                        'responses': responses
+                    })
+
+                # If there are any errors, halt and do not save any data
+                if errors:
+                    err_msg = "Validation failed. No data was saved. Errors:\n" + "\n".join(errors[:10])
+                    if len(errors) > 10:
+                        err_msg += f"\n... and {len(errors) - 10} more errors."
+                    return Response({'error': err_msg}, status=400)
+
+                # Commit Pass
+                success_count = 0
+                for data in validated_rows:
+                    student = data['student']
+                    responses = data['responses']
                     # DJONGO WORKAROUND: Use update() to avoid ObjectId vs integer id field error
                     updated = TestSubmission.objects.filter(test=test, student=student).update(
                         responses=responses, is_finalized=True, submission_type='OMR_EXCEL'
@@ -1113,6 +1137,7 @@ class TestViewSet(viewsets.ModelViewSet):
                                 responses=responses, is_finalized=True, submission_type='OMR_EXCEL'
                             )
                     success_count += 1
+
             else:
                 # Old Format (Enrollment + Score)
                 enroll_col = next((c for c in ['enrollment number', 'enrollment', 'admission number', 'admission', 'student id', 'id', 'username'] if c in df.columns), None)
@@ -1121,21 +1146,56 @@ class TestViewSet(viewsets.ModelViewSet):
                 if not enroll_col or not score_col:
                     return Response({'error': f'Could not identify enrollment or score columns. Please use "Enrollment Number" and "Score". Found: {original_columns}'}, status=400)
 
+                # Validation Pass
                 for index, row in df.iterrows():
+                    row_num = index + 2
                     if pd.isna(row[enroll_col]):
                         continue
                     enroll_num = str(row[enroll_col]).strip().upper()
+                    if enroll_num.endswith('.0'):
+                        enroll_num = enroll_num[:-2]
+                    if enroll_num.isdigit():
+                        enroll_num = f"PATH{enroll_num}"
+
+                    if enroll_num in seen_enrollments:
+                        errors.append(f"Row {row_num}: Duplicate student record '{enroll_num}' found in sheet.")
+                        continue
+                    seen_enrollments.add(enroll_num)
+
                     try:
-                        score = float(row[score_col])
+                        score_val = row[score_col]
+                        if pd.isna(score_val):
+                            raise ValueError("Score cannot be empty")
+                        score = float(score_val)
+                        if score < 0 or (test.total_marks and score > test.total_marks):
+                            errors.append(f"Row {row_num}: Score {score} is invalid (must be between 0 and {test.total_marks or 'total marks'}).")
+                            continue
                     except (ValueError, TypeError):
-                        errors.append(f"Invalid score for {enroll_num}")
+                        errors.append(f"Row {row_num}: Invalid score value for '{enroll_num}'.")
                         continue
                     
                     student = CustomUser.objects.filter(Q(admission_number__iexact=enroll_num) | Q(username__iexact=enroll_num)).first()
                     if not student:
-                        errors.append(f"Student not found: {enroll_num}")
+                        errors.append(f"Row {row_num}: Student not found with enrollment '{enroll_num}'.")
                         continue
-                    
+
+                    validated_rows.append({
+                        'student': student,
+                        'score': score
+                    })
+
+                # If there are any errors, halt and do not save any data
+                if errors:
+                    err_msg = "Validation failed. No data was saved. Errors:\n" + "\n".join(errors[:10])
+                    if len(errors) > 10:
+                        err_msg += f"\n... and {len(errors) - 10} more errors."
+                    return Response({'error': err_msg}, status=400)
+
+                # Commit Pass
+                success_count = 0
+                for data in validated_rows:
+                    student = data['student']
+                    score = data['score']
                     # DJONGO WORKAROUND: Use update() to avoid ObjectId vs integer id field error
                     updated = TestSubmission.objects.filter(test=test, student=student).update(
                         score=score, is_finalized=True, submission_type='OMR_EXCEL'
@@ -1154,7 +1214,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
             return Response({
                 'message': f'Successfully uploaded records for {success_count} students.',
-                'errors': errors
+                'errors': []
             })
             
         except Exception as e:
