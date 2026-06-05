@@ -1011,6 +1011,7 @@ class TestViewSet(viewsets.ModelViewSet):
         from django.db.models import Q
         from .models import TestSubmission
         from api.models import CustomUser
+        from api.erp_views import get_student_lookup_index, _sync_user_to_erp
 
         test = self.get_object()
         file = request.FILES.get('file')
@@ -1071,6 +1072,27 @@ class TestViewSet(viewsets.ModelViewSet):
                     seen_enrollments.add(enroll_raw)
 
                     student = CustomUser.objects.filter(Q(admission_number__iexact=enroll_raw) | Q(username__iexact=enroll_raw)).first()
+                    if not student:
+                        erp_idx = get_student_lookup_index(force_refresh=False, block=False)
+                        erp_record = erp_idx.get(f"adm_{enroll_raw.upper()}") if erp_idx else None
+                        if erp_record:
+                            try:
+                                student_obj = erp_record.get('student') or {}
+                                details_list = student_obj.get('studentsDetails', [])
+                                email = ""
+                                if details_list and isinstance(details_list, list) and len(details_list) > 0:
+                                    email = details_list[0].get('studentEmail', '')
+                                
+                                username = email if email else enroll_raw
+                                existing = CustomUser.objects.filter(username=username).first()
+                                student = existing if existing else CustomUser.objects.create(
+                                    username=username, email=email, admission_number=enroll_raw, user_type='student'
+                                )
+                                _sync_user_to_erp(student, erp_record)
+                            except Exception as e:
+                                print(f"Auto-sync failed for {enroll_raw}: {e}")
+                                student = None
+
                     if not student:
                         errors.append(f"Row {row_num}: Student not found with enrollment '{enroll_raw}'.")
                         continue
@@ -1175,6 +1197,27 @@ class TestViewSet(viewsets.ModelViewSet):
                         continue
                     
                     student = CustomUser.objects.filter(Q(admission_number__iexact=enroll_num) | Q(username__iexact=enroll_num)).first()
+                    if not student:
+                        erp_idx = get_student_lookup_index(force_refresh=False, block=False)
+                        erp_record = erp_idx.get(f"adm_{enroll_num.upper()}") if erp_idx else None
+                        if erp_record:
+                            try:
+                                student_obj = erp_record.get('student') or {}
+                                details_list = student_obj.get('studentsDetails', [])
+                                email = ""
+                                if details_list and isinstance(details_list, list) and len(details_list) > 0:
+                                    email = details_list[0].get('studentEmail', '')
+                                
+                                username = email if email else enroll_num
+                                existing = CustomUser.objects.filter(username=username).first()
+                                student = existing if existing else CustomUser.objects.create(
+                                    username=username, email=email, admission_number=enroll_num, user_type='student'
+                                )
+                                _sync_user_to_erp(student, erp_record)
+                            except Exception as e:
+                                print(f"Auto-sync failed for {enroll_num}: {e}")
+                                student = None
+
                     if not student:
                         errors.append(f"Row {row_num}: Student not found with enrollment '{enroll_num}'.")
                         continue
