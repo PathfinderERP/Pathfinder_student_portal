@@ -1080,15 +1080,22 @@ class TestViewSet(viewsets.ModelViewSet):
                                 student_obj = erp_record.get('student') or {}
                                 details_list = student_obj.get('studentsDetails', [])
                                 email = ""
+                                first_name = ""
+                                last_name = ""
                                 if details_list and isinstance(details_list, list) and len(details_list) > 0:
                                     email = details_list[0].get('studentEmail', '')
+                                    name = details_list[0].get('studentName', '')
+                                    if name:
+                                        parts = name.strip().split(' ')
+                                        first_name = parts[0]
+                                        last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
                                 
                                 username = email if email else enroll_raw
                                 existing = CustomUser.objects.filter(username=username).first()
                                 student = existing if existing else CustomUser.objects.create(
-                                    username=username, email=email, admission_number=enroll_raw, user_type='student'
+                                    username=username, email=email, admission_number=enroll_raw, user_type='student',
+                                    first_name=first_name, last_name=last_name
                                 )
-                                _sync_user_to_erp(student, erp_record)
                             except Exception as e:
                                 print(f"Auto-sync failed for {enroll_raw}: {e}")
                                 student = None
@@ -1205,15 +1212,22 @@ class TestViewSet(viewsets.ModelViewSet):
                                 student_obj = erp_record.get('student') or {}
                                 details_list = student_obj.get('studentsDetails', [])
                                 email = ""
+                                first_name = ""
+                                last_name = ""
                                 if details_list and isinstance(details_list, list) and len(details_list) > 0:
                                     email = details_list[0].get('studentEmail', '')
+                                    name = details_list[0].get('studentName', '')
+                                    if name:
+                                        parts = name.strip().split(' ')
+                                        first_name = parts[0]
+                                        last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
                                 
                                 username = email if email else enroll_num
                                 existing = CustomUser.objects.filter(username=username).first()
                                 student = existing if existing else CustomUser.objects.create(
-                                    username=username, email=email, admission_number=enroll_num, user_type='student'
+                                    username=username, email=email, admission_number=enroll_num, user_type='student',
+                                    first_name=first_name, last_name=last_name
                                 )
-                                _sync_user_to_erp(student, erp_record)
                             except Exception as e:
                                 print(f"Auto-sync failed for {enroll_num}: {e}")
                                 student = None
