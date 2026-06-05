@@ -23,6 +23,7 @@ const TestResponses = ({ isOMR = false }) => {
     const [uploadModal, setUploadModal] = useState({ isOpen: false, testId: null, testName: '' });
     const [uploadFile, setUploadFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [replaceExisting, setReplaceExisting] = useState(false);
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     const fetchTests = async (forceRefresh = false) => {
@@ -247,6 +248,7 @@ const TestResponses = ({ isOMR = false }) => {
         setIsUploading(true);
         const formData = new FormData();
         formData.append('file', uploadFile);
+        formData.append('replace_existing', replaceExisting);
 
         try {
             const apiUrl = getApiUrl();
@@ -262,6 +264,7 @@ const TestResponses = ({ isOMR = false }) => {
             }
             setUploadModal({ isOpen: false, testId: null, testName: '' });
             setUploadFile(null);
+            setReplaceExisting(false);
             fetchTests(true);
         } catch (err) {
             console.error('Error uploading Excel:', err);
@@ -1104,6 +1107,18 @@ const TestResponses = ({ isOMR = false }) => {
                                     {uploadFile ? uploadFile.name : 'No file selected'}
                                 </p>
                             </div>
+                            
+                            <label className="flex items-center gap-2 cursor-pointer mt-1 px-2">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                                    checked={replaceExisting}
+                                    onChange={(e) => setReplaceExisting(e.target.checked)}
+                                />
+                                <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    Replace all existing Excel data for this test
+                                </span>
+                            </label>
                         </div>
 
                         <div className={`p-4 border-t flex justify-end gap-3 ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
@@ -1111,6 +1126,7 @@ const TestResponses = ({ isOMR = false }) => {
                                 onClick={() => {
                                     setUploadModal({ isOpen: false, testId: null, testName: '' });
                                     setUploadFile(null);
+                                    setReplaceExisting(false);
                                 }}
                                 className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-600'}`}
                             >

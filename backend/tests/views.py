@@ -1016,6 +1016,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
             test = self.get_object()
             file = request.FILES.get('file')
+            replace_existing = request.POST.get('replace_existing') == 'true'
             if not file:
                 return Response({'error': 'No file uploaded'}, status=400)
 
@@ -1147,6 +1148,9 @@ class TestViewSet(viewsets.ModelViewSet):
                     return Response({'error': err_msg}, status=400)
 
                 # Commit Pass
+                if replace_existing:
+                    TestSubmission.objects.filter(test=test, submission_type='OMR_EXCEL').delete()
+                
                 success_count = 0
                 for data in validated_rows:
                     student = data['student']
@@ -1249,6 +1253,9 @@ class TestViewSet(viewsets.ModelViewSet):
                     return Response({'error': err_msg}, status=400)
 
                 # Commit Pass
+                if replace_existing:
+                    TestSubmission.objects.filter(test=test, submission_type='OMR_EXCEL').delete()
+                    
                 success_count = 0
                 for data in validated_rows:
                     student = data['student']
