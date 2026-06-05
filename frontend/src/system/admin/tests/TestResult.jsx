@@ -4,6 +4,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import QuestionAnalysis from './QuestionAnalysis';
 import QuestionStudentAnalysis from './QuestionStudentAnalysis';
 import TestResultStudents from './TestResultStudents';
@@ -150,8 +151,10 @@ const TestResult = ({ isOMR = false }) => {
             });
             // Update local state
             setTests(tests.map(t => t.id === test.id ? { ...t, is_result_published: newStatus } : t));
+            toast.success(newStatus ? 'Results released successfully!' : 'Results hidden successfully!');
         } catch (err) {
             console.error('Error toggling release result:', err);
+            toast.error(err.response?.data?.error || 'Failed to update release status.');
         } finally {
             setTogglingStatusId(null);
         }
@@ -174,9 +177,10 @@ const TestResult = ({ isOMR = false }) => {
                 is_completed: true,
                 is_result_published: true
             } : t));
+            toast.success(res.data.message || 'Results force published successfully!');
         } catch (err) {
             console.error('Error force publishing result:', err);
-            alert(err.response?.data?.error || 'Failed to force publish.');
+            toast.error(err.response?.data?.error || 'Failed to force publish.');
         } finally {
             setTogglingStatusId(null);
         }
@@ -376,10 +380,13 @@ const TestResult = ({ isOMR = false }) => {
                                         {test.is_completed ? (
                                             <button
                                                 onClick={() => handleReleaseResult(test)}
-                                                disabled={togglingStatusId === test.id}
-                                                className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 overflow-hidden ${togglingStatusId === test.id ? 'bg-slate-400 opacity-50' :
-                                                        test.is_result_published ? 'bg-pink-500 shadow-lg shadow-pink-500/20' : 'bg-slate-300'
-                                                    }`}
+                                                disabled={togglingStatusId === test.id || (isOMR && !test.total_students)}
+                                                title={isOMR && !test.total_students ? "Please generate results first." : "Toggle to release result"}
+                                                className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 overflow-hidden ${
+                                                    (togglingStatusId === test.id || (isOMR && !test.total_students))
+                                                        ? 'bg-slate-200 dark:bg-slate-800 opacity-50 cursor-not-allowed'
+                                                        : test.is_result_published ? 'bg-pink-500 shadow-lg shadow-pink-500/20' : 'bg-slate-300'
+                                                }`}
                                             >
                                                 {togglingStatusId === test.id ? (
                                                     <div className="absolute inset-0 flex items-center justify-center">
@@ -392,8 +399,13 @@ const TestResult = ({ isOMR = false }) => {
                                         ) : (
                                             <button
                                                 onClick={() => handleForcePublish(test)}
-                                                disabled={togglingStatusId === test.id}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all mx-auto bg-linear-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95`}
+                                                disabled={togglingStatusId === test.id || (isOMR && !test.total_students)}
+                                                title={isOMR && !test.total_students ? "Please upload OMR Excel sheet first." : "Force publish results"}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all mx-auto 
+                                                    ${(togglingStatusId === test.id || (isOMR && !test.total_students))
+                                                        ? 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-50 shadow-none'
+                                                        : 'bg-linear-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95'
+                                                    }`}
                                             >
                                                 {togglingStatusId === test.id ? (
                                                     <Loader2 size={12} className="animate-spin" />

@@ -19,6 +19,14 @@ def clean_html(text):
     return re.sub('<[^<]+?>', '', str(text)).strip().lower()
 
 
+def invalidate_my_results_cache():
+    from django.core.cache import cache
+    try:
+        cache.set('my_results_version', cache.get('my_results_version', 1) + 1, 86400)
+    except Exception:
+        pass
+
+
 # --- Roster cache (admin Test list) ----------------------------------------
 # Decoupled from `admin_test_list` so saving a single test doesn't trigger
 # a full ERP rescan. The background refresher repopulates this; the list
@@ -345,12 +353,9 @@ class TestViewSet(viewsets.ModelViewSet):
             # Pre-compute unpublished OMR test IDs to bypass Djongo's SQL JOIN/double-negation translation bug in exclude().
             from master_data.models import ExamType
             omr_type_ids = list(ExamType.objects.filter(name__icontains='omr').values_list('pk', flat=True))
-            omr_unpublished_test_ids = list(
-                Test.objects.filter(
-                    Q(exam_type_id__in=omr_type_ids) | Q(is_omr_based=True),
-                    is_result_published=False
-                ).values_list('pk', flat=True)
-            )
+            omr_unpub_type_ids = list(Test.objects.filter(exam_type_id__in=omr_type_ids, is_result_published__in=[False]).values_list('pk', flat=True))
+            omr_unpub_based_ids = list(Test.objects.filter(is_omr_based=True, is_result_published__in=[False]).values_list('pk', flat=True))
+            omr_unpublished_test_ids = list(set(omr_unpub_type_ids + omr_unpub_based_ids))
             queryset = queryset.exclude(pk__in=omr_unpublished_test_ids)
         
         package_id = self.request.query_params.get('package', None)
@@ -367,6 +372,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # Clear admin list cache (the categorizer now refreshes automatically via DB timestamp)
         from django.core.cache import cache
         cache.delete("admin_test_list")
+        invalidate_my_results_cache()
         
         # Auto-create allotment records for centres
         for centre in instance.centres.all():
@@ -378,6 +384,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # Clear related caches
         from django.core.cache import cache
         cache.delete("admin_test_list")
+        invalidate_my_results_cache()
         cache.delete(f"test_paper_{instance.pk}")
         
         # Clear related caches
@@ -534,6 +541,7 @@ class TestViewSet(viewsets.ModelViewSet):
         from django.core.cache import cache
         cache.delete("admin_test_list")
         self.__class__._local_cache = {}
+        invalidate_my_results_cache()
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['get'])
@@ -989,6 +997,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # Clear related caches
         from django.core.cache import cache
         cache.delete("admin_test_list")
+        invalidate_my_results_cache()
         
         return Response({
             'message': 'Test results forcefully published successfully.',
@@ -1089,11 +1098,20 @@ class TestViewSet(viewsets.ModelViewSet):
                                 else:
                                     responses[str(q.pk)] = {'answer': ans_list}
                     
-                    sub, _ = TestSubmission.objects.get_or_create(test=test, student=student)
-                    sub.responses = responses
-                    sub.is_finalized = True
-                    sub.submission_type = 'OMR_EXCEL'
-                    sub.save()
+                    # DJONGO WORKAROUND: Use update() to avoid ObjectId vs integer id field error
+                    updated = TestSubmission.objects.filter(test=test, student=student).update(
+                        responses=responses, is_finalized=True, submission_type='OMR_EXCEL'
+                    )
+                    if not updated:
+                        try:
+                            TestSubmission.objects.create(
+                                test=test, student=student,
+                                responses=responses, is_finalized=True, submission_type='OMR_EXCEL'
+                            )
+                        except Exception:
+                            TestSubmission.objects.filter(test=test, student=student).update(
+                                responses=responses, is_finalized=True, submission_type='OMR_EXCEL'
+                            )
                     success_count += 1
             else:
                 # Old Format (Enrollment + Score)
@@ -1118,11 +1136,20 @@ class TestViewSet(viewsets.ModelViewSet):
                         errors.append(f"Student not found: {enroll_num}")
                         continue
                     
-                    sub, _ = TestSubmission.objects.get_or_create(test=test, student=student)
-                    sub.score = score
-                    sub.is_finalized = True
-                    sub.submission_type = 'OMR_EXCEL'
-                    sub.save()
+                    # DJONGO WORKAROUND: Use update() to avoid ObjectId vs integer id field error
+                    updated = TestSubmission.objects.filter(test=test, student=student).update(
+                        score=score, is_finalized=True, submission_type='OMR_EXCEL'
+                    )
+                    if not updated:
+                        try:
+                            TestSubmission.objects.create(
+                                test=test, student=student,
+                                score=score, is_finalized=True, submission_type='OMR_EXCEL'
+                            )
+                        except Exception:
+                            TestSubmission.objects.filter(test=test, student=student).update(
+                                score=score, is_finalized=True, submission_type='OMR_EXCEL'
+                            )
                     success_count += 1
 
             return Response({
@@ -2015,28 +2042,29 @@ class TestViewSet(viewsets.ModelViewSet):
                         total_correct += 1
                         section_stats[sec['name']]['correct'] += 1
                     elif qtype == 'SINGLE_CHOICE':
-                        ans_str = str(ans).strip().lower()
-                        clean_ans = clean_html(ans)
+                        ans_str = str(ans).strip()
                         
                         is_correct = False
-                        # Scan all options for a match (ID, Content, Label, or Index)
-                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                        matched = False
+                        # Primary: match by option ID (most reliable)
                         for oi, opt in enumerate(qi.get('options', [])):
                             opt_id = str(opt.get('id', ''))
-                            opt_content = clean_html(opt.get('content') or opt.get('text', ''))
-                            opt_label = keys[oi] if oi < len(keys) else None
-                            
-                            if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                            if ans_str == opt_id or ans_str.lower() == opt_id.lower():
                                 if opt.get('isCorrect'):
                                     is_correct = True
+                                matched = True
                                 break
 
-                        if not is_correct:
-                            try:
-                                idx = int(ans_str)
-                                if idx < len(qi['options']) and qi['options'][idx].get('isCorrect'):
-                                    is_correct = True
-                            except: pass
+                        # Fallback: match by letter label (a/b/c/d) — for legacy submissions
+                        if not matched:
+                            keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                            ans_lower = ans_str.lower()
+                            for oi, opt in enumerate(qi.get('options', [])):
+                                opt_label = keys[oi] if oi < len(keys) else None
+                                if opt_label and ans_lower == opt_label:
+                                    if opt.get('isCorrect'):
+                                        is_correct = True
+                                    break
 
                         if is_correct:
                             q_result = 'CA'
@@ -2893,7 +2921,8 @@ class TestViewSet(viewsets.ModelViewSet):
         # ── PER-USER CACHE ─────────────────────────────────────────────────────
         from django.core.cache import cache
         force_refresh = request.query_params.get('refresh') == '1'
-        cache_key = f"my_results_{user.pk}"
+        cache_version = cache.get('my_results_version', 1)
+        cache_key = f"my_results_{user.pk}_v{cache_version}"
         if not force_refresh:
             cached = cache.get(cache_key)
             if cached is not None:
@@ -2928,13 +2957,20 @@ class TestViewSet(viewsets.ModelViewSet):
             try: student_finalized_django_ids.add(int(raw_id))
             except (ValueError, TypeError): student_finalized_django_ids.add(raw_id)
 
+        # ── Exclude unpublished OMR tests from my_results ──
+        from master_data.models import ExamType
+        omr_type_ids = list(ExamType.objects.filter(name__icontains='omr').values_list('pk', flat=True))
+        omr_unpub_type_ids = list(Test.objects.filter(exam_type_id__in=omr_type_ids, is_result_published__in=[False]).values_list('pk', flat=True))
+        omr_unpub_based_ids = list(Test.objects.filter(is_omr_based=True, is_result_published__in=[False]).values_list('pk', flat=True))
+        omr_unpublished_test_ids = list(set(omr_unpub_type_ids + omr_unpub_based_ids))
+
         # ── Fetch qualifying tests: published OR personally completed by student ──
         # Retrieve published tests and student's finalized tests in separate queries to bypass Djongo OR compiler bug
         published_tests = Test.objects.filter(is_result_published=True).prefetch_related(
             'sections', 'sections__questions'
         ).only('id', 'name', 'code', 'total_marks', 'created_at')
 
-        finalized_tests = Test.objects.filter(pk__in=student_finalized_django_ids).prefetch_related(
+        finalized_tests = Test.objects.filter(pk__in=student_finalized_django_ids).exclude(pk__in=omr_unpublished_test_ids).prefetch_related(
             'sections', 'sections__questions'
         ).only('id', 'name', 'code', 'total_marks', 'created_at')
 

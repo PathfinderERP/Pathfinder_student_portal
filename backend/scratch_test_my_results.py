@@ -10,7 +10,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from tests.views import TestViewSet
 
 User = get_user_model()
-user = User.objects.filter(email="jmaity24@gmail.com").first()
+user = User.objects.filter(email="aritrikmata@gmail.com").first()
 if not user:
     print("User not found!")
     exit(1)
@@ -25,7 +25,7 @@ print(f"Cleared cache key: {cache_key}")
 
 # Use DRF APIRequestFactory
 factory = APIRequestFactory()
-request = factory.get('/api/tests/my_results/')
+request = factory.get('/api/tests/my_results/?refresh=1')
 force_authenticate(request, user=user)
 
 view = TestViewSet.as_view({'get': 'my_results'})

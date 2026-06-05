@@ -606,10 +606,18 @@ const TestResponses = ({ isOMR = false }) => {
                                                     )}
                                                     <button
                                                     onClick={() => handleGenerateResult(test.id)}
-                                                    disabled={isOMR ? (!test.is_completed || generatingId === test.id) : ((!test.is_over && !test.is_completed) || generatingId === test.id)}
-                                                    title={isOMR ? (!test.is_completed ? "Turn on Completed toggle in Test Management first." : "Click to generate result") : ((!test.is_over && !test.is_completed) ? "Exam is still in progress. Can only generate after end time of all centres." : "Click to generate result")}
+                                                    disabled={isOMR ? (!test.is_completed || generatingId === test.id || !test.total_students) : ((!test.is_over && !test.is_completed) || generatingId === test.id)}
+                                                    title={isOMR 
+                                                        ? (!test.is_completed 
+                                                            ? "Turn on Completed toggle in Test Management first." 
+                                                            : (!test.total_students 
+                                                                ? "Please upload OMR Excel sheet first." 
+                                                                : "Click to generate result")) 
+                                                        : ((!test.is_over && !test.is_completed) 
+                                                            ? "Exam is still in progress. Can only generate after end time of all centres." 
+                                                            : "Click to generate result")}
                                                     className={`px-4 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-1.5 mx-auto
-                                                        ${(isOMR ? test.is_completed : (test.is_over || test.is_completed))
+                                                        ${(isOMR ? (test.is_completed && test.total_students > 0) : (test.is_over || test.is_completed))
                                                             ? (generatingId === test.id ? 'bg-green-500/50 text-white cursor-wait' : 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-600/20')
                                                             : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none'}
                                                      `}

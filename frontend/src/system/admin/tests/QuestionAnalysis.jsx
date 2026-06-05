@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Loader2, AlertCircle, BookOpen, CheckCircle2, XCircle, MinusCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, BookOpen, CheckCircle2, XCircle, MinusCircle, Clock, FileText } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';

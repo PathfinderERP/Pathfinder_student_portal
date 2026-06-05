@@ -411,18 +411,24 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                                             {q.type !== 'INTEGER_TYPE' && q.type !== 'NUMERICAL' && (q.options || []).map((opt, oi) => {
                                                 const keys = ['a', 'b', 'c', 'd', 'e', 'f'];
                                                 const optIdStr = String(opt.id || opt._id || oi);
+
                                                 const isCorrect = q.correct_options.includes(optIdStr);
 
-                                                // Robust matching for user answer (by ID, by index, or by label)
-                                                const isUserAnswer = userAnswerStr.some(ua => {
-                                                    const uaStr = String(ua).toLowerCase();
-                                                    return (
-                                                        uaStr === optIdStr.toLowerCase() ||
-                                                        uaStr === String(oi) ||
-                                                        uaStr === keys[oi] ||
-                                                        uaStr === (opt?.content?.toLowerCase() || '')
-                                                    );
-                                                });
+                                                // Check if ANY option id matches the user answers (primary method)
+                                                const allOptIds = (q.options || []).map((o, i) => String(o.id || o._id || i));
+                                                const anyIdMatch = userAnswerStr.some(ua => allOptIds.includes(String(ua)));
+
+                                                // If user answers contain an option ID → match by ID only (most reliable)
+                                                // Otherwise fall back to index or letter label
+                                                const isUserAnswer = anyIdMatch
+                                                    ? userAnswerStr.includes(optIdStr)
+                                                    : userAnswerStr.some(ua => {
+                                                        const uaStr = String(ua).toLowerCase();
+                                                        return (
+                                                            uaStr === keys[oi] ||
+                                                            uaStr === String(oi + 1) // 1-based index as last resort
+                                                        );
+                                                    });
 
                                                 return (
                                                     <div
