@@ -1155,7 +1155,9 @@ class TestViewSet(viewsets.ModelViewSet):
 
                 if replace_existing:
                     TestSubmission.objects.filter(test=test, submission_type='OMR_EXCEL').delete()
-                    existing_sub_map.clear()
+                    keys_to_remove = [k for k, v in existing_sub_map.items() if v.submission_type == 'OMR_EXCEL']
+                    for k in keys_to_remove:
+                        del existing_sub_map[k]
                 
                 success_count = 0
                 for data in validated_rows:
@@ -1239,7 +1241,9 @@ class TestViewSet(viewsets.ModelViewSet):
 
                 if replace_existing:
                     TestSubmission.objects.filter(test=test, submission_type='OMR_EXCEL').delete()
-                    existing_sub_map.clear()
+                    keys_to_remove = [k for k, v in existing_sub_map.items() if v.submission_type == 'OMR_EXCEL']
+                    for k in keys_to_remove:
+                        del existing_sub_map[k]
                     
                 success_count = 0
                 for data in validated_rows:
