@@ -1007,18 +1007,18 @@ class TestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='upload_omr_excel')
     def upload_omr_excel(self, request, pk=None):
-        import pandas as pd
-        from django.db.models import Q
-        from .models import TestSubmission
-        from api.models import CustomUser
-        from api.erp_views import get_student_lookup_index, _sync_user_to_erp
-
-        test = self.get_object()
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'error': 'No file uploaded'}, status=400)
-
         try:
+            import pandas as pd
+            from django.db.models import Q
+            from .models import TestSubmission
+            from api.models import CustomUser
+            from api.erp_views import get_student_lookup_index, _sync_user_to_erp
+
+            test = self.get_object()
+            file = request.FILES.get('file')
+            if not file:
+                return Response({'error': 'No file uploaded'}, status=400)
+
             if file.name.endswith('.csv'):
                 df = pd.read_csv(file)
             else:
