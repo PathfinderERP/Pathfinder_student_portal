@@ -17,6 +17,8 @@ class MasterSection(models.Model):
     partial_type = models.CharField(max_length=50, default='regular')
     partial_marks = models.FloatField(default=0.0)
     
+    partial_mark_rule = models.ForeignKey('PartialMarkRule', on_delete=models.SET_NULL, null=True, blank=True, related_name='master_sections')
+    
     priority = models.IntegerField(default=1)
     
     # Optional: we can add more fields specific to master sections if needed
@@ -45,6 +47,34 @@ def generate_unique_code(model_class, name):
         code = f"{base_code}_{counter}"
         counter += 1
     return code
+
+class PartialMarkRule(models.Model):
+    LOGIC_CHOICES = (
+        ('STANDARD', 'Standard (No Partial)'),
+        ('JEE_ADVANCED', 'JEE Advanced Step Marking'),
+        ('WBJEE', 'WBJEE Fractional Marking'),
+        ('CUSTOM_FRACTIONAL', 'Custom Fractional Marking'),
+    )
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, unique=True, blank=True)
+    logic_type = models.CharField(max_length=50, choices=LOGIC_CHOICES, default='STANDARD')
+    
+    base_correct_marks = models.FloatField(default=4.0)
+    base_negative_marks = models.FloatField(default=1.0)
+    
+    exam_type = models.ForeignKey('ExamType', on_delete=models.SET_NULL, null=True, blank=True, related_name='partial_mark_rules')
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_unique_code(PartialMarkRule, self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
 class Session(models.Model):
     name = models.CharField(max_length=100)

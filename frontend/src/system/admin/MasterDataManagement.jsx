@@ -4,7 +4,7 @@ import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
     Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen, RefreshCw,
     Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle,
-    Download, FileSpreadsheet, Upload
+    Download, FileSpreadsheet, Upload, FileCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -171,6 +171,7 @@ const subTabs = [
     { id: 'Target Exam', icon: Target, label: 'Target Exam', endpoint: 'target-exams' },
     { id: 'Exam Type', icon: Layers, label: 'Exam Type', endpoint: 'exam-types' },
     { id: 'Exam Details', icon: Database, label: 'Exam Details', endpoint: 'exam-details' },
+    { id: 'Partial Marks', icon: FileCheck, label: 'Partial Marks', endpoint: 'partial-mark-rules' },
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
 ];
 
@@ -757,6 +758,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             initialForm.class_level = '';
             initialForm.subject = '';
             initialForm.topic = '';
+        } else if (activeSubTab === 'Partial Marks') {
+            initialForm.logic_type = 'STANDARD';
+            initialForm.base_correct_marks = 4;
+            initialForm.base_negative_marks = 1;
+            initialForm.exam_type = '';
         }
 
         setFormValues(initialForm);
@@ -817,6 +823,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 subject: item.subject || '',
                 topic: item.topic || '',
                 is_active: true
+            });
+        } else if (activeSubTab === 'Partial Marks') {
+            setFormValues({
+                name: item.name,
+                code: item.code,
+                logic_type: item.logic_type || 'STANDARD',
+                base_correct_marks: item.base_correct_marks || 4,
+                base_negative_marks: item.base_negative_marks || 1,
+                exam_type: item.exam_type || item.exam_type_id || '',
+                is_active: item.is_active
             });
         } else {
             setFormValues({
@@ -2559,7 +2575,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         return (
             <AnimatePresence>
                 {isModalOpen && (
-                    <div style={{ zIndex: 1000 }} className="fixed inset-0 flex items-start justify-center p-4 pt-32 md:max-lg:p-2 md:max-lg:pt-20">
+                    <div style={{ zIndex: 1000 }} className="fixed inset-0 flex items-start justify-center p-4 pt-16 md:max-lg:p-2 md:max-lg:pt-10">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -3056,6 +3072,92 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                                                     placeholder="TEACHER_CODE"
                                                     className={`w-full p-2 md:max-lg:p-1.5 rounded-[5px] border font-bold text-xs outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : activeSubTab === 'Partial Marks' ? (
+                                        <div className="grid grid-cols-2 gap-4 text-left">
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Rule Name</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. JEE Advanced Logic"
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Unique Code</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.code}
+                                                    onChange={e => setFormValues({ ...formValues, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
+                                                    placeholder="JEE_ADV_PATTERN"
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-orange-500'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Logic Type</label>
+                                                <select
+                                                    value={formValues.logic_type}
+                                                    onChange={e => setFormValues({ ...formValues, logic_type: e.target.value })}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                >
+                                                    <option value="STANDARD">Standard (+X, -Y)</option>
+                                                    <option value="JEE_ADVANCED">JEE Advanced (+3, +2, +1, -1)</option>
+                                                    <option value="WBJEE">WBJEE Category 3 (+X, 0)</option>
+                                                    <option value="CUSTOM_FRACTIONAL">Custom Fractional</option>
+                                                </select>
+                                                <div className={`mt-2 p-3 rounded-[5px] text-xs font-medium border space-y-2 ${isDarkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                                    {formValues.logic_type === 'STANDARD' && (
+                                                        <>
+                                                            <p><strong>Strict grading:</strong> Marks awarded only if ALL correct options (and no incorrect ones) are chosen. Otherwise, negative marks are applied.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B]. Base: +4, Neg: -1.<br/>• Selecting [A, B] &rarr; +4.<br/>• Selecting [A] &rarr; -1.<br/>• Selecting [A, B, C] &rarr; -1.</p>
+                                                        </>
+                                                    )}
+                                                    {formValues.logic_type === 'JEE_ADVANCED' && (
+                                                        <>
+                                                            <p><strong>Tiered grading:</strong> Full marks for all correct. Partial marks (+2, +1) awarded if no incorrect options are chosen but some correct options are missed. Negative marks if ANY incorrect option is chosen.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B, C]. Base: +4, Neg: -1.<br/>• Selecting [A, B, C] &rarr; +4.<br/>• Selecting [A, B] &rarr; +2.<br/>• Selecting [A] &rarr; +1.<br/>• Selecting [A, D] &rarr; -1 (because D is wrong).</p>
+                                                        </>
+                                                    )}
+                                                    {formValues.logic_type === 'WBJEE' && (
+                                                        <>
+                                                            <p><strong>Proportional grading:</strong> Fractional marks awarded based on (Correct Options Selected / Total Correct Options). Usually, no negative marking is applied for partial subsets.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B]. Base: +2, Neg: 0.<br/>• Selecting [A, B] &rarr; +2.<br/>• Selecting [A] &rarr; +1 (half marks).<br/>• Selecting [A, C] &rarr; 0 (because C is wrong, but no negative penalty).</p>
+                                                        </>
+                                                    )}
+                                                    {formValues.logic_type === 'CUSTOM_FRACTIONAL' && (
+                                                        <>
+                                                            <p><strong>Custom Fractional grading:</strong> Correct marks are divided equally among the correct options. Any incorrect option selected applies the base negative penalty.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B]. Base: +4, Neg: -1.<br/>• Selecting [A] &rarr; +2 (1 out of 2 correct options).<br/>• Selecting [A, B] &rarr; +4 (all correct).<br/>• Selecting [A, C] &rarr; +1 (+2 for A, -1 for C).</p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Base Correct Marks</label>
+                                                <input
+                                                    required
+                                                    type="number"
+                                                    step="any"
+                                                    value={formValues.base_correct_marks}
+                                                    onChange={e => setFormValues({ ...formValues, base_correct_marks: e.target.value })}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Base Negative Marks</label>
+                                                <input
+                                                    required
+                                                    type="number"
+                                                    step="any"
+                                                    value={formValues.base_negative_marks}
+                                                    onChange={e => setFormValues({ ...formValues, base_negative_marks: e.target.value })}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
                                             </div>
                                         </div>

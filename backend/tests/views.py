@@ -2046,6 +2046,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'section': sec.name,
                     'correct_marks': float(sec.correct_marks or 0),
                     'negative_marks': float(sec.negative_marks or 0),
+                    'partial_mark_rule': sec.partial_mark_rule,
                     'is_wrong': False,  # Will be patched from grace_applied_questions after sub_doc is loaded
                     'type': q.question_type or 'SINGLE_CHOICE',
                     'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
@@ -2198,23 +2199,82 @@ class TestViewSet(viewsets.ModelViewSet):
                                     break
                                     
                         correct = set(qi['correct_options'])
-                        if normalized_selected == correct:
-                            q_result = 'CA'
-                            earned = qi['correct_marks']
-                            total_correct += 1
-                            section_stats[sec['name']]['correct'] += 1
-                        elif normalized_selected & correct:
-                            q_result = 'PA'
-                            # Partial: give correct_marks * (intersection / total correct)
-                            fraction = len(normalized_selected & correct) / len(correct) if correct else 0
-                            earned = round(qi['correct_marks'] * fraction, 2)
-                            total_partial += 1
-                            section_stats[sec['name']]['partial'] += 1
+                        rule = qi.get('partial_mark_rule')
+                        
+                        if rule and rule.logic_type == 'JEE_ADVANCED':
+                            if not normalized_selected.issubset(correct):
+                                q_result = 'IA'
+                                neg = rule.base_negative_marks
+                                total_incorrect += 1
+                                section_stats[sec['name']]['incorrect'] += 1
+                            elif normalized_selected == correct:
+                                q_result = 'CA'
+                                earned = rule.base_correct_marks
+                                total_correct += 1
+                                section_stats[sec['name']]['correct'] += 1
+                            else:
+                                q_result = 'PA'
+                                num_correct_selected = len(normalized_selected)
+                                # Standard JEE Advanced step marks (+3, +2, +1)
+                                if num_correct_selected >= 3: earned = 3.0
+                                elif num_correct_selected == 2: earned = 2.0
+                                elif num_correct_selected == 1: earned = 1.0
+                                else: earned = float(num_correct_selected)
+                                total_partial += 1
+                                section_stats[sec['name']]['partial'] += 1
+                        
+                        elif rule and rule.logic_type in ['WBJEE', 'CUSTOM_FRACTIONAL']:
+                            if not normalized_selected.issubset(correct):
+                                q_result = 'IA'
+                                if rule.logic_type == 'CUSTOM_FRACTIONAL':
+                                    neg = rule.base_negative_marks
+                                else:
+                                    neg = 0.0 # WBJEE Cat 3 typically has 0 negative marks
+                                total_incorrect += 1
+                                section_stats[sec['name']]['incorrect'] += 1
+                            elif normalized_selected == correct:
+                                q_result = 'CA'
+                                earned = rule.base_correct_marks
+                                total_correct += 1
+                                section_stats[sec['name']]['correct'] += 1
+                            else:
+                                q_result = 'PA'
+                                fraction = len(normalized_selected) / len(correct) if correct else 0
+                                earned = round(rule.base_correct_marks * fraction, 2)
+                                total_partial += 1
+                                section_stats[sec['name']]['partial'] += 1
+                        
+                        elif rule and rule.logic_type == 'STANDARD':
+                            if normalized_selected == correct:
+                                q_result = 'CA'
+                                earned = rule.base_correct_marks
+                                total_correct += 1
+                                section_stats[sec['name']]['correct'] += 1
+                            else:
+                                q_result = 'IA'
+                                neg = rule.base_negative_marks
+                                total_incorrect += 1
+                                section_stats[sec['name']]['incorrect'] += 1
+                        
                         else:
-                            q_result = 'IA'
-                            neg = qi['negative_marks']
-                            total_incorrect += 1
-                            section_stats[sec['name']]['incorrect'] += 1
+                            # Fallback to existing logic if no rule
+                            if normalized_selected == correct:
+                                q_result = 'CA'
+                                earned = qi['correct_marks']
+                                total_correct += 1
+                                section_stats[sec['name']]['correct'] += 1
+                            elif normalized_selected & correct:
+                                q_result = 'PA'
+                                # Partial: give correct_marks * (intersection / total correct)
+                                fraction = len(normalized_selected & correct) / len(correct) if correct else 0
+                                earned = round(qi['correct_marks'] * fraction, 2)
+                                total_partial += 1
+                                section_stats[sec['name']]['partial'] += 1
+                            else:
+                                q_result = 'IA'
+                                neg = qi['negative_marks']
+                                total_incorrect += 1
+                                section_stats[sec['name']]['incorrect'] += 1
                     elif qtype in ('NUMERICAL', 'INTEGER_TYPE'):
                         try:
                             val = float(ans)

@@ -21,6 +21,7 @@ const SectionRegistry = () => {
     const { getApiUrl, token } = useAuth();
     const { isDarkMode } = useTheme();
     const [sections, setSections] = useState([]);
+    const [partialRules, setPartialRules] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -31,7 +32,8 @@ const SectionRegistry = () => {
     const [editingSection, setEditingSection] = useState(null);
     const [formData, setFormData] = useState({
         subject_code: '',
-        name: ''
+        name: '',
+        partial_mark_rule: ''
     });
 
     // Custom Alert State
@@ -65,9 +67,26 @@ const SectionRegistry = () => {
         }
     }, [getApiUrl, token]);
 
+    const fetchPartialRules = useCallback(async () => {
+        try {
+            const apiUrl = getApiUrl();
+            const authToken = token || localStorage.getItem('auth_token');
+            if (!authToken) return;
+            const response = await axios.get(`${apiUrl}/api/master-data/partial-mark-rules/`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            // Sometimes response.data is paginated or direct array
+            const rulesData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+            setPartialRules(rulesData);
+        } catch (err) {
+            console.error('Error fetching partial rules:', err);
+        }
+    }, [getApiUrl, token]);
+
     useEffect(() => {
         fetchSections();
-    }, [fetchSections]);
+        fetchPartialRules();
+    }, [fetchSections, fetchPartialRules]);
 
     const handleRefresh = () => {
         setSearchTerm('');
@@ -77,7 +96,7 @@ const SectionRegistry = () => {
     const handleAddClick = () => {
         setModalMode('add');
         setEditingSection(null);
-        setFormData({ subject_code: '', name: '' });
+        setFormData({ subject_code: '', name: '', partial_mark_rule: '' });
         setShowModal(true);
     };
 
@@ -86,7 +105,8 @@ const SectionRegistry = () => {
         setEditingSection(section);
         setFormData({
             subject_code: section.subject_code || section.code || '',
-            name: section.name || ''
+            name: section.name || '',
+            partial_mark_rule: section.partial_mark_rule || section.partial_mark_rule_id || ''
         });
         setShowModal(true);
     };
@@ -122,9 +142,10 @@ const SectionRegistry = () => {
             const method = modalMode === 'edit' ? 'patch' : 'post';
 
             const payload = modalMode === 'edit'
-                ? { ...formData }
+                ? { ...formData, partial_mark_rule: formData.partial_mark_rule || null }
                 : {
                     ...formData,
+                    partial_mark_rule: formData.partial_mark_rule || null,
                     total_questions: 20,
                     allowed_questions: 20,
                     correct_marks: 4,
@@ -394,6 +415,25 @@ const SectionRegistry = () => {
                                             onChange={(e) => setFormData({ ...formData, subject_code: e.target.value })}
                                             placeholder="Enter Code"
                                         />
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Partial Marks Logic (Optional)</label>
+                                        <select
+                                            className={`w-full bg-transparent border-b-2 py-3 font-bold text-sm outline-none transition-all
+                                                ${isDarkMode
+                                                    ? 'border-white/10 text-white focus:border-orange-500'
+                                                    : 'border-slate-200 text-slate-800 focus:border-orange-500'}`}
+                                            value={formData.partial_mark_rule || ''}
+                                            onChange={(e) => setFormData({ ...formData, partial_mark_rule: e.target.value })}
+                                        >
+                                            <option value="" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>No Partial Marks (Standard)</option>
+                                            {partialRules.map(rule => (
+                                                <option key={rule.id} value={rule.id} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>
+                                                    {rule.name} ({rule.logic_type})
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             </div>

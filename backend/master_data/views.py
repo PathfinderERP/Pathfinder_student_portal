@@ -8,8 +8,8 @@ import time
 import requests
 from api.erp_views import _get_erp_url, _get_erp_admin_token
 import logging
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer
 
 class StandardPagination(pagination.PageNumberPagination):
     page_size = 20
@@ -187,6 +187,23 @@ class CachedListViewSetMixin(object):
 class MasterSectionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = MasterSection.objects.all().order_by('priority', 'created_at')
     serializer_class = MasterSectionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+        self.clear_cache()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self.clear_cache()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        self.clear_cache()
+
+class PartialMarkRuleViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
+    queryset = PartialMarkRule.objects.all().order_by('-created_at')
+    serializer_class = PartialMarkRuleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):

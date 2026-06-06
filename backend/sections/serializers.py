@@ -10,8 +10,8 @@ class SectionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'test', 'name', 'subject_code', 
             'total_questions', 'allowed_questions', 'shuffle',
-            'correct_marks', 'negative_marks', 
-            'partial_type', 'partial_marks', 'priority',
+            'question_type', 'correct_marks', 'negative_marks', 
+            'partial_type', 'partial_marks', 'partial_mark_rule', 'priority',
             'questions', 'created_at', 'updated_at'
         ]
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule
 from packages.models import Package
 from bson import ObjectId
 
@@ -19,12 +19,22 @@ class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
     def to_representation(self, value):
         return str(value.pk)
 
+class PartialMarkRuleSerializer(serializers.ModelSerializer):
+    exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
+    
+    class Meta:
+        model = PartialMarkRule
+        fields = '__all__'
+
 class MasterSectionSerializer(serializers.ModelSerializer):
+    partial_mark_rule_name = serializers.CharField(source='partial_mark_rule.name', read_only=True)
+    partial_mark_rule_id = serializers.PrimaryKeyRelatedField(source='partial_mark_rule', queryset=PartialMarkRule.objects.all(), required=False, allow_null=True)
+
     class Meta:
         model = MasterSection
         fields = ['id', 'name', 'subject_code', 'total_questions', 'allowed_questions',
                   'shuffle', 'correct_marks', 'negative_marks', 'partial_type',
-                  'partial_marks', 'priority', 'is_active', 'created_at', 'updated_at']
+                  'partial_marks', 'partial_mark_rule', 'partial_mark_rule_name', 'partial_mark_rule_id', 'priority', 'is_active', 'created_at', 'updated_at']
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:

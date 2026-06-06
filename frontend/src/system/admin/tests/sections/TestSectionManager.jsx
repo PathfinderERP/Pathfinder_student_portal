@@ -28,7 +28,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
         shuffle: false,
         correct_marks: 4,
         negative_marks: 1,
-        partial_type: 'regular',
+        partial_type: 'none',
         partial_marks: 0,
         priority: 1
     });
@@ -43,6 +43,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
 
     const [targetExams, setTargetExams] = useState([]);
     const [subjects, setSubjects] = useState([]);
+    const [partialMarkRules, setPartialMarkRules] = useState([]);
 
     const getAuthConfig = useCallback(() => {
         const activeToken = token || localStorage.getItem('auth_token');
@@ -53,14 +54,16 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const [sectionsRes, targetExamsRes, subjectsRes] = await Promise.all([
+            const [sectionsRes, targetExamsRes, subjectsRes, partialMarkRulesRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/${test.id}/sections/`, getAuthConfig()),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, getAuthConfig()),
-                axios.get(`${apiUrl}/api/master-data/subjects/`, getAuthConfig())
+                axios.get(`${apiUrl}/api/master-data/subjects/`, getAuthConfig()),
+                axios.get(`${apiUrl}/api/master-data/partial-mark-rules/`, getAuthConfig())
             ]);
             setSections(sectionsRes.data);
             setTargetExams(targetExamsRes.data);
             setSubjects(subjectsRes.data);
+            setPartialMarkRules(partialMarkRulesRes.data || []);
         } catch (err) {
             console.error('Failed to fetch data:', err);
         } finally {
@@ -79,12 +82,14 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
             name: '',
             subject_code: '',
             subject_id: '',
+            question_type: 'SINGLE_CHOICE',
             total_questions: 20,
             allowed_questions: 20,
             shuffle: false,
             correct_marks: 4,
             negative_marks: 1,
-            partial_type: 'regular',
+            partial_type: 'none',
+            partial_mark_rule_id: '',
             partial_marks: 0,
             priority: sections.length + 1
         });
@@ -98,12 +103,14 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
             name: section.name,
             subject_code: section.subject_code,
             subject_id: section.subject_id || '',
+            question_type: section.question_type || 'SINGLE_CHOICE',
             total_questions: section.total_questions || 20,
             allowed_questions: section.allowed_questions || 20,
             shuffle: section.shuffle,
             correct_marks: section.correct_marks || 4,
             negative_marks: section.negative_marks || 1,
-            partial_type: section.partial_type || 'regular',
+            partial_type: section.partial_type || 'none',
+            partial_mark_rule_id: section.partial_mark_rule || section.partial_mark_rule_id || '',
             partial_marks: section.partial_marks || 0,
             priority: section.priority || 1
         });
@@ -145,6 +152,15 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
         try {
             const apiUrl = getApiUrl();
             const payload = { ...formValues, test: test.id };
+            
+            // Clean up empty strings to null for relations
+            if (!payload.partial_mark_rule_id) {
+                payload.partial_mark_rule = null;
+                payload.partial_mark_rule_id = null;
+            }
+            if (!payload.subject_id) {
+                payload.subject_id = null;
+            }
             if (modalMode === 'add') {
                 await axios.post(`${apiUrl}/api/sections/`, payload, getAuthConfig());
             } else {
@@ -241,6 +257,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                                 <th className="py-5 px-4 text-center whitespace-nowrap w-12">#</th>
                                 <th className="py-5 px-4 whitespace-nowrap text-left">Section Name</th>
                                 <th className="py-5 px-4 whitespace-nowrap text-left">Subject Code</th>
+                                <th className="py-5 px-4 whitespace-nowrap text-center">Type</th>
                                 <th className="py-5 px-4 text-center whitespace-nowrap">Allowed/Total Questions</th>
                                 <th className="py-5 px-4 text-center whitespace-nowrap">Shuffle</th>
                                 <th className="py-5 px-4 text-center whitespace-nowrap">Correct Marks</th>
@@ -288,6 +305,13 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                                         </span>
                                     </td>
 
+                                    {/* Question Type */}
+                                    <td className="py-5 px-4 text-center">
+                                        <span className={`text-[10px] px-2 py-1 rounded-[3px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
+                                            {{ SINGLE_CHOICE: 'SCQ', MULTI_CHOICE: 'MCQ', NUMERICAL: 'NUM', INTEGER_TYPE: 'INT', MATRIX: 'MTX' }[section.question_type] || section.question_type || 'SCQ'}
+                                        </span>
+                                    </td>
+
                                     {/* Allowed / Total */}
                                     <td className="py-5 px-4 text-center">
                                         <span className={`text-xs font-black ${isDarkMode ? 'text-slate-200' : 'text-[#1A1F2B]'}`}>
@@ -319,7 +343,11 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
 
                                     {/* Partial Type */}
                                     <td className="py-5 px-4 text-center">
-                                        <span className={`text-[11px] font-bold capitalize ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{section.partial_type || 'regular'}</span>
+                                        <span className={`text-[11px] font-bold capitalize ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            {section.partial_mark_rule || section.partial_mark_rule_id 
+                                                ? partialMarkRules.find(r => r.id === (section.partial_mark_rule?.id || section.partial_mark_rule || section.partial_mark_rule_id))?.title || partialMarkRules.find(r => r.id === (section.partial_mark_rule?.id || section.partial_mark_rule || section.partial_mark_rule_id))?.name || 'Rule Applied'
+                                                : 'Standard'}
+                                        </span>
                                     </td>
 
                                     {/* Partial Marks */}
@@ -370,7 +398,7 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
 
             {/* Add / Edit Section Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-20">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isActionLoading && setIsModalOpen(false)} />
                     <div className={`relative w-full max-w-2xl rounded-[5px] shadow-2xl overflow-hidden border animate-in zoom-in-95 duration-300 flex flex-col max-h-[92vh] ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
                         {/* Header */}
@@ -432,70 +460,136 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
                                         className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white placeholder-white/20' : 'text-slate-800 placeholder-slate-300'}`} />
                                 </div>
 
-                                {/* Row 2: Priority + Total Questions */}
+                                {/* Row 2: Question Type + Priority */}
+                                <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
+                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Question Type *</label>
+                                    <select value={formValues.question_type || 'SINGLE_CHOICE'}
+                                        onChange={e => setFormValues({ ...formValues, question_type: e.target.value, partial_mark_rule_id: e.target.value !== 'MULTI_CHOICE' ? '' : formValues.partial_mark_rule_id })}
+                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] appearance-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                        <option value="SINGLE_CHOICE">Single Choice (SCQ)</option>
+                                        <option value="MULTI_CHOICE">Multiple Choice (MCQ)</option>
+                                        <option value="NUMERICAL">Numerical / Decimal</option>
+                                        <option value="INTEGER_TYPE">Integer Type</option>
+                                        <option value="MATRIX">Matrix Match</option>
+                                    </select>
+                                </div>
                                 <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
                                     <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Section Priority *</label>
                                     <input type="number" min="1" value={formValues.priority}
                                         onChange={e => setFormValues({ ...formValues, priority: parseInt(e.target.value) || 1 })}
                                         className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
                                 </div>
+
+                                {/* Row 3: Total Questions + Questions Allowed */}
                                 <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
                                     <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Total No. of Questions *</label>
                                     <input type="number" min="0" value={formValues.total_questions}
                                         onChange={e => setFormValues({ ...formValues, total_questions: parseInt(e.target.value) || 0 })}
                                         className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
                                 </div>
-
-                                {/* Row 3: Allowed Questions + Correct Marks */}
                                 <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
                                     <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Questions Allowed *</label>
                                     <input type="number" min="0" value={formValues.allowed_questions}
                                         onChange={e => setFormValues({ ...formValues, allowed_questions: parseInt(e.target.value) || 0 })}
                                         className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
                                 </div>
+
+                                {/* Row 4: Correct Marks + Negative Marks */}
                                 <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
-                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Correct Marks *</label>
+                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>
+                                        {formValues.partial_mark_rule_id ? 'Base Correct Marks *' : 'Correct Marks *'}
+                                    </label>
                                     <input type="number" step="0.5" value={formValues.correct_marks}
+                                        readOnly={!!formValues.partial_mark_rule_id}
                                         onChange={e => setFormValues({ ...formValues, correct_marks: parseFloat(e.target.value) || 0 })}
-                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
+                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'} ${formValues.partial_mark_rule_id ? 'opacity-50 cursor-not-allowed' : ''}`} />
                                 </div>
-
-                                {/* Row 4: Negative Marks + Partial Type */}
                                 <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
-                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Negative Marks *</label>
+                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>
+                                        {formValues.partial_mark_rule_id ? 'Base Negative Marks *' : 'Negative Marks *'}
+                                    </label>
                                     <input type="number" step="0.25" min="0" value={formValues.negative_marks}
+                                        readOnly={!!formValues.partial_mark_rule_id}
                                         onChange={e => setFormValues({ ...formValues, negative_marks: parseFloat(e.target.value) || 0 })}
-                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
-                                </div>
-                                <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
-                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Partial Marks Type</label>
-                                    <select value={formValues.partial_type}
-                                        onChange={e => setFormValues({ ...formValues, partial_type: e.target.value })}
-                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] appearance-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                                        <option value="regular">Regular</option>
-                                        <option value="partial">Partial</option>
-                                        <option value="wbjee">WBJEE</option>
-                                        <option value="jee_advanced">JEE Advanced</option>
-                                        <option value="none">None</option>
-                                    </select>
+                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'} ${formValues.partial_mark_rule_id ? 'opacity-50 cursor-not-allowed' : ''}`} />
                                 </div>
 
-                                {/* Row 5: Partial Marks + Shuffle */}
-                                <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
-                                    <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Partial Marks *</label>
-                                    <input type="number" step="0.25" min="0" value={formValues.partial_marks}
-                                        onChange={e => setFormValues({ ...formValues, partial_marks: parseFloat(e.target.value) || 0 })}
-                                        className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] ${isDarkMode ? 'text-white' : 'text-slate-800'}`} />
-                                </div>
-                                <div className={`flex items-center justify-between px-4 py-3 rounded-[5px] border ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
-                                    <span className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>Shuffle Questions</span>
+                                {/* Row 5: Partial Marks Logic (conditional) + Shuffle */}
+                                {formValues.question_type === 'MULTI_CHOICE' && (
+                                    <div className="flex flex-col gap-2 md:col-span-2">
+                                        <div className={`relative border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
+                                            <label className={`absolute -top-2.5 left-3 px-1 text-[9px] font-black uppercase tracking-widest z-10 ${isDarkMode ? 'bg-[#1A1F2B] text-slate-400' : 'bg-white text-slate-500'}`}>Partial Marks Logic</label>
+                                            <select value={formValues.partial_mark_rule_id || ''}
+                                                onChange={e => {
+                                                    const ruleId = e.target.value;
+                                                    const selectedRule = partialMarkRules.find(r => String(r.id) === String(ruleId));
+                                                    
+                                                    const newValues = { 
+                                                        ...formValues, 
+                                                        partial_mark_rule_id: ruleId, 
+                                                        partial_mark_rule: ruleId 
+                                                    };
+                                                    
+                                                    if (selectedRule) {
+                                                        newValues.correct_marks = selectedRule.base_correct_marks;
+                                                        newValues.negative_marks = selectedRule.base_negative_marks;
+                                                    }
+                                                    
+                                                    setFormValues(newValues);
+                                                }}
+                                                className={`w-full px-4 py-3 bg-transparent text-sm font-bold outline-none rounded-[5px] appearance-none cursor-pointer ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                                <option value="">None (Standard)</option>
+                                                {partialMarkRules.map(rule => (
+                                                    <option key={rule.id} value={rule.id}>{rule.title || rule.name} ({rule.logic_type})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {(() => {
+                                            const selectedRule = partialMarkRules.find(r => String(r.id) === String(formValues.partial_mark_rule_id));
+                                            const logicType = selectedRule ? selectedRule.logic_type : 'STANDARD';
+                                            
+                                            return (
+                                                <div className={`p-3 rounded-[5px] text-xs font-medium border space-y-2 ${isDarkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                                    {logicType === 'STANDARD' && (
+                                                        <>
+                                                            <p><strong>Strict grading:</strong> Marks awarded only if ALL correct options (and no incorrect ones) are chosen. Otherwise, negative marks are applied.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B]. Base: +4, Neg: -1.<br/>• Selecting [A, B] &rarr; +4.<br/>• Selecting [A] &rarr; -1.<br/>• Selecting [A, B, C] &rarr; -1.</p>
+                                                        </>
+                                                    )}
+                                                    {logicType === 'JEE_ADVANCED' && (
+                                                        <>
+                                                            <p><strong>Tiered grading:</strong> Full marks for all correct. Partial marks (+2, +1) awarded if no incorrect options are chosen but some correct options are missed. Negative marks if ANY incorrect option is chosen.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B, C]. Base: +4, Neg: -1.<br/>• Selecting [A, B, C] &rarr; +4.<br/>• Selecting [A, B] &rarr; +2.<br/>• Selecting [A] &rarr; +1.<br/>• Selecting [A, D] &rarr; -1 (because D is wrong).</p>
+                                                        </>
+                                                    )}
+                                                    {logicType === 'WBJEE' && (
+                                                        <>
+                                                            <p><strong>Proportional grading:</strong> Fractional marks awarded based on (Correct Options Selected / Total Correct Options). Usually, no negative marking is applied for partial subsets.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B]. Base: +2, Neg: 0.<br/>• Selecting [A, B] &rarr; +2.<br/>• Selecting [A] &rarr; +1 (half marks).<br/>• Selecting [A, C] &rarr; 0 (because C is wrong, but no negative penalty).</p>
+                                                        </>
+                                                    )}
+                                                    {logicType === 'CUSTOM_FRACTIONAL' && (
+                                                        <>
+                                                            <p><strong>Custom Fractional grading:</strong> Correct marks are divided equally among the correct options. Any incorrect option selected applies the base negative penalty.</p>
+                                                            <p className="opacity-80 border-t border-current/20 pt-2"><strong>Example:</strong> Correct answer is [A, B]. Base: +4, Neg: -1.<br/>• Selecting [A] &rarr; +2 (1 out of 2 correct options).<br/>• Selecting [A, B] &rarr; +4 (all correct).<br/>• Selecting [A, C] &rarr; +1 (+2 for A, -1 for C).</p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+
+                                <div className={`flex items-center justify-between p-4 border rounded-[5px] transition-all focus-within:border-orange-500 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'} ${formValues.question_type === 'MULTI_CHOICE' ? '' : 'md:col-span-2'}`}>
+                                    <div>
+                                        <p className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Shuffle Questions</p>
+                                        <p className={`text-[9px] font-bold opacity-50 uppercase tracking-widest mt-1`}>Randomize order per student</p>
+                                    </div>
                                     <button type="button" onClick={() => setFormValues({ ...formValues, shuffle: !formValues.shuffle })}
-                                        className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formValues.shuffle ? 'bg-[#2D6A4F]' : (isDarkMode ? 'bg-white/10' : 'bg-slate-300')}`}>
-                                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${formValues.shuffle ? 'left-6' : 'left-0.5'}`} />
+                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative ${formValues.shuffle ? 'bg-orange-500' : isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}>
+                                        <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all duration-300 shadow-sm ${formValues.shuffle ? 'left-7' : 'left-1'}`} />
                                     </button>
-                                </div>
-
-                            </div>
+                                </div>                            </div>
 
                             <div className={`px-8 pb-8 shrink-0`}>
                                 <button type="submit" disabled={isActionLoading}

@@ -11,11 +11,15 @@ class Section(models.Model):
     allowed_questions = models.IntegerField(default=20)
     shuffle = models.BooleanField(default=False)
     
+    question_type = models.CharField(max_length=50, default='SINGLE_CHOICE')
+    
     correct_marks = models.FloatField(default=4.0)
     negative_marks = models.FloatField(default=1.0)
     
     partial_type = models.CharField(max_length=50, default='regular')
     partial_marks = models.FloatField(default=0.0)
+    
+    partial_mark_rule = models.ForeignKey('master_data.PartialMarkRule', on_delete=models.SET_NULL, null=True, blank=True)
     
     priority = models.IntegerField(default=1)
     
