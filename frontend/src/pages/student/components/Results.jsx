@@ -276,14 +276,16 @@ const Results = ({ isDarkMode }) => {
             }).map(t => {
                 const end = t.end_time ? new Date(t.end_time) : null;
                 const start = t.start_time ? new Date(t.start_time) : null;
+                const isPendingResult = t.submission?.is_finalized && !t.is_result_published;
                 const isExpired = end && now > end;
                 const isUpcoming = start && now < start;
 
                 return {
                     ...t,
-                    isMissed: isExpired,
-                    isPlanned: !isExpired,
-                    isUpcoming: isUpcoming,
+                    isMissed: isExpired && !isPendingResult,
+                    isPlanned: !isExpired && !isPendingResult,
+                    isUpcoming: isUpcoming && !isPendingResult,
+                    isPendingResult: isPendingResult,
                     date: t.end_time ? new Date(t.end_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—',
                     marks: 0,
                     total: 0,
@@ -313,7 +315,7 @@ const Results = ({ isDarkMode }) => {
 
     // Derived statistics - only from actual attempts
     const actualAttempts = useMemo(() =>
-        (detailedResults || []).filter(r => !r.isMissed && !r.isPlanned && !r.isUpcoming),
+        (detailedResults || []).filter(r => !r.isMissed && !r.isPlanned && !r.isUpcoming && !r.isPendingResult),
         [detailedResults]);
 
     const latestResult = useMemo(() => actualAttempts[0] || null, [actualAttempts]);
@@ -352,17 +354,17 @@ const Results = ({ isDarkMode }) => {
 
         if (activeTab === 'recent') {
             // Only show actual attempts (completed exams) in Recent Results
-            return results.filter(res => !res.isMissed && !res.isPlanned && !res.isUpcoming).slice(0, 5);
+            return results.filter(res => !res.isMissed && !res.isPlanned && !res.isUpcoming && !res.isPendingResult).slice(0, 5);
         }
 
         // For "View All" show only finished exams: either actual attempts or expired (missed) tests.
         // This hides ongoing / available / upcoming tests from the results tab until the exam is over.
-        return results.filter(res => res.isMissed || (!res.isPlanned && !res.isUpcoming));
+        return results.filter(res => res.isMissed || res.isPendingResult || (!res.isPlanned && !res.isUpcoming));
     }, [detailedResults, searchTerm, activeTab]);
 
     // Only use finished exams (expired or actual attempts) for analytics and global summaries
     const finishedResults = useMemo(() => {
-        return (detailedResults || []).filter(r => r.isMissed || (!r.isPlanned && !r.isUpcoming));
+        return (detailedResults || []).filter(r => r.isMissed || (!r.isPlanned && !r.isUpcoming && !r.isPendingResult));
     }, [detailedResults]);
 
     // If a report is selected, show the report view
@@ -506,14 +508,19 @@ const Results = ({ isDarkMode }) => {
                                                                 Missed
                                                             </span>
                                                         )}
-                                                        {res.isPlanned && !res.isUpcoming && (
+                                                        {res.isPlanned && !res.isUpcoming && !res.isPendingResult && (
                                                             <span className="px-1.5 py-0.5 rounded-[3px] bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">
                                                                 Available
                                                             </span>
                                                         )}
-                                                        {res.isUpcoming && (
+                                                        {res.isUpcoming && !res.isPendingResult && (
                                                             <span className="px-1.5 py-0.5 rounded-[3px] bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
                                                                 Upcoming
+                                                            </span>
+                                                        )}
+                                                        {res.isPendingResult && (
+                                                            <span className="px-1.5 py-0.5 rounded-[3px] bg-slate-500/10 text-slate-500 text-[8px] font-black uppercase tracking-widest border border-slate-500/20">
+                                                                Result Awaited
                                                             </span>
                                                         )}
                                                     </div>
@@ -524,7 +531,9 @@ const Results = ({ isDarkMode }) => {
                                                 <span className="text-[11px] font-bold opacity-50">{res.date}</span>
                                             </td>
                                             <td className="py-5 px-6 text-center">
-                                                {res.isMissed || res.isPlanned || res.isUpcoming ? (
+                                                {res.isPendingResult ? (
+                                                    <span className="text-[11px] font-bold text-slate-400">Pending</span>
+                                                ) : res.isMissed || res.isPlanned || res.isUpcoming ? (
                                                     <span className="text-[11px] font-bold text-slate-400">-- / --</span>
                                                 ) : (
                                                     <div className="flex flex-col items-center">
@@ -543,17 +552,21 @@ const Results = ({ isDarkMode }) => {
                                             <td className="py-5 px-6 text-center">
                                                 <div className="flex items-center justify-center gap-1.5 opacity-50">
                                                     <Award size={12} />
-                                                    <span className="text-[11px] font-bold">{(!res.isMissed && !res.isPlanned && !res.isUpcoming) ? `#${res.rank}` : '--'}</span>
+                                                    <span className="text-[11px] font-bold">{(!res.isMissed && !res.isPlanned && !res.isUpcoming && !res.isPendingResult) ? `#${res.rank}` : '--'}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6 text-center">
                                                 <div className="flex items-center justify-center gap-1.5 opacity-50">
                                                     <TrendingUp size={12} className="text-blue-500" />
-                                                    <span className="text-[11px] font-bold">{(!res.isMissed && !res.isPlanned && !res.isUpcoming) ? `${res.percentile?.toFixed(2)}%` : '--'}</span>
+                                                    <span className="text-[11px] font-bold">{(!res.isMissed && !res.isPlanned && !res.isUpcoming && !res.isPendingResult) ? `${res.percentile?.toFixed(2)}%` : '--'}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6 text-center">
-                                                {res.isUpcoming ? (
+                                                {res.isPendingResult ? (
+                                                    <div className="bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] cursor-not-allowed inline-block">
+                                                        Awaited
+                                                    </div>
+                                                ) : res.isUpcoming ? (
                                                     <div className="bg-slate-100 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] cursor-not-allowed inline-block">
                                                         Locked
                                                     </div>

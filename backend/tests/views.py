@@ -3134,7 +3134,7 @@ class TestViewSet(viewsets.ModelViewSet):
             'sections', 'sections__questions'
         ).only('id', 'name', 'code', 'total_marks', 'created_at')
 
-        finalized_tests = Test.objects.filter(pk__in=student_finalized_django_ids).exclude(pk__in=omr_unpublished_test_ids).prefetch_related(
+        finalized_tests = Test.objects.filter(pk__in=student_finalized_django_ids, is_result_published=True).exclude(pk__in=omr_unpublished_test_ids).prefetch_related(
             'sections', 'sections__questions'
         ).only('id', 'name', 'code', 'total_marks', 'created_at')
 

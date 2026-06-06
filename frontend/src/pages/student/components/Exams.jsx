@@ -179,14 +179,14 @@ const ExamAnalytics = ({ tests, isDarkMode, onTabChange }) => {
                                 <>
                                     <div className="flex flex-col">
                                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Marks</span>
-                                        <span className={`text-[11px] font-black ${isMissed ? 'text-slate-400 opacity-40' : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')}`}>
-                                            {isMissed ? '--' : `${(test.submission?.score || 0).toFixed(2)}%`}
+                                        <span className={`text-[11px] font-black ${isMissed ? 'text-slate-400 opacity-40' : (!test.is_result_published ? 'text-slate-400 opacity-60' : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600'))}`}>
+                                            {isMissed ? '--' : (!test.is_result_published ? 'Pending' : `${(test.submission?.score || 0).toFixed(2)}%`)}
                                         </span>
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Rank</span>
-                                        <span className={`text-[11px] font-black ${isMissed ? 'text-slate-400 opacity-40' : 'text-blue-500'}`}>
-                                            #{isMissed ? '--' : (test.submission?.rank || '--')}
+                                        <span className={`text-[11px] font-black ${isMissed || !test.is_result_published ? 'text-slate-400 opacity-40' : 'text-blue-500'}`}>
+                                            {isMissed || !test.is_result_published ? '--' : `#${(test.submission?.rank || '--')}`}
                                         </span>
                                     </div>
                                 </>
