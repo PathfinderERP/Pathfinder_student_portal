@@ -33,6 +33,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
         return false;
     };
 
+    const isClass10 = (classLevel) => {
+        if (!classLevel) return false;
+        const match = classLevel.match(/\d+/);
+        return match ? parseInt(match[0], 10) === 10 : false;
+    };
+
     const CLASSES = [studentClass];
 
     const CAREER_OPTIONS = [
@@ -243,8 +249,46 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     }, [profile.classLevel]);
     const [showPsychometric, setShowPsychometric] = useState(false);
     const [psychometricResult, setPsychometricResult] = useState(null);
-    const [hasPreviousPlan, setHasPreviousPlan] = useState(false); // true if any plan ever saved in DB
-    const [planSavedForCurrentTest, setPlanSavedForCurrentTest] = useState(false); // true once plan is saved/loaded for this specific exam
+    const [hasPreviousPlan, setHasPreviousPlan] = useState(false);
+    const [planSavedForCurrentTest, setPlanSavedForCurrentTest] = useState(false);
+
+    // ── Class 10 specific states ─────────────────────────────────────────────
+    const [marksheetFile, setMarksheetFile] = useState(null);       // File object from <input>
+    const [marksheetFileId, setMarksheetFileId] = useState(null);   // ID returned by backend after upload
+    const [marksheetUploadStatus, setMarksheetUploadStatus] = useState('idle'); // 'idle'|'uploading'|'done'|'error'
+    const [customSubjects, setCustomSubjects] = useState([
+        { id: Date.now(), name: '', target: '', class9_marks: '' }
+    ]);
+
+    // Upload Class 9 marksheet image to backend storage
+    const uploadMarksheet = async (file) => {
+        if (!file) return;
+        setMarksheetUploadStatus('uploading');
+        try {
+            const apiUrl = getApiUrl();
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('title', 'Class 9 Marksheet');
+            const res = await axios.post(`${apiUrl}/api/files/`, formData, {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+            });
+            const fileId = res.data?.id || res.data?.file_id;
+            if (fileId) {
+                setMarksheetFileId(fileId);
+                setMarksheetUploadStatus('done');
+            } else {
+                setMarksheetUploadStatus('error');
+            }
+        } catch (err) {
+            console.error('[Class10] Marksheet upload failed:', err);
+            setMarksheetUploadStatus('error');
+        }
+    };
+
+    // Helper: add / remove / update a custom subject row
+    const addSubjectRow = () => setCustomSubjects(prev => [...prev, { id: Date.now(), name: '', target: '', class9_marks: '' }]);
+    const removeSubjectRow = (id) => setCustomSubjects(prev => prev.filter(s => s.id !== id));
+    const updateSubjectRow = (id, field, value) => setCustomSubjects(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
 
     // Auto-fetch/Synthesize Master Plan logic
     useEffect(() => {
@@ -669,6 +713,17 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             const sectionScoreText = (testScores?.sections || []).map(s => `${s.name}: ${Math.round(s.score)}%`).join(', ');
 
             const isJunior = isClass5to10(profile.classLevel);
+            const isClass10Student = isClass10(profile.classLevel);
+
+            // Build valid custom subjects (filter out empty rows)
+            const validCustomSubjects = customSubjects
+                .filter(s => s.name.trim())
+                .map(s => ({
+                    name: s.name.trim(),
+                    target: parseInt(s.target, 10) || 80,
+                    class9_marks: s.class9_marks !== '' ? parseInt(s.class9_marks, 10) : null
+                }));
+
             const payload = {
                 test_id: selectedTest?.id || selectedTest?._id,
                 target_college: isJunior 
@@ -700,7 +755,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 is_update_request: isUpdate,
                 request_detail: isUpdate
                     ? `This is an UPDATE request. The student has completed a new exam. Sections scored: ${sectionScoreText}. Re-analyze the student's trajectory since the last plan and create a refined, targeted strategy based on these new results.`
-                    : `Provide a granular 1-year trajectory and a specific 1-month intensive study plan based on the assessment deficit and psychometric profile. Sections: ${sectionScoreText}.`
+                    : `Provide a granular 1-year trajectory and a specific 1-month intensive study plan based on the assessment deficit and psychometric profile. Sections: ${sectionScoreText}.`,
+                // Class 10 specific fields
+                ...(isClass10Student && {
+                    custom_subjects: validCustomSubjects,
+                    marksheet_file_id: marksheetFileId || null,
+                })
             };
 
             const response = await axios.post(`${apiUrl}/api/student/ai-mentor/study-plan/`, payload, {
@@ -1028,7 +1088,156 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                    {isClass5to10(profile.classLevel) ? (
+                    {isClass10(profile.classLevel) ? (
+                        /* ═══════════ CLASS 10 EXCLUSIVE UI ═══════════ */
+                        <div className="space-y-6">
+                            {/* Step A: Class 9 Marksheet Upload */}
+                            <div className={`p-6 rounded-[4px] border border-l-4 border-l-violet-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    <span className="text-violet-500">📄</span> Upload Class 9 Marksheet
+                                    <span className={`ml-auto text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${isDarkMode ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-50 text-violet-600'}`}>Optional</span>
+                                </h3>
+                                <p className={`text-[10px] font-bold mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Upload your Class 9 marksheet (image or PDF). The AI will cross-analyze your previous performance to create a more accurate board exam strategy.
+                                </p>
+
+                                <label
+                                    htmlFor="marksheet-upload"
+                                    className={`flex flex-col items-center justify-center gap-3 p-8 rounded-[4px] border-2 border-dashed cursor-pointer transition-all ${
+                                        marksheetUploadStatus === 'done'
+                                            ? 'border-emerald-500/50 bg-emerald-500/5'
+                                            : marksheetUploadStatus === 'error'
+                                                ? 'border-red-500/50 bg-red-500/5'
+                                                : isDarkMode
+                                                    ? 'border-white/10 hover:border-violet-500/50 bg-white/2 hover:bg-violet-500/5'
+                                                    : 'border-slate-200 hover:border-violet-400 bg-slate-50 hover:bg-violet-50'
+                                    }`}
+                                >
+                                    {marksheetUploadStatus === 'uploading' ? (
+                                        <>
+                                            <div className="w-8 h-8 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
+                                            <p className="text-xs font-black text-violet-500 uppercase tracking-widest">Uploading…</p>
+                                        </>
+                                    ) : marksheetUploadStatus === 'done' ? (
+                                        <>
+                                            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                                <span className="text-2xl">✅</span>
+                                            </div>
+                                            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">Marksheet Uploaded</p>
+                                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{marksheetFile?.name}</p>
+                                            <p className={`text-[9px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Click to replace</p>
+                                        </>
+                                    ) : marksheetUploadStatus === 'error' ? (
+                                        <>
+                                            <span className="text-3xl">⚠️</span>
+                                            <p className="text-xs font-black text-red-500 uppercase tracking-widest">Upload Failed</p>
+                                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Click to try again</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className={`w-12 h-12 rounded-[4px] flex items-center justify-center text-2xl ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>📋</div>
+                                            <div className="text-center">
+                                                <p className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Click to Upload</p>
+                                                <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>PNG, JPG, JPEG, PDF — Max 10MB</p>
+                                            </div>
+                                        </>
+                                    )}
+                                </label>
+                                <input
+                                    id="marksheet-upload"
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            setMarksheetFile(file);
+                                            uploadMarksheet(file);
+                                        }
+                                    }}
+                                />
+                            </div>
+
+                            {/* Step B: Dynamic Subject + Target Marks */}
+                            <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    <span className="text-indigo-500">🎯</span> Subject-wise Target Marks
+                                </h3>
+                                <p className={`text-[10px] font-bold mb-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Add each subject you want to prepare for. Enter your Class 9 marks (from marksheet) and how much you want to score in Class 10 boards.
+                                </p>
+
+                                {/* Table Header */}
+                                <div className={`grid grid-cols-12 gap-2 mb-2 px-1`}>
+                                    <div className={`col-span-5 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Subject Name</div>
+                                    <div className={`col-span-3 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Class 9 Marks</div>
+                                    <div className={`col-span-3 text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Target (Cl. 10)</div>
+                                    <div className="col-span-1"></div>
+                                </div>
+
+                                {/* Subject Rows */}
+                                <div className="space-y-2">
+                                    {customSubjects.map((subject) => (
+                                        <div key={subject.id} className="grid grid-cols-12 gap-2 items-center">
+                                            <div className="col-span-5">
+                                                <input
+                                                    type="text"
+                                                    value={subject.name}
+                                                    onChange={e => updateSubjectRow(subject.id, 'name', e.target.value)}
+                                                    placeholder="e.g. Mathematics"
+                                                    className={`w-full px-3 py-2.5 text-xs font-black rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#0a0d14] border-white/10 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500'}`}
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        min="0" max="100"
+                                                        value={subject.class9_marks}
+                                                        onChange={e => updateSubjectRow(subject.id, 'class9_marks', e.target.value)}
+                                                        placeholder="e.g. 72"
+                                                        className={`w-full px-3 py-2.5 pr-8 text-xs font-black rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#0a0d14] border-white/10 text-white focus:border-violet-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-violet-500'}`}
+                                                    />
+                                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">/100</span>
+                                                </div>
+                                            </div>
+                                            <div className="col-span-3">
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        min="0" max="100"
+                                                        value={subject.target}
+                                                        onChange={e => updateSubjectRow(subject.id, 'target', e.target.value)}
+                                                        placeholder="e.g. 90"
+                                                        className={`w-full px-3 py-2.5 pr-8 text-xs font-black rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#0a0d14] border-white/10 text-white focus:border-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500'}`}
+                                                    />
+                                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">/100</span>
+                                                </div>
+                                            </div>
+                                            <div className="col-span-1 flex justify-center">
+                                                {customSubjects.length > 1 && (
+                                                    <button
+                                                        onClick={() => removeSubjectRow(subject.id)}
+                                                        className="w-7 h-7 rounded-full flex items-center justify-center text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all text-sm font-black"
+                                                        title="Remove subject"
+                                                    >✕</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Add Row Button */}
+                                <button
+                                    onClick={addSubjectRow}
+                                    className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-[4px] border border-dashed transition-all ${isDarkMode ? 'border-white/10 text-slate-400 hover:border-indigo-500/50 hover:text-indigo-400' : 'border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600'}`}
+                                >
+                                    <span className="text-base leading-none">+</span> Add Subject
+                                </button>
+                            </div>
+                        </div>
+                    ) : isClass5to10(profile.classLevel) ? (
+                        /* ═══════════ CLASS 5-9 (existing UI) ═══════════ */
                         <div className={`p-6 rounded-[4px] border border-l-4 border-l-indigo-500 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
                             <h3 className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                 <Target size={18} className="text-indigo-500" /> Target Subject Scores (out of 100)
@@ -1255,6 +1464,44 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                         <button 
                             onClick={async () => { 
                                 const isJunior = isClass5to10(profile.classLevel);
+                                const isClass10Student = isClass10(profile.classLevel);
+
+                                if (isClass10Student) {
+                                    // Class 10: Validate at least one named subject
+                                    const hasSubjects = customSubjects.some(s => s.name.trim());
+                                    if (!hasSubjects) {
+                                        setAlertMessage("Please add at least one subject with a name before proceeding.");
+                                        setShowAlert(true);
+                                        return;
+                                    }
+                                    // Wait for marksheet upload if in progress
+                                    if (marksheetUploadStatus === 'uploading') {
+                                        setAlertMessage("Please wait for the marksheet upload to complete.");
+                                        setShowAlert(true);
+                                        return;
+                                    }
+                                    try {
+                                        const apiUrl = getApiUrl();
+                                        await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
+                                            target_college: {
+                                                is_class_5_10: true,
+                                                is_class_10: true,
+                                                target_scores: targetScores,
+                                                custom_subjects: customSubjects.filter(s => s.name.trim()),
+                                                marksheet_file_id: marksheetFileId || null
+                                            },
+                                            target_career: ""
+                                        }, {
+                                            headers: { 'Authorization': `Bearer ${token}` }
+                                        });
+                                    } catch (err) {
+                                        console.error("Failed to save Class 10 planner config:", err);
+                                    }
+                                    setCurrentStep(3);
+                                    fetchTests();
+                                    return;
+                                }
+
                                 if (isJunior) {
                                     try {
                                         const apiUrl = getApiUrl();

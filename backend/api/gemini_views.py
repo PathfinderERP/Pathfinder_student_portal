@@ -35,7 +35,6 @@ def generate_ai_study_plan(request):
         target_college_obj = data.get('target_college_obj', {})
         is_update_request = data.get('is_update_request', False)
         
-        # Check for existing plan for THIS CURRENT TEST
         if test_id and not is_update_request:
             existing_plan = StudentMasterPlan.objects.filter(user=request.user, test_id=test_id).first()
             if existing_plan:
@@ -45,15 +44,11 @@ def generate_ai_study_plan(request):
                     "target_college": existing_plan.target_college
                 }, status=status.HTTP_200_OK)
 
-        # Get previous plan for comparative analysis if updating
         previous_plan = None
-        previous_test_id = None
         if test_id:
             previous_plan = StudentMasterPlan.objects.filter(user=request.user).exclude(test_id=test_id).order_by('-created_at').first()
-            if previous_plan:
-                previous_test_id = previous_plan.test_id
 
-        class_level = data.get('class', '12')
+        class_level = str(data.get('class', '12'))
         total_score = data.get('total_score', '65')
         math_score = data.get('math_score', '60')
         physics_score = data.get('physics_score', '65')
@@ -65,25 +60,167 @@ def generate_ai_study_plan(request):
 
         api_key = _get_gemini_api_key()
         if not api_key:
-            logger.error("[AI MENTOR] Gemini API key not found in settings.")
             return _gemini_not_configured_response()
 
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-flash-latest')
-
-        # Check if junior (class 5-10)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        content_parts = []
         is_junior = False
-        if class_level:
-            import re
-            match = re.search(r'\d+', str(class_level))
-            if match:
-                num = int(match.group(0))
-                is_junior = 5 <= num <= 10
+        import re
+        match = re.search(r'\d+', class_level)
+        num = int(match.group(0)) if match else 0
+        is_junior = 5 <= num <= 10
+        is_class_10 = (num == 10)
 
-        if is_junior:
+        if is_class_10:
+            # ── Class 10 specific data ─────────────────────────────────────────────
+            # custom_subjects: list of {"name": str, "target": int, "class9_marks": int}
+            custom_subjects = data.get('custom_subjects', [])
+            marksheet_file_id = data.get('marksheet_file_id', None)
+
+            # Build a readable subjects table for the prompt
+            subjects_text_lines = []
+            for s in custom_subjects:
+                name = s.get('name', 'Subject')
+                target = s.get('target', 80)
+                cl9 = s.get('class9_marks', 'N/A')
+                subjects_text_lines.append(f"  - {name}: Class 9 Marks = {cl9}/100 | Desired Class 10 Target = {target}/100")
+            subjects_text = '\n'.join(subjects_text_lines) if subjects_text_lines else '  - No subjects provided'
+
+            # ── Attempt multimodal marksheet upload ──────────────────────────────
+            marksheet_uploaded_file = None
+            marksheet_note = ""
+            if marksheet_file_id:
+                try:
+                    import mimetypes
+                    from django.core.files.storage import default_storage
+                    uploaded_obj = UploadedFile.objects.filter(pk=marksheet_file_id).first()
+                    if uploaded_obj and uploaded_obj.file:
+                        file_name = str(uploaded_obj.file.name)
+                        mime_type, _ = mimetypes.guess_type(file_name)
+                        if not mime_type:
+                            mime_type = 'image/jpeg'
+                        with default_storage.open(file_name, 'rb') as fh:
+                            file_bytes = fh.read()
+                        import base64
+                        b64_data = base64.b64encode(file_bytes).decode('utf-8')
+                        marksheet_uploaded_file = {
+                            'inline_data': {
+                                'mime_type': mime_type,
+                                'data': b64_data
+                            }
+                        }
+                        marksheet_note = "A Class 9 marksheet image/document has been attached above. Carefully analyze all subject marks visible in it."
+                        logger.info(f"[AI MENTOR Class10] Marksheet loaded, mime={mime_type}, size={len(file_bytes)}B")
+                except Exception as me:
+                    logger.warning(f"[AI MENTOR Class10] Marksheet load failed: {me}")
+                    marksheet_note = "Note: The student attempted to upload their Class 9 marksheet but it could not be loaded. Proceed using the subject performance data provided below."
+
+            # ── Build the Class 10 specific prompt ──────────────────────────────
+            prompt = f"""You are an expert academic mentor and counselor specializing in CBSE/ICSE/State Board Class 10 Board Exam preparation.
+
+{marksheet_note}
+
+## STUDENT PROFILE
+- **Current Class:** {class_level}
+- **Exam Type:** {exam_name}
+- **Daily Study Time Available:** {daily_time} hours
+
+## DIAGNOSTIC TEST PERFORMANCE (Recent Assessment)
+- **Overall Score:** {total_score}%
+- **Section-wise Performance:**
+  - Math: {math_score}%
+  - Physics/Science: {physics_score}%
+  - Chemistry: {chemistry_score}%
+- **Weak Areas Identified:** {weak_topics}
+- **Strong Areas:** {strong_topics}
+
+## SUBJECT-WISE CLASS 9 vs CLASS 10 TARGETS
+{subjects_text}
+
+---
+
+## YOUR TASKS:
+
+### 1. 📊 Class 9 Marksheet Analysis {"& Progress Review" if is_update_request else ""}
+{"(Cross-reference the attached marksheet with the data below)" if marksheet_uploaded_file else "(Based on subject data provided)"}
+- Identify which subjects the student performed well in and which need urgent attention.
+- Highlight subject-wise percentile drops or improvements.
+- Spot any patterns (e.g., consistently weak in theory, good in numericals).
+{"- Compare progress since their previous plan." if is_update_request else ""}
+
+### 2. 🎯 Gap Analysis — Class 9 vs Class 10 Targets
+For EACH subject listed:
+- Current Class 9 performance level (if available from marksheet)
+- Diagnostic test score
+- Desired target score for Class 10 boards
+- Gap = Target - Current (label as: Small Gap / Moderate Gap / Large Gap)
+- Priority level: HIGH / MEDIUM / LOW
+
+### 3. 📅 Master Board Exam Study Plan {"(Updated Strategy)" if is_update_request else ""}
+Create an extremely detailed, actionable study plan:
+
+**Phase 1 — Foundation Repair (Month 1-3):**
+- Week-by-week breakdown for each subject
+- Specific chapters/topics to cover each week
+- Daily time allocation table per subject
+
+**Phase 2 — Intensive Practice (Month 4-8):**
+- Chapter completion goals
+- NCERT + Reference book strategy
+- Past paper practice schedule
+
+**Phase 3 — Board Exam Sprint (Month 9-10):**
+- Revision cycles
+- Mock test schedule (frequency and pattern)
+- Last-month strategy
+
+Use a **Markdown table** for weekly/monthly breakdown.
+
+### 4. ⏰ Daily Study Routine
+Provide a realistic day plan based on {daily_time} hours:
+| Time Slot | Activity | Subject | Duration |
+|-----------|----------|---------|----------|
+
+### 5. 📚 Subject-Specific Strategy
+For EACH subject in the student's list, provide:
+- Top 5 most important chapters for boards
+- Common mistakes to avoid
+- Best study technique (e.g., mind maps, flashcards, practice problems)
+- Recommended resource (NCERT, sample papers, etc.)
+
+### 6. 📝 Revision & Mock Test Plan
+- How many mock tests to take per month
+- How to analyze mistakes from mocks
+- Last 10 years paper strategy
+
+### 7. 💪 Motivation & Consistency Tips
+- Practical tips to stay consistent
+- How to recover from a bad mock test
+- Daily/weekly milestones to celebrate small wins
+
+---
+
+## OUTPUT FORMATTING RULES:
+- Use rich, visual Markdown with proper heading hierarchy (# ## ###)
+- Add relevant emojis to ALL section headings and key bullet points
+- Use **Markdown Tables** for schedules, comparisons, and gap analysis
+- Use `> blockquotes` for critical insights and warnings
+- Use **bold** for action items and *italic* for explanations
+- Be HIGHLY specific — mention actual chapter names, not generic advice
+- Provide a truly comprehensive plan. Do NOT summarize or shorten.
+"""
+
+            # Build content_parts for multimodal call
+            if marksheet_uploaded_file:
+                content_parts = [marksheet_uploaded_file, prompt]
+            else:
+                content_parts = [prompt]
+        
+        elif is_junior:
             target_scores = data.get('target_scores', {})
             prompt = f"""
-You are an AI academic mentor inside an LMS system.
 
 Your role is NOT to decide admissions or calculate scores. 
 The system already provides:
@@ -342,7 +479,11 @@ OUTPUT STYLE & FORMATTING RULES:
 - Segment clearly by subject (e.g. `### ⚛️ Physics`, `### 🧪 Chemistry`) with specific actionable advice for each.
 """
 
-        response = model.generate_content(prompt)
+        # For Class 10 with marksheet, content_parts is already built above.
+        # For all other classes, build content_parts from the prompt string.
+        if not is_class_10:
+            content_parts = [prompt]
+        response = model.generate_content(content_parts)
         ai_text = response.text
 
         # Persist plan — upsert by test_id so re-runs update rather than duplicate
