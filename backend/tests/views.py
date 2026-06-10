@@ -523,6 +523,21 @@ class TestViewSet(viewsets.ModelViewSet):
                         for item in data_items:
                             item['total_roster_count'] = roster_map.get(str(item.get('id')), 0)
 
+                        # 3. Failed OMR Record counts — fast direct Mongo query.
+                        try:
+                            failed_pipeline = [
+                                {"$match": {"test_id": {"$in": test_ids}}},
+                                {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
+                            ]
+                            failed_counts = list(db['tests_omrfailedrecord'].aggregate(failed_pipeline))
+                            failed_count_map = {str(item["_id"]): item["count"] for item in failed_counts}
+                            for item in data_items:
+                                item['failed_omr_count'] = failed_count_map.get(str(item.get('id')), 0)
+                        except Exception as fe:
+                            print(f"Failed OMR count injection error: {fe}")
+                            for item in data_items:
+                                item.setdefault('failed_omr_count', 0)
+
                         # Trigger background recompute if cache is missing or stale.
                         if not roster_map or cache.get(ROSTER_FRESHNESS_KEY) is None:
                             _trigger_roster_refresh()
@@ -1007,10 +1022,16 @@ class TestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='upload_omr_excel')
     def upload_omr_excel(self, request, pk=None):
+        """
+        Partial-save OMR upload:
+        - Matched students  → saved to TestSubmission immediately.
+        - Unmatched students → stored in OMRFailedRecord so admin can edit+retry.
+        Any previous OMRFailedRecord entries for this test are cleared on each new upload.
+        """
         try:
             import pandas as pd
             from django.db.models import Q
-            from .models import TestSubmission
+            from .models import TestSubmission, OMRFailedRecord
             from api.models import CustomUser
             from api.erp_views import get_student_lookup_index
 
@@ -1024,10 +1045,10 @@ class TestViewSet(viewsets.ModelViewSet):
                 df = pd.read_csv(file)
             else:
                 df = pd.read_excel(file)
-            
+
             original_columns = list(df.columns)
             df.columns = [str(c).strip().lower() for c in df.columns]
-            
+
             # --- HIGH PERFORMANCE PREFETCHING ---
             enroll_col = next((c for c in ['frmid', 'enrollment number', 'enrollment', 'admission number', 'admission', 'student id', 'id', 'username'] if c in df.columns), None)
             if not enroll_col:
@@ -1046,17 +1067,52 @@ class TestViewSet(viewsets.ModelViewSet):
             for u in existing_users_qs:
                 if u.admission_number: existing_user_map[u.admission_number.upper()] = u
                 if u.username: existing_user_map[u.username.upper()] = u
-                
+
             erp_idx = get_student_lookup_index(force_refresh=False, block=False) or {}
-            
+
             existing_subs_qs = TestSubmission.objects.filter(test=test, student__in=existing_users_qs)
             existing_sub_map = {s.student_id: s for s in existing_subs_qs}
-            # -------------------------------------
+            # ----------------------------------------
 
             is_omr_raw = 'frmid' in df.columns or 'f001' in df.columns
-            errors = []
+            failed_rows = []   # list of { original_enrollment, raw_data }
             seen_enrollments = set()
             validated_rows = []
+
+            def _resolve_student(enroll_raw, row_num):
+                """Try to find or auto-create a student. Returns (student|None, error_msg|None)."""
+                student = existing_user_map.get(enroll_raw)
+                if not student:
+                    erp_record = erp_idx.get(f"adm_{enroll_raw}")
+                    if erp_record:
+                        try:
+                            student_obj = erp_record.get('student') or {}
+                            details_list = student_obj.get('studentsDetails', [])
+                            email = ""
+                            first_name = "Student"
+                            last_name = ""
+                            if details_list and isinstance(details_list, list) and len(details_list) > 0:
+                                email = details_list[0].get('studentEmail', '')
+                                name = details_list[0].get('studentName', '')
+                                if name:
+                                    parts = name.strip().split(' ')
+                                    first_name = parts[0]
+                                    last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                            username = email if email else enroll_raw
+                            student = existing_user_map.get(username.upper())
+                            if not student:
+                                student = CustomUser.objects.create(
+                                    username=username, email=email, admission_number=enroll_raw,
+                                    user_type='student', first_name=first_name, last_name=last_name
+                                )
+                                existing_user_map[enroll_raw] = student
+                                existing_user_map[username.upper()] = student
+                        except Exception as e:
+                            print(f"Auto-sync failed for {enroll_raw}: {e}")
+                            student = None
+                if not student:
+                    return None, f"Row {row_num}: Student not found with enrollment '{enroll_raw}'."
+                return student, None
 
             if is_omr_raw:
                 questions = []
@@ -1064,7 +1120,6 @@ class TestViewSet(viewsets.ModelViewSet):
                     seen = set()
                     order_list = section.question_order or []
                     order_map = {str(oid): i for i, oid in enumerate(order_list)}
-                    
                     sec_qs = []
                     for q in section.questions.all():
                         if str(q.pk) not in seen:
@@ -1076,51 +1131,28 @@ class TestViewSet(viewsets.ModelViewSet):
                 for index, row in df.iterrows():
                     row_num = index + 2
                     if pd.isna(row[enroll_col]): continue
-                        
+
                     enroll_raw = str(row[enroll_col]).strip().upper()
                     if enroll_raw.endswith('.0'): enroll_raw = enroll_raw[:-2]
                     if enroll_raw.isdigit(): enroll_raw = f"PATH{enroll_raw}"
-                        
+
                     if enroll_raw in seen_enrollments:
-                        errors.append(f"Row {row_num}: Duplicate student record '{enroll_raw}' found in sheet.")
-                        continue
+                        continue   # skip duplicates silently
                     seen_enrollments.add(enroll_raw)
 
-                    student = existing_user_map.get(enroll_raw)
+                    student, err = _resolve_student(enroll_raw, row_num)
                     if not student:
-                        erp_record = erp_idx.get(f"adm_{enroll_raw}")
-                        if erp_record:
-                            try:
-                                student_obj = erp_record.get('student') or {}
-                                details_list = student_obj.get('studentsDetails', [])
-                                email = ""
-                                first_name = "Student"
-                                last_name = ""
-                                if details_list and isinstance(details_list, list) and len(details_list) > 0:
-                                    email = details_list[0].get('studentEmail', '')
-                                    name = details_list[0].get('studentName', '')
-                                    if name:
-                                        parts = name.strip().split(' ')
-                                        first_name = parts[0]
-                                        last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
-                                
-                                username = email if email else enroll_raw
-                                student = existing_user_map.get(username.upper())
-                                if not student:
-                                    student = CustomUser.objects.create(
-                                        username=username, email=email, admission_number=enroll_raw, user_type='student',
-                                        first_name=first_name, last_name=last_name
-                                    )
-                                    existing_user_map[enroll_raw] = student
-                                    existing_user_map[username.upper()] = student
-                            except Exception as e:
-                                print(f"Auto-sync failed for {enroll_raw}: {e}")
-                                student = None
-
-                    if not student:
-                        errors.append(f"Row {row_num}: Student not found with enrollment '{enroll_raw}'.")
+                        # Build raw_data from all f-columns
+                        raw_data = {}
+                        for i in range(1, len(questions) + 1):
+                            col = f"f{i:03d}"
+                            if col in df.columns:
+                                val = row[col]
+                                if not pd.isna(val):
+                                    raw_data[col] = str(val).strip().upper()
+                        failed_rows.append({'original_enrollment': enroll_raw, 'raw_data': raw_data, 'sheet_type': 'raw', 'row_num': row_num})
                         continue
-                        
+
                     responses = {}
                     for i, q in enumerate(questions):
                         col_name = f"f{i+1:03d}"
@@ -1129,7 +1161,6 @@ class TestViewSet(viewsets.ModelViewSet):
                             if pd.isna(ans_val): continue
                             ans_str = str(ans_val).strip().upper()
                             if ans_str in ('NAN', 'NONE', '', 'NULL'): continue
-                                
                             options = q.question_options or []
                             ans_list = []
                             for char in ans_str:
@@ -1139,26 +1170,20 @@ class TestViewSet(viewsets.ModelViewSet):
                                 elif '1' <= char <= '9':
                                     idx = int(char) - 1
                                     if 0 <= idx < len(options): ans_list.append(str(options[idx].get('id', '')))
-                            
                             if ans_list:
                                 if q.question_type == 'SINGLE_CHOICE':
                                     responses[str(q.pk)] = {'answer': ans_list[0]}
                                 else:
                                     responses[str(q.pk)] = {'answer': ans_list}
-                    
-                    validated_rows.append({'student': student, 'responses': responses})
 
-                if errors:
-                    err_msg = "Validation failed. No data was saved. Errors:\n" + "\n".join(errors[:10])
-                    if len(errors) > 10: err_msg += f"\n... and {len(errors) - 10} more errors."
-                    return Response({'error': err_msg}, status=400)
+                    validated_rows.append({'student': student, 'responses': responses})
 
                 if replace_existing:
                     TestSubmission.objects.filter(test=test, submission_type='OMR_EXCEL').delete()
                     keys_to_remove = [k for k, v in existing_sub_map.items() if v.submission_type == 'OMR_EXCEL']
                     for k in keys_to_remove:
                         del existing_sub_map[k]
-                
+
                 success_count = 0
                 for data in validated_rows:
                     student = data['student']
@@ -1181,70 +1206,33 @@ class TestViewSet(viewsets.ModelViewSet):
                 for index, row in df.iterrows():
                     row_num = index + 2
                     if pd.isna(row[enroll_col]): continue
-                        
+
                     enroll_num = str(row[enroll_col]).strip().upper()
                     if enroll_num.endswith('.0'): enroll_num = enroll_num[:-2]
                     if enroll_num.isdigit(): enroll_num = f"PATH{enroll_num}"
-                        
+
                     try:
                         score = float(row[score_col])
-                    except ValueError:
-                        errors.append(f"Row {row_num}: Invalid score format.")
-                        continue
+                    except (ValueError, TypeError):
+                        continue   # skip rows with invalid scores silently
 
                     if enroll_num in seen_enrollments:
-                        errors.append(f"Row {row_num}: Duplicate student record '{enroll_num}' found in sheet.")
                         continue
                     seen_enrollments.add(enroll_num)
 
-                    student = existing_user_map.get(enroll_num)
+                    student, err = _resolve_student(enroll_num, row_num)
                     if not student:
-                        erp_record = erp_idx.get(f"adm_{enroll_num}")
-                        if erp_record:
-                            try:
-                                student_obj = erp_record.get('student') or {}
-                                details_list = student_obj.get('studentsDetails', [])
-                                email = ""
-                                first_name = "Student"
-                                last_name = ""
-                                if details_list and isinstance(details_list, list) and len(details_list) > 0:
-                                    email = details_list[0].get('studentEmail', '')
-                                    name = details_list[0].get('studentName', '')
-                                    if name:
-                                        parts = name.strip().split(' ')
-                                        first_name = parts[0]
-                                        last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
-                                
-                                username = email if email else enroll_num
-                                student = existing_user_map.get(username.upper())
-                                if not student:
-                                    student = CustomUser.objects.create(
-                                        username=username, email=email, admission_number=enroll_num, user_type='student',
-                                        first_name=first_name, last_name=last_name
-                                    )
-                                    existing_user_map[enroll_num] = student
-                                    existing_user_map[username.upper()] = student
-                            except Exception as e:
-                                print(f"Auto-sync failed for {enroll_num}: {e}")
-                                student = None
-
-                    if not student:
-                        errors.append(f"Row {row_num}: Student not found with enrollment '{enroll_num}'.")
+                        failed_rows.append({'original_enrollment': enroll_num, 'raw_data': {'score': score}, 'sheet_type': 'score', 'row_num': row_num})
                         continue
 
                     validated_rows.append({'student': student, 'score': score})
-
-                if errors:
-                    err_msg = "Validation failed. No data was saved. Errors:\n" + "\n".join(errors[:10])
-                    if len(errors) > 10: err_msg += f"\n... and {len(errors) - 10} more errors."
-                    return Response({'error': err_msg}, status=400)
 
                 if replace_existing:
                     TestSubmission.objects.filter(test=test, submission_type='OMR_EXCEL').delete()
                     keys_to_remove = [k for k, v in existing_sub_map.items() if v.submission_type == 'OMR_EXCEL']
                     for k in keys_to_remove:
                         del existing_sub_map[k]
-                    
+
                 success_count = 0
                 for data in validated_rows:
                     student = data['student']
@@ -1259,11 +1247,215 @@ class TestViewSet(viewsets.ModelViewSet):
                         TestSubmission.objects.create(test=test, student=student, score=score, is_finalized=True, submission_type='OMR_EXCEL')
                     success_count += 1
 
-            return Response({'message': f'Successfully uploaded records for {success_count} students.', 'errors': []})
-            
+            # --- Persist failed rows (replace old ones for this test) ---
+            from api.db_utils import get_db
+            db = get_db()
+            if db is not None:
+                db['tests_omrfailedrecord'].delete_many({'test_id': test.id})
+                if failed_rows:
+                    import datetime
+                    records_to_insert = [
+                        {
+                            'test_id': test.id,
+                            'original_enrollment': r['original_enrollment'],
+                            'raw_data': r['raw_data'],
+                            'sheet_type': r['sheet_type'],
+                            'row_num': r.get('row_num'),
+                            'created_at': datetime.datetime.now()
+                        } for r in failed_rows
+                    ]
+                    db['tests_omrfailedrecord'].insert_many(records_to_insert)
+
+            # Invalidate admin list cache so failed_omr_count is fresh on next fetch
+            from django.core.cache import cache
+            cache.delete('admin_test_list')
+            self.__class__._local_cache = {}
+
+            failed_records_out = []
+            if db is not None and failed_rows:
+                failed_docs = list(db['tests_omrfailedrecord'].find({'test_id': test.id}))
+                for doc in failed_docs:
+                    failed_records_out.append({
+                        'id': str(doc['_id']),
+                        'original_enrollment': doc['original_enrollment'],
+                        'raw_data': doc['raw_data'],
+                        'sheet_type': doc['sheet_type'],
+                        'row_num': doc.get('row_num')
+                    })
+
+            return Response({
+                'message': f'Successfully uploaded records for {success_count} student(s).',
+                'success_count': success_count,
+                'failed_count': len(failed_rows),
+                'failed_records': failed_records_out,
+            })
+
         except Exception as e:
             import traceback
             traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+
+    @action(detail=True, methods=['get'], url_path='failed_omr_records')
+    def failed_omr_records(self, request, pk=None):
+        """Return all unresolved OMR failed records for this test."""
+        test = self.get_object()
+        from api.db_utils import get_db
+        db = get_db()
+        data = []
+        if db is not None:
+            records = list(db['tests_omrfailedrecord'].find({'test_id': test.id}))
+            for r in records:
+                data.append({
+                    'id': str(r['_id']),
+                    'original_enrollment': r.get('original_enrollment'),
+                    'raw_data': r.get('raw_data'),
+                    'sheet_type': r.get('sheet_type'),
+                    'row_num': r.get('row_num'),
+                    'created_at': r.get('created_at').isoformat() if r.get('created_at') else None,
+                })
+        return Response(data)
+
+    @action(detail=True, methods=['post'], url_path='retry_failed_omr')
+    def retry_failed_omr(self, request, pk=None):
+        """
+        Retry resolving failed OMR records with corrected enrollment numbers.
+        Body: [{"id": "<record_id>", "corrected_enrollment": "PATH3615009"}, ...]
+        Matched records → create TestSubmission + delete OMRFailedRecord.
+        Still-unmatched → update original_enrollment to the corrected value and keep in DB.
+        Returns: { resolved_count, still_failed: [{id, original_enrollment, raw_data, sheet_type}] }
+        """
+        from .models import TestSubmission
+        from api.models import CustomUser
+        from api.erp_views import get_student_lookup_index
+        from api.db_utils import get_db
+        from bson import ObjectId
+
+        test = self.get_object()
+        corrections = request.data  # list of {id, corrected_enrollment}
+        if not isinstance(corrections, list) or not corrections:
+            return Response({'error': 'Expected a list of {id, corrected_enrollment} objects'}, status=400)
+
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database connection failed'}, status=500)
+
+        erp_index = get_student_lookup_index()
+        
+        resolved_count = 0
+        still_failed = []
+
+        for correction in corrections:
+            rec_id = correction.get('id')
+            new_enroll = correction.get('corrected_enrollment', '').strip().upper()
+            if not rec_id or not new_enroll:
+                continue
+            
+            try:
+                record = db['tests_omrfailedrecord'].find_one({'_id': ObjectId(rec_id)})
+            except Exception:
+                record = None
+                
+            if not record:
+                continue
+                
+            raw_data = record.get('raw_data')
+            if isinstance(raw_data, str):
+                import json
+                try:
+                    raw_data = json.loads(raw_data)
+                except:
+                    pass
+
+            # 1. Lookup user in DB
+            user = CustomUser.objects.filter(
+                Q(admission_number__iexact=new_enroll) | Q(username__iexact=new_enroll)
+            ).first()
+
+            # 2. ERP Sync logic if not found
+            if not user:
+                erp_record = erp_index.get(f"adm_{new_enroll}")
+                if erp_record:
+                    try:
+                        student_obj = erp_record.get('student') or {}
+                        details_list = student_obj.get('studentsDetails', [])
+                        email = ""
+                        first_name = "Student"
+                        last_name = ""
+                        if details_list and isinstance(details_list, list) and len(details_list) > 0:
+                            email = details_list[0].get('studentEmail', '')
+                            name = details_list[0].get('studentName', '')
+                            if name:
+                                parts = name.strip().split(' ')
+                                first_name = parts[0]
+                                last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                        user = CustomUser.objects.create(
+                            username=email or new_enroll, email=email, admission_number=new_enroll,
+                            user_type='student', first_name=first_name, last_name=last_name
+                        )
+                    except Exception as e:
+                        print(f"Auto-sync failed for {new_enroll} during retry: {e}")
+
+            if user:
+                # 3. Create or update submission
+                TestSubmission.objects.update_or_create(
+                    test=test,
+                    student=user,
+                    defaults={
+                        'submission_type': 'OMR_EXCEL',
+                        'responses': raw_data if record.get('sheet_type') == 'raw' else None,
+                        'score': raw_data.get('score', 0) if record.get('sheet_type') == 'score' else 0,
+                        'is_finalized': True,
+                    }
+                )
+                db['tests_omrfailedrecord'].delete_one({'_id': ObjectId(rec_id)})
+                resolved_count += 1
+            else:
+                # 4. Still unmatched -> update the record with the new enrollment number
+                db['tests_omrfailedrecord'].update_one(
+                    {'_id': ObjectId(rec_id)},
+                    {'$set': {'original_enrollment': new_enroll}}
+                )
+                still_failed.append({
+                    'id': str(rec_id),
+                    'original_enrollment': new_enroll,
+                    'raw_data': record.get('raw_data'),
+                    'sheet_type': record.get('sheet_type'),
+                })
+
+        return Response({
+            'resolved_count': resolved_count,
+            'still_failed': still_failed,
+        })
+
+    @action(detail=True, methods=['post'], url_path='delete_failed_omr')
+    def delete_failed_omr(self, request, pk=None):
+        """Delete specific failed OMR records from DB."""
+        from api.db_utils import get_db
+        from bson import ObjectId
+
+        test = self.get_object()
+        record_ids = request.data.get('ids', [])
+        
+        if not isinstance(record_ids, list) or not record_ids:
+            return Response({'error': 'Expected a list of ids to delete'}, status=400)
+
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database connection failed'}, status=500)
+
+        try:
+            object_ids = [ObjectId(r_id) for r_id in record_ids]
+            result = db['tests_omrfailedrecord'].delete_many({
+                '_id': {'$in': object_ids},
+                'test_id': test.id
+            })
+            
+            # Invalidate admin list cache so failed_omr_count is fresh on next fetch
+            from django.core.cache import cache
+            cache.delete('admin_test_list')
+            
+            return Response({'message': f'Successfully deleted {result.deleted_count} records.'})
+        except Exception as e:
             return Response({'error': str(e)}, status=500)
 
     @action(detail=True, methods=['get'], url_path='question_analysis')

@@ -88,6 +88,8 @@ class TestSerializer(serializers.ModelSerializer):
     centres_count = serializers.SerializerMethodField()
     codes_sent_count = serializers.SerializerMethodField()
     sections_count = serializers.SerializerMethodField()
+    # OMR failed record count — drives the Failed Records button state in frontend
+    failed_omr_count = serializers.SerializerMethodField()
     
     # Per-user schedule fields
     start_time = serializers.SerializerMethodField()
@@ -101,13 +103,20 @@ class TestSerializer(serializers.ModelSerializer):
             'centres', 'centres_count', 'codes_sent_count', 'sections_count',  
             'duration', 'total_marks', 'description', 'instructions', 
             'is_completed', 'is_over', 'has_calculator', 'is_result_published', 'option_type_numeric', 'is_omr_based', 'created_at', 'updated_at',
-            'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count'
+            'start_time', 'end_time', 'submission', 'total_students', 'total_roster_count', 'failed_omr_count'
         ]
         
     submission = serializers.SerializerMethodField()
     total_students = serializers.SerializerMethodField()
     total_roster_count = serializers.SerializerMethodField()
     is_over = serializers.SerializerMethodField()
+
+    def get_failed_omr_count(self, obj):
+        """Count of unresolved OMR failed records for this test."""
+        try:
+            return obj.failed_omr_records.count()
+        except Exception:
+            return 0
 
     def get_target_exam_details(self, obj):
         # Reuse the prefetched target_exams M2M result instead of triggering

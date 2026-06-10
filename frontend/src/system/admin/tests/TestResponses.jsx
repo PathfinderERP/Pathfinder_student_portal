@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X, AlertTriangle, Edit3, CheckSquare } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -24,9 +24,17 @@ const TestResponses = ({ isOMR = false }) => {
     const [uploadFile, setUploadFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [replaceExisting, setReplaceExisting] = useState(false);
+    // Failed records state
+    const [failedModal, setFailedModal] = useState({ isOpen: false, testId: null, testName: '' });
+    const [failedRecords, setFailedRecords] = useState([]);
+    const [isFetchingFailed, setIsFetchingFailed] = useState(false);
+    const [editedEnrollments, setEditedEnrollments] = useState({}); // { recordId: correctedValue }
+    const [selectedFailedRecords, setSelectedFailedRecords] = useState([]);
+    const [isDeletingFailed, setIsDeletingFailed] = useState(false);
+    const [isRetrying, setIsRetrying] = useState(false);
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
-    const fetchTests = async (forceRefresh = false) => {
+    const fetchTests = async (forceRefresh = false, silent = false) => {
         const fetchKey = 'test-list';
         if (activeFetchKeysRef.current.has(fetchKey)) return;
 
@@ -41,10 +49,10 @@ const TestResponses = ({ isOMR = false }) => {
             });
             const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
             setTests(data);
-            if (forceRefresh) toast.success('ERP Data Synchronized Successfully!');
+            if (forceRefresh && !silent) toast.success('ERP Data Synchronized Successfully!');
         } catch (err) {
             console.error('Error fetching tests:', err);
-            if (forceRefresh) toast.error('Failed to sync with ERP');
+            if (forceRefresh && !silent) toast.error('Failed to sync with ERP');
         } finally {
             setIsLoading(false);
             setIsSyncing(false);
@@ -258,19 +266,101 @@ const TestResponses = ({ isOMR = false }) => {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            toast.success(res.data.message || 'Scores uploaded successfully.');
-            if (res.data.errors && res.data.errors.length > 0) {
-                toast.error(`Some errors occurred:\n${res.data.errors.slice(0, 5).join('\n')}${res.data.errors.length > 5 ? '\n...' : ''}`);
+            const { success_count = 0, failed_count = 0, message } = res.data;
+            toast.success(message || `Uploaded ${success_count} student(s) successfully.`);
+            if (failed_count > 0) {
+                toast(`⚠️ ${failed_count} enrollment(s) could not be matched. Click the amber 'Failed' button to resolve them.`, { icon: '⚠️', duration: 6000 });
             }
             setUploadModal({ isOpen: false, testId: null, testName: '' });
             setUploadFile(null);
             setReplaceExisting(false);
-            fetchTests(true);
+            fetchTests(true, true); // refresh and sync to update counts
         } catch (err) {
             console.error('Error uploading Excel:', err);
             toast.error(err.response?.data?.error || 'Failed to upload Excel file.');
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleOpenFailedModal = async (test) => {
+        setFailedModal({ isOpen: true, testId: test.id, testName: test.name });
+        setFailedRecords([]);
+        setEditedEnrollments({});
+        setIsFetchingFailed(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(`${apiUrl}/api/tests/${test.id}/failed_omr_records/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setFailedRecords(res.data || []);
+            // Pre-fill edits with current values
+            const initEdits = {};
+            (res.data || []).forEach(r => { initEdits[r.id] = r.original_enrollment; });
+            setEditedEnrollments(initEdits);
+        } catch (err) {
+            toast.error('Failed to load failed records.');
+        } finally {
+            setIsFetchingFailed(false);
+            setSelectedFailedRecords([]); // Reset selections on load
+        }
+    };
+
+    const handleDeleteFailed = async () => {
+        if (!failedModal.testId || selectedFailedRecords.length === 0) return;
+        setIsDeletingFailed(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(
+                `${apiUrl}/api/tests/${failedModal.testId}/delete_failed_omr/`,
+                { ids: selectedFailedRecords },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(res.data.message || 'Records deleted successfully.');
+            setFailedRecords(prev => prev.filter(r => !selectedFailedRecords.includes(r.id)));
+            setSelectedFailedRecords([]);
+            fetchTests(true, true); // auto sync silently
+            
+            if (failedRecords.length === selectedFailedRecords.length) {
+                 setFailedModal({ isOpen: false, testId: null, testName: '' });
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to delete records.');
+        } finally {
+            setIsDeletingFailed(false);
+        }
+    };
+
+    const handleRetryFailed = async () => {
+        if (!failedModal.testId || failedRecords.length === 0) return;
+        setIsRetrying(true);
+        const corrections = failedRecords.map(r => ({
+            id: r.id,
+            corrected_enrollment: editedEnrollments[r.id] || r.original_enrollment
+        }));
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(
+                `${apiUrl}/api/tests/${failedModal.testId}/retry_failed_omr/`,
+                corrections,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const { resolved_count = 0, still_failed = [] } = res.data;
+            if (resolved_count > 0) toast.success(`✅ ${resolved_count} enrollment(s) resolved successfully!`);
+            if (still_failed.length > 0) toast.error(`${still_failed.length} enrollment(s) still could not be matched.`);
+            if (still_failed.length === 0) {
+                setFailedModal({ isOpen: false, testId: null, testName: '' });
+            } else {
+                setFailedRecords(still_failed);
+                const newEdits = {};
+                still_failed.forEach(r => { newEdits[r.id] = r.original_enrollment; });
+                setEditedEnrollments(newEdits);
+            }
+            fetchTests(true, true); // auto sync silently
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Retry failed.');
+        } finally {
+            setIsRetrying(false);
         }
     };
 
@@ -285,7 +375,7 @@ const TestResponses = ({ isOMR = false }) => {
                 isOpen: true,
                 message: res.data.message || 'The exam results have been successfully processed and synchronized.'
             });
-            fetchTests();
+            fetchTests(true, true); // auto sync silently
         } catch (err) {
             console.error('Error generating results:', err);
             toast.error(err.response?.data?.error || 'Failed to generate results. Ensure exam is over for all centres.');
@@ -539,6 +629,7 @@ const TestResponses = ({ isOMR = false }) => {
                                         <th className="py-5 px-6 text-center">Attempts</th>
                                         <th className="py-5 px-6 text-center">Total Students</th>
                                         <th className="py-5 px-6 text-center">Centres</th>
+                                        {isOMR && <th className="py-5 px-6 text-center">Failed Records</th>}
                                         <th className="py-5 px-6 text-center">Results</th>
                                     </tr>
                                 </thead>
@@ -546,14 +637,14 @@ const TestResponses = ({ isOMR = false }) => {
                                     {isLoading ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
-                                                <td colSpan="7" className="py-8 px-6">
+                                                <td colSpan={isOMR ? 8 : 7} className="py-8 px-6">
                                                     <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                                                 </td>
                                             </tr>
                                         ))
                                     ) : currentTests.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="py-20 text-center">
+                                            <td colSpan={isOMR ? 8 : 7} className="py-20 text-center">
                                                 <div className="opacity-20 flex flex-col items-center gap-3">
                                                     <FileSearch size={48} />
                                                     <p className="text-sm font-black uppercase tracking-[0.2em]">No Tests Found</p>
@@ -596,6 +687,25 @@ const TestResponses = ({ isOMR = false }) => {
                                                     View Centres
                                                 </button>
                                             </td>
+                                            {/* Failed Records column — only for OMR tests */}
+                                            {isOMR && (
+                                                <td className="py-5 px-6 text-center">
+                                                    <button
+                                                        onClick={() => handleOpenFailedModal(test)}
+                                                        disabled={!test.failed_omr_count || test.failed_omr_count === 0}
+                                                        title={test.failed_omr_count > 0
+                                                            ? `${test.failed_omr_count} unmatched enrollment(s) — click to fix`
+                                                            : 'No failed records'}
+                                                        className={`px-4 py-1.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-1.5 mx-auto
+                                                            ${test.failed_omr_count > 0
+                                                                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 cursor-pointer'
+                                                                : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-40 shadow-none'}`}
+                                                    >
+                                                        <AlertTriangle size={11} />
+                                                        {test.failed_omr_count > 0 ? `${test.failed_omr_count} Failed` : 'No Failures'}
+                                                    </button>
+                                                </td>
+                                            )}
                                             <td className="py-5 px-6 text-center">
                                                 <div className="flex flex-col gap-2 justify-center">
                                                     {isOMR && (
@@ -1151,6 +1261,161 @@ const TestResponses = ({ isOMR = false }) => {
 
             <ConfirmationModal />
             <SuccessModal />
+
+            {/* ===== Failed Records Modal ===== */}
+            {failedModal.isOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className={`w-full max-w-3xl rounded-xl shadow-2xl border flex flex-col max-h-[90vh] ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+                        {/* Header */}
+                        <div className={`p-6 border-b flex items-start justify-between ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                            <div>
+                                <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
+                                    <AlertTriangle size={20} className="text-amber-500" />
+                                    Failed OMR Records
+                                </h2>
+                                <p className={`mt-1 text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Test: <span className="text-amber-500">{failedModal.testName}</span>
+                                </p>
+                                <p className={`mt-1 text-[10px] font-bold opacity-60 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Edit the enrollment numbers below and click "Retry Upload" to resolve them.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setFailedModal({ isOpen: false, testId: null, testName: '' })}
+                                className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="overflow-y-auto flex-1 p-4">
+                            {isFetchingFailed ? (
+                                <div className="flex items-center justify-center py-16">
+                                    <RefreshCw size={32} className="animate-spin text-amber-500" />
+                                </div>
+                            ) : failedRecords.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 opacity-30">
+                                    <CheckSquare size={48} />
+                                    <p className="mt-4 text-sm font-black uppercase tracking-widest">All Resolved!</p>
+                                </div>
+                            ) : (
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className={`text-[9px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                                            <th className="py-3 px-3 w-10">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={failedRecords.length > 0 && selectedFailedRecords.length === failedRecords.length}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setSelectedFailedRecords(failedRecords.map(r => r.id));
+                                                        else setSelectedFailedRecords([]);
+                                                    }}
+                                                    className="accent-amber-500 cursor-pointer"
+                                                />
+                                            </th>
+                                            <th className="py-3 px-3">#</th>
+                                            <th className="py-3 px-3">Row No.</th>
+                                            <th className="py-3 px-3">Original Enrollment</th>
+                                            <th className="py-3 px-3">Corrected Enrollment</th>
+                                            <th className="py-3 px-3">Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
+                                        {failedRecords.map((record, idx) => (
+                                            <tr key={record.id} className={`group ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-amber-50/30'}`}>
+                                                <td className="py-3 px-3">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={selectedFailedRecords.includes(record.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSelectedFailedRecords(prev => [...prev, record.id]);
+                                                            else setSelectedFailedRecords(prev => prev.filter(id => id !== record.id));
+                                                        }}
+                                                        className="accent-amber-500 cursor-pointer"
+                                                    />
+                                                </td>
+                                                <td className="py-3 px-3 text-xs font-black opacity-30">{idx + 1}</td>
+                                                <td className="py-3 px-3 text-[10px] font-bold opacity-60">Row {record.row_num || '—'}</td>
+                                                <td className="py-3 px-3">
+                                                    <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded ${isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-500'}`}>
+                                                        {record.original_enrollment}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <Edit3 size={11} className="opacity-40 shrink-0" />
+                                                        <input
+                                                            type="text"
+                                                            value={editedEnrollments[record.id] ?? record.original_enrollment}
+                                                            onChange={(e) => setEditedEnrollments(prev => ({ ...prev, [record.id]: e.target.value.toUpperCase() }))}
+                                                            className={`w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-[5px] border outline-none transition-all
+                                                                ${isDarkMode
+                                                                    ? 'bg-white/5 border-white/10 text-white focus:border-amber-500/60'
+                                                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500/60'}`}
+                                                            placeholder="Enter correct enrollment"
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-3">
+                                                    <span className={`text-[9px] font-bold px-2 py-1 rounded font-mono ${
+                                                        record.sheet_type === 'score'
+                                                            ? (isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600')
+                                                            : (isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600')
+                                                    }`}>
+                                                        {record.sheet_type === 'score'
+                                                            ? `Score: ${record.raw_data?.score ?? '—'}`
+                                                            : `${Object.keys(record.raw_data || {}).length} answers`}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        {failedRecords.length > 0 && (
+                            <div className={`p-4 border-t flex justify-between items-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    {failedRecords.length} record(s) pending
+                                </span>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setFailedModal({ isOpen: false, testId: null, testName: '' })}
+                                        className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteFailed}
+                                        disabled={isDeletingFailed || selectedFailedRecords.length === 0}
+                                        className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg
+                                            ${isDeletingFailed || selectedFailedRecords.length === 0
+                                                ? 'bg-red-500/30 cursor-not-allowed text-white/50 shadow-red-500/10'
+                                                : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20'}`}
+                                    >
+                                        {isDeletingFailed ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                        {isDeletingFailed ? 'Deleting...' : 'Delete Selected'}
+                                    </button>
+                                    <button
+                                        onClick={handleRetryFailed}
+                                        disabled={isRetrying}
+                                        className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 shadow-lg
+                                            ${isRetrying
+                                                ? 'bg-amber-500/50 cursor-not-allowed text-white/70 shadow-amber-500/10'
+                                                : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'}`}
+                                    >
+                                        {isRetrying ? <RefreshCw size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+                                        {isRetrying ? 'Retrying...' : 'Retry Upload'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

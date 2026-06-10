@@ -84,3 +84,35 @@ class TestSubmission(models.Model):
 
     def __str__(self):
         return f"{self.student.username} - {self.test.name} ({self.score})"
+
+
+class OMRFailedRecord(models.Model):
+    """
+    Stores OMR upload rows that could not be matched to a student.
+    Persists across page reloads so admin can edit + retry at any time.
+    Deleted automatically once the enrollment is successfully resolved.
+    """
+    SHEET_TYPE_CHOICES = (
+        ('raw', 'Raw OMR'),
+        ('score', 'Score Sheet'),
+    )
+    test = models.ForeignKey(
+        Test, on_delete=models.CASCADE, related_name='failed_omr_records'
+    )
+    original_enrollment = models.CharField(
+        max_length=200,
+        help_text="Enrollment number as read from the Excel sheet (may be wrong/unrecognised)"
+    )
+    raw_data = models.JSONField(
+        default=dict,
+        help_text="Raw row data: answers dict (f001/f002...) for raw OMR, or {'score': X} for score sheet"
+    )
+    sheet_type = models.CharField(max_length=10, choices=SHEET_TYPE_CHOICES, default='score')
+    row_num = models.IntegerField(null=True, blank=True, help_text="Row number in the Excel sheet")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Failed OMR | Test: {self.test.code} | Enrollment: {self.original_enrollment}"

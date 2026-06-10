@@ -574,7 +574,7 @@ def get_all_teachers_erp_data(request):
     if not force_refresh:
         cached = cache.get(CACHE_KEY)
         if cached is not None:
-            print(f"[ERP DEBUG] Serving {len(cached)} teachers from cache.")
+            debug_log(f"Serving {len(cached)} teachers from cache.")
             return Response(cached, status=200)
 
     try:
