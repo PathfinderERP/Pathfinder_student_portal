@@ -50,8 +50,15 @@ CSRF_EXEMPT_LIST = [r'^/api/']
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables using absolute path
+import sys
 env_path = os.path.join(BASE_DIR, '.env')
-load_dotenv(env_path)
+
+# for production
+# load_dotenv(env_path)
+
+# for development
+is_dev_server = any(cmd in sys.argv for cmd in ['runserver', 'run_all'])
+load_dotenv(env_path, override=is_dev_server)
 
 GEMINI_ENV_KEYS = (
     'GEMINI_API_KEY',
