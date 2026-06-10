@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Search, FileSpreadsheet, ArrowLeft,
     ChevronRight, Download, FileText, Loader2, Filter, X
@@ -24,6 +24,34 @@ const TestResultStudents = ({ test, onBack }) => {
     const itemsPerPage = 8;
 
     const testName = test?.name || 'Test Result';
+
+    // Drag to Scroll Logic
+    const tableContainerRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    const handleMouseDown = (e) => {
+        setIsDragging(true);
+        setStartX(e.pageX - tableContainerRef.current.offsetLeft);
+        setScrollLeft(tableContainerRef.current.scrollLeft);
+    };
+
+    const handleMouseLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.pageX - tableContainerRef.current.offsetLeft;
+        const walk = (x - startX) * 2;
+        tableContainerRef.current.scrollLeft = scrollLeft - walk;
+    };
 
     useEffect(() => {
         const fetchResults = async () => {
@@ -225,7 +253,14 @@ const TestResultStudents = ({ test, onBack }) => {
 
             {/* Premium Table Container */}
             <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/60' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
-                <div className="overflow-x-auto custom-scrollbar">
+                <div 
+                    ref={tableContainerRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                    className={`overflow-x-auto custom-scrollbar ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+                >
                     <table className="w-full text-left">
                         <thead>
                             <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-500 border-white/5' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
