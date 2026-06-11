@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 import Pagination from '../../../components/common/Pagination';
 import StudentPerformanceAnalysis from './StudentPerformanceAnalysis';
+import Select from 'react-select';
 
 
 const TestResultStudents = ({ test, onBack }) => {
@@ -18,7 +19,7 @@ const TestResultStudents = ({ test, onBack }) => {
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [students, setStudents] = useState([]);
     const [sections, setSections] = useState([]);
-    const [selectedCentre, setSelectedCentre] = useState('');
+    const [selectedCentre, setSelectedCentre] = useState([]);
     const [selectedPerformance, setSelectedPerformance] = useState('all');
     const [isLoading, setIsLoading] = useState(true);
     const itemsPerPage = 8;
@@ -80,7 +81,7 @@ const TestResultStudents = ({ test, onBack }) => {
             s.enrollment.toLowerCase().includes(searchTerm.toLowerCase()) ||
             s.centre.toLowerCase().includes(searchTerm.toLowerCase());
         
-        const matchesCentre = !selectedCentre || s.centre === selectedCentre;
+        const matchesCentre = selectedCentre.length === 0 || selectedCentre.some(c => c.value === s.centre);
         
         let matchesPerformance = true;
         if (selectedPerformance === 'high') {
@@ -145,6 +146,104 @@ const TestResultStudents = ({ test, onBack }) => {
         return <StudentPerformanceAnalysis student={selectedStudent} test={test} onBack={() => setSelectedStudent(null)} />;
     }
 
+    const centreOptions = centres.map(c => ({ value: c, label: c }));
+
+    const customSelectStyles = {
+        control: (provided) => ({
+            ...provided,
+            backgroundColor: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+            minHeight: 'auto',
+            cursor: 'pointer',
+            flex: 1
+        }),
+        valueContainer: (provided) => ({
+            ...provided,
+            padding: '0 8px',
+        }),
+        input: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#fff' : '#0f172a',
+            margin: 0,
+            padding: 0,
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#fff' : '#0f172a',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+        }),
+        multiValue: (provided) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
+            borderRadius: '4px',
+        }),
+        multiValueLabel: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#fff' : '#0f172a',
+            fontSize: '0.65rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+        }),
+        multiValueRemove: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            ':hover': {
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                color: '#ef4444',
+            },
+        }),
+        menu: (provided) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? '#10141D' : '#ffffff',
+            border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            zIndex: 50,
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isFocused
+                ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc')
+                : 'transparent',
+            color: isDarkMode ? '#fff' : '#0f172a',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            cursor: 'pointer',
+        }),
+        indicatorSeparator: () => ({ display: 'none' }),
+        dropdownIndicator: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            padding: '0',
+            ':hover': {
+                color: isDarkMode ? '#fff' : '#0f172a',
+            }
+        }),
+        clearIndicator: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            padding: '0',
+            marginRight: '4px',
+            ':hover': {
+                color: '#ef4444',
+            }
+        })
+    };
+
     return (
         <div className="p-1 animate-fade-in text-[#2D3748]">
             {/* Breadcrumb & Title */}
@@ -198,21 +297,22 @@ const TestResultStudents = ({ test, onBack }) => {
 
                 <div className="flex flex-col md:flex-row gap-4">
                     {/* Centre Filter */}
-                    <div className={`p-4 rounded-[5px] border shadow-xl flex items-center gap-4 min-w-[200px] ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
+                    <div className={`p-4 rounded-[5px] border shadow-xl flex items-center gap-2 flex-1 min-w-[250px] max-w-[400px] ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
                         <Filter className={isDarkMode ? 'text-slate-500' : 'text-slate-400'} size={18} />
-                        <select
-                            value={selectedCentre}
-                            onChange={(e) => {
-                                setSelectedCentre(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className={`flex-1 bg-transparent border-none outline-none font-bold text-xs uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}
-                        >
-                            <option value="">All Centres</option>
-                            {centres.map(centre => (
-                                <option key={centre} value={centre} className={isDarkMode ? 'bg-[#10141D] text-white' : 'bg-white text-slate-900'}>{centre}</option>
-                            ))}
-                        </select>
+                        <div className="flex-1">
+                            <Select
+                                isMulti
+                                options={centreOptions}
+                                value={selectedCentre}
+                                onChange={(selected) => {
+                                    setSelectedCentre(selected || []);
+                                    setCurrentPage(1);
+                                }}
+                                placeholder="ALL CENTRES"
+                                styles={customSelectStyles}
+                                classNamePrefix="react-select"
+                            />
+                        </div>
                     </div>
 
                     {/* Performance Filter */}
@@ -233,10 +333,10 @@ const TestResultStudents = ({ test, onBack }) => {
                         </select>
                     </div>
 
-                    {(selectedCentre || selectedPerformance !== 'all' || searchTerm) && (
+                    {(selectedCentre.length > 0 || selectedPerformance !== 'all' || searchTerm) && (
                         <button 
                             onClick={() => {
-                                setSelectedCentre('');
+                                setSelectedCentre([]);
                                 setSelectedPerformance('all');
                                 setSearchTerm('');
                                 setCurrentPage(1);
