@@ -92,6 +92,20 @@ class ERPStudentBackend(BaseBackend):
                     except Exception as e:
                         print(f"Error parsing name: {e}")
 
+                    # Check if local user exists by ERP ID or Admission Number
+                    if not local_user:
+                        erp_sid = student_data.get('_id')
+                        adm_no = student_data.get('admissionNumber')
+                        if erp_sid:
+                            local_user = CustomUser.objects.filter(erp_student_id=erp_sid).first()
+                        if not local_user and adm_no:
+                            local_user = CustomUser.objects.filter(admission_number=adm_no).first()
+                        
+                        if local_user:
+                            print(f"[OK] Found existing user by ERP ID/Adm No for new email {username}. Updating email/username.")
+                            local_user.username = username
+                            local_user.email = username
+
                     # Update or Create Local User
                     if local_user:
                         print(f"Updating existing user {username}")
