@@ -290,7 +290,15 @@ class TestViewSet(viewsets.ModelViewSet):
             submission_test_ids = []
             if db is not None:
                 try: 
-                    sub_docs = list(db['tests_testsubmission'].find({'student_id': user.pk}, {'test_id': 1}))
+                    mongo_student_ids = [user.pk, str(user.pk)]
+                    try: mongo_student_ids.append(int(user.pk))
+                    except: pass
+                    try: 
+                        from bson import ObjectId
+                        mongo_student_ids.append(ObjectId(user.pk))
+                    except: pass
+                    
+                    sub_docs = list(db['tests_testsubmission'].find({'student_id': {'$in': mongo_student_ids}}, {'test_id': 1}))
                     submission_test_ids = [d['test_id'] for d in sub_docs]
                 except: pass
 
@@ -350,12 +358,17 @@ class TestViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(pk__in=final_ids)
 
             # Hide OMR tests from students unless results are published.
-            # Pre-compute unpublished OMR test IDs to bypass Djongo's SQL JOIN/double-negation translation bug in exclude().
+            # Pre-compute unpublished OMR test IDs to bypass Djongo's SQL JOIN/double-negation translation bug in exclude() and boolean translation bugs.
             from master_data.models import ExamType
             omr_type_ids = list(ExamType.objects.filter(name__icontains='omr').values_list('pk', flat=True))
-            omr_unpub_type_ids = list(Test.objects.filter(exam_type_id__in=omr_type_ids, is_result_published__in=[False]).values_list('pk', flat=True))
-            omr_unpub_based_ids = list(Test.objects.filter(is_omr_based=True, is_result_published__in=[False]).values_list('pk', flat=True))
-            omr_unpublished_test_ids = list(set(omr_unpub_type_ids + omr_unpub_based_ids))
+            
+            # Fetch all OMR test IDs and their published status, then filter in python to avoid Djongo boolean bugs
+            from django.db.models import Q
+            all_omr_tests = Test.objects.filter(
+                Q(exam_type_id__in=omr_type_ids) | Q(is_omr_based=True)
+            ).values_list('pk', 'is_result_published')
+            
+            omr_unpublished_test_ids = [pk for pk, is_pub in all_omr_tests if not is_pub]
             queryset = queryset.exclude(pk__in=omr_unpublished_test_ids)
         
         package_id = self.request.query_params.get('package', None)
@@ -437,8 +450,16 @@ class TestViewSet(viewsets.ModelViewSet):
             db = get_db()
             if db is not None:
                 try:
+                    mongo_student_ids = [request.user.pk, str(request.user.pk)]
+                    try: mongo_student_ids.append(int(request.user.pk))
+                    except: pass
+                    try: 
+                        from bson import ObjectId
+                        mongo_student_ids.append(ObjectId(request.user.pk))
+                    except: pass
+                    
                     subs = list(db['tests_testsubmission'].find(
-                        {'student_id': request.user.pk},
+                        {'student_id': {'$in': mongo_student_ids}},
                         {'test_id': 1, 'is_finalized': 1, 'allow_resume': 1, 'time_spent': 1, 'submitted_at': 1, 'updated_at': 1, 'score': 1}
                     ))
                     student_subs_map = {str(s['test_id']): s for s in subs}
