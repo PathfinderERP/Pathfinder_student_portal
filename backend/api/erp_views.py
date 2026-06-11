@@ -430,6 +430,14 @@ def _sync_user_to_erp(user, admission_data):
                 l_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
                 if user.first_name != f_name: user.first_name = f_name; has_changed = True
                 if user.last_name != l_name: user.last_name = l_name; has_changed = True
+                
+        # 3.5 Sync Assigned Batch
+        batches = student_obj.get('batches', [])
+        if batches and isinstance(batches, list) and len(batches) > 0:
+            new_batch = batches[0].get('batchName')
+            if user.assigned_batch != new_batch:
+                user.assigned_batch = new_batch
+                has_changed = True
         
         # 4. Sync Centre Info
         venue = admission_data.get('venue') or admission_data.get('centre')

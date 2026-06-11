@@ -9,6 +9,7 @@ import axios from 'axios';
 import Pagination from '../../../components/common/Pagination';
 import StudentPerformanceAnalysis from './StudentPerformanceAnalysis';
 import Select from 'react-select';
+import * as XLSX from 'xlsx';
 
 
 const TestResultStudents = ({ test, onBack }) => {
@@ -98,43 +99,62 @@ const TestResultStudents = ({ test, onBack }) => {
     const handleExport = () => {
         if (filteredStudents.length === 0) return;
 
-        // Header construction
-        const headers = ['Rank', 'Student Name', 'Roll Number', 'Centre'];
-        sections.forEach(sec => headers.push(sec));
-        headers.push('Total Marks', 'Accuracy', 'Total Time');
-
-        // Row construction
-        const csvRows = [headers.join(',')];
-        
-        filteredStudents.forEach(s => {
-            const row = [
-                s.rank,
-                `"${s.name.replace(/"/g, '""')}"`,
-                `"${s.enrollment}"`,
-                `"${s.centre.replace(/"/g, '""')}"`
-            ];
+        // Helper to format a student object for Excel
+        const formatStudentRow = (s, centerRank = null) => {
+            const row = {
+                'All India Rank': s.rank,
+            };
+            if (centerRank !== null) {
+                row['Center Wise Rank'] = centerRank;
+            }
+            row['Student Name'] = s.name;
+            row['Roll Number'] = s.enrollment;
+            row['Centre'] = s.centre;
+            row['Student Batch'] = s.batch || 'N/A';
             
             sections.forEach(sec => {
-                row.push(s.section_scores?.[sec] || 0);
+                row[sec] = s.section_scores?.[sec] || '0';
             });
             
-            row.push(s.marks);
-            row.push(`"${s.accuracy}"`);
-            row.push(`"${s.totalTime}"`);
+            row['Total Marks'] = s.marks;
+            row['Accuracy'] = s.accuracy;
+            row['Total Time'] = s.totalTime;
+            return row;
+        };
+
+        const wb = XLSX.utils.book_new();
+
+        // 1. Create "All Data" sheet
+        const allDataRows = filteredStudents.map(s => formatStudentRow(s));
+        const wsAll = XLSX.utils.json_to_sheet(allDataRows);
+        XLSX.utils.book_append_sheet(wb, wsAll, 'All Data');
+
+        // 2. Create Center Wise sheets
+        const centerGroups = {};
+        filteredStudents.forEach(s => {
+            if (!centerGroups[s.centre]) centerGroups[s.centre] = [];
+            centerGroups[s.centre].push(s);
+        });
+        
+        Object.keys(centerGroups).forEach(centerName => {
+            const centerStudents = centerGroups[centerName];
+            // They are already sorted by global rank, so we can just assign center rank 1, 2, 3...
+            const centerRows = centerStudents.map((s, idx) => formatStudentRow(s, idx + 1));
             
-            csvRows.push(row.join(','));
+            // Excel sheet names max 31 chars and no illegal chars
+            const safeSheetName = centerName.replace(/[\\/?*[\]]/g, '_').substring(0, 31) || 'Unknown Center';
+            const wsCenter = XLSX.utils.json_to_sheet(centerRows);
+            
+            try {
+                XLSX.utils.book_append_sheet(wb, wsCenter, safeSheetName);
+            } catch (e) {
+                const altName = safeSheetName.substring(0, 25) + '_' + Math.floor(Math.random() * 1000);
+                XLSX.utils.book_append_sheet(wb, wsCenter, altName);
+            }
         });
 
-        const csvString = csvRows.join('\n');
-        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${testName.replace(/\s+/g, '_')}_Results.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Download the file
+        XLSX.writeFile(wb, `${testName.replace(/\s+/g, '_')}_Results.xlsx`);
     };
 
     const paginatedStudents = filteredStudents.slice(

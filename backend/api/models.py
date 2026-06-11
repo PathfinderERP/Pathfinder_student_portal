@@ -38,6 +38,7 @@ class CustomUser(AbstractUser):
     study_section = models.CharField(max_length=255, null=True, blank=True, help_text="Study section from ERP")
     omr_code = models.CharField(max_length=100, null=True, blank=True, help_text="OMR code from ERP")
     rm_code = models.CharField(max_length=100, null=True, blank=True, help_text="RM code from ERP")
+    assigned_batch = models.CharField(max_length=255, null=True, blank=True, help_text="Assigned batch from ERP")
     
     # Centre identity
     centre_code = models.CharField(max_length=50, null=True, blank=True)

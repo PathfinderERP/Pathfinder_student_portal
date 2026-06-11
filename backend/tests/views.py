@@ -1849,10 +1849,13 @@ class TestViewSet(viewsets.ModelViewSet):
                 })
 
         student_ids = [s['student_id'] for s in submissions]
-        s_objs = CustomUser.objects.filter(pk__in=student_ids).values('pk', 'first_name', 'last_name', 'username', 'admission_number', 'centre_name')
+        s_objs = CustomUser.objects.filter(pk__in=student_ids).values('pk', 'first_name', 'last_name', 'username', 'admission_number', 'centre_name', 'assigned_batch')
         s_lookup = {}
         for s in s_objs:
             s_lookup[str(s['pk'])] = s
+
+        from api.erp_views import get_student_lookup_index
+        erp_index = get_student_lookup_index() or {}
 
         result_data = []
         for sub in submissions:
@@ -1993,10 +1996,24 @@ class TestViewSet(viewsets.ModelViewSet):
             s_sec = ts % 60
             time_str = f"{h}:{m:02d}:{s_sec:02d}" if h > 0 else f"0:{m:02d}:{s_sec:02d}"
 
+            # Get batch directly from DB, or fallback to the in-memory ERP index
+            batch_str = s_info.get('assigned_batch')
+            if not batch_str:
+                adm = s_info.get('admission_number') or s_info.get('username')
+                if adm:
+                    match = erp_index.get(f"adm_{str(adm).strip().upper()}")
+                    if match:
+                        batches = (match.get('student') or {}).get('batches', [])
+                        if batches and len(batches) > 0:
+                            batch_str = batches[0].get('batchName')
+            
+            batch_str = batch_str or "N/A"
+
             result_data.append({
                 'name': (f"{s_info.get('first_name','')} {s_info.get('last_name','')}".strip() or s_info.get('username','Unknown')).upper(),
                 'enrollment': s_info.get('admission_number') or s_info.get('username') or 'N/A',
                 'centre': s_info.get('centre_name') or 'N/A',
+                'batch': batch_str.upper(),
                 'marks': round(total_recalculated, 2),
                 'accuracy': f"{round(accuracy, 2)}%",
                 'totalTime': time_str,
