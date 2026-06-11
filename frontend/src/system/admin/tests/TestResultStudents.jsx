@@ -116,6 +116,28 @@ const TestResultStudents = ({ test, onBack }) => {
                 row[sec] = s.section_scores?.[sec] || '0';
             });
             
+            // Calculate Subject Totals
+            const subjectTotals = {};
+            sections.forEach(sec => {
+                const subject = sec.split('_')[0].toUpperCase();
+                const scoreStr = String(s.section_scores?.[sec] || '0/0');
+                const [earnedStr, maxStr] = scoreStr.split('/');
+                const earned = parseFloat(earnedStr) || 0;
+                const max = parseFloat(maxStr) || 0;
+                
+                if (!subjectTotals[subject]) {
+                    subjectTotals[subject] = { earned: 0, max: 0 };
+                }
+                subjectTotals[subject].earned += earned;
+                subjectTotals[subject].max += max;
+            });
+
+            // Append subject totals to the row
+            Object.keys(subjectTotals).forEach(subj => {
+                const t = subjectTotals[subj];
+                row[`${subj} TOTAL`] = `${Number(t.earned.toFixed(2))}/${t.max}`;
+            });
+            
             row['Total Marks'] = s.marks;
             row['Accuracy'] = s.accuracy;
             row['Total Time'] = s.totalTime;
