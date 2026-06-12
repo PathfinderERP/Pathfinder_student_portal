@@ -700,6 +700,35 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                 {/* Subtle Grid Pattern Overlay */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
+                {/* 3D Isometric Floating Elements */}
+                <motion.div 
+                    animate={{ 
+                        y: [0, -20, 0],
+                        rotateZ: [45, 55, 45],
+                    }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-[10%] right-[25%] w-32 h-32 bg-linear-to-br from-white/10 to-transparent border border-white/20 rounded-2xl backdrop-blur-xl pointer-events-none shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] z-0 hidden md:block"
+                    style={{ perspective: 1000, rotateX: 60, rotateY: 10 }}
+                />
+                <motion.div 
+                    animate={{ 
+                        y: [0, 20, 0],
+                        rotateZ: [-15, -5, -15],
+                    }}
+                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                    className="absolute bottom-[10%] right-[45%] w-24 h-24 bg-linear-to-br from-orange-500/20 to-transparent border border-orange-500/20 rounded-xl backdrop-blur-md pointer-events-none shadow-lg z-0 hidden lg:block"
+                    style={{ perspective: 1000, rotateX: 50, rotateY: -10 }}
+                />
+                <motion.div 
+                    animate={{ 
+                        y: [0, -15, 0],
+                        rotateZ: [20, 30, 20],
+                    }}
+                    transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+                    className="absolute top-[20%] left-[30%] w-16 h-16 bg-linear-to-br from-blue-500/20 to-transparent border border-blue-500/20 rounded-lg backdrop-blur-sm pointer-events-none shadow-md z-0 hidden md:block"
+                    style={{ perspective: 1000, rotateX: 45, rotateY: 20 }}
+                />
+
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
                     <div className="max-w-2xl">
                         <div className="flex items-center gap-3 mb-6">
@@ -729,8 +758,16 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                     </div>
 
                     {/* Profile Card Refined */}
-                    <div className="flex flex-col items-center lg:items-end gap-6 shrink-0">
-                        <div className={`p-1 rounded-[5px] backdrop-blur-3xl shadow-2xl transition-all duration-500 hover:scale-[1.02]
+                    <div className="flex flex-col items-center lg:items-end gap-6 shrink-0" style={{ perspective: '1000px' }}>
+                        <motion.div 
+                            whileHover={{ 
+                                scale: 1.05, 
+                                rotateX: 10, 
+                                rotateY: -15, 
+                                z: 30
+                            }}
+                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                            className={`p-1 rounded-[5px] backdrop-blur-3xl shadow-2xl cursor-pointer
                             ${isDarkMode ? 'bg-white/5 border border-white/10' : 'bg-white/10 border border-white/20'}`}>
                             <div className={`flex items-center gap-4 px-6 py-4 rounded-[4px] min-w-[280px]
                                 ${isDarkMode ? 'bg-slate-900/40' : 'bg-white/5'}`}>
@@ -755,7 +792,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
 
                     </div>
                 </div>
