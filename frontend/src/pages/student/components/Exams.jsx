@@ -434,10 +434,21 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
             (test.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
         ).filter(test => {
             const now = new Date();
+            const start = test.start_time ? new Date(test.start_time) : null;
             const end = test.end_time ? new Date(test.end_time) : null;
             const isExpired = end && now > end;
+            const isUpcoming = start && now < start;
+            const noSchedule = !start && !end;
             const isStudentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
-            return activeTab === 'ongoing' ? !isStudentCompleted : isStudentCompleted;
+            
+            if (activeTab === 'ongoing') {
+                return !isStudentCompleted && !isUpcoming && !noSchedule;
+            } else if (activeTab === 'previous') {
+                return isStudentCompleted;
+            } else if (activeTab === 'upcoming') {
+                return isUpcoming || noSchedule;
+            }
+            return false;
         }).sort((a, b) => {
             const nameA = a.name || '';
             const nameB = b.name || '';
@@ -465,7 +476,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
                     <h2 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        {activeTab === 'ongoing' ? 'All Active Test' : 'Previous Tests'}
+                        {activeTab === 'ongoing' ? 'All Active Tests' : activeTab === 'upcoming' ? 'Upcoming & Unscheduled' : 'Previous Tests'}
                     </h2>
                     {/* View Switcher */}
                     <div className={`flex p-1 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200 shadow-inner'}`}>
@@ -476,6 +487,14 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                 : 'text-slate-400 hover:text-slate-600'}`}
                         >
                             Ongoing
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('upcoming')}
+                            className={`px-6 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'upcoming' 
+                                ? 'bg-white text-blue-600 shadow-sm' 
+                                : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Upcoming
                         </button>
                         <button
                             onClick={() => setActiveTab('previous')}

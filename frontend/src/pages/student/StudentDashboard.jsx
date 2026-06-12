@@ -550,6 +550,9 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             .filter(e => {
                 // Exclude completed exams
                 if (e.submission?.is_finalized) return false;
+                
+                // Exclude unscheduled exams
+                if (!e.start_time && !e.end_time) return false;
 
                 // Exclude expired tests (only if end_time is set)
                 const end = e.end_time ? new Date(e.end_time) : null;
@@ -982,17 +985,19 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                         </div>
                         <div>
                             <h4 className={`font-black uppercase tracking-tight text-sm ${isDarkMode ? 'text-orange-400' : 'text-orange-900'}`}>
-                                {nextExam.name} Countdown
+                                {nextExam.name} {new Date(nextExam.start_time) <= new Date() ? 'is Live' : 'Countdown'}
                             </h4>
                             <p className={`text-xs font-bold ${isDarkMode ? 'text-orange-400/70' : 'text-orange-800/70'}`}>
-                                Upcoming on {new Date(nextExam.start_time).toLocaleDateString('en-IN', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
+                                {new Date(nextExam.start_time) <= new Date() ? 'Started on' : 'Upcoming on'} {new Date(nextExam.start_time).toLocaleDateString('en-IN', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
                             </p>
                         </div>
                         <div className="ml-auto px-4 py-2 bg-orange-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/30">
                             {(() => {
                                 const diff = new Date(nextExam.start_time) - new Date();
                                 const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                                return days <= 0 ? 'Starts Today' : `${days} Days Left`;
+                                if (diff <= 0) return 'Active Now';
+                                if (days === 1) return 'Starts Tomorrow';
+                                return days === 0 ? 'Starts Today' : `${days} Days Left`;
                             })()}
                         </div>
                     </div>
