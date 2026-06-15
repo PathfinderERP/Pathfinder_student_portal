@@ -223,6 +223,7 @@ const TestCreate = ({ isOMR = false }) => {
     const [targetExams, setTargetExams] = useState([]);
     const [examDetails, setExamDetails] = useState([]);
 
+
     // Filter State
     const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'completed', 'pending'
     const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -231,6 +232,7 @@ const TestCreate = ({ isOMR = false }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('create');
     const [selectedItem, setSelectedItem] = useState(null);
+    const [loadingTestId, setLoadingTestId] = useState(null);
 
     const [activeView, setActiveView] = useState('test-list');
     const [managementTest, setManagementTest] = useState(null);
@@ -440,58 +442,7 @@ const TestCreate = ({ isOMR = false }) => {
             } catch (err) {
                 console.error('Failed to refresh tests list after master-data update:', err);
             }
-            // Update in-memory tests list from refreshed examDetails so UI shows authoritative values
-            try {
-                const ed = (masterDataCacheRef.current && masterDataCacheRef.current.examDetails) || examDetails;
-                if (Array.isArray(ed) && data.length > 0) {
-                    setData(prev => prev.map(test => {
-                        try {
-                            const match = ed.find(d =>
-                                d.name === (test.name || test.title || '') &&
-                                String(d.session) === String(test.session || test.session_details?.id || '') &&
-                                String(d.class_level) === String(test.class_level || test.class_level_details?.id || '') &&
-                                (Array.isArray(d.target_exams)
-                                    ? (Array.isArray(test.target_exams) ? test.target_exams.some(te => d.target_exams.map(String).includes(String(te))) : true)
-                                    : (String(d.target_exam) === String(test.target_exam) || true)) &&
-                                String(d.exam_type) === String(test.exam_type || test.exam_type_details?.id || '')
-                            );
-                            if (!match) return test;
-                            return {
-                                ...test,
-                                code: match.code || test.code,
-                                duration: match.duration || test.duration,
-                                total_marks: match.total_marks ?? test.total_marks,
-                                has_calculator: match.has_calculator ?? test.has_calculator,
-                                option_type_numeric: match.option_type_numeric ?? test.option_type_numeric
-                            };
-                        } catch (err) {
-                            return test;
-                        }
-                    }));
-                }
-            } catch (err) {
-                console.error('Failed to apply examDetails to tests list:', err);
-            }
-
-            // If modal is open, ensure formValues reflect authoritative examDetails (prevent stale overwrite)
-            if (isModalOpen) {
-                try {
-                    const match = examDetails.find(d =>
-                        d.name === formValues.name &&
-                        String(d.session) === String(formValues.session) &&
-                        String(d.class_level) === String(formValues.class_level) &&
-                        (Array.isArray(d.target_exams) && formValues.target_exams.length > 0
-                            ? d.target_exams.some(te => formValues.target_exams.includes(String(te)))
-                            : true) &&
-                        String(d.exam_type) === String(formValues.exam_type)
-                    );
-                    if (match && (match.total_marks ?? null) !== (formValues.total_marks ?? null)) {
-                        setFormValues(prev => ({ ...prev, total_marks: match.total_marks ?? prev.total_marks }));
-                    }
-                } catch (err) {
-                    console.error('Error syncing total_marks after master-data update:', err);
-                }
-            }
+            // Tests list is already refreshed from server above; no examDetails sync needed.
         };
 
         window.addEventListener('master-data-updated', handleMasterDataUpdated);
@@ -511,7 +462,7 @@ const TestCreate = ({ isOMR = false }) => {
             class_levels: [],
             class_level: loadedData?.classes?.[0]?.id || classes[0]?.id || '',
             duration: 180,
-            total_marks: loadedData?.examDetails?.[0]?.total_marks || 0,
+            total_marks: 0,
             description: '',
             instructions: '',
             is_completed: false,
@@ -522,26 +473,43 @@ const TestCreate = ({ isOMR = false }) => {
     };
 
     const handleEdit = async (item) => {
+        setLoadingTestId(item.id);
         await fetchMasterData();
         setModalMode('edit');
         setSelectedItem(item);
+
+        // Fetch the full detail record to get description & instructions
+        // (the list endpoint now omits them for performance)
+        let fullItem = item;
+        try {
+            const apiUrl = getApiUrl();
+            const config = getAuthConfig();
+            if (config.headers) {
+                const res = await axios.get(`${apiUrl}/api/tests/${item.id}/`, config);
+                fullItem = res.data;
+            }
+        } catch (err) {
+            console.warn('Could not fetch full test detail, using list data as fallback:', err);
+        }
+
         setFormValues({
-            name: item.name,
-            code: item.code,
-            session: item.session || '',
-            sessions: item.sessions || [],
-            target_exams: item.target_exams || [],
-            exam_type: item.exam_type || '',
-            class_levels: item.class_levels || (item.class_level_id || item.class_level ? [item.class_level_id || item.class_level] : []),
-            class_level: item.class_level || '',
-            duration: item.duration,
-            total_marks: item.total_marks || 0,
-            description: item.description || '',
-            instructions: item.instructions || '',
-            is_completed: item.is_completed,
-            has_calculator: item.has_calculator || false,
-            option_type_numeric: item.option_type_numeric || false
+            name: fullItem.name,
+            code: fullItem.code,
+            session: fullItem.session || '',
+            sessions: fullItem.sessions || [],
+            target_exams: fullItem.target_exams || [],
+            exam_type: fullItem.exam_type || '',
+            class_levels: fullItem.class_levels || (fullItem.class_level_id || fullItem.class_level ? [fullItem.class_level_id || fullItem.class_level] : []),
+            class_level: fullItem.class_level || '',
+            duration: fullItem.duration,
+            total_marks: fullItem.total_marks || 0,
+            description: fullItem.description || '',
+            instructions: fullItem.instructions || '',
+            is_completed: fullItem.is_completed,
+            has_calculator: fullItem.has_calculator || false,
+            option_type_numeric: fullItem.option_type_numeric || false
         });
+        setLoadingTestId(null);
         setIsModalOpen(true);
     };
 
@@ -786,7 +754,8 @@ const TestCreate = ({ isOMR = false }) => {
                                                     setManagementTest(item);
                                                     setActiveView('question-paper');
                                                 }}
-                                                className="px-4 py-1.5 rounded-[5px] bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30"
+                                                disabled={loadingTestId !== null}
+                                                className={`px-4 py-1.5 rounded-[5px] bg-orange-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-orange-700 shadow-lg shadow-orange-600/30 ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             >
                                                 QUESTIONPAPER
                                             </button>
@@ -799,7 +768,8 @@ const TestCreate = ({ isOMR = false }) => {
                                                     setManagementTest(item);
                                                     setActiveView('section-management');
                                                 }}
-                                                className="px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+                                                disabled={loadingTestId !== null}
+                                                className={`px-4 py-1.5 rounded-[5px] bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/30 ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
                                             >
                                                 Manage
                                             </button>
@@ -812,7 +782,8 @@ const TestCreate = ({ isOMR = false }) => {
                                                     setManagementTest(item);
                                                     setActiveView('question-management');
                                                 }}
-                                                className="px-4 py-1.5 rounded-[5px] bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all hover:bg-emerald-700 shadow-lg shadow-emerald-600/30"
+                                                disabled={loadingTestId !== null}
+                                                className={`px-4 py-1.5 rounded-[5px] bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/30 ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-700'}`}
                                             >
                                                 Manage
                                             </button>
@@ -821,10 +792,15 @@ const TestCreate = ({ isOMR = false }) => {
                                     <td className="py-5 px-4 text-right">
                                         <button
                                             onClick={() => handleEdit(item)}
-                                            className={`p-2.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 hover:bg-orange-500/10' : 'bg-slate-100 text-slate-500 hover:text-orange-600 hover:bg-orange-50'}`}
+                                            disabled={loadingTestId !== null}
+                                            className={`p-2.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 hover:bg-orange-500/10' : 'bg-slate-100 text-slate-500 hover:text-orange-600 hover:bg-orange-50'} ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             title="View Details & Allotment"
                                         >
-                                            <Eye size={18} strokeWidth={2.5} />
+                                            {loadingTestId === item.id ? (
+                                                <Loader2 size={18} strokeWidth={2.5} className="animate-spin text-orange-500" />
+                                            ) : (
+                                                <Eye size={18} strokeWidth={2.5} />
+                                            )}
                                         </button>
                                     </td>
                                 </tr>

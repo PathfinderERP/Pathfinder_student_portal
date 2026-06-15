@@ -627,7 +627,6 @@ const TestResponses = ({ isOMR = false }) => {
                                         <th className="py-5 px-6">Test Name</th>
                                         <th className="py-5 px-6">Test Code</th>
                                         <th className="py-5 px-6 text-center">Attempts</th>
-                                        <th className="py-5 px-6 text-center">Total Students</th>
                                         <th className="py-5 px-6 text-center">Centres</th>
                                         {isOMR && <th className="py-5 px-6 text-center">Failed Records</th>}
                                         <th className="py-5 px-6 text-center">Results</th>
@@ -637,14 +636,14 @@ const TestResponses = ({ isOMR = false }) => {
                                     {isLoading ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
-                                                <td colSpan={isOMR ? 8 : 7} className="py-8 px-6">
+                                                <td colSpan={isOMR ? 7 : 6} className="py-8 px-6">
                                                     <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                                                 </td>
                                             </tr>
                                         ))
                                     ) : currentTests.length === 0 ? (
                                         <tr>
-                                            <td colSpan={isOMR ? 8 : 7} className="py-20 text-center">
+                                            <td colSpan={isOMR ? 7 : 6} className="py-20 text-center">
                                                 <div className="opacity-20 flex flex-col items-center gap-3">
                                                     <FileSearch size={48} />
                                                     <p className="text-sm font-black uppercase tracking-[0.2em]">No Tests Found</p>
@@ -673,12 +672,7 @@ const TestResponses = ({ isOMR = false }) => {
                                                     <span className="text-sm font-black">{test.total_students || 0}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-5 px-6 text-center">
-                                                <div className="flex items-center justify-center gap-2 text-blue-500">
-                                                    <Users size={14} />
-                                                    <span className="text-sm font-black" title="Total Allocated Students (from ERP)">{test.total_roster_count || 0}</span>
-                                                </div>
-                                            </td>
+
                                             <td className="py-5 px-6 text-center">
                                                 <button
                                                     onClick={() => handleViewCentres(test)}
@@ -862,7 +856,6 @@ const TestResponses = ({ isOMR = false }) => {
                                         <th className="py-5 px-6">#</th>
                                         <th className="py-5 px-6">Centre Name</th>
                                         <th className="py-5 px-6 text-center">Attempted Students</th>
-                                        <th className="py-5 px-6 text-center">Total Students</th>
                                         <th className="py-5 px-6 text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -870,14 +863,14 @@ const TestResponses = ({ isOMR = false }) => {
                                     {isCentresLoading && centres.length === 0 ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
-                                                <td colSpan="5" className="py-8 px-6">
+                                                <td colSpan="4" className="py-8 px-6">
                                                     <div className={`h-4 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
                                                 </td>
                                             </tr>
                                         ))
                                     ) : centres.length === 0 ? (
                                         <tr>
-                                            <td colSpan="5" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Centres Found</td>
+                                            <td colSpan="4" className="py-20 text-center opacity-20 font-black uppercase tracking-widest">No Centres Found</td>
                                         </tr>
                                     ) : centres.map((centre, index) => (
                                         <tr key={centre.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'}`}>
@@ -894,12 +887,7 @@ const TestResponses = ({ isOMR = false }) => {
                                                     <span className="text-sm font-black tracking-tight">{centre.submission_count || 0}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-5 px-6 text-center">
-                                                <div className="flex items-center justify-center gap-2 text-blue-500">
-                                                    <Users size={13} strokeWidth={3} />
-                                                    <span className="text-sm font-black tracking-tight">{centre.total_students_in_centre || 0}</span>
-                                                </div>
-                                            </td>
+
                                             <td className="py-5 px-6 text-right">
                                                 <div className="flex items-center justify-end gap-3">
                                                     <button

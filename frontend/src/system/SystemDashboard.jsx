@@ -66,6 +66,11 @@ import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
+// Module-level flag — survives HMR hot-reloads and component remounts.
+// Prevents the heavy erp-students (3.9 MB) fetch from repeating on every
+// dashboard re-render or Vite hot-reload during development.
+let _erpSyncAttempted = false;
+
 const SystemDashboard = () => {
     const { user, updateProfile, getApiUrl, normalizeUser, lastUsername, lastPassword, token, loading: authLoading } = useAuth();
     const { isDarkMode } = useTheme();
@@ -246,7 +251,6 @@ const SystemDashboard = () => {
         }
     }, [activeTab, getApiUrl, authLoading, token]);
 
-    const syncAttempted = useRef(false);
     const fetchDashboardStats = useCallback(async (forceRefresh = false) => {
         if (authLoading || !token) return;
         try {
@@ -269,11 +273,11 @@ const SystemDashboard = () => {
     }, [token, getApiUrl, authLoading]);
 
     const syncERP = useCallback(async (isManual = false) => {
-        if (!isManual && syncAttempted.current) return;
+        if (!isManual && _erpSyncAttempted) return;
         if (authLoading || !token) return;
 
         setIsERPLoading(true);
-        syncAttempted.current = true;
+        _erpSyncAttempted = true;
 
         if (isManual) {
             fetchDashboardStats(true); // Force real-time recount
@@ -326,10 +330,12 @@ const SystemDashboard = () => {
         fetchDashboardStats();
         initialFetchDone.current = true;
 
+        // 30-min interval aligns with the backend ERP cache TTL (avoids hammering
+        // the ERP endpoint more often than the cache refreshes).
         const interval = setInterval(() => {
             syncERP(false);
             fetchDashboardStats();
-        }, 600000);
+        }, 1800000);
         return () => clearInterval(interval);
     }, [authLoading, token, syncERP, fetchDashboardStats]);
 

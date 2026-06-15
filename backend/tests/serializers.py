@@ -142,8 +142,8 @@ class TestSerializer(serializers.ModelSerializer):
 
         view = self.context.get('view')
         action = getattr(view, 'action', None) if view else None
-        if action in ['list', 'create', 'update', 'partial_update']:
-            return 0  # Handled in bulk by the view for 'list'
+        if action in ['list', 'create', 'update', 'partial_update', 'retrieve']:
+            return 0  # Handled in bulk by the view for 'list', not needed for retrieve/edit
 
         # High-performance submission count bypassing Djongo parser
         from api.db_utils import get_db
@@ -161,21 +161,25 @@ class TestSerializer(serializers.ModelSerializer):
         if not is_staff:
             return 0
 
+        # Performance Safeguard: check action BEFORE touching the DB or building
+        # expensive cache keys. list/create/update actions return 0 immediately
+        # (counts are injected in bulk by the view). This must be checked before
+        # the cache_key line so that tests with updated_at=None don't crash.
+        view = self.context.get('view')
+        action = getattr(view, 'action', None) if view else None
+        if action in ['list', 'create', 'update', 'partial_update', 'retrieve']:
+            return 0
+
         from django.core.cache import cache
 
-        # 1. Aggressive Caching
-        cache_key = f"test_roster_v2_{obj.pk}_{obj.updated_at.timestamp()}"
+        # Guard: some legacy tests may have updated_at=None
+        if obj.updated_at is None:
+            cache_key = f"test_roster_v2_{obj.pk}_0"
+        else:
+            cache_key = f"test_roster_v2_{obj.pk}_{obj.updated_at.timestamp()}"
         cached_count = cache.get(cache_key)
         if cached_count is not None:
             return cached_count
-            
-        # 2. Performance Safeguard: If this is a non-detail view request ('list', 'update', etc), 
-        # do NOT calculate from scratch. Return 0 and let the detail view calculate it.
-        # This fixes the 16+ second hang in the Admin Panel during saves.
-        view = self.context.get('view')
-        action = getattr(view, 'action', None) if view else None
-        if action in ['list', 'create', 'update', 'partial_update']:
-            return 0
 
         from api.models import CustomUser
         from django.db.models import Q
@@ -218,7 +222,8 @@ class TestSerializer(serializers.ModelSerializer):
 
             # 2. ERP Students (Global Deduplication)
             from api.erp_views import _fetch_all_students_erp
-            erp_pool = _fetch_all_students_erp() # Uses internal cache or fetches
+            # Guard: _fetch_all_students_erp can return None on transient errors
+            erp_pool = _fetch_all_students_erp() or []
             centre_queries = [(c.name.upper().strip(), c.code.upper().strip()) for c in centres]
             
             for erp_student in erp_pool:
@@ -226,7 +231,11 @@ class TestSerializer(serializers.ModelSerializer):
                 
                 # Deduplicate
                 e_adm = str(erp_student.get('admissionNumber') or '').upper().strip()
-                e_email = str(erp_student.get('student', {}).get('studentsDetails', [{}])[0].get('studentEmail') or "").lower().strip()
+                e_email = ''
+                student_obj = erp_student.get('student') or {}
+                details_list = student_obj.get('studentsDetails') or []
+                if details_list:
+                    e_email = str(details_list[0].get('studentEmail') or '').lower().strip()
                 
                 if (e_adm and e_adm in seen_identifiers) or (e_email and e_email in seen_identifiers):
                     continue
@@ -268,13 +277,15 @@ class TestSerializer(serializers.ModelSerializer):
         if not request or not request.user or request.user.is_anonymous:
             return None
         
+        # PERFORMANCE: Staff and superadmins do not have submissions. Skip the DB query entirely.
+        if request.user.is_staff or getattr(request.user, 'user_type', '') != 'student':
+            return None
+
         view = self.context.get('view')
         action = getattr(view, 'action', None) if view else None
         if action in ['list', 'create', 'update', 'partial_update']:
-            # PERFORMANCE: Staff see thousands of tests, so we omit submission info in list views.
-            # Students only see a few tests allotted to them, so we allow it for UI state.
-            if request.user.is_staff or getattr(request.user, 'user_type', '') != 'student':
-                return None
+            # Students only see a few tests allotted to them, so we allow it for UI state in list view.
+            pass
             
         # PERFORMANCE OPTIMIZATION: Check if submissions were pre-fetched in the list view context
         student_subs = self.context.get('student_submissions')
@@ -356,3 +367,16 @@ class TestSerializer(serializers.ModelSerializer):
     def get_sections_count(self, obj):
         # Total = Owned
         return len(obj.sections.all())
+
+
+class TestListSerializer(TestSerializer):
+    """Lightweight serializer for the admin test list view.
+    Excludes large HTML fields (description, instructions) that are only
+    needed when editing a single test. This significantly reduces response
+    size and serialization time for the list endpoint."""
+
+    class Meta(TestSerializer.Meta):
+        fields = [
+            f for f in TestSerializer.Meta.fields
+            if f not in ('description', 'instructions')
+        ]

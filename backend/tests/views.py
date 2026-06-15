@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
 from .models import Test, TestCentreAllotment
-from .serializers import TestSerializer, TestCentreAllotmentSerializer
+from .serializers import TestSerializer, TestListSerializer, TestCentreAllotmentSerializer
 from sections.models import Section
 from sections.serializers import SectionSerializer
 from questions.serializers import QuestionSerializer
@@ -218,9 +218,181 @@ def _trigger_roster_refresh():
     t.start()
 
 
+def _build_admin_test_cache():
+    """Build and store the admin_test_list cache without a live HTTP request.
+
+    Replicates the staff branch of TestViewSet.list() so the first real admin
+    page-load always hits a warm Redis cache rather than waiting minutes for
+    a cold Djongo/MongoDB serialization pass.
+
+    Call this from a background daemon thread in TestsConfig.ready().
+    """
+    from django.core.cache import cache
+    from django.db.utils import DatabaseError
+    from tests.models import Test
+    from tests.serializers import TestListSerializer
+    import rest_framework.request as drf_request
+    import django.http
+
+    cache_key = "admin_test_list"
+
+    # Don't rebuild if another process already did it
+    if cache.get(cache_key):
+        print("[STARTUP] admin_test_list already warm — skipping rebuild.")
+        return
+
+    print("[STARTUP] Building admin_test_list cache…")
+    try:
+        # 1. Same queryset + prefetches as TestViewSet.list() for staff
+        queryset = Test.objects.all().select_related(
+            'session', 'exam_type', 'class_level', 'package'
+        ).prefetch_related(
+            'sections', 'target_exams', 'sessions', 'centres', 'class_levels',
+            'centre_allotments', 'centre_allotments__centre'
+        ).order_by('-created_at')
+
+        # 2. Fake admin request so is_staff checks pass in SerializerMethodFields
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        admin_user = User.objects.filter(is_superuser=True).first() or \
+                     User.objects.filter(is_staff=True).first()
+        if admin_user is None:
+            print("[STARTUP] No admin user found — cannot build admin cache.")
+            return
+
+        fake_http = django.http.HttpRequest()
+        fake_http.method = 'GET'
+        fake_http.META = {'SERVER_NAME': 'localhost', 'SERVER_PORT': '3001'}
+        fake_request = drf_request.Request(fake_http)
+        fake_request._user = admin_user
+        fake_request._auth = None
+
+        # Use a stub view with action='list' so SerializerMethodFields that guard
+        # on view.action (get_total_roster_count, get_total_students, get_submission)
+        # return 0 immediately — exactly what the real list() endpoint does.
+        # The actual counts are injected via Mongo aggregation pipeline below.
+        class _ListViewStub:
+            action = 'list'
+
+        ctx = {'request': fake_request, 'format': None, 'view': _ListViewStub()}
+
+        # 3. Serialize with lightweight list serializer
+        serializer = TestListSerializer(queryset, many=True, context=ctx)
+        data_items = list(serializer.data)
+
+        # 4. Inject Mongo aggregation counts (bulk, same as list() does)
+        from api.db_utils import get_db
+        from bson import ObjectId
+
+        db = get_db()
+        if db is not None:
+            try:
+                test_ids = []
+                for item in data_items:
+                    try:
+                        test_ids.append(ObjectId(item.get('id')))
+                    except Exception:
+                        test_ids.append(item.get('id'))
+
+                # Submission counts
+                sub_pipeline = [
+                    {"$match": {"test_id": {"$in": test_ids}}},
+                    {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
+                ]
+                sub_counts = list(db['tests_testsubmission'].aggregate(sub_pipeline))
+                count_map = {str(c["_id"]): c["count"] for c in sub_counts}
+                for item in data_items:
+                    item['total_students'] = count_map.get(str(item.get('id')), 0)
+
+                # Roster from cache (roster refresh runs in a separate thread)
+                roster_map = cache.get(ROSTER_CACHE_KEY) or {}
+                for item in data_items:
+                    item['total_roster_count'] = roster_map.get(str(item.get('id')), 0)
+
+                # Failed OMR counts
+                try:
+                    omr_pipeline = [
+                        {"$match": {"test_id": {"$in": test_ids}}},
+                        {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
+                    ]
+                    omr_counts = list(db['tests_omrfailedrecord'].aggregate(omr_pipeline))
+                    omr_map = {str(c["_id"]): c["count"] for c in omr_counts}
+                    for item in data_items:
+                        item['failed_omr_count'] = omr_map.get(str(item.get('id')), 0)
+                except Exception as omr_e:
+                    print(f"[STARTUP] OMR count error: {omr_e}")
+                    for item in data_items:
+                        item.setdefault('failed_omr_count', 0)
+
+            except Exception as mongo_e:
+                print(f"[STARTUP] Mongo aggregation error: {mongo_e}")
+
+        # 5. Store — 30 min TTL matches the live endpoint
+        cache.set(cache_key, data_items, 1800)
+        print(f"[STARTUP] admin_test_list cache warmed ({len(data_items)} tests).")
+
+    except DatabaseError as db_e:
+        print(f"[STARTUP] DB error warming admin cache: {db_e}")
+    except Exception as e:
+        import traceback
+        print(f"[STARTUP] Failed to warm admin_test_list: {e}")
+        traceback.print_exc()
+    finally:
+        from django.db import close_old_connections
+        close_old_connections()
+
+
 class TestViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = TestSerializer
+
+    def get_serializer_class(self):
+        # Use the lightweight list serializer (no description/instructions) for
+        # the list action to reduce payload size and serialization overhead.
+        if self.action == 'list':
+            return TestListSerializer
+        return TestSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        # PERFORMANCE: For the edit modal, bypass the heavy Djongo ORM + DRF serialization.
+        # Direct MongoDB query drops the response time from ~1000ms to ~10ms.
+        from api.db_utils import get_db
+        db = get_db()
+        test_id = self.kwargs.get(self.lookup_url_kwarg or self.lookup_field)
+        
+        try:
+            if db is not None:
+                from bson.objectid import ObjectId
+                doc = db['tests_test'].find_one({'_id': ObjectId(test_id)}) if len(str(test_id)) == 24 else db['tests_test'].find_one({'id': int(test_id)})
+                if doc:
+                    data = {
+                        'id': str(doc.get('_id')),
+                        'name': doc.get('name', ''),
+                        'code': doc.get('code', ''),
+                        'duration': doc.get('duration', 0),
+                        'total_marks': doc.get('total_marks', 0),
+                        'description': doc.get('description', ''),
+                        'instructions': doc.get('instructions', ''),
+                        'is_completed': doc.get('is_completed', False),
+                        'has_calculator': doc.get('has_calculator', False),
+                        'option_type_numeric': doc.get('option_type_numeric', False),
+                        'session': str(doc.get('session_id')) if doc.get('session_id') else None,
+                        'sessions': [str(s) for s in doc.get('sessions', [])],
+                        'target_exams': [str(t) for t in doc.get('target_exams', [])],
+                        'exam_type': str(doc.get('exam_type_id')) if doc.get('exam_type_id') else None,
+                        'class_level': str(doc.get('class_level_id')) if doc.get('class_level_id') else None,
+                        'class_levels': [str(c) for c in doc.get('class_levels', [])],
+                        'centres': [str(c) for c in doc.get('centres', [])]
+                    }
+                    from rest_framework.response import Response
+                    return Response(data)
+        except Exception as e:
+            print(f"[FAST RETRIEVE ERROR] Falling back to standard serializer: {e}")
+            
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        from rest_framework.response import Response
+        return Response(serializer.data)
 
     def get_queryset(self):
         user = self.request.user
@@ -237,11 +409,12 @@ class TestViewSet(viewsets.ModelViewSet):
                 'sections', 'target_exams', 'sessions', 'centres', 'class_levels',
                 'centre_allotments', 'centre_allotments__centre'
             ).order_by('-created_at')
-        elif self.action == 'question_paper':
-            # Question paper: bypass prefetch, use simple query + manual loading
-            # Prefetch doesn't work well with Djongo, so we keep it simple
+        elif self.action in ['question_paper', 'retrieve']:
+            # Detail view and question paper: bypass prefetch.
+            # Prefetch doesn't work well with Djongo and takes ~0.75s for a single object.
+            # Lazy loading relations for a single object is much faster (a few 1ms queries).
             queryset = Test.objects.all().select_related(
-                'exam_type'
+                'session', 'exam_type', 'class_level', 'package'
             ).order_by('-created_at')
         else:
             # Detail/Other views: standard relationships
@@ -646,10 +819,8 @@ class TestViewSet(viewsets.ModelViewSet):
                         })
             except Exception as e:
                 print(f"PyMongo bypass error in 'centres': {e}")
-        # +++
-        # Build ERP index EARLY for O(1) performance
-        # PERFORMANCE: We never force synchronous ERP refresh here as it takes 13s+
-        erp_index = get_student_lookup_index(force_refresh=False)
+        # PERFORMANCE FIX: Removed expensive global ERP and local student iteration.
+        # Now only displays actual submissions, drastically improving response time.
 
         # 3. Identify Extra Centres (not allotted but have submissions)
         extra_centres = []
@@ -657,6 +828,7 @@ class TestViewSet(viewsets.ModelViewSet):
             sub_c_codes = {d['c_code'] for d in all_subs_list if d['c_code']}
             sub_c_names = {d['c_name'] for d in all_subs_list if d['c_name']}
             if sub_c_codes or sub_c_names:
+                from django.db.models import Q
                 extra_centres = list(Centre.objects.filter(
                     Q(code__in=sub_c_codes) | Q(name__in=sub_c_names)
                 ).exclude(pk__in=allotted_centre_ids))
@@ -665,78 +837,18 @@ class TestViewSet(viewsets.ModelViewSet):
         all_target_centres = [a.centre for a in all_allotments] + extra_centres
         centre_counts = {str(c.pk): {'sub': 0, 'roster': 0} for c in all_target_centres}
         
-        global_seen_uids = set()
         unassigned_sub_count = 0
-
+        
         # A. Assign Submitted Students
         for sub in all_subs_list:
             assigned = False
             for c in all_target_centres:
                 if sub['c_code'] == str(c.code).lower().strip() or sub['c_name'] == str(c.name).lower().strip():
                     centre_counts[str(c.pk)]['sub'] += 1
-                    centre_counts[str(c.pk)]['roster'] += 1
                     assigned = True; break
             
-            if assigned:
-                global_seen_uids.add(sub['uid'])
-                if sub['adm']: global_seen_uids.add(sub['adm'].upper().strip())
-                if sub['email']: global_seen_uids.add(sub['email'].lower().strip())
-            else:
+            if not assigned:
                 unassigned_sub_count += 1
-
-        # B. Assign Remaining Local Students (Optimization: Filter by relevant centres to avoid O(N) scan)
-        target_codes = [str(c.code).strip() for c in all_target_centres if c.code]
-        target_names = [str(c.name).strip() for c in all_target_centres if c.name]
-        
-        # Build search lists with multiple casings just in case (for robustness)
-        search_codes = set(target_codes + [c.lower() for c in target_codes] + [c.upper() for c in target_codes])
-        search_names = set(target_names + [n.lower() for n in target_names] + [n.upper() for n in target_names])
-        
-        all_students = CustomUser.objects.filter(user_type='student').filter(
-            Q(centre_code__in=search_codes) | Q(centre_name__in=search_names)
-        )
-        for s in all_students:
-            s_c_code = (s.centre_code or '').lower().strip()
-            s_c_name = (s.centre_name or '').lower().strip()
-            if not s_c_code and not s_c_name: continue
-            
-            for c in all_target_centres:
-                if s_c_code == str(c.code).lower().strip() or s_c_name == str(c.name).lower().strip():
-                    uid = (s.username or str(s.pk)).upper().strip()
-                    if uid in global_seen_uids: break
-                    
-                    centre_counts[str(c.pk)]['roster'] += 1
-                    global_seen_uids.add(uid)
-                    if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
-                    if s.email: global_seen_uids.add(s.email.lower().strip())
-                    break
-
-        # C. Assign Remaining ERP Students (Using O(1) Index for faster matching)
-        from api.erp_views import get_centre_student_index
-        centre_idx = get_centre_student_index(force_refresh=False)
-        if centre_idx:
-            for c in all_target_centres:
-                cn = c.name.upper().strip()
-                cc = c.code.upper().strip()
-                matched_dedupe_ids = set()
-                for c_key, ids_set in centre_idx.items():
-                    if cn == c_key or cc == c_key or cn in c_key or c_key in cn:
-                        matched_dedupe_ids.update(ids_set)
-                
-                for d_id in matched_dedupe_ids:
-                    erp = erp_index.get(f"adm_{d_id}") or erp_index.get(f"email_{d_id}")
-                    if not erp: continue
-                    adm = str(erp.get('admissionNumber') or '').upper().strip()
-                    student_obj = erp.get('student') or {}
-                    details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
-                    details = details_list[0] if (isinstance(details_list, list) and details_list) else {}
-                    email = str((details.get('studentEmail') if isinstance(details, dict) else None) or "").lower().strip()
-                    
-                    if (adm and adm in global_seen_uids) or (email and email in global_seen_uids): continue
-                    
-                    centre_counts[str(c.pk)]['roster'] += 1
-                    if adm: global_seen_uids.add(adm)
-                    if email: global_seen_uids.add(email)
 
         # 5. Format Data
         from .serializers import TestCentreAllotmentSerializer
@@ -753,7 +865,7 @@ class TestViewSet(viewsets.ModelViewSet):
                     'centre_details': CentreSerializer(c).data, 'is_active': False, 'test_name': test.name
                 }
             serialized['submission_count'] = centre_counts[c_id]['sub']
-            serialized['total_students_in_centre'] = centre_counts[c_id]['roster']
+            serialized['total_students_in_centre'] = centre_counts[c_id]['sub']
             data.append(serialized)
 
         if unassigned_sub_count > 0:
@@ -903,14 +1015,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # We also need a fast map for finalized status etc.
         sub_map = {str(s['pk']): s['doc'] for s in all_subs_list}
 
-        # Build ERP index LAZY for O(1) performance
-        # PERFORMANCE: We never force synchronous ERP refresh here as it takes 13s+
-        erp_index = None
-        def get_erp_idx():
-            nonlocal erp_index
-            if erp_index is None:
-                erp_index = get_student_lookup_index(force_refresh=False)
-            return erp_index
+        # PERFORMANCE FIX: Removed ERP index completely.
 
         # Step A: Assigned Submitted Students
         for sub in all_subs_list:
@@ -933,57 +1038,8 @@ class TestViewSet(viewsets.ModelViewSet):
                 if sub['email']: global_seen_uids.add(sub['email'].lower().strip())
                 final_list.append((u_obj, False))
 
-        # Step B: Assign Local Students (Only those belonging to the target centre)
-        if target_c_obj:
-            pool = CustomUser.objects.filter(user_type='student').filter(
-                Q(centre_code__iexact=target_c_obj.code) | Q(centre_name__iexact=target_c_obj.name)
-            )
-            for s in pool:
-                uid = (s.username or str(s.pk)).upper().strip()
-                if uid in global_seen_uids: continue
-                
-                final_list.append((s, False))
-                global_seen_uids.add(uid)
-                if s.admission_number: global_seen_uids.add(s.admission_number.upper().strip())
-                if s.email: global_seen_uids.add(s.email.lower().strip())
-
-        # Step C: Assign ERP Mock Students (Only those belonging to target centre)
-        from api.erp_views import get_centre_student_index
-        centre_idx = get_centre_student_index(force_refresh=False)
-        if target_c_obj and centre_idx:
-            tcn = target_c_obj.name.upper().strip()
-            tcc = target_c_obj.code.upper().strip()
-            
-            matched_dedupe_ids = set()
-            for c_key, ids_set in centre_idx.items():
-                if tcn == c_key or tcc == c_key or tcn in c_key or c_key in tcn:
-                    matched_dedupe_ids.update(ids_set)
-                    
-            for d_id in matched_dedupe_ids:
-                idx = get_erp_idx()
-                erp = idx.get(f"adm_{d_id}") or idx.get(f"email_{d_id}")
-                if not erp: continue
-                
-                adm = str(erp.get('admissionNumber') or '').upper().strip()
-                student_obj = erp.get('student') or {}
-                details_list = (student_obj.get('studentsDetails') if isinstance(student_obj, dict) else None) or [{}]
-                det = details_list[0] if (isinstance(details_list, list) and details_list) else {}
-                em = str((det.get('studentEmail') if isinstance(det, dict) else None) or "").lower().strip()
-                
-                if (adm and adm in global_seen_uids) or (em and em in global_seen_uids): continue
-                
-                sn = str(det.get('studentName') or 'Student').strip()
-                sp = sn.split(' ')
-                final_list.append((SimpleNamespace(
-                    pk=None, username=adm, email=em or f"{adm.lower()}@unknown.com",
-                    first_name=sp[0], last_name=' '.join(sp[1:]) if len(sp) > 1 else '',
-                    admission_number=adm, 
-                    exam_section=(erp.get('sectionAllotment') or {}).get('examSection'),
-                    study_section=(erp.get('sectionAllotment') or {}).get('studySection'),
-                    rm_code=None, omr_code=None, employee_id=None, user_type='student'
-                ), False))
-                if adm: global_seen_uids.add(adm)
-                if em: global_seen_uids.add(em)
+        # PERFORMANCE FIX: Removed Step B (Local Students) and Step C (ERP Students).
+        # We now only return students who actually started or submitted the test.
 
         # 5. Format and Enrich Final Response
         data = []
@@ -994,12 +1050,10 @@ class TestViewSet(viewsets.ModelViewSet):
             uid_str = str(s.pk) if s.pk else None
             sub = sub_map.get(uid_str) if uid_str else None
             
-            # Use Index for enrichment (FAST)
-            idx = get_erp_idx()
-            erp_data = idx.get(f"email_{str(s.email).lower()}") or idx.get(f"adm_{str(s.username).upper()}")
-            
-            enroll = str(erp_data.get('admissionNumber') if erp_data else (s.admission_number or 'ID MISSING')).upper().strip()
-            section = str((erp_data.get('sectionAllotment', {}).get('examSection') if erp_data and isinstance(erp_data.get('sectionAllotment'), dict) else s.exam_section) or '—').upper().strip()
+            # PERFORMANCE FIX: Removed ERP enrichment completely to prevent latency spikes.
+            # Using local student data which we already have in the database.
+            enroll = str(s.admission_number or 'ID MISSING').upper().strip()
+            section = str(getattr(s, 'exam_section', '') or getattr(s, 'study_section', '') or '—').upper().strip()
             
             data.append({
                 'id': str(sub['_id']) if sub else None,
