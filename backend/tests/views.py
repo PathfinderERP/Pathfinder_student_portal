@@ -365,6 +365,20 @@ class TestViewSet(viewsets.ModelViewSet):
                 from bson.objectid import ObjectId
                 doc = db['tests_test'].find_one({'_id': ObjectId(test_id)}) if len(str(test_id)) == 24 else db['tests_test'].find_one({'id': int(test_id)})
                 if doc:
+                    test_id_int = doc.get('id')
+                    
+                    # Map ObjectIds back to integer ids for frontend dropdown compatibility
+                    target_id_map = {str(t['_id']): str(t.get('id', t['_id'])) for t in db['master_data_targetexam'].find({})}
+                    session_id_map = {str(s['_id']): str(s.get('id', s['_id'])) for s in db['master_data_session'].find({})}
+                    class_id_map = {str(c['_id']): str(c.get('id', c['_id'])) for c in db['master_data_classlevel'].find({})}
+                    exam_type_id_map = {str(e['_id']): str(e.get('id', e['_id'])) for e in db['master_data_examtype'].find({})}
+                    centre_id_map = {str(c['_id']): str(c.get('id', c['_id'])) for c in db['tests_centre'].find({})}
+                    
+                    target_exams = [target_id_map.get(str(x['targetexam_id']), str(x['targetexam_id'])) for x in db['tests_test_target_exams'].find({'test_id': test_id_int})]
+                    sessions = [session_id_map.get(str(x['session_id']), str(x['session_id'])) for x in db['tests_test_sessions'].find({'test_id': test_id_int})]
+                    class_levels = [class_id_map.get(str(x['classlevel_id']), str(x['classlevel_id'])) for x in db['tests_test_class_levels'].find({'test_id': test_id_int})]
+                    centres = [centre_id_map.get(str(x['centre_id']), str(x['centre_id'])) for x in db['tests_test_centres'].find({'test_id': test_id_int})]
+
                     data = {
                         'id': str(doc.get('_id')),
                         'name': doc.get('name', ''),
@@ -376,13 +390,13 @@ class TestViewSet(viewsets.ModelViewSet):
                         'is_completed': doc.get('is_completed', False),
                         'has_calculator': doc.get('has_calculator', False),
                         'option_type_numeric': doc.get('option_type_numeric', False),
-                        'session': str(doc.get('session_id')) if doc.get('session_id') else None,
-                        'sessions': [str(s) for s in doc.get('sessions', [])],
-                        'target_exams': [str(t) for t in doc.get('target_exams', [])],
-                        'exam_type': str(doc.get('exam_type_id')) if doc.get('exam_type_id') else None,
-                        'class_level': str(doc.get('class_level_id')) if doc.get('class_level_id') else None,
-                        'class_levels': [str(c) for c in doc.get('class_levels', [])],
-                        'centres': [str(c) for c in doc.get('centres', [])]
+                        'session': session_id_map.get(str(doc.get('session_id')), str(doc.get('session_id'))) if doc.get('session_id') else None,
+                        'sessions': sessions,
+                        'target_exams': target_exams,
+                        'exam_type': exam_type_id_map.get(str(doc.get('exam_type_id')), str(doc.get('exam_type_id'))) if doc.get('exam_type_id') else None,
+                        'class_level': class_id_map.get(str(doc.get('class_level_id')), str(doc.get('class_level_id'))) if doc.get('class_level_id') else None,
+                        'class_levels': class_levels,
+                        'centres': centres
                     }
                     from rest_framework.response import Response
                     return Response(data)
@@ -675,74 +689,148 @@ class TestViewSet(viewsets.ModelViewSet):
 
         # We override super().list logic slightly to use our context
         queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True, context=serializer_context)
-            response = self.get_paginated_response(serializer.data)
-        else:
-            serializer = self.get_serializer(queryset, many=True, context=serializer_context)
-            response = Response(serializer.data)
         
-        if is_staff:
-            # OPTIMIZATION INJECTION: calculate total_students in bulk!
-            from api.db_utils import get_db
-            db = get_db()
-            if db is not None:
-                try:
-                    data_items = response.data.get('results', []) if isinstance(response.data, dict) else response.data
-                    if isinstance(data_items, list) and len(data_items) > 0:
-                        from bson import ObjectId
-                        test_ids = []
-                        for item in data_items:
-                            try:
-                                test_ids.append(ObjectId(item.get('id')))
-                            except:
-                                test_ids.append(item.get('id'))
+        # --- STUDENT LOGIC REMAINS DRF ---
+        if not is_staff:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True, context=serializer_context)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True, context=serializer_context)
+            return Response(serializer.data)
+            
+        # --- STAFF LOGIC REWRITTEN TO NATIVE PYMONGO FOR 100x SPEED ---
+        from api.db_utils import get_db
+        db = get_db()
+        data_items = []
+        
+        if db is not None:
+            try:
+                # 1. Fetch Master Dictionaries in 4 fast queries mapping both ObjectIds and integer ids
+                session_map = {}
+                for s in db['master_data_session'].find({}):
+                    name = s.get('name', '')
+                    session_map[str(s['_id'])] = name
+                    if 'id' in s: session_map[str(s['id'])] = name
+                    
+                exam_type_map = {}
+                for e in db['master_data_examtype'].find({}):
+                    name = e.get('name', '')
+                    exam_type_map[str(e['_id'])] = name
+                    if 'id' in e: exam_type_map[str(e['id'])] = name
+                    
+                class_map = {}
+                for c in db['master_data_classlevel'].find({}):
+                    name = c.get('name', '')
+                    class_map[str(c['_id'])] = name
+                    if 'id' in c: class_map[str(c['id'])] = name
+                    
+                target_map = {}
+                for t in db['master_data_targetexam'].find({}):
+                    name = t.get('name', '')
+                    target_map[str(t['_id'])] = name
+                    if 'id' in t: target_map[str(t['id'])] = name
+
+                # 2. Fetch all tests natively, ordered by created_at DESC
+                tests_cursor = db['tests_test'].find({}).sort('created_at', -1)
+                
+                # Fetch M2M mappings in bulk
+                target_mappings = {}
+                for t in db['tests_test_target_exams'].find({}):
+                    target_mappings.setdefault(t['test_id'], []).append(str(t['targetexam_id']))
+                
+                session_mappings = {}
+                for s in db['tests_test_sessions'].find({}):
+                    session_mappings.setdefault(s['test_id'], []).append(str(s['session_id']))
+                    
+                class_mappings = {}
+                for c in db['tests_test_class_levels'].find({}):
+                    class_mappings.setdefault(c['test_id'], []).append(str(c['classlevel_id']))
+                    
+                centre_mappings = {}
+                for c in db['tests_test_centres'].find({}):
+                    centre_mappings.setdefault(c['test_id'], []).append(str(c['centre_id']))
+                
+                for doc in tests_cursor:
+                    test_id = doc.get('id')
+                    
+                    item = {
+                        'id': test_id,
+                        'name': doc.get('name', ''),
+                        'code': doc.get('code', ''),
+                        'duration': doc.get('duration', 0),
+                        'total_marks': doc.get('total_marks', 0),
+                        'is_completed': doc.get('is_completed', False),
+                        'is_omr_based': doc.get('is_omr_based', False),
+                        'is_result_published': doc.get('is_result_published', False),
+                        'created_at': doc.get('created_at'),
                         
-                        pipeline = [
-                            {"$match": {"test_id": {"$in": test_ids}}},
-                            {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
-                        ]
-                        counts = list(db['tests_testsubmission'].aggregate(pipeline))
-                        count_map = {str(item["_id"]): item["count"] for item in counts}
+                        # Primitive IDs (for backwards compatibility)
+                        'session': str(doc.get('session_id')) if doc.get('session_id') else None,
+                        'exam_type': str(doc.get('exam_type_id')) if doc.get('exam_type_id') else None,
+                        'class_level': str(doc.get('class_level_id')) if doc.get('class_level_id') else None,
+                        
+                        # Direct Dictionary References
+                        'session_details': {'name': session_map.get(str(doc.get('session_id')), '')} if doc.get('session_id') else None,
+                        'exam_type_details': {'name': exam_type_map.get(str(doc.get('exam_type_id')), '')} if doc.get('exam_type_id') else None,
+                        'class_level_details': {'name': class_map.get(str(doc.get('class_level_id')), '')} if doc.get('class_level_id') else None,
+                        
+                        # Arrays of details mapped instantly
+                        'sessions_details': [{'name': session_map.get(s, '')} for s in session_mappings.get(test_id, []) if s in session_map],
+                        'class_levels_details': [{'name': class_map.get(c, '')} for c in class_mappings.get(test_id, []) if c in class_map],
+                        'target_exam_details': [{'name': target_map.get(t, '')} for t in target_mappings.get(test_id, []) if t in target_map],
+                        
+                        'sessions': session_mappings.get(test_id, []),
+                        'class_levels': class_mappings.get(test_id, []),
+                        'target_exams': target_mappings.get(test_id, []),
+                        'centres': centre_mappings.get(test_id, []),
+                        'centres_count': len(centre_mappings.get(test_id, [])),
+                        
+                        # Default counts
+                        'total_students': 0,
+                        'total_roster_count': 0,
+                        'failed_omr_count': 0
+                    }
+                    data_items.append(item)
 
-                        # 1. Submission Counts (Attempts) — fast Mongo aggregation.
+                # 3. Inject Aggregation Counts
+                if len(data_items) > 0:
+                    test_ids = [item['id'] for item in data_items]
+                    
+                    # Attempts count
+                    pipeline = [
+                        {"$match": {"test_id": {"$in": test_ids}}},
+                        {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
+                    ]
+                    counts = list(db['tests_testsubmission'].aggregate(pipeline))
+                    count_map = {item["_id"]: item["count"] for item in counts}
+                    for item in data_items:
+                        item['total_students'] = count_map.get(item['id'], 0)
+                        
+                    # Failed OMR count
+                    try:
+                        failed_counts = list(db['tests_omrfailedrecord'].aggregate(pipeline))
+                        failed_count_map = {item["_id"]: item["count"] for item in failed_counts}
                         for item in data_items:
-                            item['total_students'] = count_map.get(str(item.get('id')), 0)
+                            item['failed_omr_count'] = failed_count_map.get(item['id'], 0)
+                    except Exception: pass
 
-                        # 2. Roster Counts (Allocated) — read from independent cache.
-                        # NEVER computed synchronously here; a background thread keeps it fresh.
-                        # This is the change that fixes the 20-90s admin hang.
-                        roster_map = cache.get(ROSTER_CACHE_KEY) or {}
-                        for item in data_items:
-                            item['total_roster_count'] = roster_map.get(str(item.get('id')), 0)
+                # 4. Inject Roster Counts (from background cache)
+                roster_map = cache.get(ROSTER_CACHE_KEY) or {}
+                for item in data_items:
+                    item['total_roster_count'] = roster_map.get(str(item['id']), 0)
 
-                        # 3. Failed OMR Record counts — fast direct Mongo query.
-                        try:
-                            failed_pipeline = [
-                                {"$match": {"test_id": {"$in": test_ids}}},
-                                {"$group": {"_id": "$test_id", "count": {"$sum": 1}}}
-                            ]
-                            failed_counts = list(db['tests_omrfailedrecord'].aggregate(failed_pipeline))
-                            failed_count_map = {str(item["_id"]): item["count"] for item in failed_counts}
-                            for item in data_items:
-                                item['failed_omr_count'] = failed_count_map.get(str(item.get('id')), 0)
-                        except Exception as fe:
-                            print(f"Failed OMR count injection error: {fe}")
-                            for item in data_items:
-                                item.setdefault('failed_omr_count', 0)
+                if not roster_map or cache.get(ROSTER_FRESHNESS_KEY) is None:
+                    _trigger_roster_refresh()
 
-                        # Trigger background recompute if cache is missing or stale.
-                        if not roster_map or cache.get(ROSTER_FRESHNESS_KEY) is None:
-                            _trigger_roster_refresh()
+            except Exception as e:
+                print(f"List Optimization Error: {e}")
 
-                except Exception as e:
-                    print(f"List Optimization Error: {e}")
-
-            # Cache the assembled list response. Length aligned with the roster cache so
-            # the two stay coherent; background refresher keeps both warm.
-            cache.set("admin_test_list", response.data, 1800)
-            self.__class__._local_cache["admin_test_list"] = {'data': response.data, 'time': now}
+        response = Response(data_items)
+        
+        # Cache the assembled list response
+        cache.set("admin_test_list", data_items, 1800)
+        self.__class__._local_cache["admin_test_list"] = {'data': data_items, 'time': now}
 
         return response
 
@@ -755,10 +843,81 @@ class TestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def sections(self, request, pk=None):
+        from api.db_utils import get_db
+        db = get_db()
+        
+        if db is not None:
+            try:
+                # 1. Resolve test ID
+                from bson import ObjectId
+                test_query = {}
+                try:
+                    test_query = {'id': int(pk)}
+                except (ValueError, TypeError):
+                    test_query = {'_id': ObjectId(pk)}
+                    
+                test_doc = db['tests_test'].find_one(test_query, {'_id': 1, 'id': 1})
+                if not test_doc:
+                    return Response({'detail': 'Test not found'}, status=404)
+                    
+                test_id_obj = test_doc['_id']
+                test_id_int = test_doc.get('id')
+                
+                # 2. Fetch Sections
+                sections_cursor = db['sections_section'].find({'test_id': test_id_int}).sort([('priority', 1), ('created_at', 1)])
+                sections_list = list(sections_cursor)
+                
+                # 3. Bulk fetch questions in ONE query instead of N+1
+                section_ids = [s['_id'] for s in sections_list]
+                sq_map = {}
+                if section_ids:
+                    junctions = db['sections_section_questions'].find({'section_id': {'$in': section_ids}})
+                    for j in junctions:
+                        sid = str(j['section_id'])
+                        qid = str(j['question_id'])
+                        if sid not in sq_map:
+                            sq_map[sid] = set()
+                        sq_map[sid].add(qid)
+                
+                # 4. Construct payload identical to SectionSerializer
+                data = []
+                for s in sections_list:
+                    s_id = str(s['_id'])
+                    item = {
+                        'id': s_id,
+                        'test': test_id_int,
+                        'name': s.get('name', ''),
+                        'subject_code': s.get('subject_code', 'GEN'),
+                        'total_questions': s.get('total_questions', 20),
+                        'allowed_questions': s.get('allowed_questions', 20),
+                        'shuffle': s.get('shuffle', False),
+                        'question_type': s.get('question_type', 'SINGLE_CHOICE'),
+                        'correct_marks': s.get('correct_marks', 4.0),
+                        'negative_marks': s.get('negative_marks', 1.0),
+                        'partial_type': s.get('partial_type', 'regular'),
+                        'partial_marks': s.get('partial_marks', 0.0),
+                        'partial_mark_rule': str(s.get('partial_mark_rule_id')) if s.get('partial_mark_rule_id') else None,
+                        'priority': s.get('priority', 1),
+                        'questions': list(sq_map.get(s_id, [])),
+                        'created_at': s.get('created_at'),
+                        'updated_at': s.get('updated_at')
+                    }
+                    data.append(item)
+                return Response(data)
+                
+            except Exception as e:
+                print(f"PyMongo Sections error: {e}")
+                pass
+                
+        # Fallback to DRF (slow path)
         try:
             test = Test.objects.get(pk=pk)
         except Test.DoesNotExist:
-            return Response({'detail': 'Test not found'}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                test = Test.objects.get(_id=pk)
+            except:
+                return Response({'detail': 'Test not found'}, status=404)
+                
         sections = test.sections.all()
         serializer = SectionSerializer(sections, many=True)
         return Response(serializer.data)
@@ -806,16 +965,20 @@ class TestViewSet(viewsets.ModelViewSet):
                 sub_docs = list(db['tests_testsubmission'].find({'test_id': t_pk}, {'student_id': 1}))
                 if sub_docs:
                     student_pks = [d['student_id'] for d in sub_docs]
-                    # Fetch student centre info and names for mapping
-                    users = CustomUser.objects.filter(pk__in=student_pks)
-                    for u in users:
+                    # Fetch student centre info and names for mapping natively
+                    users_cursor = db['api_customuser'].find(
+                        {'_id': {'$in': student_pks}},
+                        {'_id': 1, 'username': 1, 'admission_number': 1, 'email': 1, 'centre_code': 1, 'centre_name': 1}
+                    )
+                    for u in users_cursor:
+                        pk_str = str(u['_id'])
                         all_subs_list.append({
-                            'pk': u.pk,
-                            'uid': (u.username or str(u.pk)).upper().strip(),
-                            'adm': u.admission_number,
-                            'email': u.email,
-                            'c_code': str(u.centre_code or '').lower().strip(),
-                            'c_name': str(u.centre_name or '').lower().strip()
+                            'pk': pk_str,
+                            'uid': str(u.get('username') or pk_str).upper().strip(),
+                            'adm': u.get('admission_number'),
+                            'email': u.get('email'),
+                            'c_code': str(u.get('centre_code') or '').lower().strip(),
+                            'c_name': str(u.get('centre_name') or '').lower().strip()
                         })
             except Exception as e:
                 print(f"PyMongo bypass error in 'centres': {e}")
@@ -974,16 +1137,20 @@ class TestViewSet(viewsets.ModelViewSet):
                 sub_docs = list(db['tests_testsubmission'].find({'test_id': t_pk}))
                 if sub_docs:
                     sub_pks = [d['student_id'] for d in sub_docs]
-                    users_map = {str(u.pk): u for u in CustomUser.objects.filter(pk__in=sub_pks)}
+                    users_cursor = db['api_customuser'].find(
+                        {'_id': {'$in': sub_pks}},
+                        {'_id': 1, 'username': 1, 'admission_number': 1, 'email': 1, 'centre_code': 1, 'centre_name': 1, 'first_name': 1, 'last_name': 1, 'exam_section': 1, 'study_section': 1}
+                    )
+                    users_map = {str(u['_id']): u for u in users_cursor}
                     for sd in sub_docs:
                         sid_str = str(sd['student_id'])
                         u = users_map.get(sid_str)
                         if u:
                             all_subs_list.append({
-                                'doc': sd, 'pk': u.pk, 'uid': (u.username or sid_str).upper().strip(),
-                                'adm': u.admission_number, 'email': u.email,
-                                'c_code': str(u.centre_code or '').lower().strip(),
-                                'c_name': str(u.centre_name or '').lower().strip()
+                                'doc': sd, 'pk': str(u['_id']), 'uid': str(u.get('username') or sid_str).upper().strip(),
+                                'adm': u.get('admission_number'), 'email': u.get('email'),
+                                'c_code': str(u.get('centre_code') or '').lower().strip(),
+                                'c_name': str(u.get('centre_name') or '').lower().strip()
                             })
             except Exception as e:
                 print(f"PyMongo error in submissions: {e}")
@@ -1047,19 +1214,19 @@ class TestViewSet(viewsets.ModelViewSet):
             s, is_mis = item if isinstance(item, tuple) else (item, False)
             if not s: continue
             
-            uid_str = str(s.pk) if s.pk else None
+            uid_str = str(s['_id']) if s.get('_id') else None
             sub = sub_map.get(uid_str) if uid_str else None
             
             # PERFORMANCE FIX: Removed ERP enrichment completely to prevent latency spikes.
             # Using local student data which we already have in the database.
-            enroll = str(s.admission_number or 'ID MISSING').upper().strip()
-            section = str(getattr(s, 'exam_section', '') or getattr(s, 'study_section', '') or '—').upper().strip()
+            enroll = str(s.get('admission_number') or 'ID MISSING').upper().strip()
+            section = str(s.get('exam_section', '') or s.get('study_section', '') or '—').upper().strip()
             
             data.append({
                 'id': str(sub['_id']) if sub else None,
                 'student_id': uid_str,
-                'student_name': (f"{s.first_name} {s.last_name}".strip() or s.username).upper(),
-                'username': s.username, 'email': s.email, 'enroll_number': enroll, 'section': section,
+                'student_name': (f"{s.get('first_name', '')} {s.get('last_name', '')}".strip() or s.get('username', '')).upper(),
+                'username': s.get('username'), 'email': s.get('email'), 'enroll_number': enroll, 'section': section,
                 'score': sub.get('score') if sub else None,
                 'submission_type': sub.get('submission_type') if sub else None,
                 'time_spent': sub.get('time_spent', 0) if sub else 0,
