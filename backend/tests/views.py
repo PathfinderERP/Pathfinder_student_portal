@@ -346,6 +346,24 @@ class TestViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = TestSerializer
 
+    def get_object(self):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        pk = self.kwargs.get(lookup_url_kwarg)
+        
+        if pk and len(str(pk)) == 24:
+            try:
+                from api.db_utils import get_db
+                from bson.objectid import ObjectId
+                db = get_db()
+                if db is not None:
+                    doc = db['tests_test'].find_one({'_id': ObjectId(pk)})
+                    if doc and 'id' in doc:
+                        self.kwargs[lookup_url_kwarg] = doc['id']
+            except Exception as e:
+                print(f"ObjectId interception failed: {e}")
+                
+        return super().get_object()
+
     def get_serializer_class(self):
         # Use the lightweight list serializer (no description/instructions) for
         # the list action to reduce payload size and serialization overhead.

@@ -325,7 +325,7 @@ def get_student_erp_data(request):
     # Force-Refresh behavior: Bypassing cache to perform blocking real-time sync.
     # OPTIMIZATION: Serving from cache avoids expensive ERP calls entirely
     if _is_profile_rich(cached) and not force_refresh:
-        print(f"[ERP] ✓ Serving {search_email} from cache (avoiding expensive ERP call).")
+        print(f"[ERP] Serving {search_email} from cache (avoiding expensive ERP call).")
         return Response(cached, status=200)
 
     # Strategy 2: High-Speed Index (Bypass if force_refresh)
@@ -398,7 +398,7 @@ def _sync_user_to_erp(user, admission_data):
         new_erp_sid = str(student_obj.get('_id') or admission_data.get('_id') or '').strip()
         if new_erp_sid and user.erp_student_id != new_erp_sid:
             user.erp_student_id = new_erp_sid; has_changed = True
-            print(f"[SYNC] ✓ Synced erp_student_id={new_erp_sid} for {user.username}")
+            print(f"[SYNC] Synced erp_student_id={new_erp_sid} for {user.username}")
         
         # 1. Sync Admission Number
         new_adm = admission_data.get('admissionNumber')
@@ -499,11 +499,11 @@ def _sync_user_to_erp(user, admission_data):
             # (like loading tests) use the fresh section data immediately.
             from django.core.cache import cache
             cache.delete(f"erp_validation_{user.pk}")
-            print(f"[SYNC] ✓ User {user.username} updated and saved.")
+            print(f"[SYNC] User {user.username} updated and saved.")
         else:
-            print(f"[SYNC] ℹ User {user.username} already up to date.")
+            print(f"[SYNC] User {user.username} already up to date.")
     except Exception as e:
-        print(f"[SYNC] ⚠ Failed to sync user {user.username}: {e}")
+        print(f"[SYNC] Failed to sync user {user.username}: {e}")
 
 
 @api_view(['GET'])
