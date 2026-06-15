@@ -3335,7 +3335,7 @@ class TestViewSet(viewsets.ModelViewSet):
         
         # Resolve all questions in this test's structural sections to correctly map marks
         questions_map = {}
-        for section in test.sections.all():
+        for section in test.sections.prefetch_related('questions'):
             for q in section.questions.all():
                 questions_map[str(q.pk)] = {
                     'question': q,
