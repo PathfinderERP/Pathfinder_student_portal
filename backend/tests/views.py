@@ -2173,22 +2173,17 @@ class TestViewSet(viewsets.ModelViewSet):
 
                     if q_type == 'SINGLE_CHOICE':
                         ans_str = str(ans).strip().lower()
-                        clean_ans = clean_html(ans)
                         is_correct = False
                         
                         opts = q.question_options or []
                         for oi, opt in enumerate(opts):
                             opt_id = str(opt.get('id', ''))
-                            opt_content = clean_html(opt.get('content') or opt.get('text', ''))
                             opt_label = keys[oi] if oi < len(keys) else None
-                            if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                            if ans_str == opt_id or (opt_label and ans_str == opt_label):
                                 if opt.get('isCorrect'): is_correct = True
                                 break
                         if not is_correct:
-                            try:
-                                idx = int(ans_str)
-                                if idx < len(opts) and opts[idx].get('isCorrect'): is_correct = True
-                            except: pass
+                            pass
                         
                         if is_correct:
                             earned = c_marks
@@ -2249,23 +2244,29 @@ class TestViewSet(viewsets.ModelViewSet):
             s_sec = ts % 60
             time_str = f"{h}:{m:02d}:{s_sec:02d}" if h > 0 else f"0:{m:02d}:{s_sec:02d}"
 
-            # Get batch directly from DB, or fallback to the in-memory ERP index
+            # Get batch and centre directly from DB, or fallback to the in-memory ERP index
             batch_str = s_info.get('assigned_batch')
-            if not batch_str:
+            centre_str = s_info.get('centre_name')
+
+            if not batch_str or not centre_str:
                 adm = s_info.get('admission_number') or s_info.get('username')
                 if adm:
                     match = erp_index.get(f"adm_{str(adm).strip().upper()}")
                     if match:
-                        batches = (match.get('student') or {}).get('batches', [])
-                        if batches and len(batches) > 0:
-                            batch_str = batches[0].get('batchName')
+                        if not batch_str:
+                            batches = (match.get('student') or {}).get('batches', [])
+                            if batches and isinstance(batches, list) and len(batches) > 0:
+                                batch_str = batches[0].get('batchName')
+                        if not centre_str:
+                            centre_str = match.get('centre')
             
             batch_str = batch_str or "N/A"
+            centre_str = centre_str or "N/A"
 
             result_data.append({
                 'name': (f"{s_info.get('first_name','')} {s_info.get('last_name','')}".strip() or s_info.get('username','Unknown')).upper(),
                 'enrollment': s_info.get('admission_number') or s_info.get('username') or 'N/A',
-                'centre': s_info.get('centre_name') or 'N/A',
+                'centre': centre_str.upper() if centre_str != 'N/A' else 'N/A',
                 'batch': batch_str.upper(),
                 'marks': round(total_recalculated, 2),
                 'accuracy': f"{round(accuracy, 2)}%",
@@ -2399,21 +2400,15 @@ class TestViewSet(viewsets.ModelViewSet):
 
                         if q_type == 'SINGLE_CHOICE':
                             ans_str = str(ans).strip().lower()
-                            clean_ans = clean_html(ans)
                             is_correct = False
                             for oi, opt in enumerate(qi.get('options', [])):
                                 opt_id = str(opt.get('id', ''))
-                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
                                 opt_label = keys[oi] if oi < len(keys) else None
-                                if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                                if ans_str == opt_id or (opt_label and ans_str == opt_label):
                                     if opt.get('isCorrect'): is_correct = True
                                     break
                             if not is_correct:
-                                try:
-                                    idx = int(ans_str)
-                                    opts = qi.get('options', [])
-                                    if idx < len(opts) and opts[idx].get('isCorrect'): is_correct = True
-                                except: pass
+                                pass
                             if is_correct: earned = c_marks
                             else: neg = n_marks
                         elif q_type == 'MULTI_CHOICE':
@@ -2883,21 +2878,16 @@ class TestViewSet(viewsets.ModelViewSet):
                                 d_correct += 1
                             elif q_type == 'SINGLE_CHOICE':
                                 ans_str = str(ans).strip().lower()
-                                clean_ans = clean_html(ans)
                                 is_correct = False
                                 keys = ['a', 'b', 'c', 'd', 'e', 'f']
                                 for oi, opt in enumerate(q_info.get('options', [])):
                                     opt_id = str(opt.get('id', ''))
-                                    opt_content = clean_html(opt.get('content') or opt.get('text', ''))
                                     opt_label = keys[oi] if oi < len(keys) else None
-                                    if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                                    if ans_str == opt_id or (opt_label and ans_str == opt_label):
                                         if opt.get('isCorrect'): is_correct = True
                                         break
                                 if not is_correct:
-                                    try:
-                                        idx = int(ans_str)
-                                        if idx < len(q_info.get('options', [])) and q_info['options'][idx].get('isCorrect'): is_correct = True
-                                    except: pass
+                                    pass
                                 if is_correct: earned = q_info['correct_marks']
                                 else: neg = q_info['negative_marks']
                             elif q_type == 'MULTI_CHOICE':
@@ -3375,21 +3365,15 @@ class TestViewSet(viewsets.ModelViewSet):
             if q_obj.question_type in ['SINGLE_CHOICE', 'MULTI_CHOICE']:
                 if q_obj.question_type == 'SINGLE_CHOICE':
                     ans_str = str(received_answer).strip().lower()
-                    clean_ans = clean_html(received_answer)
                     keys = ['a', 'b', 'c', 'd', 'e', 'f']
                     for oi, opt in enumerate(q_obj.question_options or []):
                         opt_id = str(opt.get('id', ''))
-                        opt_content = clean_html(opt.get('content') or opt.get('text', ''))
                         opt_label = keys[oi] if oi < len(keys) else None
-                        if ans_str == opt_id or clean_ans == opt_content or (opt_label and ans_str == opt_label):
+                        if ans_str == opt_id or (opt_label and ans_str == opt_label):
                             if opt.get('isCorrect'): is_correct = True
                             break
                     if not is_correct:
-                        try:
-                            idx = int(ans_str)
-                            opts = q_obj.question_options or []
-                            if idx < len(opts) and opts[idx].get('isCorrect'): is_correct = True
-                        except: pass
+                        pass
                 else:
                     # Multi choice (simplified)
                     correct_options = [str(opt['id']) for opt in (q_obj.question_options or []) if opt.get('isCorrect')]
