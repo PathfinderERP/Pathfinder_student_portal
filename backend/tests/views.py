@@ -534,7 +534,8 @@ class TestViewSet(viewsets.ModelViewSet):
             if user.class_level:
                 qs_academic = Test.objects.filter(class_level=user.class_level)
             else:
-                qs_academic = Test.objects.all()
+                # If the student has no class, only show tests that have NO class restriction
+                qs_academic = Test.objects.filter(class_level__isnull=True)
 
             if user.target_exam:
                 te_test_ids = list(
