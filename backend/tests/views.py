@@ -1445,6 +1445,7 @@ class TestViewSet(viewsets.ModelViewSet):
                         del existing_sub_map[k]
 
                 success_count = 0
+                to_create = []
                 for data in validated_rows:
                     student = data['student']
                     responses = data['responses']
@@ -1455,8 +1456,14 @@ class TestViewSet(viewsets.ModelViewSet):
                         sub.submission_type = 'OMR_EXCEL'
                         sub.save()
                     else:
-                        TestSubmission.objects.create(test=test, student=student, responses=responses, is_finalized=True, submission_type='OMR_EXCEL')
+                        to_create.append(TestSubmission(
+                            test=test, student=student, responses=responses, 
+                            is_finalized=True, submission_type='OMR_EXCEL'
+                        ))
                     success_count += 1
+                
+                if to_create:
+                    TestSubmission.objects.bulk_create(to_create)
 
             else:
                 score_col = next((c for c in ['score', 'total score', 'marks', 'total marks', 'total'] if c in df.columns), None)
@@ -1494,6 +1501,7 @@ class TestViewSet(viewsets.ModelViewSet):
                         del existing_sub_map[k]
 
                 success_count = 0
+                to_create = []
                 for data in validated_rows:
                     student = data['student']
                     score = data['score']
@@ -1504,8 +1512,14 @@ class TestViewSet(viewsets.ModelViewSet):
                         sub.submission_type = 'OMR_EXCEL'
                         sub.save()
                     else:
-                        TestSubmission.objects.create(test=test, student=student, score=score, is_finalized=True, submission_type='OMR_EXCEL')
+                        to_create.append(TestSubmission(
+                            test=test, student=student, score=score, 
+                            is_finalized=True, submission_type='OMR_EXCEL'
+                        ))
                     success_count += 1
+
+                if to_create:
+                    TestSubmission.objects.bulk_create(to_create)
 
             # --- Persist failed rows (replace old ones for this test) ---
             from api.db_utils import get_db
