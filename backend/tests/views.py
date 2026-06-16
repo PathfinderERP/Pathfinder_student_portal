@@ -1376,7 +1376,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
             if is_omr_raw:
                 questions = []
-                for section in test.sections.all().order_by('priority'):
+                for section in test.sections.prefetch_related('questions').order_by('priority'):
                     seen = set()
                     order_list = section.question_order or []
                     order_map = {str(oid): i for i, oid in enumerate(order_list)}
@@ -1730,7 +1730,7 @@ class TestViewSet(viewsets.ModelViewSet):
         test = self.get_object()
         sections_data = []
 
-        for section in test.sections.all().order_by('priority'):
+        for section in test.sections.prefetch_related('questions').order_by('priority'):
             seen = set()
             order_list = section.question_order or []
             order_map = {str(oid): i for i, oid in enumerate(order_list)}
@@ -1893,7 +1893,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # 1. Group questions by section
         flat_questions = []
         sections_info = []
-        for section in test.sections.all().order_by('priority'):
+        for section in test.sections.prefetch_related('questions').order_by('priority'):
             order_list = section.question_order or []
             order_map = {str(oid): i for i, oid in enumerate(order_list)}
             
@@ -2485,7 +2485,7 @@ class TestViewSet(viewsets.ModelViewSet):
                    or CustomUser.objects.filter(username__iexact=enrollment).first()
 
         # 2. Load all sections + questions once
-        sections = list(test.sections.all().order_by('priority'))
+        sections = list(test.sections.prefetch_related('questions').order_by('priority'))
         # Build flat q_map: q_id -> metadata
         q_map = {}
         sections_meta = []
@@ -3835,7 +3835,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
         chapter_data = {}  # { chapter_name: { correct, incorrect, unattempted, total, score, max_score, topics: {} } }
 
-        for section in test.sections.all():
+        for section in test.sections.prefetch_related('questions__chapter', 'questions__topic'):
             # If section_filter provided, only process matching sections
             if section_filter and section.name.strip().lower() != section_filter:
                 continue
@@ -3843,7 +3843,7 @@ class TestViewSet(viewsets.ModelViewSet):
             c_marks = float(section.correct_marks or 0)
             n_marks = float(section.negative_marks or 0)
 
-            questions = section.questions.select_related('chapter', 'topic').all()
+            questions = section.questions.all()
 
             for q in questions:
                 chapter_name = (q.chapter.name if q.chapter else 'Uncategorized').strip()
