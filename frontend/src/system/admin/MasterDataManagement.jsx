@@ -829,8 +829,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 name: item.name,
                 code: item.code,
                 logic_type: item.logic_type || 'STANDARD',
-                base_correct_marks: item.base_correct_marks || 4,
-                base_negative_marks: item.base_negative_marks || 1,
+                base_correct_marks: item.base_correct_marks ?? 4,
+                base_negative_marks: item.base_negative_marks ?? 1,
                 exam_type: item.exam_type || item.exam_type_id || '',
                 is_active: item.is_active
             });
