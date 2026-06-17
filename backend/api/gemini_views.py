@@ -657,4 +657,78 @@ def search_college_ai(request):
         return Response([], status=status.HTTP_200_OK)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def extract_marksheet_data(request):
+    try:
+        file_id = request.data.get('file_id')
+        if not file_id:
+            return Response({"error": "file_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 1. Fetch file
+        from django.core.files.storage import default_storage
+        import mimetypes
+        import base64
+        
+        uploaded_obj = UploadedFile.objects.filter(pk=file_id).first()
+        if not uploaded_obj or not uploaded_obj.file:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        file_name = str(uploaded_obj.file.name)
+        mime_type, _ = mimetypes.guess_type(file_name)
+        if not mime_type:
+            mime_type = 'image/jpeg'
+            
+        with default_storage.open(file_name, 'rb') as fh:
+            file_bytes = fh.read()
+            
+        b64_data = base64.b64encode(file_bytes).decode('utf-8')
+        image_part = {
+            'inline_data': {
+                'mime_type': mime_type,
+                'data': b64_data
+            }
+        }
+
+        # 2. Setup Gemini
+        api_key = _get_gemini_api_key()
+        if not api_key:
+            return _gemini_not_configured_response()
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+
+        prompt = """
+        Extract the subjects and their marks from this Class 9 marksheet image.
+        Return ONLY a JSON array of objects.
+        Each object must have exactly two keys:
+        - "name": The name of the subject (e.g. "English", "Mathematics", "Science")
+        - "class9_marks": The marks obtained in that subject normalized out of 100. (e.g. if they got 45 out of 50, put 90). Return this as a number or string.
+        Do not include anything else in your response.
+        """
+
+        response = model.generate_content([image_part, prompt])
+        text = response.text.strip()
+        
+        # 3. Parse and return JSON
+        if text.startswith("```json"): text = text[7:]
+        if text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        text = text.strip()
+
+        import re
+        json_match = re.search(r'(\[.*\])', text, re.DOTALL)
+        if json_match:
+            text = json_match.group(1)
+
+        result = json.loads(text)
+        return Response(result, status=status.HTTP_200_OK)
+
+    except google_exceptions.ResourceExhausted:
+        return Response({"error": "AI Quota Exceeded"}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    except json.JSONDecodeError as je:
+        logger.error(f"[AI MARKSHEET] JSON Decode Error: {je}. Raw text: {text}")
+        return Response({"error": "Could not parse marks from image"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"[AI MARKSHEET] General Error: {str(e)}", exc_info=True)
+        return Response({"error": "Failed to extract data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

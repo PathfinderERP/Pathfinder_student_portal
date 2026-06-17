@@ -259,8 +259,9 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [customSubjects, setCustomSubjects] = useState([
         { id: Date.now(), name: '', target: '', class9_marks: '' }
     ]);
+    const [isExtractingMarks, setIsExtractingMarks] = useState(false);
 
-    // Upload Class 9 marksheet image to backend storage
+    // Upload Class 9 marksheet image to backend storage and trigger AI extraction
     const uploadMarksheet = async (file) => {
         if (!file) return;
         setMarksheetUploadStatus('uploading');
@@ -276,6 +277,30 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             if (fileId) {
                 setMarksheetFileId(fileId);
                 setMarksheetUploadStatus('done');
+                
+                // Trigger AI extraction
+                setIsExtractingMarks(true);
+                try {
+                    const extractRes = await axios.post(`${apiUrl}/api/student/ai-mentor/extract-marksheet/`, {
+                        file_id: fileId
+                    }, { headers: { 'Authorization': `Bearer ${token}` } });
+                    
+                    if (extractRes.data && Array.isArray(extractRes.data) && extractRes.data.length > 0) {
+                        const extractedSubjects = extractRes.data.map((subj, index) => ({
+                            id: Date.now() + index,
+                            name: subj.name || '',
+                            target: '', // Leave target blank for student to fill
+                            class9_marks: subj.class9_marks || ''
+                        }));
+                        setCustomSubjects(extractedSubjects);
+                    }
+                } catch (extractErr) {
+                    console.error('[Class10] AI Marksheet extraction failed:', extractErr);
+                    // Don't error the upload status, just silently fail extraction
+                } finally {
+                    setIsExtractingMarks(false);
+                }
+                
             } else {
                 setMarksheetUploadStatus('error');
             }
@@ -1117,6 +1142,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                         <>
                                             <div className="w-8 h-8 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
                                             <p className="text-xs font-black text-violet-500 uppercase tracking-widest">Uploading…</p>
+                                        </>
+                                    ) : isExtractingMarks ? (
+                                        <>
+                                            <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                                            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">AI Analyzing Marksheet…</p>
+                                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Extracting subjects and scores</p>
                                         </>
                                     ) : marksheetUploadStatus === 'done' ? (
                                         <>

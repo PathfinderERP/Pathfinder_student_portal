@@ -15,7 +15,7 @@ from .erp_views import (
     get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag
 )
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
-from .gemini_views import generate_ai_study_plan, get_college_intelligence, search_college_ai
+from .gemini_views import generate_ai_study_plan, get_college_intelligence, search_college_ai, extract_marksheet_data
 
 router = DefaultRouter()
 router.register(r'files', FileViewSet)
@@ -67,6 +67,7 @@ urlpatterns = [
     path('student/ai-mentor/study-plan/', generate_ai_study_plan, name='ai-mentor-study-plan'),
     path('student/ai-mentor/college-intelligence/', get_college_intelligence, name='ai-college-intelligence'),
     path('student/ai-mentor/college-search/', search_college_ai, name='ai-college-search'),
+    path('student/ai-mentor/extract-marksheet/', extract_marksheet_data, name='ai-mentor-extract-marksheet'),
     path('chat/search/', UserSearchView.as_view(), name='chat-search'),
     path('student/psychometric-profile/', StudentPsychometricProfileView.as_view(), name='psychometric-profile'),
     path('student/study-planner-config/', StudentStudyPlannerConfigView.as_view(), name='study-planner-config'),
