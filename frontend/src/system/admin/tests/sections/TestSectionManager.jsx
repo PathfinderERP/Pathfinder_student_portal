@@ -107,12 +107,12 @@ const TestSectionManager = ({ test, onBack, onManageQuestions }) => {
             total_questions: section.total_questions || 20,
             allowed_questions: section.allowed_questions || 20,
             shuffle: section.shuffle,
-            correct_marks: section.correct_marks || 4,
-            negative_marks: section.negative_marks || 1,
+            correct_marks: section.correct_marks ?? 4,
+            negative_marks: section.negative_marks ?? 1,
             partial_type: section.partial_type || 'none',
             partial_mark_rule_id: section.partial_mark_rule || section.partial_mark_rule_id || '',
-            partial_marks: section.partial_marks || 0,
-            priority: section.priority || 1
+            partial_marks: section.partial_marks ?? 0,
+            priority: section.priority ?? 1
         });
         setIsModalOpen(true);
     };
