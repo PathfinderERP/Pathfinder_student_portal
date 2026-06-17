@@ -367,7 +367,12 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                                                     {centre.enterCode || 'C'}
                                                 </div>
                                                 <div>
-                                                    <p className="font-extrabold text-sm tracking-tight leading-none mb-1 group-hover:text-orange-500 transition-colors uppercase">{centre.centreName || 'Unknown Centre'}</p>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="font-extrabold text-sm tracking-tight leading-none group-hover:text-orange-500 transition-colors uppercase">{centre.centreName || 'Unknown Centre'}</p>
+                                                        <span className={`px-1.5 py-0.5 rounded-[3px] text-[8px] font-black uppercase tracking-widest ${centre.status?.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                                                            {centre.status || 'INACTIVE'}
+                                                        </span>
+                                                    </div>
                                                     <p className="text-[9px] opacity-40 font-black uppercase tracking-[0.2em]">{centre.state || 'Region'}</p>
                                                 </div>
                                             </div>

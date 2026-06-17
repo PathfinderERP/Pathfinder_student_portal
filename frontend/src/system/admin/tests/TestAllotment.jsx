@@ -138,7 +138,7 @@ const TestAllotment = ({ isOMR = false }) => {
                 erpData.forEach(c => {
                     const rawCode = c.enterCode || c.code || c.id || "";
                     const normalizedCode = rawCode.toString().trim().toUpperCase();
-                    if (normalizedCode && !seenCodes.has(normalizedCode)) {
+                    if (normalizedCode && !seenCodes.has(normalizedCode) && c.status?.toLowerCase() === 'active') {
                         uniqueErpData.push(c);
                         seenCodes.add(normalizedCode);
                     }
