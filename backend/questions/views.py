@@ -154,7 +154,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
                     object_ids.append(int(id_str))
                 except: pass
         
-        allowed_fields = ['difficulty_level', 'subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name', 'is_wrong']
+        allowed_fields = ['difficulty_level', 'subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name', 'is_wrong', 'solve_time']
         clean_updates = {k: v for k, v in updates.items() if k in allowed_fields and v != ''}
         
         if not clean_updates:
@@ -172,6 +172,11 @@ class QuestionViewSet(viewsets.ModelViewSet):
                     final_updates[f"{k}_id"] = ObjectId(v) if ObjectId.is_valid(v) else v
                 elif k == 'is_wrong':
                     final_updates[k] = v.lower() == 'true' if isinstance(v, str) else bool(v)
+                elif k == 'solve_time':
+                    try:
+                        final_updates[k] = int(v)
+                    except ValueError:
+                        final_updates[k] = v
                 else:
                     final_updates[k] = v
                     

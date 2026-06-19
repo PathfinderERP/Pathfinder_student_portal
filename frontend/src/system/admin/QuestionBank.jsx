@@ -103,7 +103,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         exam_type: '',
         target_exam: '',
         test_name: '',
-        is_wrong: ''
+        is_wrong: '',
+        solve_time: ''
     });
     const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
 
@@ -1372,7 +1373,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 if (selectedInternalIds.includes(q.id) || selectedInternalIds.includes(q._id)) {
                     const updates = {};
                     Object.keys(bulkUpdateFields).forEach(key => {
-                        if (bulkUpdateFields[key] !== '') updates[key] = bulkUpdateFields[key];
+                        if (bulkUpdateFields[key] !== '') {
+                            if (key === 'solve_time') {
+                                updates[key] = parseInt(bulkUpdateFields[key]);
+                            } else {
+                                updates[key] = bulkUpdateFields[key];
+                            }
+                        }
                     });
                     return { ...q, ...updates };
                 }
@@ -1386,6 +1393,18 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             setShowBulkUpdateModal(false);
             setSelectedInternalIds([]);
             setIsInternalSelectionMode(false);
+            setBulkUpdateFields({
+                difficulty_level: '',
+                subject: '',
+                topic: '',
+                chapter: '',
+                class_level: '',
+                exam_type: '',
+                target_exam: '',
+                test_name: '',
+                is_wrong: '',
+                solve_time: ''
+            });
         } catch (error) {
             console.error("Bulk update error", error);
             alert("Failed to perform bulk update");
@@ -2932,6 +2951,35 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, is_wrong: val })}
                             />
+                            <div className="relative group">
+                                <div
+                                    className={`relative w-full px-4 py-3.5 rounded-[5px] border-2 transition-all flex items-center justify-between
+                                        ${isDarkMode 
+                                            ? 'border-white/10 bg-white/5 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.1)]' 
+                                            : 'border-slate-300 bg-white focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.1)] shadow-sm'}`}
+                                >
+                                    <label className={`absolute left-3 -top-2 px-1 text-[11px] font-bold transition-all
+                                        ${isDarkMode ? 'bg-[#0F131A] text-slate-400' : 'bg-white text-slate-500'} group-focus-within:text-blue-500`}>
+                                        Update Solve Time (Sec)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={bulkUpdateFields.solve_time}
+                                        placeholder="Keep Original"
+                                        onChange={(e) => setBulkUpdateFields({ ...bulkUpdateFields, solve_time: e.target.value })}
+                                        className="w-full bg-transparent border-none outline-none text-[13px] font-bold dark:text-white"
+                                    />
+                                    {bulkUpdateFields.solve_time && (
+                                        <button
+                                            onClick={() => setBulkUpdateFields({ ...bulkUpdateFields, solve_time: '' })}
+                                            className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                                            title="Clear Selection"
+                                        >
+                                            <X size={12} strokeWidth={3} className="text-red-500" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                         <div className={`p-4 rounded-[5px] border-2 border-dashed ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-200'}`}>
                             <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest leading-relaxed">
