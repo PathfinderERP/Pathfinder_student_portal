@@ -138,6 +138,8 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     const [tests, setTests] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncSuccessMessage, setSyncSuccessMessage] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterState, setFilterState] = useState('');
     const [filterAllotment, setFilterAllotment] = useState(''); // 'allotted', 'not_allotted'
@@ -191,6 +193,29 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    const handleSync = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+        setSyncSuccessMessage(null);
+        setError(null);
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.post(`${apiUrl}/api/centres/sync/`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await loadData(true);
+            const { created_count, updated_count } = response.data;
+            setSyncSuccessMessage(`Sync Complete! Created: ${created_count}, Updated: ${updated_count}`);
+            setTimeout(() => setSyncSuccessMessage(null), 5000);
+        } catch (err) {
+            console.error("❌ Sync failed:", err);
+            const errMsg = err.response?.data?.error || err.message || "Failed to sync with ERP";
+            setError(`Sync failed: ${errMsg}`);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const uniqueStates = [...new Set(centres.map(c => c.state).filter(Boolean))].sort();
 
@@ -338,8 +363,35 @@ const CentreRegistry = ({ centresData, isERPLoading }) => {
                                     ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50' : 'bg-white border-slate-200 focus:border-orange-500/50 focus:shadow-lg focus:shadow-orange-500/5'}`}
                             />
                         </div>
+
+                        {/* Sync ERP Button */}
+                        <button
+                            onClick={handleSync}
+                            disabled={isSyncing}
+                            className={`w-full sm:w-auto px-5 py-3 rounded-[5px] border font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 outline-none cursor-pointer active:scale-95 disabled:opacity-50 disabled:pointer-events-none shrink-0
+                                ${isDarkMode 
+                                    ? 'bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.05)]' 
+                                    : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 shadow-sm'}`}
+                        >
+                            <RotateCcw size={14} className={`${isSyncing ? 'animate-spin' : ''}`} />
+                            <span>{isSyncing ? 'Syncing...' : 'Sync ERP'}</span>
+                        </button>
                     </div>
                 </div>
+
+                {syncSuccessMessage && (
+                    <div className={`mb-6 p-4 rounded-[5px] border flex items-center gap-3 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 animate-ping" />
+                        <span>{syncSuccessMessage}</span>
+                    </div>
+                )}
+
+                {error && (
+                    <div className={`mb-6 p-4 rounded-[5px] border flex items-center gap-3 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                        <AlertCircle size={14} className="shrink-0 text-red-500" />
+                        <span>{error}</span>
+                    </div>
+                )}
 
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left">

@@ -514,6 +514,82 @@ def get_all_students_erp_data(request):
     data = _fetch_all_students_erp(force_refresh=force_refresh)
     return Response(data, status=200)
 
+
+def sync_local_centres_with_erp(erp_data):
+    """
+    Syncs the ERP centre data to the local database Centre objects.
+    Returns (created_count, updated_count)
+    """
+    from centres.models import Centre
+    if not isinstance(erp_data, list):
+        return 0, 0
+
+    created_count = 0
+    updated_count = 0
+
+    for item in erp_data:
+        if not isinstance(item, dict):
+            continue
+        code = item.get('enterCode') or item.get('code')
+        if not code:
+            code = f"{item.get('centreName')}_{item.get('state')}"
+        if not code:
+            continue
+
+        name = item.get('centreName') or item.get('name') or "Unknown Centre"
+        raw_address = item.get('address') or item.get('locationAddress') or item.get('location') or ""
+        # Clean address newlines or formatting
+        address = raw_address.replace('\\n', '\n').strip() if isinstance(raw_address, str) else ""
+        # Truncate to CharField max_length=255
+        if len(address) > 255:
+            address = address[:252] + "..."
+
+        email = item.get('email') or ""
+        phone = item.get('phoneNumber') or ""
+
+        try:
+            centre_obj = Centre.objects.filter(code=code).first()
+            if centre_obj:
+                changed = False
+                update_fields = []
+
+                if centre_obj.name != name:
+                    centre_obj.name = name
+                    changed = True
+                    update_fields.append('name')
+                if centre_obj.location != address:
+                    centre_obj.location = address
+                    changed = True
+                    update_fields.append('location')
+                if centre_obj.email != email:
+                    centre_obj.email = email
+                    changed = True
+                    update_fields.append('email')
+                if centre_obj.phone_number != phone:
+                    centre_obj.phone_number = phone
+                    changed = True
+                    update_fields.append('phone_number')
+
+                if changed:
+                    centre_obj.save(update_fields=update_fields)
+                    updated_count += 1
+            else:
+                centre_obj = Centre(
+                    code=code,
+                    name=name,
+                    location=address,
+                    email=email,
+                    phone_number=phone
+                )
+                centre_obj.save()
+                created_count += 1
+        except Exception as e:
+            print(f"[SYNC ERROR] Failed syncing centre {code}: {e}")
+
+    print(f"[SYNC] Synced {len(erp_data)} centres. Created: {created_count}, Updated: {updated_count}")
+    return created_count, updated_count
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_centres_erp_data(request):
@@ -564,6 +640,10 @@ def get_all_centres_erp_data(request):
             
             if final_data:
                 cache.set(CACHE_KEY, final_data, 86400) # 24 Hours
+                try:
+                    sync_local_centres_with_erp(final_data)
+                except Exception as sync_err:
+                    print(f"[SYNC AUTO ERROR] {sync_err}")
             return Response(final_data, status=200)
 
         return Response([], status=200)
