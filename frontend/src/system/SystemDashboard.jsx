@@ -441,6 +441,8 @@ const SystemDashboard = () => {
                         { label: 'Exam Details', active: activeTab === 'Admin Master Data' && masterSubTab === 'Exam Details', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Exam Details'); } },
                         { label: 'Partial Marks', active: activeTab === 'Admin Master Data' && masterSubTab === 'Partial Marks', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Partial Marks'); } },
                         { label: 'Question Images', active: activeTab === 'Admin Master Data' && masterSubTab === 'Image', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Image'); } },
+                        { label: 'Psychometric Traits', active: activeTab === 'Admin Master Data' && masterSubTab === 'Psychometric Traits', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Psychometric Traits'); } },
+                        { label: 'Psychometric Questions', active: activeTab === 'Admin Master Data' && masterSubTab === 'Psychometric Questions', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Psychometric Questions'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },

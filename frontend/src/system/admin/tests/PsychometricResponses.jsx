@@ -55,11 +55,30 @@ const PsychometricResponses = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [jumpPageInput, setJumpPageInput] = useState('');
+    const [questionMap, setQuestionMap] = useState(QUESTION_MAPPING);
 
     useEffect(() => {
         fetchResponses();
         fetchCentres();
+        fetchQuestions();
     }, [token, getApiUrl]);
+
+    const fetchQuestions = async () => {
+        if (!token) return;
+        try {
+            const response = await axios.get(`${getApiUrl()}/api/master-data/psychometric-questions/?is_active=true`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const questions = Array.isArray(response.data) ? response.data : response.data.results || [];
+            const newMap = { ...QUESTION_MAPPING };
+            questions.forEach(q => {
+                newMap[`q_${q.id}`] = q.text;
+            });
+            setQuestionMap(newMap);
+        } catch (error) {
+            console.error("Failed to fetch questions", error);
+        }
+    };
 
     const fetchCentres = async () => {
         if (!token) return;
@@ -249,9 +268,9 @@ const PsychometricResponses = () => {
                                 {paginatedResponses.map((res, index) => (
                                     <React.Fragment key={res.id}>
                                         <tr 
-                                            className={`cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${expandedRow === res.id ? (isDarkMode ? 'bg-white/5' : 'bg-slate-50') : ''}`}
+                                            className={`cursor-pointer transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'} ${expandedRow === res.email ? (isDarkMode ? 'bg-white/5' : 'bg-slate-50') : ''}`}
                                             onClick={() => {
-                                                setExpandedRow(expandedRow === res.id ? null : res.id);
+                                                setExpandedRow(expandedRow === res.email ? null : res.email);
                                                 setShowQA(false);
                                             }}
                                         >
@@ -288,14 +307,14 @@ const PsychometricResponses = () => {
                                                         <Trash2 size={16} />
                                                     </button>
                                                     <div className={`p-1 rounded-[5px] ${isDarkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
-                                                        {expandedRow === res.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                        {expandedRow === res.email ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                                     </div>
                                                 </div>
                                             </td>
                                         </tr>
                                         
                                         {/* Expanded Row Content */}
-                                        {expandedRow === res.id && (
+                                        {expandedRow === res.email && (
                                             <tr>
                                                 <td colSpan={5} className={`px-6 py-6 border-b ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -343,7 +362,7 @@ const PsychometricResponses = () => {
                                                                         }
                                                                         return (
                                                                             <div key={index} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'}`}>
-                                                                                <p className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{QUESTION_MAPPING[question] || question}</p>
+                                                                                <p className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{questionMap[question] || question}</p>
                                                                                 <p className={`text-sm font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>{displayAnswer}</p>
                                                                             </div>
                                                                         );

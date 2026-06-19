@@ -8,8 +8,8 @@ import time
 import requests
 from api.erp_views import _get_erp_url, _get_erp_admin_token
 import logging
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer, PsychometricTraitSerializer, PsychometricQuestionSerializer
 
 class StandardPagination(pagination.PageNumberPagination):
     page_size = 20
@@ -1120,3 +1120,26 @@ class CommunityViewSet(viewsets.ModelViewSet):
     serializer_class = CommunitySerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.AllowAny]
+
+class PsychometricTraitViewSet(viewsets.ModelViewSet):
+    queryset = PsychometricTrait.objects.all().order_by('order', 'created_at')
+    serializer_class = PsychometricTraitSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'], url_path='config')
+    def config(self, request):
+        from django.db import models
+        traits = PsychometricTrait.objects.filter(is_active=True).prefetch_related(
+            models.Prefetch(
+                'questions',
+                queryset=PsychometricQuestion.objects.filter(is_active=True).order_by('order', 'created_at')
+            )
+        ).order_by('order', 'created_at')
+        serializer = self.get_serializer(traits, many=True)
+        return response.Response(serializer.data)
+
+class PsychometricQuestionViewSet(viewsets.ModelViewSet):
+    queryset = PsychometricQuestion.objects.select_related('trait').all().order_by('trait__order', 'order', 'created_at')
+    serializer_class = PsychometricQuestionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+

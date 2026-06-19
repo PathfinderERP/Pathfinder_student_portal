@@ -173,6 +173,8 @@ const subTabs = [
     { id: 'Exam Details', icon: Database, label: 'Exam Details', endpoint: 'exam-details' },
     { id: 'Partial Marks', icon: FileCheck, label: 'Partial Marks', endpoint: 'partial-mark-rules' },
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
+    { id: 'Psychometric Traits', icon: Target, label: 'Psychometric Traits', endpoint: 'psychometric-traits' },
+    { id: 'Psychometric Questions', icon: BookOpen, label: 'Psychometric Questions', endpoint: 'psychometric-questions' },
 ];
 
 const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigate }) => {
@@ -299,6 +301,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const [topics, setTopics] = useState([]);
     const [chapters, setChapters] = useState([]);
     const [subTopics, setSubTopics] = useState([]);
+    const [psychometricTraits, setPsychometricTraits] = useState([]);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -316,6 +319,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         target_exams: [],
         class_levels: [],
         class_level: '',
+        text: '',
+        trait: '',
+        is_reverse_scored: false,
+        order: 1,
         subject: '',
         topic: '',
         sub_topic: '',
@@ -466,6 +473,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             subjects: { url: 'subjects', setter: setSubjects },
             topics: { url: 'topics', setter: setTopics },
             chapters: { url: 'chapters', setter: setChapters },
+            psychometricTraits: { url: 'psychometric-traits', setter: setPsychometricTraits },
         };
 
         // Determine which keys actually need fetching
@@ -514,6 +522,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         'Exam Type': ['examTypes'],
         'Exam Details': ['sessions', 'examTypes', 'classes', 'targetExams'],
         'Image': ['classes', 'subjects', 'topics', 'examTypes', 'targetExams'],
+        'Psychometric Questions': ['psychometricTraits'],
     }), []);
 
     const getMasterDataEventKey = useCallback((subTab) => {
@@ -763,6 +772,15 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             initialForm.base_correct_marks = 4;
             initialForm.base_negative_marks = 1;
             initialForm.exam_type = '';
+        } else if (activeSubTab === 'Psychometric Traits') {
+            initialForm.name = '';
+            initialForm.description = '';
+            initialForm.order = 1;
+        } else if (activeSubTab === 'Psychometric Questions') {
+            initialForm.text = '';
+            initialForm.trait = psychometricTraits?.[0]?.id || '';
+            initialForm.is_reverse_scored = false;
+            initialForm.order = 1;
         }
 
         setFormValues(initialForm);
@@ -796,7 +814,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 code: item.code || '',
                 class_level: item.class_level,
                 subject: item.subject,
-                order: item.order || 1,
+                order: item.order ?? 1,
                 is_active: item.is_active
             });
         } else if (activeSubTab === 'SubTopic') {
@@ -804,7 +822,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 name: item.name || '',
                 code: item.code || '',
                 topic: item.topic,
-                order: item.order || 1,
+                order: item.order ?? 1,
                 is_active: item.is_active
             });
         } else if (activeSubTab === 'Topic') {
@@ -832,6 +850,21 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 base_correct_marks: item.base_correct_marks ?? 4,
                 base_negative_marks: item.base_negative_marks ?? 1,
                 exam_type: item.exam_type || item.exam_type_id || '',
+                is_active: item.is_active
+            });
+        } else if (activeSubTab === 'Psychometric Traits') {
+            setFormValues({
+                name: item.name || '',
+                description: item.description || '',
+                order: item.order ?? 1,
+                is_active: item.is_active
+            });
+        } else if (activeSubTab === 'Psychometric Questions') {
+            setFormValues({
+                text: item.text || '',
+                trait: item.trait || item.trait_id || '',
+                is_reverse_scored: item.is_reverse_scored || false,
+                order: item.order ?? 1,
                 is_active: item.is_active
             });
         } else {
@@ -2169,6 +2202,21 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <th className="pb-4 px-4 font-black">Phone</th>
                                             <th className="pb-4 px-4 font-black">Qualification</th>
                                         </>
+                                    ) : activeSubTab === 'Psychometric Traits' ? (
+                                        <>
+                                            <th className="pb-4 px-4 font-black">#</th>
+                                            <th className="pb-4 px-4 font-black">Trait Name</th>
+                                            <th className="pb-4 px-4 font-black">Description</th>
+                                            <th className="pb-4 px-4 font-black text-center">Order</th>
+                                        </>
+                                    ) : activeSubTab === 'Psychometric Questions' ? (
+                                        <>
+                                            <th className="pb-4 px-4 font-black">#</th>
+                                            <th className="pb-4 px-4 font-black">Question Text</th>
+                                            <th className="pb-4 px-4 font-black">Trait</th>
+                                            <th className="pb-4 px-4 font-black text-center">Order</th>
+                                            <th className="pb-4 px-4 font-black text-center">Reverse Scored</th>
+                                        </>
                                     ) : (
                                         <>
                                             <th className="pb-4 px-4 font-black">#</th>
@@ -2323,6 +2371,43 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 </td>
                                                 <td className="py-5 px-4 font-bold text-xs opacity-70">
                                                     {item.qualification || '-'}
+                                                </td>
+                                            </>
+                                        ) : activeSubTab === 'Psychometric Traits' ? (
+                                            <>
+                                                <td className="py-5 px-4">
+                                                    <span className="font-extrabold text-sm uppercase">{item.name}</span>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <span className="text-[10px] font-bold opacity-70">
+                                                        {item.description || '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 text-center">
+                                                    <span className="text-[10px] font-black text-orange-500">
+                                                        {item.order}
+                                                    </span>
+                                                </td>
+                                            </>
+                                        ) : activeSubTab === 'Psychometric Questions' ? (
+                                            <>
+                                                <td className="py-5 px-4">
+                                                    <span className="font-extrabold text-sm">{item.text}</span>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                                        {item.trait_name || '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 text-center">
+                                                    <span className="text-[10px] font-black">
+                                                        {item.order}
+                                                    </span>
+                                                </td>
+                                                <td className="py-5 px-4 text-center">
+                                                    <span className={`px-2 py-1 rounded-[3px] text-[9px] font-bold ${item.is_reverse_scored ? 'bg-orange-500/10 text-orange-500' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {item.is_reverse_scored ? 'YES' : 'NO'}
+                                                    </span>
                                                 </td>
                                             </>
                                         ) : (
@@ -2575,7 +2660,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         return (
             <AnimatePresence>
                 {isModalOpen && (
-                    <div style={{ zIndex: 1000 }} className="fixed inset-0 flex items-start justify-center p-4 pt-16 md:max-lg:p-2 md:max-lg:pt-10">
+                    <div style={{ zIndex: 1000 }} className="fixed inset-0 flex items-center justify-center p-4 md:max-lg:p-2">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -3159,6 +3244,87 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     onChange={e => setFormValues({ ...formValues, base_negative_marks: e.target.value })}
                                                     className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
                                                 />
+                                            </div>
+                                        </div>
+                                    ) : activeSubTab === 'Psychometric Traits' ? (
+                                        <div className="grid grid-cols-2 gap-4 text-left">
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Trait Name</label>
+                                                <input
+                                                    required
+                                                    type="text"
+                                                    value={formValues.name}
+                                                    onChange={e => setFormValues({ ...formValues, name: e.target.value })}
+                                                    placeholder="e.g. Critical Thinking"
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Description</label>
+                                                <textarea
+                                                    rows="2"
+                                                    value={formValues.description}
+                                                    onChange={e => setFormValues({ ...formValues, description: e.target.value })}
+                                                    placeholder="Trait description..."
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
+                                                <input
+                                                    type="number"
+                                                    value={formValues.order}
+                                                    onChange={e => setFormValues({ ...formValues, order: e.target.value })}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : activeSubTab === 'Psychometric Questions' ? (
+                                        <div className="grid grid-cols-2 gap-4 text-left">
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Text</label>
+                                                <textarea
+                                                    required
+                                                    rows="2"
+                                                    value={formValues.text}
+                                                    onChange={e => setFormValues({ ...formValues, text: e.target.value })}
+                                                    placeholder="e.g. I adapt easily to new situations."
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Associated Trait</label>
+                                                <SearchableSelect
+                                                    options={psychometricTraits}
+                                                    value={formValues.trait}
+                                                    onChange={val => setFormValues({ ...formValues, trait: val })}
+                                                    placeholder="Select Trait"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Order</label>
+                                                <input
+                                                    type="number"
+                                                    value={formValues.order}
+                                                    onChange={e => setFormValues({ ...formValues, order: e.target.value })}
+                                                    className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-3 flex flex-col justify-end">
+                                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Reverse Scored?</label>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormValues({ ...formValues, is_reverse_scored: !formValues.is_reverse_scored })}
+                                                        className={`relative w-12 h-6 rounded-full transition-all duration-300 flex items-center ${formValues.is_reverse_scored ? 'bg-orange-500 shadow-lg shadow-orange-500/30' : (isDarkMode ? 'bg-white/10' : 'bg-slate-200')}`}
+                                                    >
+                                                        <div className={`absolute w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${formValues.is_reverse_scored ? 'right-1' : 'left-1'}`} />
+                                                    </button>
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${formValues.is_reverse_scored ? 'text-orange-500' : 'opacity-40'}`}>
+                                                        {formValues.is_reverse_scored ? 'Yes' : 'No'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     ) : (

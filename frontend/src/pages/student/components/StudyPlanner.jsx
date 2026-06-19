@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
     Brain, Target, GraduationCap, ChevronLeft, ChevronRight, Activity, CheckCircle2, XCircle,
     BookOpen, Calculator, Atom, Orbit, Sparkles, Loader2, ArrowRight, Dna,
-    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair, Search, ChevronDown, AlertTriangle, X, RefreshCw
+    Database, Cpu, Network, ShieldCheck, Microscope, Zap, GitBranch, Crosshair, Search, ChevronDown, AlertTriangle, X, RefreshCw, Lightbulb
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
@@ -15,6 +15,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
 import StudentPsychometricForm from './StudentPsychometricForm';
+import StudyPlanRenderer from './StudyPlanRenderer';
 
 
 const StudyPlanner = ({ isDarkMode, studentData }) => {
@@ -200,7 +201,21 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             const collegeObj = res.data.target_college;
                             if (collegeObj.is_class_5_10 && collegeObj.target_scores) {
                                 setTargetScores(collegeObj.target_scores);
-                            } else {
+                            }
+                            
+                            if (collegeObj.is_class_10) {
+                                if (collegeObj.custom_subjects) setCustomSubjects(collegeObj.custom_subjects);
+                                if (collegeObj.marksheet_file_id) {
+                                    setMarksheetFileId(collegeObj.marksheet_file_id);
+                                    setMarksheetUploadStatus('done');
+                                }
+                                setInitialClass10Data({
+                                    custom_subjects: collegeObj.custom_subjects || null,
+                                    marksheet_file_id: collegeObj.marksheet_file_id || null
+                                });
+                            }
+                            
+                            if (!collegeObj.is_class_5_10 && !collegeObj.is_class_10) {
                                 setPlanConfig(prev => ({ ...prev, targetCollege: collegeObj.name || "", targetCareer: res.data.target_career || "" }));
                                 setSelectedCollege(collegeObj);
                                 setCollegeSearch(collegeObj.name || "");
@@ -212,7 +227,11 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                         }
                         if (res.data.latest_plan) {
                             setAiPlan(res.data.latest_plan.content);
-                            // Initial check: if no test selected yet, or if matches
+                            // Store when this plan was created so we can compare with submission date
+                            if (res.data.latest_plan.created_at) {
+                                setLatestPlanCreatedAt(res.data.latest_plan.created_at);
+                            }
+                            // Mark as saved only if this plan belongs to the selected test
                             if (selectedTest && (selectedTest.id === res.data.latest_plan.test_id)) {
                                 setPlanSavedForCurrentTest(true);
                             }
@@ -251,6 +270,20 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [psychometricResult, setPsychometricResult] = useState(null);
     const [hasPreviousPlan, setHasPreviousPlan] = useState(false);
     const [planSavedForCurrentTest, setPlanSavedForCurrentTest] = useState(false);
+    const [latestPlanCreatedAt, setLatestPlanCreatedAt] = useState(null);
+
+    // Derived: plan is truly locked only if it was generated AFTER the student's latest submission
+    const isPlanLockedForCurrentTest = (() => {
+        if (!planSavedForCurrentTest) return false;
+        if (!selectedTest || !latestPlanCreatedAt) return true;
+        const submissionDate = selectedTest.submission?.submitted_date
+            ? new Date(selectedTest.submission.submitted_date)
+            : null;
+        if (!submissionDate) return true;
+        const planDate = new Date(latestPlanCreatedAt);
+        // If plan was created BEFORE the submission, it's outdated → show Update button
+        return planDate >= submissionDate;
+    })();
 
     // ── Class 10 specific states ─────────────────────────────────────────────
     const [marksheetFile, setMarksheetFile] = useState(null);       // File object from <input>
@@ -259,6 +292,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
     const [customSubjects, setCustomSubjects] = useState([
         { id: Date.now(), name: '', target: '', class9_marks: '' }
     ]);
+    const [initialClass10Data, setInitialClass10Data] = useState(null);
     const [isExtractingMarks, setIsExtractingMarks] = useState(false);
 
     // Upload Class 9 marksheet image to backend storage and trigger AI extraction
@@ -290,7 +324,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                             id: Date.now() + index,
                             name: subj.name || '',
                             target: '', // Leave target blank for student to fill
-                            class9_marks: subj.class9_marks || ''
+                            class9_marks: subj.class9_marks ?? ''
                         }));
                         setCustomSubjects(extractedSubjects);
                     }
@@ -339,12 +373,18 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 // We call the same endpoint; if cached it's fast and doesn't use quota
                 const res = await axios.post(`${apiUrl}/api/student/ai-mentor/study-plan/`, {
                     test_id: tId,
-                    is_update_request: false
+                    is_update_request: false,
+                    check_cache_only: true,
+                    submission_date: selectedTest.submission?.submitted_date
                 }, { headers: { Authorization: `Bearer ${token}` } });
                 
                 if (res.data && res.data.cached) {
                     setAiPlan(res.data.ai_plan);
                     setPlanSavedForCurrentTest(true);
+                    // If backend returned a plan_created_at, store it
+                    if (res.data.plan_created_at) {
+                        setLatestPlanCreatedAt(res.data.plan_created_at);
+                    }
                 }
             } catch (err) {
                 console.error("[Plan] Error checking for current test plan:", err);
@@ -600,7 +640,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
             const apiUrl = getApiUrl();
             const [testsRes, resultsData] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                getMyResults().catch(() => [])
+                getMyResults({ force: true }).catch(() => [])
             ]);
 
             const testsData = (testsRes.data || []).filter(test => {
@@ -1511,76 +1551,70 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                         setShowAlert(true);
                                         return;
                                     }
-                                    try {
-                                        const apiUrl = getApiUrl();
-                                        await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
-                                            target_college: {
-                                                is_class_5_10: true,
-                                                is_class_10: true,
-                                                target_scores: targetScores,
-                                                custom_subjects: customSubjects.filter(s => s.name.trim()),
-                                                marksheet_file_id: marksheetFileId || null
-                                            },
-                                            target_career: ""
-                                        }, {
-                                            headers: { 'Authorization': `Bearer ${token}` }
-                                        });
-                                    } catch (err) {
-                                        console.error("Failed to save Class 10 planner config:", err);
-                                    }
-                                    setCurrentStep(3);
-                                    fetchTests();
-                                    return;
                                 }
 
-                                if (isJunior) {
+                                let target_college_payload;
+                                let shouldSave = true;
+
+                                if (isClass10Student) {
+                                    const isIdentical = initialClass10Data && 
+                                        JSON.stringify(initialClass10Data.custom_subjects) === JSON.stringify(customSubjects) &&
+                                        initialClass10Data.marksheet_file_id === marksheetFileId;
+                                        
+                                    if (isIdentical) {
+                                        shouldSave = false;
+                                    } else {
+                                        target_college_payload = {
+                                            is_class_5_10: true,
+                                            is_class_10: true,
+                                            target_scores: targetScores,
+                                            custom_subjects: customSubjects.filter(s => s.name.trim()),
+                                            marksheet_file_id: marksheetFileId || null
+                                        };
+                                        setInitialClass10Data({
+                                            custom_subjects: customSubjects,
+                                            marksheet_file_id: marksheetFileId
+                                        });
+                                    }
+                                } else if (isJunior) {
+                                    target_college_payload = { is_class_5_10: true, target_scores: targetScores };
+                                } else {
+                                    if (!planConfig.targetCollege) {
+                                        setAlertMessage("Please select a target institution from the list to establish your academic benchmark.");
+                                        setShowAlert(true);
+                                        return;
+                                    }
+                                    
+                                    let currentInfo = collegeInfo;
+                                    if (!currentInfo || currentInfo.validatedCollege !== planConfig.targetCollege) {
+                                        currentInfo = await fetchCollegeInfo(planConfig.targetCollege);
+                                    }
+
+                                    if (currentInfo && currentInfo.is_compatible === false) {
+                                        setAlertMessage(currentInfo.compatibility_error || `This institution does not appear to accept ${profile.targetExam} for admissions. Please select a compatible college.`);
+                                        setShowAlert(true);
+                                        return;
+                                    }
+
+                                    target_college_payload = selectedCollege || { name: planConfig.targetCollege };
+                                }
+
+                                if (shouldSave) {
                                     try {
                                         const apiUrl = getApiUrl();
                                         await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
-                                            target_college: { is_class_5_10: true, target_scores: targetScores },
-                                            target_career: ""
+                                            target_college: target_college_payload,
+                                            target_career: (isClass10Student || isJunior) ? "" : planConfig.targetCareer
                                         }, {
                                             headers: { 'Authorization': `Bearer ${token}` }
                                         });
                                     } catch (err) {
                                         console.error("Failed to save planner config:", err);
                                     }
-                                    setCurrentStep(3);
-                                    fetchTests();
-                                    return;
                                 }
 
-                                if (!planConfig.targetCollege) {
-                                    setAlertMessage("Please select a target institution from the list to establish your academic benchmark.");
-                                    setShowAlert(true);
-                                    return;
-                                }
-                                
-                                let currentInfo = collegeInfo;
-                                if (!currentInfo || currentInfo.validatedCollege !== planConfig.targetCollege) {
-                                    currentInfo = await fetchCollegeInfo(planConfig.targetCollege);
-                                }
-
-                                if (currentInfo && currentInfo.is_compatible === false) {
-                                    setAlertMessage(currentInfo.compatibility_error || `This institution does not appear to accept ${profile.targetExam} for admissions. Please select a compatible college.`);
-                                    setShowAlert(true);
-                                    return;
-                                }
-
-                                try {
-                                    const apiUrl = getApiUrl();
-                                    await axios.post(`${apiUrl}/api/student/study-planner-config/`, {
-                                        target_college: selectedCollege || { name: planConfig.targetCollege },
-                                        target_career: planConfig.targetCareer
-                                    }, {
-                                        headers: { 'Authorization': `Bearer ${token}` }
-                                    });
-                                } catch (err) {
-                                    console.error("Failed to save planner config:", err);
-                                }
-
-                                setCurrentStep(3); 
-                                fetchTests(); 
+                                setCurrentStep(3);
+                                fetchTests();
                             }} 
                             className={`px-10 py-5 rounded-[4px] font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center gap-4 group shadow-lg ${
                                 (!isClass5to10(profile.classLevel) && !planConfig.targetCollege)
@@ -1851,52 +1885,84 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                 {/* Results Header (If test taken) */}
                 {testScores && (
                     <div className="space-y-8">
-                        <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-sm'} relative overflow-hidden`}>
-                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
-                            <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                                    <div className="w-32 h-32 shrink-0 rounded-[4px] bg-[#0a0d14] border border-white/10 flex flex-col items-center justify-center text-white relative outline-2 outline-offset-4 outline-indigo-500/50">
-                                        <span className="text-4xl font-black">
-                                            {Math.round(
-                                                performanceData?.accuracy ?? 
-                                                (testScores?.sections?.length > 0 
-                                                    ? testScores.sections.reduce((acc, s) => acc + (s.score || 0), 0) / testScores.sections.length
-                                                    : testScores?.total || 0)
-                                            )}%
-                                        </span>
-                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">Accuracy</span>
+                        <div className={`p-8 md:p-12 rounded-[4px] border ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'} relative overflow-hidden group`}>
+                            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-indigo-500/20 to-emerald-500/10 blur-[100px] rounded-full pointer-events-none transition-transform duration-1000 group-hover:scale-110" />
+                            <div className="relative z-10 flex flex-col lg:flex-row items-center gap-12">
+                                    <div className="relative shrink-0 flex items-center justify-center">
+                                        <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
+                                            <circle cx="50" cy="50" r="45" fill="none" stroke={isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} strokeWidth="8" />
+                                            <motion.circle 
+                                                initial={{ strokeDasharray: "0 283" }}
+                                                animate={{ strokeDasharray: `${Math.round(performanceData?.accuracy ?? (testScores?.sections?.length > 0 ? testScores.sections.reduce((acc, s) => acc + (s.score || 0), 0) / testScores.sections.length : testScores?.total || 0)) * 2.83} 283` }}
+                                                transition={{ duration: 1.5, ease: "easeOut" }}
+                                                cx="50" cy="50" r="45" fill="none" stroke="url(#accuracyGradient)" strokeWidth="8" strokeLinecap="round" 
+                                            />
+                                            <defs>
+                                                <linearGradient id="accuracyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" stopColor="#6366f1" />
+                                                    <stop offset="100%" stopColor="#10b981" />
+                                                </linearGradient>
+                                            </defs>
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                            <span className={`text-5xl font-black bg-clip-text text-transparent bg-gradient-to-br from-indigo-500 to-emerald-500`}>
+                                                {Math.round(
+                                                    performanceData?.accuracy ?? 
+                                                    (testScores?.sections?.length > 0 
+                                                        ? testScores.sections.reduce((acc, s) => acc + (s.score || 0), 0) / testScores.sections.length
+                                                        : testScores?.total || 0)
+                                                )}%
+                                            </span>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mt-2">Accuracy</span>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 space-y-4">
+                                    <div className="flex-1 space-y-6 w-full">
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <div className="px-2 py-0.5 bg-indigo-500 text-white text-[8px] font-black uppercase rounded-full">Psychometric Profile</div>
-                                                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{psychometricResult?.classification || "Evaluating..."}</span>
+                                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                                                    <Brain size={14} className="text-indigo-500" />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Psychometric Profile</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 dark:bg-white/5 px-3 py-1 rounded-full">
+                                                    {psychometricResult?.classification || "Evaluating..."}
+                                                </span>
                                             </div>
-                                            <h2 className={`text-2xl font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                                <CheckCircle2 className="text-emerald-500" /> Assessment Analyzed
+                                            <h2 className={`text-3xl font-black uppercase tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                <CheckCircle2 className="text-emerald-500" size={32} /> Assessment Analyzed
                                             </h2>
-                                            <p className={`text-xs font-bold leading-relaxed mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            <p className={`text-sm font-medium leading-relaxed mt-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                 {isClass5to10(profile.classLevel)
                                                     ? "Baseline established against your target subject scores."
                                                     : `Baseline established against `}
-                                                {!isClass5to10(profile.classLevel) && <strong>{planConfig.targetCollege}</strong>}
+                                                {!isClass5to10(profile.classLevel) && <strong className="text-indigo-500 font-bold">{planConfig.targetCollege}</strong>}
                                                 {!isClass5to10(profile.classLevel) && " thresholds."}
                                             </p>
                                         </div>
-                                    <div className={`grid gap-4 p-4 rounded-[4px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 ${
-                                        (testScores?.sections?.length || 3) > 3 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3'
-                                    }`}>
-                                        {(testScores?.sections?.length > 0 ? testScores.sections : examQuestions).map((sec, idx) => {
-                                            const name = sec.name || sec.subject;
-                                            const score = sec.score !== undefined ? sec.score : (idx === 0 ? testScores?.q1Score : idx === 1 ? testScores?.q2Score : testScores?.q3Score);
-                                            return (
-                                                <div key={idx}>
-                                                    <span className="block text-[9px] font-black uppercase opacity-60 mb-1 truncate" title={name}>{name}</span>
-                                                    <span className={`text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(score || 0)}%</span>
-                                                </div>
-                                            );
-                                        })}
+                                        <div className={`grid gap-4 ${
+                                            (testScores?.sections?.length || 3) > 3 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'
+                                        }`}>
+                                            {(testScores?.sections?.length > 0 ? testScores.sections : examQuestions).map((sec, idx) => {
+                                                const name = sec.name || sec.subject;
+                                                const score = sec.score !== undefined ? sec.score : (idx === 0 ? testScores?.q1Score : idx === 1 ? testScores?.q2Score : testScores?.q3Score);
+                                                return (
+                                                    <div key={idx} className={`p-5 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-white/[0.02] border-white/10 hover:border-indigo-500/30' : 'bg-slate-50 border-slate-100 hover:border-indigo-200'}`}>
+                                                        <div className="flex justify-between items-center mb-3">
+                                                            <span className="block text-[10px] font-black uppercase tracking-widest opacity-70 truncate pr-2" title={name}>{name}</span>
+                                                            <span className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(score || 0)}%</span>
+                                                        </div>
+                                                        <div className={`h-1.5 w-full rounded-full overflow-hidden ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}>
+                                                            <motion.div 
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${Math.round(score || 0)}%` }}
+                                                                transition={{ duration: 1, delay: idx * 0.1 }}
+                                                                className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500" 
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
                             </div>
                         </div>
 
@@ -2073,20 +2139,20 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                             ) : (
                                                 <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-[2px]">Target: {planConfig.targetCollege}</span>
                                             )}
-                                            {aiPlan && planSavedForCurrentTest && (
+                                            {aiPlan && isPlanLockedForCurrentTest && (
                                                 <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-[2px] flex items-center gap-1">
                                                     <CheckCircle2 size={10} /> Plan Locked
                                                 </span>
                                             )}
-                                            {!planSavedForCurrentTest && hasPreviousPlan && (
+                                            {(!isPlanLockedForCurrentTest && hasPreviousPlan) && (
                                                 <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-1 rounded-[2px]">
-                                                    Previous plan found — Update available
+                                                    New exam detected — Update available
                                                 </span>
                                             )}
                                         </div>
                                     </div>
-                                    {/* Buttons only visible when plan is NOT yet saved/locked for this exam */}
-                                    {!planSavedForCurrentTest && (
+                                    {/* Buttons visible when plan is not locked for current exam/submission */}
+                                    {!isPlanLockedForCurrentTest && (
                                         <div className="flex items-center gap-3">
                                             {/* First-time: no plan ever in DB */}
                                             {!hasPreviousPlan && (
@@ -2099,7 +2165,7 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                     {aiLoading ? 'Synthesizing...' : 'Synthesize Master Plan'}
                                                 </button>
                                             )}
-                                            {/* Update: previous plan exists but this exam has no plan yet */}
+                                            {/* Update: previous plan exists but submission is newer */}
                                             {hasPreviousPlan && (
                                                 <button
                                                     onClick={() => generateAIPlan(true)}
@@ -2138,35 +2204,12 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                         </div>
                                     )
                                 ) : (
-                                    <div className={`p-6 md:p-8 lg:p-10 rounded-[4px] border relative overflow-hidden w-full ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
-                            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
-                            <div className={`prose prose-sm md:prose-base max-w-full w-full min-w-0 relative z-10 break-words overflow-x-hidden 
-                                ${isDarkMode ? 'prose-invert prose-p:text-slate-300 prose-strong:text-indigo-400 prose-li:text-slate-300 prose-hr:border-white/10' : 'prose-p:text-slate-700 prose-strong:text-indigo-600 prose-li:text-slate-700 prose-hr:border-slate-200'}
-                                prose-h1:font-black prose-h1:text-4xl prose-h1:text-transparent prose-h1:bg-clip-text prose-h1:bg-gradient-to-r prose-h1:from-indigo-500 prose-h1:to-purple-500 prose-h1:mb-8
-                                prose-h2:font-black prose-h2:text-2xl prose-h2:uppercase prose-h2:tracking-tight prose-h2:mt-16 prose-h2:mb-6 prose-h2:pb-4 prose-h2:border-b prose-h2:border-indigo-500/20 prose-h2:text-transparent prose-h2:bg-clip-text prose-h2:bg-gradient-to-r prose-h2:from-emerald-400 prose-h2:to-teal-500
-                                prose-h3:font-bold prose-h3:text-xl prose-h3:text-indigo-500 prose-h3:uppercase prose-h3:tracking-wide prose-h3:mt-10
-                                prose-a:text-emerald-500 hover:prose-a:text-emerald-400 prose-a:transition-colors
-                                prose-blockquote:border-l-4 prose-blockquote:border-l-emerald-500 prose-blockquote:bg-emerald-500/10 prose-blockquote:p-6 prose-blockquote:rounded-r-lg prose-blockquote:font-bold prose-blockquote:text-lg prose-blockquote:shadow-sm prose-blockquote:my-8
-                                prose-ul:list-none prose-ul:pl-0 prose-li:relative prose-li:pl-6 prose-li:my-2 before:prose-li:absolute before:prose-li:left-0 before:prose-li:top-2 before:prose-li:w-2 before:prose-li:h-2 before:prose-li:bg-indigo-500 before:prose-li:rounded-full
-                                prose-table:w-full
-                                prose-th:bg-indigo-600 prose-th:text-white prose-th:p-4 prose-th:text-left prose-th:uppercase prose-th:text-xs prose-th:tracking-widest
-                                prose-td:p-4 prose-td:border-b ${isDarkMode ? 'prose-td:border-white/5 prose-td:bg-white/5' : 'prose-td:border-slate-100 prose-td:bg-slate-50'}
-                                prose-tr:transition-colors ${isDarkMode ? 'hover:prose-tr:bg-white/10' : 'hover:prose-tr:bg-indigo-50'}
-                            `}>
-                                <ReactMarkdown 
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                        table: ({node, ...props}) => (
-                                            <div className={`overflow-x-auto w-full my-8 rounded-xl shadow-lg border ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
-                                                <table className="w-full min-w-[1200px] m-0" {...props} />
-                                            </div>
-                                        )
-                                    }}
-                                >
-                                    {aiPlan}
-                                </ReactMarkdown>
-                            </div>
-                            </div>
+                                    <div className={`rounded-xl border relative overflow-hidden w-full ${isDarkMode ? 'bg-[#0a0d14] border-white/10 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                                        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
+                                        <div className="relative z-10 p-6 md:p-8">
+                                            <StudyPlanRenderer aiPlan={aiPlan} isDark={isDarkMode} />
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}

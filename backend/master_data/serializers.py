@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion
 from packages.models import Package
 from bson import ObjectId
 
@@ -484,3 +484,16 @@ class CommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Community
         fields = '__all__'
+
+class PsychometricQuestionSerializer(serializers.ModelSerializer):
+    trait_name = serializers.CharField(source='trait.name', read_only=True)
+    class Meta:
+        model = PsychometricQuestion
+        fields = '__all__'
+
+class PsychometricTraitSerializer(serializers.ModelSerializer):
+    questions = PsychometricQuestionSerializer(many=True, read_only=True)
+    class Meta:
+        model = PsychometricTrait
+        fields = '__all__'
+

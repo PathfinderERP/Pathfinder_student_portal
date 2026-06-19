@@ -910,8 +910,13 @@ class StudentPsychometricProfileView(views.APIView):
         return response.Response(None, status=status.HTTP_200_OK)
 
     def post(self, request):
-        profile = StudentPsychometricProfile.objects.filter(user=request.user).first()
-        if profile:
+        profiles = StudentPsychometricProfile.objects.filter(user=request.user).order_by('-created_at')
+        if profiles.exists():
+            profile = profiles.first()
+            # Clean up duplicates created by race conditions
+            if profiles.count() > 1:
+                for p in profiles[1:]:
+                    p.delete()
             serializer = StudentPsychometricProfileSerializer(profile, data=request.data, partial=True)
         else:
             serializer = StudentPsychometricProfileSerializer(data=request.data)
@@ -1020,11 +1025,16 @@ class AdminAllPsychometricProfilesView(views.APIView):
             from django.contrib.auth import get_user_model
             User = get_user_model()
             
-            # Fetch from ORM
-            profiles = StudentPsychometricProfile.objects.select_related('user').all()
+            # Fetch from ORM (latest first)
+            profiles = StudentPsychometricProfile.objects.select_related('user').order_by('-created_at')
             
             data = []
+            seen_users = set()
             for profile in profiles:
+                if profile.user_id in seen_users:
+                    continue
+                seen_users.add(profile.user_id)
+                
                 user = profile.user
                 
                 # Default data
@@ -1081,7 +1091,13 @@ class StudentStudyPlannerConfigView(views.APIView):
         except Exception as e:
             print(f"[PlannerConfigView] PyMongo get failed: {e}")
 
-        config = StudentStudyPlannerConfig.objects.filter(user=request.user).first()
+        from bson import ObjectId
+        
+        user_id = request.user.pk
+        if isinstance(user_id, str) and len(user_id) == 24:
+            user_id = ObjectId(user_id)
+            
+        config = StudentStudyPlannerConfig.objects.filter(user_id=user_id).first()
         if config:
             serializer = StudentStudyPlannerConfigSerializer(config)
             data = serializer.data
@@ -1094,36 +1110,32 @@ class StudentStudyPlannerConfigView(views.APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
-        config = StudentStudyPlannerConfig.objects.filter(user=request.user).first()
-        if config:
-            serializer = StudentStudyPlannerConfigSerializer(config, data=request.data, partial=True)
-        else:
-            serializer = StudentStudyPlannerConfigSerializer(data=request.data)
+        from bson import ObjectId
+        
+        user_id = request.user.pk
+        if isinstance(user_id, str) and len(user_id) == 24:
+            user_id = ObjectId(user_id)
             
-        if serializer.is_valid():
-            instance = serializer.save(user=request.user)
-            
-            # Patch for Djongo JSON fields
-            try:
-                from .db_utils import get_db
-                db = get_db()
-                if db is not None:
-                    from datetime import datetime
-                    db['api_studentstudyplannerconfig'].update_one(
-                        {'_id': instance.pk},
-                        {'$set': {
-                            'target_college': request.data.get('target_college', {}),
-                            'target_career':  request.data.get('target_career', ''),
-                            'user_id':        request.user.pk,
-                            'updated_at':     datetime.utcnow()
-                        }},
-                        upsert=True
-                    )
-            except Exception as e:
-                print(f"[PlannerConfigView] Patch failed: {e}")
+        try:
+            from .db_utils import get_db
+            db = get_db()
+            if db is not None:
+                from datetime import datetime
+                db['api_studentstudyplannerconfig'].update_one(
+                    {'user_id': user_id},
+                    {'$set': {
+                        'target_college': request.data.get('target_college', {}),
+                        'target_career':  request.data.get('target_career', ''),
+                        'user_id':        user_id,
+                        'updated_at':     datetime.utcnow()
+                    }},
+                    upsert=True
+                )
+        except Exception as e:
+            print(f"[PlannerConfigView] PyMongo save failed: {e}")
+            return response.Response({"error": "Failed to save"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            return response.Response(serializer.data, status=status.HTTP_201_CREATED)
-        return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return response.Response(request.data, status=status.HTTP_200_OK)
 
 class UserActivityLogViewSet(viewsets.ModelViewSet):
     serializer_class = UserActivityLogSerializer

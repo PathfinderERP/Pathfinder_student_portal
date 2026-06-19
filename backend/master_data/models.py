@@ -678,3 +678,32 @@ class Community(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+class PsychometricTrait(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    order = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+class PsychometricQuestion(models.Model):
+    trait = models.ForeignKey(PsychometricTrait, on_delete=models.CASCADE, related_name='questions')
+    text = models.CharField(max_length=500)
+    is_reverse_scored = models.BooleanField(default=False, help_text="If True, 1 is best, 5 is worst.")
+    order = models.IntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.text
+
+    class Meta:
+        ordering = ['order', 'created_at']

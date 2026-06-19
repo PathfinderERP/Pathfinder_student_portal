@@ -34,20 +34,27 @@ def generate_ai_study_plan(request):
         target_career = data.get('target_career', 'General Field')
         target_college_obj = data.get('target_college_obj', {})
         is_update_request = data.get('is_update_request', False)
-        
+        check_cache_only = data.get('check_cache_only', False)
+        submission_date_str = data.get('submission_date')
+
         if test_id and not is_update_request:
-            existing_plan = StudentMasterPlan.objects.filter(user=request.user, test_id=test_id).first()
+            existing_plan = StudentMasterPlan.objects.filter(user=request.user, test_id=test_id).order_by('-created_at').first()
             if existing_plan:
                 return Response({
-                    "ai_plan": existing_plan.master_plan, 
+                    "ai_plan": existing_plan.master_plan,
                     "cached": True,
-                    "target_college": existing_plan.target_college
+                    "target_college": existing_plan.target_college,
+                    "plan_created_at": existing_plan.created_at.isoformat() if existing_plan.created_at else None
                 }, status=status.HTTP_200_OK)
+
+            if check_cache_only:
+                return Response({"cached": False}, status=status.HTTP_200_OK)
 
         previous_plan = None
         if test_id:
             previous_plan = StudentMasterPlan.objects.filter(user=request.user).exclude(test_id=test_id).order_by('-created_at').first()
 
+        student_name = request.user.get_full_name().strip() or request.user.username
         class_level = str(data.get('class', '12'))
         total_score = data.get('total_score', '65')
         math_score = data.get('math_score', '60')
@@ -63,7 +70,7 @@ def generate_ai_study_plan(request):
             return _gemini_not_configured_response()
 
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-flash-lite-latest', generation_config={"response_mime_type": "application/json"})
         
         content_parts = []
         is_junior = False
@@ -123,6 +130,7 @@ def generate_ai_study_plan(request):
 {marksheet_note}
 
 ## STUDENT PROFILE
+- **Name:** {student_name}
 - **Current Class:** {class_level}
 - **Exam Type:** {exam_name}
 - **Daily Study Time Available:** {daily_time} hours
@@ -158,23 +166,12 @@ For EACH subject listed:
 - Gap = Target - Current (label as: Small Gap / Moderate Gap / Large Gap)
 - Priority level: HIGH / MEDIUM / LOW
 
-### 3. 📅 Master Board Exam Study Plan {"(Updated Strategy)" if is_update_request else ""}
-Create an extremely detailed, actionable study plan:
+### 3. 📅 Next 1-Month Actionable Study Plan {"(Updated Strategy)" if is_update_request else ""}
+Create an extremely detailed, Day-by-Day study plan strictly for the NEXT 30 DAYS:
 
-**Phase 1 — Foundation Repair (Month 1-3):**
-- Week-by-week breakdown for each subject
-- Specific chapters/topics to cover each week
-- Daily time allocation table per subject
-
-**Phase 2 — Intensive Practice (Month 4-8):**
-- Chapter completion goals
-- NCERT + Reference book strategy
-- Past paper practice schedule
-
-**Phase 3 — Board Exam Sprint (Month 9-10):**
-- Revision cycles
-- Mock test schedule (frequency and pattern)
-- Last-month strategy
+- **Week 1 to Week 4 Breakdown**: Specific chapters/topics to cover EACH DAY based on the student's weaknesses.
+- **Daily Time Allocation**: How much time to spend on each subject daily.
+- **Progress Tracking**: Remind the student that after completing this 1-month plan, they should take a new assessment on the portal to update their plan for the following month.
 
 Use a **Markdown table** for weekly/monthly breakdown.
 
@@ -304,14 +301,13 @@ Compare current performance with target scores (Math: {target_scores.get('mathem
 
 ---
 
-### 3. {"Updated Master Study Plan" if is_update_request else "Master Study Plan"} (1-Month & 1-Year Strategy)
-Create a highly structured plan including:
-- **Immediate 1-Month Plan**: Weekly breakdown (Week 1, 2, 3, 4) with daily schedules
-- **Long-Term 1-Year Strategy**: Monthly milestones and phase-wise goals leading to school/board exams
-- Subject priority order
-- Revision strategy
-- Mock test schedule
+### 3. 📅 {"Updated 1-Month Study Plan" if is_update_request else "Next 1-Month Study Plan"}
+Create a highly structured, day-by-day actionable plan strictly for the NEXT 30 DAYS:
+- **Daily Schedule**: Week 1 to Week 4 breakdown with specific daily study tasks and topics.
+- Subject priority order focusing on fixing weak areas.
+- Revision strategy and mock test practice schedule.
 Make it realistic based on available daily time ({daily_time} hours).
+- **Progress Tracking**: Remind the student that after completing this 1-month plan, they should take a new assessment on the portal to update their plan for the following month.
 {"Focus intensely on adapting the strategy to fix the weaknesses exposed in THIS latest exam." if is_update_request else ""}
 
 ---
@@ -434,16 +430,14 @@ Instead say:
 
 ---
 
-### 3. {"Updated Master Study Plan" if is_update_request else "Master Study Plan"} (1-Month & 1-Year Strategy)
-Create a highly structured plan including:
-- **Immediate 1-Month Plan**: Weekly breakdown (Week 1, 2, 3, 4) with daily schedules
-- **Long-Term 1-Year Strategy**: Monthly milestones and phase-wise goals leading to the exam
-- Subject priority order
-- Revision strategy
-- Mock test schedule
+### 3. 📅 {"Updated 1-Month Study Plan" if is_update_request else "Next 1-Month Study Plan"}
+Create a highly structured, day-by-day actionable plan strictly for the NEXT 30 DAYS:
+- **Daily Schedule**: Week 1 to Week 4 breakdown with specific daily study tasks and topics.
+- Subject priority order focusing on fixing weak areas.
+- Revision strategy and mock test practice schedule.
 Make it realistic based on available daily time ({daily_time} hours).
+- **Progress Tracking**: Remind the student that after completing this 1-month plan, they should take a new assessment on the portal to update their plan for the following month.
 {"Focus intensely on adapting the strategy to fix the weaknesses exposed in THIS latest exam." if is_update_request else ""}
-
 ---
 
 ### 4. Daily Routine Plan
@@ -483,6 +477,72 @@ OUTPUT STYLE & FORMATTING RULES:
         # For all other classes, build content_parts from the prompt string.
         if not is_class_10:
             content_parts = [prompt]
+
+        json_schema_prompt = """
+IMPORTANT: You MUST return your ENTIRE response as a strictly valid JSON object matching the exact structure below. Do NOT wrap it in markdown code blocks (e.g. no ```json ... ```), just output the raw JSON object.
+
+{
+  "metrics": {
+    "planner_score": 70, 
+    "academic_score_percentage": 84, 
+    "mindset_score_percentage": 52, 
+    "risk_level": "Medium", 
+    "primary_gap": "Physics", 
+    "plan_intensity": "Structured" 
+  },
+  "psychological_profile": {
+    "focus": 50, 
+    "discipline": 50,
+    "confidence": 50,
+    "stress_control": 50,
+    "exam_temperament": 50,
+    "digital_discipline": 50,
+    "revision_habit": 50,
+    "lifestyle": 75,
+    "self_awareness": 75
+  },
+  "subject_performance": [
+    {
+      "subject": "Physics",
+      "score": "67%",
+      "diagnosis": "Moderate understanding. Accuracy and chapter revision needed.",
+      "immediate_action": "Revise weak chapters + 3 timed quizzes/week."
+    }
+  ],
+  "diagnoses": {
+    "academic": ["Base Building: No critical base gap found.", "Accuracy Zone: Physics, Chemistry need timed quizzes and error log."],
+    "behavioural": ["Phone/Distraction: High distraction risk.", "Routine Discipline: Routine is unstable."],
+    "exam_pattern": ["Time Management: Student may get stuck in tests."]
+  },
+  "master_plan_markdown": "The detailed markdown strategy here... (All the markdown text for the daily routines, deep analysis, etc. goes here)",
+  "strategy_blocks": {
+    "daily_core_block": "2 focused blocks of 60 minutes + 20 minute revision.",
+    "weekly_test_rhythm": "2 subject tests + 1 mixed test + 1 error-log correction session every week.",
+    "psychology_habit": "5-minute breathing before study...",
+    "mentor_review": "Mentor review once a week with test analysis."
+  },
+  "mentor_intervention_rules": [
+    {"type": "red_flag", "text": "If weekly test score falls below 50% twice, assign teacher doubt class within 48 hours."},
+    {"type": "growth", "text": "If any subject crosses 85% for 3 tests, move student to advanced problem set."}
+  ],
+  "parent_monitoring_dashboard": {
+    "daily": "Check study block completion, not just hours studied.",
+    "weekly": "Review test marks, mistakes, phone usage and sleep routine.",
+    "monthly": "Compare target vs achievement subject-wise and attend mentor review.",
+    "do_not": "Scold immediately after low marks."
+  },
+  "subject_wise_plan": [
+    {"subject": "Physics", "plan": "Revise medium-risk chapters in Physics. Daily 25 questions or 2 answer-writing sets."}
+  ],
+  "psychology_behaviour_plan": [
+    {"area": "Digital Control", "plan": "Phone discipline: app lock during study block, phone only after task completion."}
+  ]
+}
+
+Ensure all metrics are tailored accurately to the student's actual performance data provided above. The `master_plan_markdown` should contain the comprehensive, long-form markdown version of the plan, while the other fields populate the structured dashboard.
+"""
+        content_parts.append(json_schema_prompt)
+        
         response = model.generate_content(content_parts)
         ai_text = response.text
 
@@ -512,11 +572,14 @@ OUTPUT STYLE & FORMATTING RULES:
 
     except Exception as e:
         logger.error(f"[AI MENTOR] Error generating study plan: {str(e)}", exc_info=True)
+        error_name = type(e).__name__
         # Check if it's a deadline exceeded exception (timeout)
-        if 'DeadlineExceeded' in type(e).__name__:
-            return Response({"error": "The AI is experiencing high traffic and timed out. Please try generating the plan again."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+        if 'DeadlineExceeded' in error_name:
+            return Response({"error": "The AI is experiencing high traffic and timed out. Please try generating the plan again later."}, status=status.HTTP_504_GATEWAY_TIMEOUT)
+        elif 'RetryError' in error_name or 'ServiceUnavailable' in error_name:
+            return Response({"error": "Google's AI servers are currently experiencing extremely high demand. Please try again in a few minutes."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
             
-        return Response({"error": "Failed to generate AI study plan"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": "Failed to generate AI study plan. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
