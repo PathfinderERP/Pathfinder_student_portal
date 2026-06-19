@@ -2044,7 +2044,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
         from sections.models import Section
         # Use fresh query with prefetch_related to load all questions in a single indexed query
-        sections = list(Section.objects.filter(test=test).prefetch_related('questions').order_by('priority'))
+        sections = list(Section.objects.filter(test=test).select_related('partial_mark_rule').prefetch_related('questions').order_by('priority'))
         # Build flat q_map and accumulation of max marks
         q_map = {} 
         sections_max = {}
@@ -2206,14 +2206,46 @@ class TestViewSet(viewsets.ModelViewSet):
                                     normalized_selected.add(opt_id)
                                     break
                         correct_set = set([str(opt['id']) for opt in opts if opt.get('isCorrect')])
-                        if normalized_selected == correct_set:
-                            earned = c_marks
-                            total_correct += 1
-                        elif normalized_selected & correct_set:
-                            fraction = len(normalized_selected & correct_set) / len(correct_set) if correct_set else 0
-                            earned = round(c_marks * fraction, 2)
+                        rule = sec.partial_mark_rule
+                        if rule and rule.logic_type == 'JEE_ADVANCED':
+                            if not normalized_selected.issubset(correct_set):
+                                neg = rule.base_negative_marks
+                            elif normalized_selected == correct_set:
+                                earned = rule.base_correct_marks
+                                total_correct += 1
+                            else:
+                                num_correct_selected = len(normalized_selected)
+                                if num_correct_selected >= 3: earned = 3.0
+                                elif num_correct_selected == 2: earned = 2.0
+                                elif num_correct_selected == 1: earned = 1.0
+                                else: earned = float(num_correct_selected)
+                        elif rule and rule.logic_type in ['WBJEE', 'CUSTOM_FRACTIONAL']:
+                            if not normalized_selected.issubset(correct_set):
+                                if rule.logic_type == 'CUSTOM_FRACTIONAL':
+                                    neg = rule.base_negative_marks
+                                else:
+                                    neg = 0.0
+                            elif normalized_selected == correct_set:
+                                earned = rule.base_correct_marks
+                                total_correct += 1
+                            else:
+                                fraction = len(normalized_selected) / len(correct_set) if correct_set else 0
+                                earned = round(rule.base_correct_marks * fraction, 2)
+                        elif rule and rule.logic_type == 'STANDARD':
+                            if normalized_selected == correct_set:
+                                earned = rule.base_correct_marks
+                                total_correct += 1
+                            else:
+                                neg = rule.base_negative_marks
                         else:
-                            neg = n_marks
+                            if normalized_selected == correct_set:
+                                earned = c_marks
+                                total_correct += 1
+                            elif normalized_selected & correct_set:
+                                fraction = len(normalized_selected & correct_set) / len(correct_set) if correct_set else 0
+                                earned = round(c_marks * fraction, 2)
+                            else:
+                                neg = n_marks
                     
                     elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
                         try:
@@ -2310,7 +2342,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
         # Load all sections and questions, capturing is_wrong at the moment of generation
         from sections.models import Section
-        sections = list(Section.objects.filter(test=test).prefetch_related('questions').order_by('priority'))
+        sections = list(Section.objects.filter(test=test).select_related('partial_mark_rule').prefetch_related('questions').order_by('priority'))
 
         q_map = {}
         section_questions_map = {}
@@ -2329,6 +2361,7 @@ class TestViewSet(viewsets.ModelViewSet):
                         'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
                         'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
                         'options': q.question_options or [],
+                        'partial_mark_rule': sec.partial_mark_rule,
                     }
 
         # Collect which question IDs have grace marks at time of generation
@@ -2425,11 +2458,40 @@ class TestViewSet(viewsets.ModelViewSet):
                                         normalized_selected.add(opt_id)
                                         break
                             correct_set = set(qi.get('correct_options', []))
-                            if normalized_selected == correct_set: earned = c_marks
-                            elif normalized_selected & correct_set:
-                                fraction = len(normalized_selected & correct_set) / len(correct_set) if correct_set else 0
-                                earned = round(c_marks * fraction, 2)
-                            else: neg = n_marks
+                            rule = qi.get('partial_mark_rule')
+                            if rule and rule.logic_type == 'JEE_ADVANCED':
+                                if not normalized_selected.issubset(correct_set):
+                                    neg = rule.base_negative_marks
+                                elif normalized_selected == correct_set:
+                                    earned = rule.base_correct_marks
+                                else:
+                                    num_correct_selected = len(normalized_selected)
+                                    if num_correct_selected >= 3: earned = 3.0
+                                    elif num_correct_selected == 2: earned = 2.0
+                                    elif num_correct_selected == 1: earned = 1.0
+                                    else: earned = float(num_correct_selected)
+                            elif rule and rule.logic_type in ['WBJEE', 'CUSTOM_FRACTIONAL']:
+                                if not normalized_selected.issubset(correct_set):
+                                    if rule.logic_type == 'CUSTOM_FRACTIONAL':
+                                        neg = rule.base_negative_marks
+                                    else:
+                                        neg = 0.0
+                                elif normalized_selected == correct_set:
+                                    earned = rule.base_correct_marks
+                                else:
+                                    fraction = len(normalized_selected) / len(correct_set) if correct_set else 0
+                                    earned = round(rule.base_correct_marks * fraction, 2)
+                            elif rule and rule.logic_type == 'STANDARD':
+                                if normalized_selected == correct_set:
+                                    earned = rule.base_correct_marks
+                                else:
+                                    neg = rule.base_negative_marks
+                            else:
+                                if normalized_selected == correct_set: earned = c_marks
+                                elif normalized_selected & correct_set:
+                                    fraction = len(normalized_selected & correct_set) / len(correct_set) if correct_set else 0
+                                    earned = round(c_marks * fraction, 2)
+                                else: neg = n_marks
                         elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
                             try:
                                 val = float(ans)
@@ -2905,11 +2967,42 @@ class TestViewSet(viewsets.ModelViewSet):
                                             normalized_selected.add(opt_id)
                                             break
                                 correct = set(q_info['correct_options'])
-                                if normalized_selected == correct: earned = q_info['correct_marks']
-                                elif normalized_selected & correct:
-                                    fraction = len(normalized_selected & correct) / len(correct) if correct else 0
-                                    earned = round(q_info['correct_marks'] * fraction, 2)
-                                else: neg = q_info['negative_marks']
+                                rule = q_info.get('partial_mark_rule')
+                                if rule and rule.logic_type == 'JEE_ADVANCED':
+                                    if not normalized_selected.issubset(correct):
+                                        neg = rule.base_negative_marks
+                                    elif normalized_selected == correct:
+                                        earned = rule.base_correct_marks
+                                    else:
+                                        num_correct_selected = len(normalized_selected)
+                                        if num_correct_selected >= 3: earned = 3.0
+                                        elif num_correct_selected == 2: earned = 2.0
+                                        elif num_correct_selected == 1: earned = 1.0
+                                        else: earned = float(num_correct_selected)
+                                elif rule and rule.logic_type in ['WBJEE', 'CUSTOM_FRACTIONAL']:
+                                    if not normalized_selected.issubset(correct):
+                                        if rule.logic_type == 'CUSTOM_FRACTIONAL':
+                                            neg = rule.base_negative_marks
+                                        else:
+                                            neg = 0.0
+                                    elif normalized_selected == correct:
+                                        earned = rule.base_correct_marks
+                                    else:
+                                        fraction = len(normalized_selected) / len(correct) if correct else 0
+                                        earned = round(rule.base_correct_marks * fraction, 2)
+                                elif rule and rule.logic_type == 'STANDARD':
+                                    if normalized_selected == correct:
+                                        earned = rule.base_correct_marks
+                                    else:
+                                        neg = rule.base_negative_marks
+                                else:
+                                    if normalized_selected == correct:
+                                        earned = q_info['correct_marks']
+                                    elif normalized_selected & correct:
+                                        fraction = len(normalized_selected & correct) / len(correct) if correct else 0
+                                        earned = round(q_info['correct_marks'] * fraction, 2)
+                                    else:
+                                        neg = q_info['negative_marks']
                             elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
                                 try:
                                     val = float(ans)
