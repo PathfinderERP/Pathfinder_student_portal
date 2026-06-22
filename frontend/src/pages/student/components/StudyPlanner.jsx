@@ -2291,16 +2291,21 @@ const StudyPlanner = ({ isDarkMode, studentData }) => {
                                                 ? q.user_answer.map(String)
                                                 : q.user_answer != null ? [String(q.user_answer)] : [];
 
-                                            const isUserAnswer = userAnswerStr.some(ua => {
-                                                const uaStr = String(ua).toLowerCase().trim();
-                                                return (
-                                                    uaStr === optIdStr.toLowerCase() ||
-                                                    uaStr === String(oIdx) ||
-                                                    uaStr === keys[oIdx] ||
-                                                    uaStr === (opt?.content?.toLowerCase().trim() || '') ||
-                                                    uaStr === (opt?.text?.toLowerCase().trim() || '')
-                                                );
-                                            }) || opt.id === q.student_answer_id;
+                                            const allOptIds = (q.options || []).map((o, i) => String(o.id || o._id || i).toLowerCase().trim());
+                                            const anyIdMatch = userAnswerStr.some(ua => allOptIds.includes(String(ua).toLowerCase().trim()));
+
+                                            const isUserAnswer = (anyIdMatch
+                                                ? userAnswerStr.some(ua => String(ua).toLowerCase().trim() === optIdStr.toLowerCase())
+                                                : userAnswerStr.some(ua => {
+                                                    const uaStr = String(ua).toLowerCase().trim();
+                                                    return (
+                                                        uaStr === optIdStr.toLowerCase() ||
+                                                        uaStr === String(oIdx) ||
+                                                        uaStr === keys[oIdx] ||
+                                                        uaStr === (opt?.content?.toLowerCase().trim() || '') ||
+                                                        uaStr === (opt?.text?.toLowerCase().trim() || '')
+                                                    );
+                                                })) || opt.id === q.student_answer_id;
 
                                             return (
                                                 <div

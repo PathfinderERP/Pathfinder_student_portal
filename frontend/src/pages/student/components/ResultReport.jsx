@@ -877,11 +877,18 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                             ? q.user_answer.map(x => String(x).toLowerCase().trim()) 
                                                             : (q.user_answer ? [String(q.user_answer).toLowerCase().trim()] : []);
                                                         
-                                                        const isYours = uAnsOpts.some(ans => 
-                                                            ans === String(opt.id).toLowerCase() || 
-                                                            ans === optLabel?.toLowerCase() || 
-                                                            (opt.content && ans === String(opt.content).replace(/(<([^>]+)>)/gi, "").toLowerCase())
-                                                        );
+                                                        const allOptIds = (q.options || []).map((o, i) => String(o.id || o._id || i).toLowerCase().trim());
+                                                        const anyIdMatch = uAnsOpts.some(ans => allOptIds.includes(ans));
+                                                        const optIdStr = String(opt.id || opt._id || oi).toLowerCase().trim();
+
+                                                        const isYours = anyIdMatch
+                                                            ? uAnsOpts.includes(optIdStr)
+                                                            : uAnsOpts.some(ans => 
+                                                                ans === optIdStr || 
+                                                                ans === optLabel?.toLowerCase() || 
+                                                                ans === String(oi + 1) ||
+                                                                (opt.content && ans === String(opt.content).replace(/(<([^>]+)>)/gi, "").toLowerCase().trim())
+                                                            );
 
                                                         const correctOptionsArr = Array.isArray(q.correct_options) ? q.correct_options : [];
                                                         const isCorrectOpt = correctOptionsArr.some(c => String(c).toLowerCase() === String(opt.id).toLowerCase()) || opt.isCorrect;
