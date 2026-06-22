@@ -492,6 +492,12 @@ def _sync_user_to_erp(user, admission_data):
             if tag_obj and user.target_exam_id != tag_obj.id:
                 user.target_exam = tag_obj; has_changed = True
 
+        # Always store the raw exam tag name string as a reliable fallback
+        # (used by AI guardrails even if the FK lookup above fails)
+        raw_name = erp_tag_name or (erp_tag_id if isinstance(erp_tag_id, str) else None)
+        if raw_name and getattr(user, 'exam_tag_name', None) != raw_name:
+            user.exam_tag_name = raw_name; has_changed = True
+
 
         if has_changed:
             user.save()

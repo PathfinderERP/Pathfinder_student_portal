@@ -795,3 +795,387 @@ def extract_marksheet_data(request):
     except Exception as e:
         logger.error(f"[AI MARKSHEET] General Error: {str(e)}", exc_info=True)
         return Response({"error": "Failed to extract data"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI INSIGHTS VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_student_context(user):
+    """
+    Builds a dict of key student profile data for use in AI prompts.
+    Reads class_level, target_exam from the user model (synced from ERP).
+    Falls back to exam_section string if target_exam FK is not set.
+    Also reads recent test results from StudentMasterPlan to gather
+    performance history.
+    """
+    import re as _re
+
+    context = {
+        "name": user.get_full_name().strip() or user.username,
+        "class_name": None,
+        "class_num": None,
+        "target_exam_name": None,
+        "batch": getattr(user, 'assigned_batch', None) or '',
+        "is_foundation": False,
+        "recent_subjects": [],
+        "recent_scores": [],
+    }
+
+    # Class level
+    try:
+        cl = user.class_level
+        if cl:
+            context["class_name"] = cl.name
+            match = _re.search(r'\d+', cl.name)
+            if match:
+                num = int(match.group(0))
+                context["class_num"] = num
+                context["is_foundation"] = 5 <= num <= 10
+    except Exception:
+        pass
+
+    # Target exam — primary: FK on user model
+    try:
+        te = user.target_exam
+        if te:
+            context["target_exam_name"] = te.name
+    except Exception:
+        pass
+
+    # Target exam — fallback 1: plain-text exam_tag_name field (most reliable)
+    # This is "JEE 1 YEAR", "NEET 2 YEAR", etc. directly from ERP exam tag
+    if not context["target_exam_name"]:
+        tag_name = (getattr(user, 'exam_tag_name', '') or '').upper().strip()
+        if tag_name:
+            if 'NEET' in tag_name:
+                context["target_exam_name"] = tag_name
+            elif any(k in tag_name for k in ['JEE', 'WBJEE', 'MHT']):
+                context["target_exam_name"] = tag_name
+            logger.info(f"[AI CONTEXT] Used exam_tag_name='{tag_name}' as target exam for {user.username}")
+
+    # Target exam — fallback 2: sniff exam_section string from ERP
+    # e.g. 'JEEE 2023', 'neet 2025', 'JEE MAINS 2026'
+    if not context["target_exam_name"]:
+        exam_section_raw = (
+            getattr(user, 'exam_section', '') or
+            getattr(user, 'study_section', '') or
+            ''
+        ).upper().strip()
+
+        if exam_section_raw:
+            if 'NEET' in exam_section_raw:
+                context["target_exam_name"] = "NEET"
+            elif any(k in exam_section_raw for k in ['JEE', 'WBJEE', 'MHT', 'JEEE']):
+                context["target_exam_name"] = "JEE"
+            logger.info(f"[AI CONTEXT] target_exam FK was null, inferred '{context['target_exam_name']}' from exam_section='{exam_section_raw}'")
+
+    # Recent master plan data for performance context
+    try:
+        recent_plan = StudentMasterPlan.objects.filter(user=user).order_by('-created_at').first()
+        if recent_plan and recent_plan.master_plan:
+            raw = recent_plan.master_plan
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            sp = parsed.get('subject_performance', [])
+            context["recent_subjects"] = [s.get('subject', '') for s in sp[:4]]
+            context["recent_scores"] = [s.get('score', '') for s in sp[:4]]
+    except Exception:
+        pass
+
+    return context
+
+
+def _build_system_instruction(ctx):
+    """
+    Builds a strict, personalised system instruction for the AI tutor chat
+    based on the student's class level and target exam.
+    """
+    name = ctx["name"]
+    target_exam = ctx["target_exam_name"]
+    class_name = ctx["class_name"] or "unknown"
+    is_foundation = ctx["is_foundation"]
+
+    portal_desc = (
+        f"You are the Personal AI Academic Coach inside the Pathfinder Student Portal for {name}, "
+        f"currently studying in {class_name}."
+    )
+
+    # --- Foundation (Classes 5-10) ---
+    if is_foundation:
+        return f"""{portal_desc}
+Your ONLY job is to assist this junior student with their school curriculum subjects:
+Mathematics, Science (Physics, Chemistry, Biology), English, Social Studies,
+and competitive exam preparation for their class level (Olympiads, NTSE, MAT).
+
+STRICT RULES:
+1. NEVER answer questions about advanced JEE/NEET-specific derivations or engineering topics.
+2. NEVER engage in general conversation, creative writing, coding, or off-topic subjects.
+3. If the student asks something outside the school curriculum for Class {ctx.get('class_num', '5-10')}, respond exactly with:
+   "I'm your school curriculum coach! I can only help you with your class subjects and olympiad preparation. What topic would you like to study today?"
+4. Keep explanations simple, engaging, and grade-appropriate.
+5. Always encourage the student positively.
+"""
+
+    # --- NEET ---
+    if target_exam and 'NEET' in target_exam.upper():
+        return f"""{portal_desc}
+This student is preparing for the NEET medical entrance examination.
+
+Your ONLY allowed subjects are:
+- Physics (NEET syllabus: Class 11 & 12 NCERT chapters)
+- Chemistry (Physical, Organic, Inorganic — NEET syllabus)
+- Biology (Botany & Zoology — NEET syllabus, this is the highest-weightage subject)
+
+STRICT RULES:
+1. You MUST REFUSE any question that is NOT about Physics, Chemistry, or Biology for NEET preparation. This includes History, Mathematics, coding, engineering topics, JEE content, movies, games, or any off-topic subject.
+2. When refusing, respond exactly with:
+   "I'm your NEET prep coach! I can only help you with Physics, Chemistry, and Biology. Let's focus on your NEET preparation!"
+3. NEVER engage in general conversation, creative writing, or off-topic discussions.
+4. Always cite NCERT chapters or topics when relevant.
+5. Provide NEET-style MCQ practice and conceptual clarity.
+"""
+
+    # --- JEE ---
+    if target_exam and ('JEE' in target_exam.upper() or 'WBJEE' in target_exam.upper() or 'MHT' in target_exam.upper()):
+        return f"""{portal_desc}
+This student is preparing for the JEE / engineering entrance examination ({target_exam}).
+
+Your ONLY allowed subjects are:
+- Mathematics (Algebra, Calculus, Coordinate Geometry, Vectors, etc.)
+- Physics (Mechanics, Electromagnetism, Optics, Modern Physics, etc.)
+- Chemistry (Physical, Organic, Inorganic — JEE syllabus)
+
+STRICT RULES:
+1. You MUST REFUSE any question that is NOT about Mathematics, Physics, or Chemistry for JEE preparation. This includes History, Biology, Political Science, Geography, coding, movies, games, or any off-topic subject.
+2. When refusing, respond exactly with:
+   "I'm your JEE prep coach! I can only help you with Mathematics, Physics, and Chemistry. Let's focus on your JEE preparation!"
+3. NEVER engage in general conversation, creative writing, or off-topic discussions.
+4. Provide JEE-style problem-solving approaches, shortcuts, and concept clarity.
+"""
+
+    # --- General Academic (fallback) ---
+    return f"""{portal_desc}
+Your ONLY job is to assist this student with Mathematics, Physics, Chemistry, and Biology.
+
+STRICT RULES:
+1. NEVER help with coding, creative writing, general conversation, games, movies, History, Political Science, Geography, or any non-science/math academic topic.
+2. If the student asks something off-topic, respond exactly with:
+   "I'm your academic science coach! I can only help you with Mathematics, Physics, Chemistry, and Biology."
+3. Keep answers educational, structured, and motivating.
+"""
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_ai_insights(request):
+    """
+    Returns dynamic AI-generated insights for the student:
+    - Neural Highlights (Breakthrough, Vulnerability, Trajectory)
+    - Strategic AI Roadmap (Concept Mastery %, Time Efficiency %, Exam Readiness %)
+
+    Uses the student's recent test data from StudentMasterPlan as context.
+    Results are cached per user for 30 minutes to avoid repeated Gemini calls.
+    """
+    user = request.user
+    force = request.GET.get('refresh', 'false') == 'true'
+    cache_key = f"ai_insights_v1_{user.pk}"
+
+    from django.core.cache import cache as django_cache
+    if not force:
+        cached = django_cache.get(cache_key)
+        if cached:
+            return Response(cached, status=status.HTTP_200_OK)
+
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        return _gemini_not_configured_response()
+
+    ctx = _get_student_context(user)
+
+    # Build a summary of the student's performance for the prompt
+    perf_text = "No recent test data available."
+    if ctx["recent_subjects"] and ctx["recent_scores"]:
+        lines = [f"  - {s}: {sc}" for s, sc in zip(ctx["recent_subjects"], ctx["recent_scores"])]
+        perf_text = "Recent subject performance:\n" + "\n".join(lines)
+
+    target_label = ctx["target_exam_name"] or ("Foundation" if ctx["is_foundation"] else "General Board")
+    class_label = ctx["class_name"] or "N/A"
+
+    prompt = f"""You are an AI academic performance analyst for a student portal.
+
+Student Profile:
+- Name: {ctx['name']}
+- Class: {class_label}
+- Target Exam: {target_label}
+- Batch: {ctx['batch'] or 'N/A'}
+
+{perf_text}
+
+Your task is to generate DYNAMIC, realistic academic insights and a strategic roadmap for this student based on their profile and performance data.
+
+Return a STRICTLY valid JSON object with the following structure (no markdown, no code blocks):
+{{
+  "highlights": [
+    {{
+      "title": "Performance Breakthrough",
+      "desc": "A specific, data-driven strength insight for this student (mention subject names if available).",
+      "tag": "Strength",
+      "color": "indigo"
+    }},
+    {{
+      "title": "Critical Vulnerability",
+      "desc": "A specific, actionable weakness or time-management challenge.",
+      "tag": "Time Management",
+      "color": "orange"
+    }},
+    {{
+      "title": "Predicted Trajectory",
+      "desc": "A forward-looking prediction about rank or performance improvement if consistency is maintained.",
+      "tag": "Trajectory",
+      "color": "indigo"
+    }}
+  ],
+  "growth_tip": "A short, specific daily habit or memory technique tailored to the student's target exam ({target_label}).",
+  "roadmap": {{
+    "concept_mastery": 65,
+    "time_efficiency": 50,
+    "exam_readiness": 60
+  }}
+}}
+
+Make the insights feel personal and tailored to {target_label} preparation. Use realistic numbers for the roadmap percentages.
+"""
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            'gemini-flash-lite-latest',
+            generation_config={"response_mime_type": "application/json"}
+        )
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+
+        # Clean up potential markdown wrapping
+        if text.startswith("```json"): text = text[7:]
+        if text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        text = text.strip()
+
+        result = json.loads(text)
+        django_cache.set(cache_key, result, 1800)  # 30-minute cache
+        return Response(result, status=status.HTTP_200_OK)
+
+    except json.JSONDecodeError as je:
+        logger.error(f"[AI INSIGHTS] JSON Decode Error: {je}")
+        return Response({"error": "Invalid response format from AI"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except google_exceptions.ResourceExhausted:
+        return Response({"error": "AI Quota Exceeded. Please try again later."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    except Exception as e:
+        logger.error(f"[AI INSIGHTS] Error: {str(e)}", exc_info=True)
+        return Response({"error": "Failed to generate AI insights."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def student_ai_insights_chat(request):
+    """
+    Powers the Personal AI Tutor chat in the AI Insights tab.
+
+    Accepts:
+      - messages: list of {role: 'user'|'assistant', text: '...'}
+      - message: the latest user message string
+
+    Enforces strict academic guardrails based on:
+      - target_exam (NEET → Biology/Physics/Chemistry only)
+      - target_exam (JEE → Math/Physics/Chemistry only)
+      - class_level (Foundation 5-10 → school curriculum + Olympiads only)
+    """
+    user = request.user
+    data = request.data
+    history = data.get('messages', [])
+    new_message = (data.get('message', '') or '').strip()
+
+    if not new_message:
+        return Response({"error": "Message cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        return _gemini_not_configured_response()
+
+    ctx = _get_student_context(user)
+    system_instruction = _build_system_instruction(ctx)
+
+    # ── Build allowed subjects list and refusal message for the hard classifier ──
+    target_exam = ctx.get("target_exam_name") or ""
+    is_foundation = ctx.get("is_foundation", False)
+
+    if is_foundation:
+        allowed_subjects = "Mathematics, Science (Physics, Chemistry, Biology), English, Social Studies, Olympiad topics (NTSE, NSO, IMO, MAT)"
+        refusal_msg = "I'm your school curriculum coach! I can only help you with your class subjects and olympiad preparation. What topic would you like to study today?"
+    elif 'NEET' in target_exam.upper():
+        allowed_subjects = "Physics (NEET syllabus), Chemistry (NEET syllabus), Biology (Botany and Zoology for NEET)"
+        refusal_msg = "I'm your NEET prep coach! I can only help you with Physics, Chemistry, and Biology. Let's focus on your NEET preparation!"
+    elif any(k in target_exam.upper() for k in ['JEE', 'WBJEE', 'MHT']):
+        allowed_subjects = "Mathematics (JEE syllabus), Physics (JEE syllabus), Chemistry (JEE syllabus)"
+        refusal_msg = "I'm your JEE prep coach! I can only help you with Mathematics, Physics, and Chemistry. Let's focus on your JEE preparation!"
+    else:
+        allowed_subjects = "Mathematics, Physics, Chemistry, Biology"
+        refusal_msg = "I'm your academic science coach! I can only help you with Mathematics, Physics, Chemistry, and Biology."
+
+    try:
+        genai.configure(api_key=api_key)
+
+        # ── STEP 1: Hard Pre-Check Classifier ────────────────────────────────────
+        # This runs BEFORE the main model. Gemini acts only as a binary classifier.
+        # It cannot be "tricked" since we are not answering — only classifying.
+        classifier_model = genai.GenerativeModel('gemini-flash-lite-latest')
+        classifier_prompt = f"""You are a strict topic classifier for a student AI tutoring system.
+
+The student is only allowed to ask questions about: {allowed_subjects}.
+
+Student message: "{new_message}"
+
+Is this message related to the allowed subjects above?
+Reply with ONLY one word: ALLOWED or BLOCKED.
+Do not explain. Do not add any other text."""
+
+        classifier_response = classifier_model.generate_content(classifier_prompt)
+        classification = classifier_response.text.strip().upper()
+
+        logger.info(f"[AI CHAT GUARD] User={user.username} | Exam={target_exam} | Classification={classification} | Msg={new_message[:60]}")
+
+        if 'BLOCKED' in classification:
+            return Response({"reply": refusal_msg, "blocked": True}, status=status.HTTP_200_OK)
+
+        # ── STEP 2: Main Chat Model (only reached if classifier says ALLOWED) ──
+        main_model = genai.GenerativeModel(
+            model_name='gemini-flash-lite-latest',
+            system_instruction=system_instruction,
+        )
+
+        # Build Gemini-format chat history (exclude last message, we send it fresh)
+        gemini_history = []
+        for msg in history[-10:]:  # keep last 10 for context window efficiency
+            role = 'user' if msg.get('role') == 'user' else 'model'
+            text = msg.get('text', '')
+            if text:
+                gemini_history.append({'role': role, 'parts': [text]})
+
+        chat = main_model.start_chat(history=gemini_history)
+        response = chat.send_message(new_message)
+        reply = response.text.strip()
+
+        return Response({"reply": reply}, status=status.HTTP_200_OK)
+
+    except google_exceptions.ResourceExhausted:
+        return Response(
+            {"reply": "I'm currently experiencing high demand. Please try again in a moment."},
+            status=status.HTTP_200_OK  # Return 200 so UI can show the message gracefully
+        )
+    except Exception as e:
+        logger.error(f"[AI CHAT] Error: {str(e)}", exc_info=True)
+        return Response(
+            {"reply": "I encountered a technical issue. Please try again."},
+            status=status.HTTP_200_OK
+        )
+

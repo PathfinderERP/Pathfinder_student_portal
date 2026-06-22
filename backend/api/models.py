@@ -47,6 +47,7 @@ class CustomUser(AbstractUser):
     session = models.ForeignKey('master_data.Session', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     class_level = models.ForeignKey('master_data.ClassLevel', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     target_exam = models.ForeignKey('master_data.TargetExam', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    exam_tag_name = models.CharField(max_length=100, null=True, blank=True, help_text="Exam Tag name from ERP (e.g. 'JEE 1 YEAR', 'NEET 2 YEAR') — plain text fallback")
     
     admission_number = models.CharField(max_length=100, null=True, blank=True, help_text="Admission Number from ERP")
 

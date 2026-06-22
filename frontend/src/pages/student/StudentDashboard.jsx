@@ -333,7 +333,7 @@ const StudentDashboard = () => {
         },
         { name: 'Scholarlab', icon: Beaker },
         { name: 'Advanced Analytics', icon: BarChart2 },
-        // { name: 'AI Insights', icon: Brain },
+        { name: 'AI Insights', icon: Brain },
         { name: 'Study Planner', icon: Calendar },
         { name: 'Notice Board', icon: Bell },
     ], []);
@@ -454,8 +454,8 @@ const StudentDashboard = () => {
                 return <Scholarlab isDarkMode={isDarkMode} studentClass={classNameValue} cache={scholarlabCache} setCache={setScholarlabCache} />;
             case 'Advanced Analytics':
                 return <AdvancedAnalytics isDarkMode={isDarkMode} />;
-            // case 'AI Insights':
-            //     return <AIInsights isDarkMode={isDarkMode} />;
+            case 'AI Insights':
+                return <AIInsights isDarkMode={isDarkMode} />;
             case 'Study Planner':
                 return <StudyPlanner isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Notice Board':
