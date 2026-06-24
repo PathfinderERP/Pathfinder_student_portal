@@ -1,61 +1,77 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useAuth } from '../../../context/AuthContext';
 import {
     Zap, AlertTriangle, Lightbulb, Shield,
     Target, TrendingUp, CheckCircle, ArrowRight,
-    Brain, Award, Star, Clock
+    Brain, Award, Star, Clock, RefreshCw
 } from 'lucide-react';
 
+const iconMap = {
+    Shield,
+    AlertTriangle,
+    Lightbulb,
+    Zap,
+    CheckCircle,
+    Clock,
+    TrendingUp
+};
+
 const SWOTAnalysis = ({ isDarkMode }) => {
-    const swotData = {
-        strengths: {
-            title: "Strengths",
-            subtitle: "Internal positive factors",
-            icon: Shield,
-            color: "indigo",
-            items: [
-                { text: "Strong logical reasoning in Mathematics", score: 92 },
-                { text: "Consistent attendance (94%)", score: 94 },
-                { text: "Active participation in physics labs", score: 88 },
-                { text: "Quick learner for new concepts", score: 85 }
-            ]
-        },
-        weaknesses: {
-            title: "Weaknesses",
-            subtitle: "Internal areas for improvement",
-            icon: AlertTriangle,
-            color: "red",
-            items: [
-                { text: "Time management during mock tests", score: 65 },
-                { text: "Difficulty with advanced organic chemistry", score: 58 },
-                { text: "Occasional procrastination on assignments", score: 70 },
-                { text: "Hesitation in asking doubts during live classes", score: 62 }
-            ]
-        },
-        opportunities: {
-            title: "Opportunities",
-            subtitle: "External factors for growth",
-            icon: Lightbulb,
-            color: "blue",
-            items: [
-                { text: "Upcoming WBJEE specialized workshop", tag: "Workshop" },
-                { text: "Advanced mathematics elective next semester", tag: "Elective" },
-                { text: "Peer tutoring program starting in March", tag: "Leadership" },
-                { text: "Online resource library for entrance exams", tag: "Resource" }
-            ]
-        },
-        threats: {
-            title: "Threats",
-            subtitle: "External challenges to mitigate",
-            icon: Zap,
-            color: "orange",
-            items: [
-                { text: "Increased difficulty level of upcoming topics", level: "High" },
-                { text: "Conflict with external board examination schedule", level: "Medium" },
-                { text: "Rising competition in percentile rankings", level: "Medium" },
-                { text: "Technical requirements for online assessments", level: "Low" }
-            ]
+    const { token, getApiUrl } = useAuth();
+    const [swotData, setSwotData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchSWOT = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/student/swot-analysis/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setSwotData(response.data);
+        } catch (err) {
+            console.error("SWOT Analytics Fetch Error:", err);
+            setError("Failed to load SWOT analysis. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (token) {
+            fetchSWOT();
+        }
+    }, [token]);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+                <RefreshCw className="animate-spin text-orange-500" size={32} />
+                <p className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    AI is analyzing your performance metrics...
+                </p>
+            </div>
+        );
+    }
+
+    if (error || !swotData) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 text-center">
+                <AlertTriangle className="text-red-500" size={48} />
+                <h3 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Analysis Error</h3>
+                <p className="text-sm text-slate-500 max-w-sm">{error || "Could not retrieve your SWOT profile."}</p>
+                <button
+                    onClick={fetchSWOT}
+                    className="px-6 py-2 bg-orange-500 text-white text-xs font-black uppercase tracking-widest rounded-[5px] hover:bg-orange-600 transition-all"
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-fade-in-up">
@@ -82,16 +98,28 @@ const SWOTAnalysis = ({ isDarkMode }) => {
             {/* SWOT Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {/* Strengths */}
-                <SWOTCard data={swotData.strengths} isDark={isDarkMode} />
+                <SWOTCard data={{
+                    ...swotData.strengths,
+                    icon: iconMap[swotData.strengths.icon] || Shield
+                }} isDark={isDarkMode} />
 
                 {/* Weaknesses */}
-                <SWOTCard data={swotData.weaknesses} isDark={isDarkMode} />
+                <SWOTCard data={{
+                    ...swotData.weaknesses,
+                    icon: iconMap[swotData.weaknesses.icon] || AlertTriangle
+                }} isDark={isDarkMode} />
 
                 {/* Opportunities */}
-                <SWOTCard data={swotData.opportunities} isDark={isDarkMode} />
+                <SWOTCard data={{
+                    ...swotData.opportunities,
+                    icon: iconMap[swotData.opportunities.icon] || Lightbulb
+                }} isDark={isDarkMode} />
 
                 {/* Threats */}
-                <SWOTCard data={swotData.threats} isDark={isDarkMode} />
+                <SWOTCard data={{
+                    ...swotData.threats,
+                    icon: iconMap[swotData.threats.icon] || Zap
+                }} isDark={isDarkMode} />
             </div>
 
             {/* AI Recommendation Section */}
@@ -109,24 +137,15 @@ const SWOTAnalysis = ({ isDarkMode }) => {
                         Personalized Strategy for WBJEE Success
                     </h3>
                     <div className="space-y-4 max-w-3xl">
-                        <RecommendationItem
-                            icon={CheckCircle}
-                            text="Leverage your Mathematics strength by completing advanced problem sets from the online library."
-                            color="indigo"
-                            isDark={isDarkMode}
-                        />
-                        <RecommendationItem
-                            icon={Clock}
-                            text="Schedule 45-minute focused bursts for Inorganic Chemistry to mitigate study fatigue."
-                            color="orange"
-                            isDark={isDarkMode}
-                        />
-                        <RecommendationItem
-                            icon={TrendingUp}
-                            text="Participate in the upcoming workshop to gain exposure to higher-difficulty mock scenarios."
-                            color="blue"
-                            isDark={isDarkMode}
-                        />
+                        {(swotData.recommendations || []).map((rec, index) => (
+                            <RecommendationItem
+                                key={index}
+                                icon={iconMap[rec.icon] || CheckCircle}
+                                text={rec.text}
+                                color={rec.color}
+                                isDark={isDarkMode}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>

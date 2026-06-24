@@ -1469,3 +1469,16 @@ def get_student_curriculum_progress(request):
         traceback.print_exc()
         return response.Response({"error": str(e)}, status=500)
 
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_swot_analysis(request):
+    try:
+        from .swot_analytics import calculate_swot_data
+        data = calculate_swot_data(request.user)
+        return response.Response(data)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return response.Response({"error": str(e)}, status=500)
+

@@ -19,7 +19,7 @@ import Performance from './components/Performance';
 import Results from './components/Results';
 import Grievances from './components/Grievances';
 import Doubts from './components/Doubts';
-// import SWOTAnalysis from './components/SWOTAnalysis';
+import SWOTAnalysis from './components/SWOTAnalysis';
 import StudyMaterials from './components/StudyMaterials';
 import AdvancedAnalytics from './components/AdvancedAnalytics';
 import AIInsights from './components/AIInsights';
@@ -52,7 +52,7 @@ const StudentDashboard = () => {
             // Mapping check to ensure valid tab
             const validTabs = [
                 'Dashboard', 'My Profile', 'Classes', 'Attendance',
-                'Exams', 'Results', 'Performance', 'Grievances', 'Doubts',
+                'Exams', 'Results', 'Performance', 'SWOT Analysis', 'Grievances', 'Doubts',
                 'Study Materials', 'Study Planner', 'Notice Board'
             ];
             if (validTabs.includes(tab)) {
@@ -319,7 +319,7 @@ const StudentDashboard = () => {
         { name: 'Exams', icon: FileText },
         { name: 'Results', icon: Trophy },
         { name: 'Performance', icon: TrendingUp },
-        // { name: 'SWOT Analysis', icon: Target },
+        { name: 'SWOT Analysis', icon: Target },
         { name: 'Grievances', icon: AlertCircle },
         { name: 'Doubts', icon: HelpCircle },
         {
@@ -439,8 +439,8 @@ const StudentDashboard = () => {
                 return <Grievances isDarkMode={isDarkMode} />;
             case 'Doubts':
                 return <Doubts isDarkMode={isDarkMode} />;
-            /* case 'SWOT Analysis':
-                return <SWOTAnalysis isDarkMode={isDarkMode} />; */
+            case 'SWOT Analysis':
+                return <SWOTAnalysis isDarkMode={isDarkMode} />;
             case 'Video Content':
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Notes':

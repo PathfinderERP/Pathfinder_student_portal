@@ -6,7 +6,8 @@ from .views import (
     UserViewSet, RegisterView, LoginHistoryView, GrievanceViewSet, DoubtViewSet,
     StudyTaskViewSet, NoticeViewSet, UserSearchView, 
     StudentPsychometricProfileView, StudentStudyPlannerConfigView, AdminStudentPsychometricProfileView, AdminAllPsychometricProfilesView,
-    UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress
+    UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress,
+    get_swot_analysis
 )
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
@@ -75,6 +76,7 @@ urlpatterns = [
     path('student/study-planner-config/', StudentStudyPlannerConfigView.as_view(), name='study-planner-config'),
     path('student/activity-analytics/', get_student_activity_analytics, name='activity-analytics'),
     path('student/curriculum-progress/', get_student_curriculum_progress, name='curriculum-progress'),
+    path('student/swot-analysis/', get_swot_analysis, name='swot-analysis'),
     path('examTag/<str:tagId>/', get_exam_tag, name='exam-tag'),
     path('admin/temp-cleanup/', include([
         path('grievances/', 
