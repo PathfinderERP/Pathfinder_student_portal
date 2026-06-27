@@ -382,6 +382,28 @@ class DoubtViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Doubt.objects.all()
 
+    @action(detail=False, methods=['get'])
+    def unassigned_count(self, request):
+        from .db_utils import get_db
+        user = request.user
+        user_type = getattr(user, 'user_type', '')
+        if user_type not in ('admin', 'staff', 'superadmin'):
+            return response.Response({'count': 0})
+        
+        db = get_db()
+        if db is None:
+            count = Doubt.objects.filter(status__in=['Unassigned', 'Pending']).count()
+            return response.Response({'count': count})
+        
+        try:
+            collection = db['api_doubt']
+            count = collection.count_documents({'status': {'$in': ['Unassigned', 'Pending']}})
+            return response.Response({'count': count})
+        except Exception as e:
+            print(f"[DoubtViewSet] count_documents failed: {e}")
+            count = Doubt.objects.filter(status__in=['Unassigned', 'Pending']).count()
+            return response.Response({'count': count})
+
     def _format_doc(self, doc):
         """Convert a raw MongoDB document to a clean dict for JSON response."""
         def safe_str(val, default=''):

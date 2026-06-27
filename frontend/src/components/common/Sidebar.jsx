@@ -236,15 +236,22 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                         : (isDarkMode ? "text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/50")
                                                     }`}
                                             >
-                                                <item.icon
-                                                    size={isPremium ? 20 : 22}
-                                                    strokeWidth={item.active ? 2.5 : (isPremium ? 1.5 : 2)}
-                                                    className={`transition-all duration-300 flex-shrink-0 ${isOpen ? "mr-4" : "mr-0"} 
-                                                    ${item.active
-                                                            ? (isDarkMode ? colors.text : colors.textLight)
-                                                            : (isDarkMode ? "text-slate-500 group-hover:text-slate-300" : "text-slate-400 group-hover:text-slate-700")
-                                                        }`}
-                                                />
+                                                <div className={`relative ${isOpen ? "mr-4" : "mr-0"}`}>
+                                                    <item.icon
+                                                        size={isPremium ? 20 : 22}
+                                                        strokeWidth={item.active ? 2.5 : (isPremium ? 1.5 : 2)}
+                                                        className={`transition-all duration-300 flex-shrink-0 
+                                                        ${item.active
+                                                                ? (isDarkMode ? colors.text : colors.textLight)
+                                                                : (isDarkMode ? "text-slate-500 group-hover:text-slate-300" : "text-slate-400 group-hover:text-slate-700")
+                                                            }`}
+                                                    />
+                                                    {!isOpen && item.badge && (
+                                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-600 text-[8px] font-black text-white animate-pulse">
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                </div>
 
                                                 <AnimatePresence>
                                                     {isOpen && (
@@ -257,7 +264,12 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                             >
                                                                 {item.label}
                                                             </motion.span>
-                                                            {item.active && (
+                                                            {item.badge && (
+                                                                <span className="ml-2 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-orange-500 text-white animate-pulse">
+                                                                    {item.badge}
+                                                                </span>
+                                                            )}
+                                                            {item.active && !item.badge && (
                                                                 <motion.div
                                                                     initial={{ scale: 0, rotate: 45 }}
                                                                     animate={{ scale: 1, rotate: 0 }}

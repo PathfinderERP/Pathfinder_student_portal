@@ -96,6 +96,7 @@ const SystemDashboard = () => {
         sections: { total: 0, thisMonth: 0 },
         questions: { total: 0, thisMonth: 0 }
     });
+    const [unassignedDoubtCount, setUnassignedDoubtCount] = useState(0);
     const [masterSubTab, setMasterSubTab] = useState('Session');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -272,6 +273,20 @@ const SystemDashboard = () => {
         }
     }, [token, getApiUrl, authLoading]);
 
+    const fetchUnassignedDoubtCount = useCallback(async () => {
+        if (authLoading || !token) return;
+        if (!['superadmin', 'admin', 'staff'].includes(user?.user_type)) return;
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/doubts/unassigned_count/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setUnassignedDoubtCount(response.data.count || 0);
+        } catch (err) {
+            console.error("Failed to fetch unassigned doubt count", err);
+        }
+    }, [token, getApiUrl, authLoading, user?.user_type]);
+
     const syncERP = useCallback(async (isManual = false) => {
         if (!isManual && _erpSyncAttempted) return;
         if (authLoading || !token) return;
@@ -281,6 +296,7 @@ const SystemDashboard = () => {
 
         if (isManual) {
             fetchDashboardStats(true); // Force real-time recount
+            fetchUnassignedDoubtCount();
         }
 
         try {
@@ -320,7 +336,7 @@ const SystemDashboard = () => {
         } finally {
             setIsERPLoading(false);
         }
-    }, [token, getApiUrl, authLoading, fetchDashboardStats]);
+    }, [token, getApiUrl, authLoading, fetchDashboardStats, fetchUnassignedDoubtCount]);
 
     const initialFetchDone = useRef(false);
     useEffect(() => {
@@ -328,6 +344,7 @@ const SystemDashboard = () => {
 
         syncERP();
         fetchDashboardStats();
+        fetchUnassignedDoubtCount();
         initialFetchDone.current = true;
 
         // 30-min interval aligns with the backend ERP cache TTL (avoids hammering
@@ -335,9 +352,14 @@ const SystemDashboard = () => {
         const interval = setInterval(() => {
             syncERP(false);
             fetchDashboardStats();
+            fetchUnassignedDoubtCount();
         }, 1800000);
         return () => clearInterval(interval);
-    }, [authLoading, token, syncERP, fetchDashboardStats]);
+    }, [authLoading, token, syncERP, fetchDashboardStats, fetchUnassignedDoubtCount]);
+
+    useEffect(() => {
+        fetchUnassignedDoubtCount();
+    }, [activeTab, fetchUnassignedDoubtCount]);
 
     // 3. Permissions & Sidebar
     const hasPermission = (moduleId, subModuleId = null) => {
@@ -391,6 +413,7 @@ const SystemDashboard = () => {
         },
         {
             id: 'doubt_mgmt', icon: FileText, label: 'Doubt Management', active: activeTab.startsWith('Doubt') || activeTab.startsWith('Assign Doubt') || activeTab.startsWith('Solve Doubt'),
+            badge: unassignedDoubtCount > 0 ? unassignedDoubtCount : null,
             subItems: [
                 { id: 'assign_doubt', label: 'Assign Doubt', active: activeTab === 'Assign Doubt', onClick: () => setActiveTab('Assign Doubt') },
                 { id: 'solve_doubt', label: 'Solve Doubt', active: activeTab === 'Solve Doubt', onClick: () => setActiveTab('Solve Doubt') },
@@ -462,7 +485,7 @@ const SystemDashboard = () => {
         }
 
         return hasPermission(item.id);
-    }), [activeTab, masterSubTab, user?.permissions, user?.user_type]);
+    }), [activeTab, masterSubTab, user?.permissions, user?.user_type, unassignedDoubtCount]);
 
     const [visitedTabs, setVisitedTabs] = useState(['Dashboard']);
 
