@@ -247,7 +247,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                             }`}
                                                     />
                                                     {!isOpen && item.badge && (
-                                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-600 text-[8px] font-black text-white animate-pulse">
+                                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500/10 text-red-500 dark:text-red-400 text-[8px] font-black border border-red-500/20 backdrop-blur-sm">
                                                             {item.badge}
                                                         </span>
                                                     )}
@@ -265,7 +265,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                 {item.label}
                                                             </motion.span>
                                                             {item.badge && (
-                                                                <span className="ml-2 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-orange-500 text-white animate-pulse">
+                                                                <span className="relative -top-1 ml-2 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 backdrop-blur-sm">
                                                                     {item.badge}
                                                                 </span>
                                                             )}
