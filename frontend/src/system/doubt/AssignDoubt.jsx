@@ -16,6 +16,7 @@ const AssignDoubt = () => {
     const [sortOrder, setSortOrder] = useState('newest');
     const [selectedDoubtIds, setSelectedDoubtIds] = useState([]);
     const [selectedDate, setSelectedDate] = useState('');
+    const [selectedClass, setSelectedClass] = useState('All');
     const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
     const [selectedTeachersForBulk, setSelectedTeachersForBulk] = useState([]);
     const [distributeEqually, setDistributeEqually] = useState(false);
@@ -73,7 +74,7 @@ const AssignDoubt = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, activeTab, selectedSubject, selectedCenter, sortOrder, itemsPerPage, selectedDate]);
+    }, [searchQuery, activeTab, selectedSubject, selectedCenter, sortOrder, itemsPerPage, selectedDate, selectedClass]);
 
     const tabs = [
         { id: 'Unassigned', label: 'UN (ASSIGN/SOLVE DOUBTS)' },
@@ -89,6 +90,7 @@ const AssignDoubt = () => {
             (d.status === activeTab) &&
             (selectedSubject === 'All' || d.subject === selectedSubject) &&
             (selectedCenter === 'All' || d.centreName === selectedCenter) &&
+            (selectedClass === 'All' || d.studentClass === selectedClass) &&
             (!selectedDate || (() => {
                 if (!(d.rawDate instanceof Date) || isNaN(d.rawDate)) return false;
                 const yyyy = d.rawDate.getFullYear();
@@ -110,6 +112,7 @@ const AssignDoubt = () => {
 
     const subjects = ['All', ...new Set(doubts.map(d => d.subject))];
     const centers = ['All', ...new Set(doubts.map(d => d.centreName).filter(Boolean))];
+    const classes = ['All', ...new Set(doubts.map(d => d.studentClass).filter(Boolean))];
 
     const totalPages = Math.ceil(filteredDoubts.length / itemsPerPage);
 
@@ -399,6 +402,24 @@ const AssignDoubt = () => {
                                 >
                                     <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Centers</option>
                                     {centers.filter(c => c !== 'All').map(c => (
+                                        <option key={c} value={c} className={isDarkMode ? 'bg-slate-800' : ''}>{c}</option>
+                                    ))}
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            </div>
+
+                            {/* Class Filter */}
+                            <div className="relative w-full md:w-48">
+                                <select
+                                    value={selectedClass}
+                                    onChange={(e) => setSelectedClass(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
+                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
+                                        }`}
+                                >
+                                    <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Classes</option>
+                                    {classes.filter(c => c !== 'All').map(c => (
                                         <option key={c} value={c} className={isDarkMode ? 'bg-slate-800' : ''}>{c}</option>
                                     ))}
                                 </select>
