@@ -15,6 +15,7 @@ const AssignDoubt = () => {
     const [selectedCenter, setSelectedCenter] = useState('All');
     const [sortOrder, setSortOrder] = useState('newest');
     const [selectedDoubtIds, setSelectedDoubtIds] = useState([]);
+    const [selectedDate, setSelectedDate] = useState('');
     const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
     const [selectedTeachersForBulk, setSelectedTeachersForBulk] = useState([]);
     const [distributeEqually, setDistributeEqually] = useState(false);
@@ -70,6 +71,10 @@ const AssignDoubt = () => {
         fetchDoubts();
     }, []);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, activeTab, selectedSubject, selectedCenter, sortOrder, itemsPerPage, selectedDate]);
+
     const tabs = [
         { id: 'Unassigned', label: 'UN (ASSIGN/SOLVE DOUBTS)' },
         { id: 'Assign', label: 'ASSIGN DOUBTS' },
@@ -83,7 +88,14 @@ const AssignDoubt = () => {
                 d.subject.toLowerCase().includes(searchQuery.toLowerCase())) &&
             (d.status === activeTab) &&
             (selectedSubject === 'All' || d.subject === selectedSubject) &&
-            (selectedCenter === 'All' || d.centreName === selectedCenter)
+            (selectedCenter === 'All' || d.centreName === selectedCenter) &&
+            (!selectedDate || (() => {
+                if (!(d.rawDate instanceof Date) || isNaN(d.rawDate)) return false;
+                const yyyy = d.rawDate.getFullYear();
+                const mm = String(d.rawDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.rawDate.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}` === selectedDate;
+            })())
         )
         .sort((a, b) => {
             const timeA = a.rawDate instanceof Date && !isNaN(a.rawDate) ? a.rawDate.getTime() : 0;
@@ -393,6 +405,27 @@ const AssignDoubt = () => {
                                 <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
                             </div>
 
+                            {/* Date Filter */}
+                            <div className="relative w-full md:w-48 flex items-center">
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className={`w-full px-4 py-3 pr-10 rounded-[5px] border-2 outline-none font-bold ${isDarkMode
+                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
+                                        }`}
+                                />
+                                {selectedDate && (
+                                    <button
+                                        onClick={() => setSelectedDate('')}
+                                        className="absolute right-3 text-slate-400 hover:text-orange-500 transition-colors"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                )}
+                            </div>
+
                             {/* Sort Filter */}
                             <div className="relative w-full md:w-48">
                                 <select
@@ -639,11 +672,42 @@ const AssignDoubt = () => {
                 </div>
 
                 {/* Simplified Pagination */}
-                <div className={`p-6 border-t flex items-center justify-between ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
-                    <span className="text-xs font-bold opacity-50">Showing {filteredDoubts.length} entries</span>
-                    <div className="flex gap-2">
-                        <button disabled={currentPage === 1} className="p-2 rounded-[5px] hover:bg-black/5 disabled:opacity-30"><ChevronLeft size={16} /></button>
-                        <button disabled={currentPage >= totalPages} className="p-2 rounded-[5px] hover:bg-black/5 disabled:opacity-30"><ChevronRight size={16} /></button>
+                <div className={`p-6 border-t flex flex-col md:flex-row items-center justify-between gap-4 ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <span className="text-xs font-bold opacity-50">Showing {filteredDoubts.length} entries</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold opacity-50">Show</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                className={`px-2 py-1.5 text-xs font-bold rounded-[5px] border outline-none ${isDarkMode ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500' : 'bg-white border-slate-200 text-slate-850 focus:border-orange-500'}`}
+                            >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                            <span className="text-xs font-bold opacity-50">entries per page</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className="text-xs font-bold opacity-50">Page {currentPage} of {totalPages || 1}</span>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1} 
+                                className="p-2 rounded-[5px] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 transition-colors"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            <button 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage >= totalPages} 
+                                className="p-2 rounded-[5px] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 transition-colors"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
