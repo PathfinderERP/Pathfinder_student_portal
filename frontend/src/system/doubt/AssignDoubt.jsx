@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Search, Eye, UserPlus, Filter, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, ChevronFirst, ChevronLast, X, RotateCcw, CheckSquare, Square, Users, LayoutGrid } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import Select from 'react-select';
 
 const AssignDoubt = () => {
     const { isDarkMode } = useTheme();
@@ -11,15 +12,127 @@ const AssignDoubt = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [selectedSubject, setSelectedSubject] = useState('All');
-    const [selectedCenter, setSelectedCenter] = useState('All');
-    const [sortOrder, setSortOrder] = useState('newest');
+    const [selectedSubjects, setSelectedSubjects] = useState([]);
+    const [selectedCenters, setSelectedCenters] = useState([]);
+    const [sortOrder, setSortOrder] = useState({ value: 'newest', label: 'Newest First' });
     const [selectedDoubtIds, setSelectedDoubtIds] = useState([]);
     const [selectedDate, setSelectedDate] = useState('');
-    const [selectedClass, setSelectedClass] = useState('All');
+    const [selectedClasses, setSelectedClasses] = useState([]);
+    const [selectedExamTags, setSelectedExamTags] = useState([]);
     const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
     const [selectedTeachersForBulk, setSelectedTeachersForBulk] = useState([]);
     const [distributeEqually, setDistributeEqually] = useState(false);
+
+    const customSelectStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+            borderColor: state.isFocused 
+                ? '#f97316' 
+                : (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'),
+            borderWidth: '2px',
+            borderRadius: '5px',
+            boxShadow: 'none',
+            minHeight: '44px',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontWeight: 'bold',
+            '&:hover': {
+                borderColor: state.isFocused ? '#f97316' : (isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'),
+            }
+        }),
+        valueContainer: (provided) => ({
+            ...provided,
+            padding: '2px 12px',
+        }),
+        input: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#fff' : '#0f172a',
+            margin: 0,
+            padding: 0,
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#fff' : '#0f172a',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+        }),
+        multiValue: (provided) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+            borderRadius: '4px',
+        }),
+        multiValueLabel: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#fff' : '#0f172a',
+            fontSize: '0.70rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            padding: '2px 6px',
+        }),
+        multiValueRemove: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            ':hover': {
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                color: '#ef4444',
+            },
+        }),
+        menu: (provided) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? '#10141D' : '#ffffff',
+            border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            zIndex: 50,
+            borderRadius: '5px',
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected
+                ? '#f97316'
+                : state.isFocused
+                    ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc')
+                    : 'transparent',
+            color: state.isSelected
+                ? '#fff'
+                : (isDarkMode ? '#fff' : '#0f172a'),
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            cursor: 'pointer',
+            '&:active': {
+                backgroundColor: '#ea580c',
+            }
+        }),
+        indicatorSeparator: () => ({ display: 'none' }),
+        dropdownIndicator: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            paddingRight: '8px',
+            ':hover': {
+                color: isDarkMode ? '#fff' : '#0f172a',
+            }
+        }),
+        clearIndicator: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            ':hover': {
+                color: '#ef4444',
+            }
+        })
+    };
 
     // Initial Data State (Only Unassigned Doubts initially)
     const [doubts, setDoubts] = useState([]);
@@ -33,33 +146,38 @@ const AssignDoubt = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             // Map the data to the format expected by the table
-            const mappedDoubts = response.data.map(d => ({
-                id: d.id,
-                student: d.student_name,
-                studentId: d.student_id,
-                studentClass: d.student_class || 'N/A',
-                studentEmail: d.student_email || 'N/A',
-                admissionNumber: d.admission_number || 'N/A',
-                examTag: d.exam_tag || 'N/A',
-                subject: d.subject,
-                chapter: d.chapter,
-                topic: d.topic,
-                title: d.title,
-                date: d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A',
-                status: d.status,
-                description: d.description,
-                image: d.image,
-                image2: d.image2,
-                image3: d.image3,
-                pdf: d.pdf,
-                voice_note: d.voice_note,
-                teacherName: d.teacher_name,
-                assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
-                centreName: d.centre_name,
-                centreCode: d.centre_code,
-                rawDate: d.created_at ? new Date(d.created_at) : new Date(0)
-            }));
+            const mappedDoubts = response.data.map(d => {
+                const rawClass = d.student_class || 'N/A';
+                const cleanCls = rawClass.includes(' - ') ? rawClass.split(' - ')[0].trim() : rawClass;
+                return {
+                    id: d.id,
+                    student: d.student_name,
+                    studentId: d.student_id,
+                    studentClass: rawClass,
+                    cleanClass: cleanCls,
+                    studentEmail: d.student_email || 'N/A',
+                    admissionNumber: d.admission_number || 'N/A',
+                    examTag: d.exam_tag || 'N/A',
+                    subject: d.subject,
+                    chapter: d.chapter,
+                    topic: d.topic,
+                    title: d.title,
+                    date: d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A',
+                    status: d.status,
+                    description: d.description,
+                    image: d.image,
+                    image2: d.image2,
+                    image3: d.image3,
+                    pdf: d.pdf,
+                    voice_note: d.voice_note,
+                    teacherName: d.teacher_name,
+                    assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
+                    solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
+                    centreName: d.centre_name,
+                    centreCode: d.centre_code,
+                    rawDate: d.created_at ? new Date(d.created_at) : new Date(0)
+                };
+            });
             setDoubts(mappedDoubts);
         } catch (error) {
             console.error('Failed to fetch doubts:', error);
@@ -74,7 +192,7 @@ const AssignDoubt = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, activeTab, selectedSubject, selectedCenter, sortOrder, itemsPerPage, selectedDate, selectedClass]);
+    }, [searchQuery, activeTab, selectedSubjects, selectedCenters, sortOrder, itemsPerPage, selectedDate, selectedClasses, selectedExamTags]);
 
     const tabs = [
         { id: 'Unassigned', label: 'UN (ASSIGN/SOLVE DOUBTS)' },
@@ -88,9 +206,10 @@ const AssignDoubt = () => {
             (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 d.subject.toLowerCase().includes(searchQuery.toLowerCase())) &&
             (d.status === activeTab) &&
-            (selectedSubject === 'All' || d.subject === selectedSubject) &&
-            (selectedCenter === 'All' || d.centreName === selectedCenter) &&
-            (selectedClass === 'All' || d.studentClass === selectedClass) &&
+            (selectedSubjects.length === 0 || selectedSubjects.some(s => s.value === d.subject)) &&
+            (selectedCenters.length === 0 || selectedCenters.some(c => c.value === d.centreName)) &&
+            (selectedClasses.length === 0 || selectedClasses.some(c => c.value === d.cleanClass)) &&
+            (selectedExamTags.length === 0 || selectedExamTags.some(t => t.value === d.examTag)) &&
             (!selectedDate || (() => {
                 if (!(d.rawDate instanceof Date) || isNaN(d.rawDate)) return false;
                 const yyyy = d.rawDate.getFullYear();
@@ -103,16 +222,27 @@ const AssignDoubt = () => {
             const timeA = a.rawDate instanceof Date && !isNaN(a.rawDate) ? a.rawDate.getTime() : 0;
             const timeB = b.rawDate instanceof Date && !isNaN(b.rawDate) ? b.rawDate.getTime() : 0;
             
+            const sortVal = sortOrder ? sortOrder.value : 'newest';
             if (timeA !== timeB) {
-                return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+                return sortVal === 'newest' ? timeB - timeA : timeA - timeB;
             }
             // Fallback to ID sorting if times are equal
-            return sortOrder === 'newest' ? b.id - a.id : a.id - b.id;
+            return sortVal === 'newest' ? b.id - a.id : a.id - b.id;
         });
 
-    const subjects = ['All', ...new Set(doubts.map(d => d.subject))];
-    const centers = ['All', ...new Set(doubts.map(d => d.centreName).filter(Boolean))];
-    const classes = ['All', ...new Set(doubts.map(d => d.studentClass).filter(Boolean))];
+    const subjectOptions = [...new Set(doubts.map(d => d.subject))].filter(Boolean).sort().map(s => ({ value: s, label: s }));
+    const centerOptions = [...new Set(doubts.map(d => d.centreName))].filter(Boolean).sort().map(c => ({ value: c, label: c }));
+    const classOptions = [...new Set(doubts.map(d => d.cleanClass))].filter(c => c && c !== 'N/A').sort((a, b) => {
+        const numA = parseInt(a, 10);
+        const numB = parseInt(b, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.localeCompare(b);
+    }).map(c => ({ value: c, label: `CLASS ${c}` }));
+    const examTagOptions = [...new Set(doubts.map(d => d.examTag))].filter(t => t && t !== 'N/A').sort().map(t => ({ value: t, label: t }));
+    const sortOptions = [
+        { value: 'newest', label: 'Newest First' },
+        { value: 'oldest', label: 'Oldest First' }
+    ];
 
     const totalPages = Math.ceil(filteredDoubts.length / itemsPerPage);
 
@@ -333,7 +463,7 @@ const AssignDoubt = () => {
                     </div>
 
                     {/* Filters Row */}
-                    <div className="flex flex-col xl:flex-row gap-4 justify-between items-center relative">
+                    <div className="flex flex-wrap gap-4 items-center relative w-full">
                         {/* Bulk Action Overlay */}
                         {selectedDoubtIds.length > 0 && (
                             <div className={`absolute inset-0 z-10 flex items-center justify-between px-6 rounded-[5px] animate-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-orange-500/20 backdrop-blur-md border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}>
@@ -357,7 +487,7 @@ const AssignDoubt = () => {
                                 </div>
                             </div>
                         )}
-                        <div className="flex flex-col md:flex-row gap-4 w-full xl:w-auto">
+                        <div className="flex flex-wrap gap-4 items-center w-full">
                             <div className="relative group w-full md:w-80">
                                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={20} />
                                 <input
@@ -365,7 +495,7 @@ const AssignDoubt = () => {
                                     placeholder="Search by student or subject..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-14 pr-6 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
+                                    className={`w-full pl-14 pr-6 py-[9px] rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
                                         ? 'bg-white/5 border-white/5 text-white focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
                                         : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
                                         }`}
@@ -373,68 +503,66 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Subject Filter */}
-                            <div className="relative w-full md:w-48">
-                                <select
-                                    value={selectedSubject}
-                                    onChange={(e) => setSelectedSubject(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
-                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
-                                        }`}
-                                >
-                                    <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Subjects</option>
-                                    {subjects.filter(s => s !== 'All').map(s => (
-                                        <option key={s} value={s} className={isDarkMode ? 'bg-slate-800' : ''}>{s}</option>
-                                    ))}
-                                </select>
-                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            <div className="w-full md:w-48">
+                                <Select
+                                    isMulti
+                                    options={subjectOptions}
+                                    value={selectedSubjects}
+                                    onChange={(selected) => setSelectedSubjects(selected || [])}
+                                    placeholder="ALL SUBJECTS"
+                                    styles={customSelectStyles}
+                                    classNamePrefix="react-select"
+                                />
                             </div>
 
                             {/* Center Filter */}
-                            <div className="relative w-full md:w-48">
-                                <select
-                                    value={selectedCenter}
-                                    onChange={(e) => setSelectedCenter(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
-                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
-                                        }`}
-                                >
-                                    <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Centers</option>
-                                    {centers.filter(c => c !== 'All').map(c => (
-                                        <option key={c} value={c} className={isDarkMode ? 'bg-slate-800' : ''}>{c}</option>
-                                    ))}
-                                </select>
-                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            <div className="w-full md:w-48">
+                                <Select
+                                    isMulti
+                                    options={centerOptions}
+                                    value={selectedCenters}
+                                    onChange={(selected) => setSelectedCenters(selected || [])}
+                                    placeholder="ALL CENTERS"
+                                    styles={customSelectStyles}
+                                    classNamePrefix="react-select"
+                                />
                             </div>
 
                             {/* Class Filter */}
-                            <div className="relative w-full md:w-48">
-                                <select
-                                    value={selectedClass}
-                                    onChange={(e) => setSelectedClass(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
-                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
-                                        }`}
-                                >
-                                    <option value="All" className={isDarkMode ? 'bg-slate-800' : ''}>All Classes</option>
-                                    {classes.filter(c => c !== 'All').map(c => (
-                                        <option key={c} value={c} className={isDarkMode ? 'bg-slate-800' : ''}>{c}</option>
-                                    ))}
-                                </select>
-                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                            <div className="w-full md:w-44">
+                                <Select
+                                    isMulti
+                                    options={classOptions}
+                                    value={selectedClasses}
+                                    onChange={(selected) => setSelectedClasses(selected || [])}
+                                    placeholder="ALL CLASSES"
+                                    styles={customSelectStyles}
+                                    classNamePrefix="react-select"
+                                />
+                            </div>
+
+                            {/* Exam Tag Filter */}
+                            <div className="w-full md:w-48">
+                                <Select
+                                    isMulti
+                                    options={examTagOptions}
+                                    value={selectedExamTags}
+                                    onChange={(selected) => setSelectedExamTags(selected || [])}
+                                    placeholder="ALL EXAMS"
+                                    styles={customSelectStyles}
+                                    classNamePrefix="react-select"
+                                />
                             </div>
 
                             {/* Date Filter */}
-                            <div className="relative w-full md:w-48 flex items-center">
+                            <div className="relative w-full md:w-40 flex items-center">
                                 <input
                                     type="date"
                                     value={selectedDate}
                                     onChange={(e) => setSelectedDate(e.target.value)}
-                                    className={`w-full px-4 py-3 pr-10 rounded-[5px] border-2 outline-none font-bold ${isDarkMode
-                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
+                                    className={`w-full px-4 py-[9px] pr-10 rounded-[5px] border-2 outline-none font-bold ${isDarkMode
+                                        ? 'bg-white/5 border-white/5 text-white focus:border-orange-500/50'
+                                        : 'bg-slate-50 border-slate-100 text-slate-850 focus:border-orange-500/50'
                                         }`}
                                 />
                                 {selectedDate && (
@@ -448,27 +576,24 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Sort Filter */}
-                            <div className="relative w-full md:w-48">
-                                <select
+                            <div className="w-full md:w-44">
+                                <Select
+                                    options={sortOptions}
                                     value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
-                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                        : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500'
-                                        }`}
-                                >
-                                    <option value="newest" className={isDarkMode ? 'bg-slate-800' : ''}>Newest First</option>
-                                    <option value="oldest" className={isDarkMode ? 'bg-slate-800' : ''}>Oldest First</option>
-                                </select>
-                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                                    onChange={(selected) => setSortOrder(selected)}
+                                    placeholder="SORT BY"
+                                    styles={customSelectStyles}
+                                    classNamePrefix="react-select"
+                                    isSearchable={false}
+                                />
                             </div>
-                        </div>
 
-                        <button
-                            onClick={fetchDoubts}
-                            className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
-                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-                        </button>
+                            <button
+                                onClick={fetchDoubts}
+                                className={`p-3 rounded-[5px] transition-all ml-auto xl:ml-0 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
+                                <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -512,6 +637,9 @@ const AssignDoubt = () => {
                                         </th>
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2">Student Name</th>
+                                        <th className="py-4 px-2">Class</th>
+                                        <th className="py-4 px-2">Centre</th>
+                                        <th className="py-4 px-2">Exam Tag</th>
                                         <th className="py-4 px-2">Subject</th>
                                         <th className="py-4 px-2">Date</th>
                                         <th className="py-4 px-2 text-center">Show Doubt</th>
@@ -534,6 +662,18 @@ const AssignDoubt = () => {
                                                 <div className={`h-4 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                                 <div className={`h-2.5 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                             </div>
+                                        </td>
+                                        {/* Class Loader */}
+                                        <td className="py-4 px-2">
+                                            <div className={`h-4 w-12 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        {/* Centre Loader */}
+                                        <td className="py-4 px-2">
+                                            <div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        {/* Exam Tag Loader */}
+                                        <td className="py-4 px-2">
+                                            <div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                         <td className="py-4 px-2">
                                             <div className={`h-5 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
@@ -639,6 +779,24 @@ const AssignDoubt = () => {
                                                         <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
                                                     </div>
                                                 </td>
+                                                {/* Class */}
+                                                <td className="py-4 px-2">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {doubt.cleanClass}
+                                                    </span>
+                                                </td>
+                                                {/* Centre */}
+                                                <td className="py-4 px-2">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {doubt.centreName || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                {/* Exam Tag */}
+                                                <td className="py-4 px-2">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {doubt.examTag || 'N/A'}
+                                                    </span>
+                                                </td>
                                                 <td className="py-4 px-2">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                                                         {doubt.subject}
@@ -680,7 +838,7 @@ const AssignDoubt = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={activeTab === 'Assign' || activeTab === 'Solve' ? 5 : activeTab === 'Rejected' ? 5 : 7} className="py-20 text-center">
+                                    <td colSpan={activeTab === 'Assign' || activeTab === 'Solve' ? 5 : activeTab === 'Rejected' ? 5 : 10} className="py-20 text-center">
                                         <div className="flex flex-col items-center justify-center gap-4 opacity-50">
                                             <AlertCircle size={48} className={isDarkMode ? 'text-slate-700' : 'text-slate-300'} />
                                             <p className="font-bold text-lg">No doubts found</p>
@@ -747,64 +905,64 @@ const AssignDoubt = () => {
 
                         {/* Modal Body */}
                         <div className={`p-8 ${isDarkMode ? 'bg-[#1e293b]' : 'bg-white'}`}>
-                            <div className="relative">
-                                <label className={`absolute -top-2 left-3 px-1 text-xs font-bold ${isDarkMode ? 'bg-[#1e293b] text-blue-400' : 'bg-white text-blue-600'}`}>
+                             <div className="relative">
+                                <label className={`absolute -top-2 left-3 px-1 text-xs font-bold z-10 ${isDarkMode ? 'bg-[#1e293b] text-blue-400' : 'bg-white text-blue-600'}`}>
                                     Select Teacher
                                 </label>
-                                <select
-                                    value={selectedTeacher}
-                                    onChange={(e) => setSelectedTeacher(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold appearance-none ${isDarkMode
-                                        ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500'
-                                        : 'bg-white border-blue-400/50 text-slate-700 focus:border-blue-500'
-                                        }`}
-                                >
-                                    <option value="" disabled>Select Teacher</option>
-                                    {(() => {
-                                        const filtered = teachers.filter(t => {
-                                            if (!selectedDoubtForAssignment) return true;
-                                            
-                                            const doubtSubject = (selectedDoubtForAssignment.subject || '').toLowerCase();
-                                            const doubtCentre = (selectedDoubtForAssignment.centreName || '').toLowerCase();
-                                            
-                                            const teacherSubject = (t.subject || '').toLowerCase();
-                                            const teacherCentres = t.centres?.map(c => c.toLowerCase()) || [];
-                                            
-                                            // 1. Subject match (lenient)
-                                            // Handle Math vs Mathematics
-                                            const isMath = (s) => s.includes('math') || s.includes('mat');
-                                            const isBio = (s) => s.includes('bio');
-                                            
-                                            let subjectMatch = teacherSubject.includes(doubtSubject) || doubtSubject.includes(teacherSubject);
-                                            
-                                            if (!subjectMatch) {
-                                                if (isMath(doubtSubject) && isMath(teacherSubject)) subjectMatch = true;
-                                                if (isBio(doubtSubject) && isBio(teacherSubject)) subjectMatch = true;
-                                            }
-                                            
-                                            // 2. Centre match
-                                            const isGlobalTeacher = teacherCentres.length === 0;
-                                            const isNoDoubtCentre = !doubtCentre || doubtCentre === 'n/a';
-                                            const actualCentreMatch = teacherCentres.some(c => c.includes(doubtCentre) || doubtCentre.includes(c));
-                                            
-                                            const centreMatch = isGlobalTeacher || isNoDoubtCentre || actualCentreMatch;
-                                            
-                                            return subjectMatch && centreMatch;
-                                        });
+                                {(() => {
+                                    const filtered = teachers.filter(t => {
+                                        if (!selectedDoubtForAssignment) return true;
+                                        
+                                        const doubtSubject = (selectedDoubtForAssignment.subject || '').toLowerCase();
+                                        const doubtCentre = (selectedDoubtForAssignment.centreName || '').toLowerCase();
+                                        
+                                        const teacherSubject = (t.subject || '').toLowerCase();
+                                        const teacherCentres = t.centres?.map(c => c.toLowerCase()) || [];
+                                        
+                                        // 1. Subject match (lenient)
+                                        // Handle Math vs Mathematics
+                                        const isMath = (s) => s.includes('math') || s.includes('mat');
+                                        const isBio = (s) => s.includes('bio');
+                                        
+                                        let subjectMatch = teacherSubject.includes(doubtSubject) || doubtSubject.includes(teacherSubject);
+                                        
+                                        if (!subjectMatch) {
+                                            if (isMath(doubtSubject) && isMath(teacherSubject)) subjectMatch = true;
+                                            if (isBio(doubtSubject) && isBio(teacherSubject)) subjectMatch = true;
+                                        }
+                                        
+                                        // 2. Centre match
+                                        const isGlobalTeacher = teacherCentres.length === 0;
+                                        const isNoDoubtCentre = !doubtCentre || doubtCentre === 'n/a';
+                                        const actualCentreMatch = teacherCentres.some(c => c.includes(doubtCentre) || doubtCentre.includes(c));
+                                        
+                                        const centreMatch = isGlobalTeacher || isNoDoubtCentre || actualCentreMatch;
+                                        
+                                        return subjectMatch && centreMatch;
+                                    });
 
-                                        // Fallback: If filtered list is empty, show all teachers so admin is not blocked
-                                        const displayList = filtered.length > 0 ? filtered : teachers;
+                                    // Fallback: If filtered list is empty, show all teachers so admin is not blocked
+                                    const displayList = filtered.length > 0 ? filtered : teachers;
 
-                                        return displayList.map((teacher) => (
-                                            <option key={teacher.id} value={teacher.id}>
-                                                {teacher.name} ({teacher.subject_name || 'No Subject'}) - {teacher.centres?.join(', ') || 'Global'}
-                                            </option>
-                                        ));
-                                    })()}
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                                    <ChevronRight size={16} className="rotate-90" />
-                                </div>
+                                    const teacherOptions = displayList.map((teacher) => ({
+                                        value: String(teacher.id),
+                                        label: `${teacher.name} (${teacher.subject_name || 'No Subject'}) - ${teacher.centres?.join(', ') || 'Global'}`
+                                    }));
+
+                                    const currentVal = teacherOptions.find(o => o.value === String(selectedTeacher)) || null;
+
+                                    return (
+                                        <Select
+                                            options={teacherOptions}
+                                            value={currentVal}
+                                            onChange={(selected) => setSelectedTeacher(selected ? selected.value : '')}
+                                            placeholder="SELECT TEACHER"
+                                            styles={customSelectStyles}
+                                            classNamePrefix="react-select"
+                                            isSearchable={true}
+                                        />
+                                    );
+                                })()}
                             </div>
 
                             <button
