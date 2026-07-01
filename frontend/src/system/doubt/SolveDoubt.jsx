@@ -4,12 +4,33 @@ import { Search, Eye, CheckCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronR
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
+const formatDuration = (start, end) => {
+    if (!start || !end) return '-';
+    const diffMs = Math.abs(end - start);
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+        return `${diffDays}d ${diffHours % 24}h`;
+    }
+    if (diffHours > 0) {
+        return `${diffHours}h ${diffMins % 60}m`;
+    }
+    if (diffMins > 0) {
+        return `${diffMins}m ${diffSecs % 60}s`;
+    }
+    return `${diffSecs}s`;
+};
+
 const SolveDoubt = () => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, user } = useAuth();
+    const isTeacherRole = user?.role === 'teacher' || user?.user_type === 'teacher';
     const [activeTab, setActiveTab] = useState('Unsolve');
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedTeacherId, setSelectedTeacherId] = useState('');
+    const [selectedTeacherId, setSelectedTeacherId] = useState('ALL');
     const [teachers, setTeachers] = useState([]);
 
     // Mock Doubts State
@@ -42,7 +63,15 @@ const SolveDoubt = () => {
                 teacherId: d.teacher_id,
                 teacherName: d.teacher_name,
                 assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null
+                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
+                rawAssignDate: d.assign_date ? new Date(d.assign_date) : null,
+                rawSolvedDate: d.resolved_at ? new Date(d.resolved_at) : null,
+                teacherReply: d.teacher_reply,
+                replyImage: d.reply_image,
+                replyImage2: d.reply_image2,
+                replyImage3: d.reply_image3,
+                replyPdf: d.reply_pdf,
+                replyVoiceNote: d.reply_voice_note
             }));
             setDoubts(mappedDoubts);
         } catch (error) {
@@ -71,6 +100,12 @@ const SolveDoubt = () => {
 
     // Fetch ERP teachers for the dropdown
     useEffect(() => {
+        if (isTeacherRole && user) {
+            const tId = String(user.id || user.pk || user._id || '');
+            setSelectedTeacherId(tId);
+            return;
+        }
+
         const fetchTeachers = async () => {
             try {
                 const apiUrl = getApiUrl();
@@ -81,18 +116,16 @@ const SolveDoubt = () => {
                     headers: { 'Authorization': `Bearer ${activeToken}` }
                 });
                 setTeachers(response.data);
-                // Set first teacher as default if available
-                if (response.data.length > 0 && !selectedTeacherId) {
-                    setSelectedTeacherId(String(response.data[0].id));
-                }
             } catch (error) {
                 console.error("Failed to fetch ERP teachers:", error);
             }
         };
         fetchTeachers();
-    }, [getApiUrl, token]);
+    }, [getApiUrl, token, user, isTeacherRole]);
 
-    const selectedTeacherName = teachers.find(t => String(t.id) === String(selectedTeacherId))?.name || 'Select Teacher';
+    const selectedTeacherName = isTeacherRole 
+        ? `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.username || 'Teacher'
+        : (selectedTeacherId === 'ALL' ? 'ALL TEACHERS' : (teachers.find(t => String(t.id) === String(selectedTeacherId))?.name || 'Select Teacher'));
 
     const tabs = [
         { id: 'Unsolve', label: 'UNSOLVE DOUBTS' },
@@ -101,14 +134,14 @@ const SolveDoubt = () => {
 
     const filteredDoubts = doubts.filter(d =>
         ((activeTab === 'Unsolve' && d.status === 'Assign') || (activeTab === 'Solve' && d.status === 'Resolved')) &&
-        (String(d.teacherId) === String(selectedTeacherId)) &&
+        (isTeacherRole || selectedTeacherId === 'ALL' || String(d.teacherId) === String(selectedTeacherId)) &&
         (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
             d.subject.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     const openSolveModal = (doubt) => {
         setSelectedDoubtForSolve(doubt);
-        setReplyText('');
+        setReplyText(doubt.teacherReply || '');
         setReplyImages([null, null, null]);
         setReplyPdf(null);
         setReplyVoice(null);
@@ -172,31 +205,40 @@ const SolveDoubt = () => {
                         </div>
 
                         {/* Teacher Selection UI */}
-                        <div className="flex items-center gap-4 p-2 rounded-[5px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                            <div className="relative group min-w-[200px]">
-                                <label className="absolute -top-7 left-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher</label>
-                                <select
-                                    value={selectedTeacherId}
-                                    onChange={(e) => setSelectedTeacherId(e.target.value)}
-                                    className={`w-full px-4 py-2.5 rounded-[5px] border-2 outline-none font-bold appearance-none transition-all ${isDarkMode
-                                        ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                        : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500'}`}
-                                >
-                                    <option value="" disabled>Select Teacher</option>
-                                    {teachers.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name}</option>
-                                    ))}
-                                    {/* Fallback for mock if API fails */}
-                                    {teachers.length === 0 && <option value="1">Rohan Singh</option>}
-                                </select>
-                                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                        {isTeacherRole ? (
+                            <div className="flex items-center gap-4 p-2 rounded-[5px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                                <div className="pr-4 pl-2 py-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Assigned Faculty</p>
+                                    <p className="text-sm font-black text-orange-500 uppercase tracking-tight">{selectedTeacherName}</p>
+                                </div>
                             </div>
-                            <div className="h-10 w-px bg-slate-200 dark:bg-white/10 mx-2" />
-                            <div className="pr-4">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Teacher Name</p>
-                                <p className="text-sm font-black text-orange-500 uppercase tracking-tight">:{selectedTeacherName}</p>
+                        ) : (
+                            <div className="flex items-center gap-4 p-2 rounded-[5px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                                <div className="relative group min-w-[200px]">
+                                    <label className="absolute -top-7 left-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher</label>
+                                    <select
+                                        value={selectedTeacherId}
+                                        onChange={(e) => setSelectedTeacherId(e.target.value)}
+                                        className={`w-full px-4 py-2.5 rounded-[5px] border-2 outline-none font-bold appearance-none transition-all ${isDarkMode
+                                            ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
+                                            : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500'}`}
+                                    >
+                                        <option value="ALL">ALL TEACHERS</option>
+                                        {teachers.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                        {/* Fallback for mock if API fails */}
+                                        {teachers.length === 0 && <option value="1">Rohan Singh</option>}
+                                    </select>
+                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                                </div>
+                                <div className="h-10 w-px bg-slate-200 dark:bg-white/10 mx-2" />
+                                <div className="pr-4">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Teacher Name</p>
+                                    <p className="text-sm font-black text-orange-500 uppercase tracking-tight">:{selectedTeacherName}</p>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Navigation Tabs */}
@@ -249,8 +291,10 @@ const SolveDoubt = () => {
                                 <th className="py-4 px-6 text-center">Doubt No.</th>
                                 <th className="py-4 px-6">Student Name</th>
                                 <th className="py-4 px-6">Subject</th>
-                                <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Solve' : 'Solved Date'}</th>
+                                <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Status' : 'Solved Date'}</th>
                                 <th className="py-4 px-6 text-center">Assign Date</th>
+                                <th className="py-4 px-6 text-center">Time Taken</th>
+                                <th className="py-4 px-6 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -268,13 +312,19 @@ const SolveDoubt = () => {
                                             <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                         <td className="py-4 px-6 text-center">
+                                            <div className={`h-4 w-20 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-6 text-center">
+                                            <div className={`h-4 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-6 text-center">
+                                            <div className={`h-4 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-6 text-center">
                                             <div className="flex justify-center gap-2">
                                                 <div className={`h-9 w-9 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                                 <div className={`h-9 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                             </div>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className={`h-4 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                     </tr>
                                 ))
@@ -299,22 +349,9 @@ const SolveDoubt = () => {
                                         </td>
                                         <td className="py-4 px-6 text-center">
                                             {activeTab === 'Unsolve' ? (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => handleShowDoubtClick(doubt)}
-                                                        className="p-2.5 rounded-[5px] bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-orange-500 hover:bg-orange-500/10 transition-all"
-                                                        title="View Doubt"
-                                                    >
-                                                        <Eye size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openSolveModal(doubt)}
-                                                        className="px-4 py-2.5 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-2"
-                                                    >
-                                                        <Send size={14} strokeWidth={3} />
-                                                        <span>Write Solution</span>
-                                                    </button>
-                                                </div>
+                                                <span className="text-xs font-black text-orange-500 uppercase tracking-widest">
+                                                    Pending
+                                                </span>
                                             ) : (
                                                 <span className={`text-xs font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                                                     {doubt.solvedDate}
@@ -326,11 +363,50 @@ const SolveDoubt = () => {
                                                 {doubt.assignDate}
                                             </span>
                                         </td>
+                                        <td className="py-4 px-6 text-center">
+                                            <span className={`text-xs font-black px-2.5 py-1 rounded-[5px] ${
+                                                activeTab === 'Unsolve' 
+                                                    ? (isDarkMode ? 'text-slate-500 bg-white/5' : 'text-slate-400 bg-slate-50')
+                                                    : (isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-50')
+                                            }`}>
+                                                {activeTab === 'Unsolve' ? '-' : formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-6 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleShowDoubtClick(doubt)}
+                                                    className="p-2.5 rounded-[5px] bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-orange-500 hover:bg-orange-500/10 transition-all"
+                                                    title="View Doubt"
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
+                                                {isTeacherRole && (
+                                                    activeTab === 'Unsolve' ? (
+                                                        <button
+                                                            onClick={() => openSolveModal(doubt)}
+                                                            className="px-4 py-2.5 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-2"
+                                                        >
+                                                            <Send size={14} strokeWidth={3} />
+                                                            <span>Write Solution</span>
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => openSolveModal(doubt)}
+                                                            className="px-4 py-2.5 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center gap-2"
+                                                        >
+                                                            <Send size={14} strokeWidth={3} />
+                                                            <span>Edit Solution</span>
+                                                        </button>
+                                                    )
+                                                )}
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="py-20 text-center">
+                                    <td colSpan={7} className="py-20 text-center">
                                         <div className="flex flex-col items-center justify-center gap-4 opacity-30">
                                             <AlertCircle size={48} />
                                             <p className="font-bold text-lg">No doubts found for this teacher</p>
@@ -356,8 +432,8 @@ const SolveDoubt = () => {
 
             {/* Show Doubt Modal */}
             {isShowDoubtModalOpen && selectedDoubtForView && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="w-full max-w-lg mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md overflow-y-auto py-12 animate-in fade-in duration-300">
+                    <div className="w-full max-w-3xl mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between px-8 py-6 bg-orange-600 text-white">
                             <div>
@@ -471,8 +547,8 @@ const SolveDoubt = () => {
 
             {/* Solve Reply Modal */}
             {isSolveModalOpen && selectedDoubtForSolve && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-md overflow-y-auto py-8">
-                    <div className="w-full max-w-2xl mx-4 rounded-[5px] shadow-2xl border border-white/10 overflow-hidden">
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-md overflow-y-auto pt-24 pb-12">
+                    <div className="w-full max-w-4xl mx-4 rounded-[5px] shadow-2xl border border-white/10 overflow-hidden">
                         {/* Header */}
                         <div className="flex items-center justify-between px-8 py-5 bg-emerald-600 text-white sticky top-0 z-10">
                             <div>
@@ -502,8 +578,33 @@ const SolveDoubt = () => {
                                 )}
                             </div>
 
-                            {/* Text Reply */}
-                            <div className="space-y-2">
+                             {/* Existing reply attachments preview */}
+                             {(selectedDoubtForSolve.replyImage || selectedDoubtForSolve.replyImage2 || selectedDoubtForSolve.replyImage3 || selectedDoubtForSolve.replyPdf || selectedDoubtForSolve.replyVoiceNote) && (
+                                 <div className={`p-4 rounded-[5px] border text-xs ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Current Solution Attachments</p>
+                                     <div className="flex flex-wrap gap-4 items-center">
+                                         {[selectedDoubtForSolve.replyImage, selectedDoubtForSolve.replyImage2, selectedDoubtForSolve.replyImage3].map((img, idx) => img && (
+                                             <a key={idx} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 rounded overflow-hidden border border-white/10 flex-shrink-0">
+                                                 <img src={img} alt={`Current Solution Image ${idx+1}`} className="w-full h-full object-cover" />
+                                             </a>
+                                         ))}
+                                         {selectedDoubtForSolve.replyPdf && (
+                                             <a href={selectedDoubtForSolve.replyPdf} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-[5px] border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-bold transition-all">
+                                                 Current PDF
+                                             </a>
+                                         )}
+                                         {selectedDoubtForSolve.replyVoiceNote && (
+                                             <a href={selectedDoubtForSolve.replyVoiceNote} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-[5px] border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-500 font-bold transition-all">
+                                                 Current Audio
+                                             </a>
+                                         )}
+                                     </div>
+                                     <p className="text-[9px] text-slate-500 mt-2 italic font-bold">Uploading new files below will overwrite the current files.</p>
+                                 </div>
+                             )}
+
+                             {/* Text Reply */}
+                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Explanation *</label>
                                 <textarea
                                     rows={5}

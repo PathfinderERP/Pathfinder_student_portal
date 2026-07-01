@@ -418,7 +418,16 @@ class DoubtViewSet(viewsets.ModelViewSet):
             if not path or str(path).strip() == '' or str(path) == 'None':
                 return None
             path_str = str(path)
+            
+            # Clean up corrupted/triple-prefixed URLs
+            if 'doubts/' in path_str:
+                idx = path_str.find('doubts/')
+                if idx != -1:
+                    path_str = path_str[idx:]
+            
+            # Handle unencoded double prefix fallback
             if path_str.startswith('http'):
+                # If it's a valid clean URL, return it
                 return path_str
             from django.conf import settings
             media_url = getattr(settings, 'MEDIA_URL', '/media/')
@@ -544,6 +553,30 @@ class DoubtViewSet(viewsets.ModelViewSet):
 
             if user_type in ('admin', 'staff', 'superadmin'):
                 docs = list(collection.find().sort('created_at', -1))
+            elif user_type == 'teacher':
+                from django.core.cache import cache
+                teachers_cache = cache.get('erp_all_teachers_v6') or []
+                teacher_erp_id = None
+                for t in teachers_cache:
+                    if (t.get('email') and t.get('email').strip().lower() == user.email.strip().lower()) or \
+                       (t.get('code') and t.get('code').strip().lower() == user.username.strip().lower()) or \
+                       (t.get('code') and t.get('code').strip().lower() == getattr(user, 'employee_id', '').strip().lower()):
+                        teacher_erp_id = t.get('id')
+                        break
+                
+                t_name = f"{user.first_name} {user.last_name}".strip()
+                or_queries = []
+                if teacher_erp_id:
+                    or_queries.append({'teacher_id': teacher_erp_id})
+                if t_name:
+                    or_queries.append({'teacher_name': {'$regex': f"^{t_name}$", '$options': 'i'}})
+                if user.username:
+                    or_queries.append({'teacher_name': {'$regex': f"^{user.username}$", '$options': 'i'}})
+                
+                if or_queries:
+                    docs = list(collection.find({'$or': or_queries}).sort('created_at', -1))
+                else:
+                    docs = list(collection.find({'teacher_id': str(user.pk)}).sort('created_at', -1))
             else:
                 student_id_str = str(user.pk)
                 docs = list(collection.find({'student_id': student_id_str}).sort('created_at', -1))
@@ -589,7 +622,7 @@ class DoubtViewSet(viewsets.ModelViewSet):
                     val = getattr(instance, field, None)
                     if val:
                         try:
-                            payload[field] = val.url
+                            payload[field] = val.name
                         except:
                             payload[field] = str(val)
 
@@ -626,7 +659,7 @@ class DoubtViewSet(viewsets.ModelViewSet):
                     val = getattr(instance, field, None)
                     if val:
                         try:
-                            payload[field] = val.url
+                            payload[field] = val.name
                         except:
                             payload[field] = str(val)
 

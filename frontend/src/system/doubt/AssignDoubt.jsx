@@ -5,6 +5,26 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import Select from 'react-select';
 
+const formatDuration = (start, end) => {
+    if (!start || !end) return '-';
+    const diffMs = Math.abs(end - start);
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+        return `${diffDays}d ${diffHours % 24}h`;
+    }
+    if (diffHours > 0) {
+        return `${diffHours}h ${diffMins % 60}m`;
+    }
+    if (diffMins > 0) {
+        return `${diffMins}m ${diffSecs % 60}s`;
+    }
+    return `${diffSecs}s`;
+};
+
 const AssignDoubt = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
@@ -173,9 +193,17 @@ const AssignDoubt = () => {
                     teacherName: d.teacher_name,
                     assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
                     solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
+                    rawAssignDate: d.assign_date ? new Date(d.assign_date) : null,
+                    rawSolvedDate: d.resolved_at ? new Date(d.resolved_at) : null,
                     centreName: d.centre_name,
                     centreCode: d.centre_code,
-                    rawDate: d.created_at ? new Date(d.created_at) : new Date(0)
+                    rawDate: d.created_at ? new Date(d.created_at) : new Date(0),
+                    teacherReply: d.teacher_reply,
+                    replyImage: d.reply_image,
+                    replyImage2: d.reply_image2,
+                    replyImage3: d.reply_image3,
+                    replyPdf: d.reply_pdf,
+                    replyVoiceNote: d.reply_voice_note
                 };
             });
             setDoubts(mappedDoubts);
@@ -205,7 +233,7 @@ const AssignDoubt = () => {
         .filter(d =>
             (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 d.subject.toLowerCase().includes(searchQuery.toLowerCase())) &&
-            (d.status === activeTab) &&
+            (activeTab === 'Solve' ? d.status === 'Resolved' : d.status === activeTab) &&
             (selectedSubjects.length === 0 || selectedSubjects.some(s => s.value === d.subject)) &&
             (selectedCenters.length === 0 || selectedCenters.some(c => c.value === d.centreName)) &&
             (selectedClasses.length === 0 || selectedClasses.some(c => c.value === d.cleanClass)) &&
@@ -487,8 +515,8 @@ const AssignDoubt = () => {
                                 </div>
                             </div>
                         )}
-                        <div className="flex flex-wrap gap-4 items-center w-full">
-                            <div className="relative group w-full md:w-80">
+                        <div className="flex flex-row flex-nowrap gap-3 items-center w-full overflow-x-auto pb-3 custom-scrollbar">
+                            <div className="relative group w-64 shrink-0">
                                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={20} />
                                 <input
                                     type="text"
@@ -503,7 +531,7 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Subject Filter */}
-                            <div className="w-full md:w-48">
+                            <div className="w-48 shrink-0">
                                 <Select
                                     isMulti
                                     options={subjectOptions}
@@ -516,7 +544,7 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Center Filter */}
-                            <div className="w-full md:w-48">
+                            <div className="w-48 shrink-0">
                                 <Select
                                     isMulti
                                     options={centerOptions}
@@ -529,7 +557,7 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Class Filter */}
-                            <div className="w-full md:w-44">
+                            <div className="w-44 shrink-0">
                                 <Select
                                     isMulti
                                     options={classOptions}
@@ -542,7 +570,7 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Exam Tag Filter */}
-                            <div className="w-full md:w-48">
+                            <div className="w-48 shrink-0">
                                 <Select
                                     isMulti
                                     options={examTagOptions}
@@ -555,14 +583,14 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Date Filter */}
-                            <div className="relative w-full md:w-40 flex items-center">
+                            <div className="relative w-40 shrink-0 flex items-center">
                                 <input
                                     type="date"
                                     value={selectedDate}
                                     onChange={(e) => setSelectedDate(e.target.value)}
                                     className={`w-full px-4 py-[9px] pr-10 rounded-[5px] border-2 outline-none font-bold ${isDarkMode
                                         ? 'bg-white/5 border-white/5 text-white focus:border-orange-500/50'
-                                        : 'bg-slate-50 border-slate-100 text-slate-850 focus:border-orange-500/50'
+                                        : 'bg-slate-50 border-slate-100 text-slate-855 focus:border-orange-500/50'
                                         }`}
                                 />
                                 {selectedDate && (
@@ -576,7 +604,7 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Sort Filter */}
-                            <div className="w-full md:w-44">
+                            <div className="w-44 shrink-0">
                                 <Select
                                     options={sortOptions}
                                     value={sortOrder}
@@ -590,7 +618,7 @@ const AssignDoubt = () => {
 
                             <button
                                 onClick={fetchDoubts}
-                                className={`p-3 rounded-[5px] transition-all ml-auto xl:ml-0 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
+                                className={`p-3 rounded-[5px] transition-all shrink-0 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
                                 <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                             </button>
                         </div>
@@ -611,6 +639,7 @@ const AssignDoubt = () => {
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Teacher Name</th>
                                         <th className="py-4 px-2 text-center">Assign Date</th>
+                                        <th className="py-4 px-2 text-center">Action</th>
                                     </>
                                 ) : activeTab === 'Solve' ? (
                                     <>
@@ -619,6 +648,8 @@ const AssignDoubt = () => {
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Teacher Name</th>
                                         <th className="py-4 px-2 text-center">Solved Date</th>
+                                        <th className="py-4 px-2 text-center">Time Taken</th>
+                                        <th className="py-4 px-2 text-center">Action</th>
                                     </>
                                 ) : activeTab === 'Rejected' ? (
                                     <>
@@ -723,6 +754,33 @@ const AssignDoubt = () => {
                                                         {activeTab === 'Assign' ? (doubt.assignDate || '-') : (doubt.solvedDate || '-')}
                                                     </span>
                                                 </td>
+                                                {activeTab === 'Solve' && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <span className={`text-xs font-black px-2.5 py-1 rounded-[5px] ${
+                                                            isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-50'
+                                                        }`}>
+                                                            {formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}
+                                                        </span>
+                                                    </td>
+                                                )}
+                                                {activeTab === 'Assign' && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <button 
+                                                            onClick={() => handleAssignClick(doubt)}
+                                                            className="px-4 py-2 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
+                                                            <span>Reassign</span>
+                                                        </button>
+                                                    </td>
+                                                )}
+                                                {activeTab === 'Solve' && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <button 
+                                                            onClick={() => handleShowDoubtClick(doubt)}
+                                                            className="px-4 py-2 rounded-[5px] bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
+                                                            <span>View Detail</span>
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </>
                                         ) : activeTab === 'Rejected' ? (
                                             <>
@@ -838,7 +896,7 @@ const AssignDoubt = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={activeTab === 'Assign' || activeTab === 'Solve' ? 5 : activeTab === 'Rejected' ? 5 : 10} className="py-20 text-center">
+                                    <td colSpan={activeTab === 'Assign' ? 6 : activeTab === 'Solve' ? 7 : activeTab === 'Rejected' ? 5 : 10} className="py-20 text-center">
                                         <div className="flex flex-col items-center justify-center gap-4 opacity-50">
                                             <AlertCircle size={48} className={isDarkMode ? 'text-slate-700' : 'text-slate-300'} />
                                             <p className="font-bold text-lg">No doubts found</p>
@@ -1125,7 +1183,7 @@ const AssignDoubt = () => {
                                             )}
                                         </div>
                                         {activePreview && (
-                                            <div className="mt-3 flex justify-end">
+                                        <div className="mt-3 flex justify-end">
                                                 <a href={activePreview.url} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:underline flex items-center gap-1">
                                                     Open in new tab <ChevronRight size={10} />
                                                 </a>
@@ -1134,6 +1192,80 @@ const AssignDoubt = () => {
                                     </div>
                                 </div>
                             </div>
+                            
+                            {/* Teacher's Solution Section */}
+                            {selectedDoubtForView.status === 'Resolved' && (
+                                <div className={`p-6 rounded-[5px] border-2 border-emerald-500/20 bg-emerald-500/5 space-y-6 mt-8`}>
+                                    <div className="flex justify-between items-center border-b border-emerald-500/10 pb-3">
+                                        <h4 className="font-black text-sm uppercase text-emerald-500 tracking-tight flex items-center gap-2">
+                                            Teacher's Solution
+                                        </h4>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">
+                                            Solved by: <span className="text-emerald-500 font-bold">{selectedDoubtForView.teacherName}</span>
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Explanation</p>
+                                        <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                                            {selectedDoubtForView.teacherReply || 'No text explanation provided.'}
+                                        </p>
+                                    </div>
+
+                                    {/* Solution Attachments Grid */}
+                                    {(selectedDoubtForView.replyImage || selectedDoubtForView.replyImage2 || selectedDoubtForView.replyImage3 || selectedDoubtForView.replyPdf || selectedDoubtForView.replyVoiceNote) && (
+                                        <div className="grid grid-cols-2 gap-6 pt-4 border-t border-emerald-500/10">
+                                            <div className="space-y-4">
+                                                {/* Images */}
+                                                {(selectedDoubtForView.replyImage || selectedDoubtForView.replyImage2 || selectedDoubtForView.replyImage3) && (
+                                                    <div className="space-y-2">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solution Images</p>
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            {[selectedDoubtForView.replyImage, selectedDoubtForView.replyImage2, selectedDoubtForView.replyImage3].map((img, i) => img && (
+                                                                <button 
+                                                                    key={i} 
+                                                                    onClick={() => setActivePreview({ url: img, type: 'image' })}
+                                                                    className={`group relative aspect-video rounded-[5px] overflow-hidden border transition-all shadow-md ${activePreview?.url === img ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-white/10 hover:border-emerald-500/50'}`}
+                                                                >
+                                                                    <img src={img} alt={`Solution Attachment ${i+1}`} className="w-full h-full object-cover" />
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* PDF */}
+                                                {selectedDoubtForView.replyPdf && (
+                                                    <div className="space-y-2">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solution Document</p>
+                                                        <button 
+                                                            onClick={() => setActivePreview({ url: selectedDoubtForView.replyPdf, type: 'pdf' })}
+                                                            className={`w-full flex items-center gap-3 p-3 rounded-[5px] border transition-all group ${activePreview?.type === 'pdf' ? 'bg-red-500/10 border-red-500' : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'}`}>
+                                                            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black text-[10px]">PDF</div>
+                                                            <div className="flex-1 text-left min-w-0">
+                                                                <p className="text-[11px] font-bold truncate text-red-500">View Solution PDF</p>
+                                                            </div>
+                                                            <Eye size={14} className="text-red-500 group-hover:scale-110 transition-transform" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Audio */}
+                                            {selectedDoubtForView.replyVoiceNote && (
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Voice Explanation</p>
+                                                    <div className="p-3 rounded-[5px] border border-blue-500/20 bg-blue-500/5">
+                                                        <audio controls className="w-full h-10 custom-audio-player">
+                                                            <source src={selectedDoubtForView.replyVoiceNote} type="audio/mpeg" />
+                                                        </audio>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

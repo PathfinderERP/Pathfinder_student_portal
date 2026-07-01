@@ -36,6 +36,9 @@ const Doubts = ({ isDarkMode }) => {
     const [success, setSuccess] = useState(false);
     const [doubts, setDoubts] = useState([]);
     const [selectedAttachment, setSelectedAttachment] = useState(null);
+    const [activeStudentTab, setActiveStudentTab] = useState('post');
+    const [filterSubject, setFilterSubject] = useState('ALL');
+    const [filterStatus, setFilterStatus] = useState('ALL');
 
     const openAttachment = (url, type) => {
         setSelectedAttachment({ url, type });
@@ -109,6 +112,18 @@ const Doubts = ({ isDarkMode }) => {
             setTopics([]);
         }
     }, [formData.chapter, formData.subject, allTopics, user?.class_level]);
+
+    useEffect(() => {
+        if (activeStudentTab === 'solutions' && doubts.length > 0) {
+            const resolvedIds = doubts.filter(d => d.status === 'Resolved').map(d => d.id);
+            if (resolvedIds.length > 0) {
+                const existingSeen = JSON.parse(localStorage.getItem('seen_resolved_doubts') || '[]');
+                const newSeen = [...new Set([...existingSeen, ...resolvedIds])];
+                localStorage.setItem('seen_resolved_doubts', JSON.stringify(newSeen));
+                window.dispatchEvent(new Event('seen_doubts_updated'));
+            }
+        }
+    }, [activeStudentTab, doubts]);
 
     const handleFileChange = (e, field) => {
         const file = e.target.files[0];
@@ -232,6 +247,12 @@ const Doubts = ({ isDarkMode }) => {
     });
     const subjectBreakdown = Object.entries(subjectMap).sort((a, b) => b[1] - a[1]);
 
+    const filteredDoubtsList = doubts.filter(d => {
+        const matchesSubject = filterSubject === 'ALL' || d.subject === filterSubject;
+        const matchesStatus = filterStatus === 'ALL' || d.status === filterStatus;
+        return matchesSubject && matchesStatus;
+    });
+
     return (
         <>
         <div className="space-y-6 sm:space-y-8 animate-fade-in-up pb-10">
@@ -350,29 +371,55 @@ const Doubts = ({ isDarkMode }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Submit New Doubt Form */}
-                <div className={`lg:col-span-1 p-5 sm:p-6 rounded-[5px] border h-fit ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+            {/* Navigation Tabs */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-white/5 pb-1">
+                <button
+                    onClick={() => setActiveStudentTab('post')}
+                    className={`px-6 py-3 text-xs font-black uppercase tracking-widest rounded-[5px] transition-all relative
+                        ${activeStudentTab === 'post'
+                            ? (isDarkMode ? 'text-indigo-400 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-indigo-500' : 'text-indigo-600 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-indigo-600')
+                            : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')
+                        }`}
+                >
+                    Post a Doubt
+                </button>
+                <button
+                    onClick={() => setActiveStudentTab('solutions')}
+                    className={`px-6 py-3 text-xs font-black uppercase tracking-widest rounded-[5px] transition-all relative
+                        ${activeStudentTab === 'solutions'
+                            ? (isDarkMode ? 'text-indigo-400 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-indigo-500' : 'text-indigo-600 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-indigo-600')
+                            : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')
+                        }`}
+                >
+                    See Solutions
+                </button>
+            </div>
+
+
+            {activeStudentTab === 'post' && (
+                <div className="w-full mt-4">
+                    {/* Submit New Doubt Form */}
+                    <div className={`p-5 sm:p-6 rounded-[5px] border h-fit ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                     <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-5 sm:mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         <Send size={14} className="text-indigo-500" /> Ask a Doubt
                     </h3>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Subject</label>
-                            <select
-                                value={formData.subject}
-                                onChange={(e) => setFormData({ ...formData, subject: e.target.value, chapter: '', topic: '' })}
-                                className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
-                                    ${isDarkMode ? 'bg-[#0d1119] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
-                                required>
-                                <option value="">Select Subject</option>
-                                {subjects.map(s => (
-                                    <option key={s.id} value={s.name}>{s.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Subject</label>
+                                <select
+                                    value={formData.subject}
+                                    onChange={(e) => setFormData({ ...formData, subject: e.target.value, chapter: '', topic: '' })}
+                                    className={`w-full p-3 rounded-[5px] border font-bold text-sm outline-none transition-all
+                                        ${isDarkMode ? 'bg-[#0d1119] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                    required>
+                                    <option value="">Select Subject</option>
+                                    {subjects.map(s => (
+                                        <option key={s.id} value={s.name}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Chapter</label>
                                 <select
@@ -386,6 +433,7 @@ const Doubts = ({ isDarkMode }) => {
                                     {chapters.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
+
                             <div className="space-y-2">
                                 <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-white/50' : 'text-slate-500'}`}>Topic</label>
                                 <select
@@ -447,7 +495,7 @@ const Doubts = ({ isDarkMode }) => {
                                             />
                                             <label
                                                 htmlFor={`doubt-${field}-upload`}
-                                                className={`aspect-square rounded-[5px] border-2 border-dashed font-bold text-[8px] uppercase tracking-widest cursor-pointer transition-all flex flex-col items-center justify-center gap-1
+                                                className={`h-28 w-full rounded-[5px] border-2 border-dashed font-bold text-[8px] uppercase tracking-widest cursor-pointer transition-all flex flex-col items-center justify-center gap-1
                                                     ${isDarkMode ? 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10' : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'}`}>
                                                 {previews[field] ? (
                                                     <img src={previews[field]} alt="Preview" className="w-full h-full object-cover rounded-[3px]" />
@@ -517,7 +565,7 @@ const Doubts = ({ isDarkMode }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white rounded-[5px] font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2">
+                            className="w-fit px-8 mx-auto py-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white rounded-[5px] font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2">
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
                             {loading ? 'Submitting...' : 'Submit Doubt'}
                         </button>
@@ -529,35 +577,74 @@ const Doubts = ({ isDarkMode }) => {
                         )}
                     </form>
                 </div>
+            </div>
+        )}
 
-                {/* Previous Doubts List */}
-                <div className={`lg:col-span-2 p-5 sm:p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                    <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-5 sm:mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        <FileQuestion size={14} className="text-indigo-500" /> Your Doubts
-                    </h3>
-
-                    {fetchLoading ? (
-                        <div className="py-12 flex flex-col items-center justify-center gap-3 opacity-40">
-                            <Loader2 size={32} className="animate-spin text-indigo-500" />
-                            <p className="text-xs font-black uppercase tracking-widest">Loading...</p>
-                        </div>
-                    ) : doubts.length === 0 ? (
-                        <div className={`py-14 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
-                            <div className="flex flex-col items-center gap-3 opacity-30">
-                                <HelpCircle size={48} />
-                                <div className="space-y-1">
-                                    <p className="font-black uppercase tracking-[0.2em] text-sm">No Doubts Found</p>
-                                    <p className="text-xs font-bold">When you post a doubt, it will appear here.</p>
-                                </div>
+            {activeStudentTab === 'solutions' && (
+                <div className="w-full">
+                    {/* Previous Doubts List */}
+                    <div className={`p-5 sm:p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-white/5">
+                            <h3 className={`text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                <FileQuestion size={14} className="text-indigo-500" /> Your Doubts
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <select
+                                    value={filterSubject}
+                                    onChange={(e) => setFilterSubject(e.target.value)}
+                                    className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-[5px] border outline-none transition-all ${
+                                        isDarkMode 
+                                            ? 'bg-[#0d1119] border-white/10 text-white focus:border-indigo-500' 
+                                            : 'bg-white border-slate-200 text-slate-700 focus:border-indigo-500'
+                                    }`}
+                                >
+                                    <option value="ALL">ALL SUBJECTS</option>
+                                    {[...new Set(doubts.map(d => d.subject))].filter(Boolean).sort().map(sub => (
+                                        <option key={sub} value={sub}>{sub}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-[5px] border outline-none transition-all ${
+                                        isDarkMode 
+                                            ? 'bg-[#0d1119] border-white/10 text-white focus:border-indigo-500' 
+                                            : 'bg-white border-slate-200 text-slate-700 focus:border-indigo-500'
+                                    }`}
+                                >
+                                    <option value="ALL">ALL STATUS</option>
+                                    <option value="Unassigned">PENDING</option>
+                                    <option value="Assign">IN PROGRESS</option>
+                                    <option value="Resolved">RESOLVED</option>
+                                </select>
                             </div>
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {doubts.map((item) => (
+
+                        {fetchLoading ? (
+                            <div className="py-12 flex flex-col items-center justify-center gap-3 opacity-40">
+                                <Loader2 size={32} className="animate-spin text-indigo-500" />
+                                <p className="text-xs font-black uppercase tracking-widest">Loading...</p>
+                            </div>
+                        ) : filteredDoubtsList.length === 0 ? (
+                            <div className={`py-14 text-center rounded-[5px] border-2 border-dashed ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50'}`}>
+                                <div className="flex flex-col items-center gap-3 opacity-30">
+                                    <HelpCircle size={48} />
+                                    <div className="space-y-1">
+                                        <p className="font-black uppercase tracking-[0.2em] text-sm">No Doubts Found</p>
+                                        <p className="text-xs font-bold">Try changing your filters or post a new doubt.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                            {filteredDoubtsList.map((item, index) => (
                                 <div key={item.id} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center flex-wrap gap-2 mb-1">
+                                                <span className="px-2 py-0.5 rounded-[5px] bg-slate-200 text-slate-800 dark:bg-white/10 dark:text-slate-300 text-[8px] font-black uppercase tracking-widest">
+                                                    Sl. No. {index + 1}
+                                                </span>
                                                 <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-500`}>
                                                     {item.subject}
                                                 </span>
@@ -593,18 +680,18 @@ const Doubts = ({ isDarkMode }) => {
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-start">
                                             {item.image && (
-                                                <button onClick={() => openAttachment(item.image, 'image')} className={`p-2 rounded-[5px] ${isDarkMode ? 'bg-white/5 text-indigo-400 hover:text-indigo-300' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'}`} title="View Image 1">
-                                                    <Image size={14} />
+                                                <button onClick={() => openAttachment(item.image, 'image')} className="w-36 h-36 rounded-[5px] overflow-hidden border border-indigo-500/20 hover:border-indigo-500/60 transition-all flex-shrink-0" title="View Image 1">
+                                                    <img src={item.image} alt="Doubt 1" className="w-full h-full object-cover" />
                                                 </button>
                                             )}
                                             {item.image2 && (
-                                                <button onClick={() => openAttachment(item.image2, 'image')} className={`p-2 rounded-[5px] ${isDarkMode ? 'bg-white/5 text-indigo-400 hover:text-indigo-300' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'}`} title="View Image 2">
-                                                    <Image size={14} />
+                                                <button onClick={() => openAttachment(item.image2, 'image')} className="w-36 h-36 rounded-[5px] overflow-hidden border border-indigo-500/20 hover:border-indigo-500/60 transition-all flex-shrink-0" title="View Image 2">
+                                                    <img src={item.image2} alt="Doubt 2" className="w-full h-full object-cover" />
                                                 </button>
                                             )}
                                             {item.image3 && (
-                                                <button onClick={() => openAttachment(item.image3, 'image')} className={`p-2 rounded-[5px] ${isDarkMode ? 'bg-white/5 text-indigo-400 hover:text-indigo-300' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'}`} title="View Image 3">
-                                                    <Image size={14} />
+                                                <button onClick={() => openAttachment(item.image3, 'image')} className="w-36 h-36 rounded-[5px] overflow-hidden border border-indigo-500/20 hover:border-indigo-500/60 transition-all flex-shrink-0" title="View Image 3">
+                                                    <img src={item.image3} alt="Doubt 3" className="w-full h-full object-cover" />
                                                 </button>
                                             )}
                                             {item.pdf && (
@@ -702,7 +789,8 @@ const Doubts = ({ isDarkMode }) => {
                     )}
                 </div>
             </div>
-        </div>
+        )}
+    </div>
 
         {/* Attachment Viewer Modal */}
         {selectedAttachment && (

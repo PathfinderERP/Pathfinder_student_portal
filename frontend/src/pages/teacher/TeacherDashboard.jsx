@@ -10,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import PortalLayout from '../../components/common/PortalLayout';
 
 // Sub-components
+import SolveDoubt from '../../system/doubt/SolveDoubt';
 import TeacherOverview from './components/TeacherOverview';
 import TeacherClasses from './components/TeacherClasses';
 import TeacherStudents from './components/TeacherStudents';
@@ -22,16 +23,39 @@ import TeacherNotifications from './components/TeacherNotifications';
 import TeacherSettings from './components/TeacherSettings';
 
 const TeacherDashboard = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, token, getApiUrl } = useAuth();
     const { isDarkMode } = useTheme();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('Overview');
     const [isLoading, setIsLoading] = useState(true);
+    const [unsolvedCount, setUnsolvedCount] = useState(0);
+
+    const fetchUnsolvedCount = async () => {
+        try {
+            const tokenVal = token || localStorage.getItem('auth_token');
+            if (!tokenVal) return;
+            const response = await fetch(`${getApiUrl()}/api/doubts/`, {
+                headers: { 'Authorization': `Bearer ${tokenVal}` }
+            });
+            const data = await response.json();
+            const count = data.filter(d => d.status === 'Assign').length;
+            setUnsolvedCount(count);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     useEffect(() => {
-        // Initial setup/data fetching could happen here
         setTimeout(() => setIsLoading(false), 800);
-    }, []);
+        fetchUnsolvedCount();
+        const interval = setInterval(fetchUnsolvedCount, 15000);
+        return () => clearInterval(interval);
+    }, [token, getApiUrl]);
+
+    // Refresh count when activeTab changes (e.g. teacher resolves a doubt)
+    useEffect(() => {
+        fetchUnsolvedCount();
+    }, [activeTab]);
 
     const sidebarItems = [
         {
@@ -41,76 +65,11 @@ const TeacherDashboard = () => {
             onClick: () => setActiveTab('Overview')
         },
         {
-            label: 'Academics',
-            icon: BookOpen,
-            subItems: [
-                {
-                    label: 'My Classes',
-                    icon: Calendar,
-                    active: activeTab === 'My Classes',
-                    onClick: () => setActiveTab('My Classes')
-                },
-                {
-                    label: 'Curriculum',
-                    icon: BookMarked,
-                    active: activeTab === 'Curriculum',
-                    onClick: () => setActiveTab('Curriculum')
-                },
-                {
-                    label: 'Study Materials',
-                    icon: FileText,
-                    active: activeTab === 'Study Materials',
-                    onClick: () => setActiveTab('Study Materials')
-                }
-            ]
-        },
-        {
-            label: 'Student Management',
-            icon: Users,
-            subItems: [
-                {
-                    label: 'Student Registry',
-                    icon: User,
-                    active: activeTab === 'Student Registry',
-                    onClick: () => setActiveTab('Student Registry')
-                },
-                {
-                    label: 'Attendance',
-                    icon: CheckCircle,
-                    active: activeTab === 'Attendance',
-                    onClick: () => setActiveTab('Attendance')
-                },
-                {
-                    label: 'Performance',
-                    icon: ClipboardList,
-                    active: activeTab === 'Performance',
-                    onClick: () => setActiveTab('Performance')
-                }
-            ]
-        },
-        {
-            label: 'Administration',
-            icon: Settings,
-            subItems: [
-                {
-                    label: 'Profile',
-                    icon: User,
-                    active: activeTab === 'Profile',
-                    onClick: () => setActiveTab('Profile')
-                },
-                {
-                    label: 'Notifications',
-                    icon: Bell,
-                    active: activeTab === 'Notifications',
-                    onClick: () => setActiveTab('Notifications')
-                },
-                {
-                    label: 'Settings',
-                    icon: Settings,
-                    active: activeTab === 'Settings',
-                    onClick: () => setActiveTab('Settings')
-                }
-            ]
+            label: 'Doubt Portal',
+            icon: ClipboardList,
+            active: activeTab === 'Doubt Portal',
+            onClick: () => setActiveTab('Doubt Portal'),
+            badge: unsolvedCount > 0 ? unsolvedCount : null
         }
     ];
 
@@ -124,6 +83,8 @@ const TeacherDashboard = () => {
                 return <TeacherCurriculum />;
             case 'Study Materials':
                 return <TeacherStudyMaterials />;
+            case 'Doubt Portal':
+                return <SolveDoubt />;
             case 'Student Registry':
                 return <TeacherStudents />;
             case 'Attendance':

@@ -44,6 +44,38 @@ const StudentDashboard = () => {
 
     const location = useLocation();
 
+    const [unseenResolvedCount, setUnseenResolvedCount] = useState(0);
+
+    const updateUnseenCount = useCallback(async () => {
+        if (!token) return;
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/doubts/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const fetchedDoubts = response.data || [];
+            const resolvedDoubts = fetchedDoubts.filter(d => d.status === 'Resolved');
+            const seenIds = JSON.parse(localStorage.getItem('seen_resolved_doubts') || '[]');
+            const unseen = resolvedDoubts.filter(d => !seenIds.includes(d.id));
+            setUnseenResolvedCount(unseen.length);
+        } catch (error) {
+            console.error('Failed to fetch unseen doubts count:', error);
+        }
+    }, [token, getApiUrl]);
+
+    useEffect(() => {
+        updateUnseenCount();
+        
+        window.addEventListener('seen_doubts_updated', updateUnseenCount);
+        
+        const interval = setInterval(updateUnseenCount, 30000);
+        
+        return () => {
+            window.removeEventListener('seen_doubts_updated', updateUnseenCount);
+            clearInterval(interval);
+        };
+    }, [updateUnseenCount]);
+
     // URL-based Tab Navigation
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -345,13 +377,14 @@ const StudentDashboard = () => {
         onClick: item.subItems ? undefined : () => {
             setActiveTab(item.name);
         },
+        badge: item.name === 'Doubts' && unseenResolvedCount > 0 ? unseenResolvedCount : undefined,
         subItems: item.subItems?.map(sub => ({
             label: sub.name,
             icon: sub.icon,
             active: activeTab === sub.name,
             onClick: () => setActiveTab(sub.name)
         }))
-    })), [navItems, activeTab]);
+    })), [navItems, activeTab, unseenResolvedCount]);
 
     // Extract Details safely
     const { basicInfo, rollNo, classNameValue } = useMemo(() => {
