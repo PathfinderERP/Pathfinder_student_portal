@@ -42,6 +42,12 @@ const AssignDoubt = () => {
     const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
     const [selectedTeachersForBulk, setSelectedTeachersForBulk] = useState([]);
     const [distributeEqually, setDistributeEqually] = useState(false);
+    const [departmentTab, setDepartmentTab] = useState('Foundation');
+    const [modalSearch, setModalSearch] = useState('');
+    const [modalCentreFilter, setModalCentreFilter] = useState('');
+    const [bulkDeptTab, setBulkDeptTab] = useState('Foundation');
+    const [bulkSearch, setBulkSearch] = useState('');
+    const [bulkCentreFilter, setBulkCentreFilter] = useState('');
 
     const customSelectStyles = {
         control: (provided, state) => ({
@@ -958,94 +964,282 @@ const AssignDoubt = () => {
                 </div>
             </div>
 
+
             {/* Assign Teacher Modal */}
-            {isAssignModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="w-full max-w-md mx-4 overflow-hidden rounded-t-lg rounded-b-lg shadow-2xl animate-in zoom-in-95 duration-200">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 bg-orange-500 text-white">
-                            <h3 className="text-lg font-bold">Select Teacher</h3>
-                            <button onClick={handleCloseModal} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-                                <X size={20} strokeWidth={2.5} />
-                            </button>
-                        </div>
+            {isAssignModalOpen && (() => {
+                const doubt = selectedDoubtForAssignment;
+                const doubtSubject = (doubt?.subject || '').toLowerCase();
+                const doubtCentre  = (doubt?.centreName || '').toLowerCase();
 
-                        {/* Modal Body */}
-                        <div className={`p-8 ${isDarkMode ? 'bg-[#1e293b]' : 'bg-white'}`}>
-                             <div className="relative">
-                                <label className={`absolute -top-2 left-3 px-1 text-xs font-bold z-10 ${isDarkMode ? 'bg-[#1e293b] text-blue-400' : 'bg-white text-blue-600'}`}>
-                                    Select Teacher
-                                </label>
-                                {(() => {
-                                    const filtered = teachers.filter(t => {
-                                        if (!selectedDoubtForAssignment) return true;
-                                        
-                                        const doubtSubject = (selectedDoubtForAssignment.subject || '').toLowerCase();
-                                        const doubtCentre = (selectedDoubtForAssignment.centreName || '').toLowerCase();
-                                        
-                                        const teacherSubject = (t.subject || '').toLowerCase();
-                                        const teacherCentres = t.centres?.map(c => c.toLowerCase()) || [];
-                                        
-                                        // 1. Subject match (lenient)
-                                        // Handle Math vs Mathematics
-                                        const isMath = (s) => s.includes('math') || s.includes('mat');
-                                        const isBio = (s) => s.includes('bio');
-                                        
-                                        let subjectMatch = teacherSubject.includes(doubtSubject) || doubtSubject.includes(teacherSubject);
-                                        
-                                        if (!subjectMatch) {
-                                            if (isMath(doubtSubject) && isMath(teacherSubject)) subjectMatch = true;
-                                            if (isBio(doubtSubject) && isBio(teacherSubject)) subjectMatch = true;
-                                        }
-                                        
-                                        // 2. Centre match
-                                        const isGlobalTeacher = teacherCentres.length === 0;
-                                        const isNoDoubtCentre = !doubtCentre || doubtCentre === 'n/a';
-                                        const actualCentreMatch = teacherCentres.some(c => c.includes(doubtCentre) || doubtCentre.includes(c));
-                                        
-                                        const centreMatch = isGlobalTeacher || isNoDoubtCentre || actualCentreMatch;
-                                        
-                                        return subjectMatch && centreMatch;
-                                    });
+                // Helper: parse teacherDepartment which may be "['All India']" or array
+                const parseDept = (raw) => {
+                    if (!raw) return [];
+                    if (Array.isArray(raw)) return raw.map(s => String(s).trim());
+                    const str = String(raw).trim();
+                    if (str.startsWith('[') && str.endsWith(']')) {
+                        try {
+                            const parsed = JSON.parse(str.replace(/'/g, '"'));
+                            if (Array.isArray(parsed)) return parsed.map(s => String(s).trim());
+                        } catch {}
+                    }
+                    return [str];
+                };
 
-                                    // Fallback: If filtered list is empty, show all teachers so admin is not blocked
-                                    const displayList = filtered.length > 0 ? filtered : teachers;
+                // Helper: fuzzy subject match
+                const isMath = s => s.includes('math') || s.includes('mat');
+                const isBio  = s => s.includes('bio');
+                const subjectMatches = (teacherSubject) => {
+                    let match = teacherSubject.includes(doubtSubject) || doubtSubject.includes(teacherSubject);
+                    if (!match && isMath(doubtSubject) && isMath(teacherSubject)) match = true;
+                    if (!match && isBio(doubtSubject)  && isBio(teacherSubject))  match = true;
+                    return match;
+                };
 
-                                    const teacherOptions = displayList.map((teacher) => ({
-                                        value: String(teacher.id),
-                                        label: `${teacher.name} (${teacher.subject_name || 'No Subject'}) - ${teacher.centres?.join(', ') || 'Global'}`
-                                    }));
+                // 1. Only Full Time teachers
+                const fullTimeTeachers = teachers.filter(t => {
+                    const type = (t.teacherType || t.qualification || '').toLowerCase();
+                    return type.includes('full');
+                });
 
-                                    const currentVal = teacherOptions.find(o => o.value === String(selectedTeacher)) || null;
+                // 2. Subject match
+                const subjectFiltered = fullTimeTeachers.filter(t =>
+                    subjectMatches((t.subject_name || t.subject || '').toLowerCase())
+                );
 
-                                    return (
-                                        <Select
-                                            options={teacherOptions}
-                                            value={currentVal}
-                                            onChange={(selected) => setSelectedTeacher(selected ? selected.value : '')}
-                                            placeholder="SELECT TEACHER"
-                                            styles={customSelectStyles}
-                                            classNamePrefix="react-select"
-                                            isSearchable={true}
-                                        />
-                                    );
-                                })()}
+                // 3. Split by department
+                const getDeptGroup = (t, keyword) => {
+                    const depts = parseDept(t.teacherDepartment);
+                    return depts.some(d => d.toLowerCase().includes(keyword.toLowerCase()));
+                };
+
+                const foundationTeachers = subjectFiltered.filter(t => getDeptGroup(t, 'Foundation'));
+                const allIndiaTeachers   = subjectFiltered.filter(t => getDeptGroup(t, 'All India'));
+
+                // Available tabs (only show if teachers exist)
+                const availableTabs = [];
+                if (foundationTeachers.length > 0) availableTabs.push('Foundation');
+                if (allIndiaTeachers.length > 0)   availableTabs.push('All India');
+
+                // Active list based on selected tab
+                const rawActiveList = departmentTab === 'Foundation' ? foundationTeachers : allIndiaTeachers;
+
+                // 4. Apply modal search + centre filter
+                const activeList = rawActiveList.filter(t => {
+                    const nameMatch = !modalSearch.trim() ||
+                        (t.name || '').toLowerCase().includes(modalSearch.toLowerCase()) ||
+                        (t.subject_name || t.subject || '').toLowerCase().includes(modalSearch.toLowerCase());
+                    const centreMatch = !modalCentreFilter ||
+                        (t.centres || []).some(c => c.toLowerCase().includes(modalCentreFilter.toLowerCase()));
+                    return nameMatch && centreMatch;
+                });
+
+                // Build unique centre options from the raw (unfiltered) active tab list
+                const modalCentreOptions = [...new Set(
+                    rawActiveList.flatMap(t => t.centres || [])
+                )].sort();
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className={`w-full max-w-lg mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-200 border ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-5 bg-orange-500 text-white">
+                                <div>
+                                    <h3 className="text-base font-black uppercase tracking-widest">Assign Teacher</h3>
+                                    <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-0.5">
+                                        {doubt?.subject} — {doubt?.student}
+                                    </p>
+                                    {(doubt?.centreName && doubt.centreName !== 'N/A' || (doubt?.examTag && doubt.examTag !== 'N/A')) && (
+                                        <p className="text-[10px] font-black opacity-90 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                            {doubt?.centreName && doubt.centreName !== 'N/A' && (
+                                                <span className="flex items-center gap-1">
+                                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/60"></span>
+                                                    {doubt.centreName}
+                                                </span>
+                                            )}
+                                            {doubt?.examTag && doubt.examTag !== 'N/A' && (
+                                                <span className="px-2 py-0.5 rounded bg-white/20 text-white text-[8px] font-black tracking-widest">
+                                                    {doubt.examTag}
+                                                </span>
+                                            )}
+                                        </p>
+                                    )}
+                                </div>
+                                <button onClick={handleCloseModal} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
+                                    <X size={20} strokeWidth={2.5} />
+                                </button>
                             </div>
 
-                            <button
-                                onClick={handleConfirmAssign}
-                                disabled={!selectedTeacher}
-                                className={`w-full mt-8 py-3 rounded-[5px] font-bold uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 ${selectedTeacher
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
-                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            {/* Department Tabs */}
+                            {availableTabs.length > 0 && (
+                                <div className={`flex border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                                    {['Foundation', 'All India'].map(tab => {
+                                        const count = tab === 'Foundation' ? foundationTeachers.length : allIndiaTeachers.length;
+                                        if (count === 0) return null;
+                                        return (
+                                            <button
+                                                key={tab}
+                                                onClick={() => { setDepartmentTab(tab); setSelectedTeacher(''); setModalSearch(''); setModalCentreFilter(''); }}
+                                                className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-all relative ${
+                                                    departmentTab === tab
+                                                        ? 'text-orange-500 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-orange-500'
+                                                        : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'
+                                                }`}
+                                            >
+                                                {tab}
+                                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-black ${
+                                                    departmentTab === tab
+                                                        ? 'bg-orange-500/20 text-orange-500'
+                                                        : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'
+                                                }`}>
+                                                    {count}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Search + Centre Filter Bar */}
+                            {availableTabs.length > 0 && (
+                                <div className={`px-4 py-3 flex gap-2 border-b ${isDarkMode ? 'border-white/5 bg-white/[0.01]' : 'border-slate-100 bg-slate-50/60'}`}>
+                                    {/* Search */}
+                                    <div className="relative flex-1">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search teacher name..."
+                                            value={modalSearch}
+                                            onChange={e => setModalSearch(e.target.value)}
+                                            className={`w-full pl-8 pr-8 py-2 text-[11px] font-bold rounded-[5px] border outline-none transition-all ${
+                                                isDarkMode
+                                                    ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-orange-500/50'
+                                                    : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-orange-400'
+                                            }`}
+                                        />
+                                        {modalSearch && (
+                                            <button onClick={() => setModalSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-500 transition-colors">
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {/* Centre Filter */}
+                                    <div className="relative">
+                                        <select
+                                            value={modalCentreFilter}
+                                            onChange={e => setModalCentreFilter(e.target.value)}
+                                            className={`appearance-none pl-3 pr-7 py-2 text-[11px] font-bold rounded-[5px] border outline-none transition-all min-w-[110px] ${
+                                                modalCentreFilter
+                                                    ? 'border-orange-500 bg-orange-500/10 text-orange-500'
+                                                    : isDarkMode
+                                                        ? 'bg-white/5 border-white/10 text-slate-300 focus:border-orange-500/50'
+                                                        : 'bg-white border-slate-200 text-slate-700 focus:border-orange-400'
+                                            }`}
+                                        >
+                                            <option value="">All Centres</option>
+                                            {modalCentreOptions.map((c, i) => (
+                                                <option key={i} value={c}>{c.replace(/_/g, ' ')}</option>
+                                            ))}
+                                        </select>
+                                        <Filter size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Teacher List */}
+                            <div className={`p-4 max-h-72 overflow-y-auto custom-scrollbar space-y-2`}>
+                                {availableTabs.length === 0 ? (
+                                    <div className="py-10 text-center opacity-40 space-y-2">
+                                        <AlertCircle size={32} className="mx-auto" />
+                                        <p className="text-xs font-black uppercase tracking-widest">No full-time teachers match this subject</p>
+                                        <p className="text-[10px] font-bold opacity-60">Subject: {doubt?.subject}</p>
+                                    </div>
+                                ) : activeList.length === 0 ? (
+                                    <div className="py-10 text-center opacity-40 space-y-2">
+                                        <AlertCircle size={32} className="mx-auto" />
+                                        <p className="text-xs font-black uppercase tracking-widest">No {departmentTab} teachers for this subject</p>
+                                    </div>
+                                ) : (
+                                    activeList.map(t => {
+                                        const isSelected = String(selectedTeacher) === String(t.id);
+                                        const depts = parseDept(t.teacherDepartment);
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => setSelectedTeacher(String(t.id))}
+                                                className={`w-full text-left p-4 rounded-[5px] border-2 transition-all ${
+                                                    isSelected
+                                                        ? 'border-orange-500 bg-orange-500/10'
+                                                        : isDarkMode
+                                                            ? 'border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/5'
+                                                            : 'border-slate-100 bg-slate-50 hover:border-orange-300 hover:bg-orange-50/30'
+                                                }`}
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className={`w-9 h-9 shrink-0 rounded-[5px] flex items-center justify-center font-black text-sm border-2 ${
+                                                            isSelected
+                                                                ? 'bg-orange-500 text-white border-orange-400'
+                                                                : isDarkMode ? 'bg-white/5 text-orange-400 border-white/10' : 'bg-orange-50 text-orange-500 border-orange-100'
+                                                        }`}>
+                                                            {(t.name || 'T').charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className={`text-xs font-black uppercase tracking-tight truncate ${isSelected ? 'text-orange-500' : ''}`}>
+                                                                {t.name}
+                                                            </p>
+                                                            <p className={`text-[10px] font-bold opacity-50 uppercase truncate`}>
+                                                                {t.subject_name || t.subject}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                                        {depts.map((d, i) => (
+                                                            <span key={i} className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+                                                                d.toLowerCase().includes('all india')
+                                                                    ? 'bg-blue-500/15 text-blue-400'
+                                                                    : 'bg-purple-500/15 text-purple-400'
+                                                            }`}>{d}</span>
+                                                        ))}
+                                                        {t.centres?.length > 0 && (
+                                                            <span className={`text-[8px] font-bold opacity-40 uppercase`}>
+                                                                {t.centres.slice(0, 2).join(', ')}{t.centres.length > 2 ? '…' : ''}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className={`px-5 py-4 border-t flex items-center gap-3 ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
+                                {selectedTeacher && (() => {
+                                    const sel = teachers.find(t => String(t.id) === String(selectedTeacher));
+                                    return sel ? (
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex-1 truncate">
+                                            ✓ {sel.name}
+                                        </p>
+                                    ) : null;
+                                })()}
+                                <button
+                                    onClick={handleConfirmAssign}
+                                    disabled={!selectedTeacher}
+                                    className={`ml-auto px-8 py-2.5 rounded-[5px] font-black uppercase tracking-widest text-[11px] shadow-lg transition-all active:scale-95 ${
+                                        selectedTeacher
+                                            ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/30'
+                                            : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                     }`}
-                            >
-                                Assign
-                            </button>
+                                >
+                                    Assign
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Show Doubt Modal */}
             {isShowDoubtModalOpen && selectedDoubtForView && (
@@ -1281,120 +1475,261 @@ const AssignDoubt = () => {
             )}
 
             {/* Bulk Assign Modal */}
-            {isBulkAssignModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto py-8 sm:py-20">
-                    <div className="w-full max-w-2xl mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10 relative">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-8 py-6 bg-orange-600 text-white sticky top-0 z-10">
-                            <div>
-                                <h3 className="text-xl font-black uppercase tracking-tight">Bulk Assignment</h3>
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{selectedDoubtIds.length} Doubts Selected</p>
-                            </div>
-                            <button onClick={() => setIsBulkAssignModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                                <X size={24} strokeWidth={3} />
-                            </button>
-                        </div>
+            {isBulkAssignModalOpen && (() => {
+                const selectedDoubts = doubts.filter(d => selectedDoubtIds.includes(d.id));
 
-                        {/* Modal Body */}
-                        <div className={`p-8 space-y-8 ${isDarkMode ? 'bg-[#0d1119] text-slate-200' : 'bg-white text-slate-700'}`}>
-                            
-                            {/* Distribution Options */}
-                            <div className="flex items-center justify-between p-4 rounded-[5px] bg-orange-500/5 border border-orange-500/10">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-full bg-orange-500/20 text-orange-500">
-                                        <LayoutGrid size={20} />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-black uppercase tracking-tight">Equal Distribution</p>
-                                        <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Divide doubts equally among teachers</p>
-                                    </div>
+                // Helper: parse teacherDepartment
+                const parseDeptB = (raw) => {
+                    if (!raw) return [];
+                    if (Array.isArray(raw)) return raw.map(s => String(s).trim());
+                    const str = String(raw).trim();
+                    if (str.startsWith('[') && str.endsWith(']')) {
+                        try {
+                            const parsed = JSON.parse(str.replace(/'/g, '"'));
+                            if (Array.isArray(parsed)) return parsed.map(s => String(s).trim());
+                        } catch {}
+                    }
+                    return [str];
+                };
+
+                // Normalize subjects for matching
+                const normalizeSubject = (s) => {
+                    const val = (s || '').toLowerCase().trim();
+                    if (val.includes('math') || val.includes('mat')) return 'math';
+                    if (val.includes('bio')) return 'biology';
+                    if (val.includes('phys')) return 'physics';
+                    if (val.includes('chem')) return 'chemistry';
+                    return val;
+                };
+
+                const selectedSubjectsSet = new Set(selectedDoubts.map(d => normalizeSubject(d.subject)));
+
+                // 1. Full Time only
+                const fullTimeBulk = teachers.filter(t => {
+                    const type = (t.teacherType || t.qualification || '').toLowerCase();
+                    return type.includes('full');
+                });
+
+                // 2. Subject match
+                const subjectFilteredBulk = fullTimeBulk.filter(t =>
+                    Array.from(selectedSubjectsSet).some(s => s === normalizeSubject(t.subject_name || t.subject))
+                );
+
+                // 3. Split by department
+                const getDeptB = (t, kw) => parseDeptB(t.teacherDepartment).some(d => d.toLowerCase().includes(kw.toLowerCase()));
+                const foundationBulk = subjectFilteredBulk.filter(t => getDeptB(t, 'Foundation'));
+                const allIndiaBulk   = subjectFilteredBulk.filter(t => getDeptB(t, 'All India'));
+
+                const bulkAvailableTabs = [];
+                if (foundationBulk.length > 0) bulkAvailableTabs.push('Foundation');
+                if (allIndiaBulk.length > 0)   bulkAvailableTabs.push('All India');
+
+                const rawBulkList = bulkDeptTab === 'Foundation' ? foundationBulk : allIndiaBulk;
+
+                // 4. Search + centre filter
+                const activeBulkList = rawBulkList.filter(t => {
+                    const nameMatch = !bulkSearch.trim() ||
+                        (t.name || '').toLowerCase().includes(bulkSearch.toLowerCase()) ||
+                        (t.subject_name || t.subject || '').toLowerCase().includes(bulkSearch.toLowerCase());
+                    const centreMatch = !bulkCentreFilter ||
+                        (t.centres || []).some(c => c.toLowerCase().includes(bulkCentreFilter.toLowerCase()));
+                    return nameMatch && centreMatch;
+                });
+
+                const bulkCentreOptions = [...new Set(rawBulkList.flatMap(t => t.centres || []))].sort();
+
+                return (
+                    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto py-8 sm:py-16">
+                        <div className={`w-full max-w-2xl mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 border relative ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200'}`}>
+
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-8 py-6 bg-orange-600 text-white sticky top-0 z-10">
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight">Bulk Assignment</h3>
+                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70 mt-0.5">
+                                        {selectedDoubtIds.length} Doubts Selected
+                                        {selectedDoubts[0]?.subject && <span className="ml-2 opacity-70">· {selectedDoubts[0].subject}</span>}
+                                    </p>
                                 </div>
-                                <button 
-                                    onClick={() => setDistributeEqually(!distributeEqually)}
-                                    className={`w-12 h-6 rounded-full transition-all relative ${distributeEqually ? 'bg-orange-600' : 'bg-slate-700'}`}>
-                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${distributeEqually ? 'left-7' : 'left-1'}`} />
+                                <button onClick={() => { setIsBulkAssignModalOpen(false); setBulkSearch(''); setBulkCentreFilter(''); }} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                                    <X size={24} strokeWidth={3} />
                                 </button>
                             </div>
 
-                            {/* Teacher Multi-Select */}
-                            <div className="space-y-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Teachers ({selectedTeachersForBulk.length})</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                                    {(() => {
-                                        const selectedDoubts = doubts.filter(d => selectedDoubtIds.includes(d.id));
-                                        
-                                        // Helper to normalize subjects for matching
-                                        const normalizeSubject = (s) => {
-                                            const val = (s || '').toLowerCase().trim();
-                                            if (val.includes('math') || val.includes('mat')) return 'math';
-                                            if (val.includes('bio')) return 'biology';
-                                            if (val.includes('phys')) return 'physics';
-                                            if (val.includes('chem')) return 'chemistry';
-                                            return val;
-                                        };
+                            <div className={`p-6 space-y-6 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
 
-                                        const selectedSubjects = new Set(selectedDoubts.map(d => normalizeSubject(d.subject)));
-                                        const selectedCenters = new Set(selectedDoubts.map(d => (d.centreName || '').toLowerCase().trim()));
-
-                                        const filtered = teachers.filter(t => {
-                                            const tSub = normalizeSubject(t.subject);
-                                            const tCentres = t.centres?.map(c => c.toLowerCase().trim()) || [];
-
-                                            const subjectMatch = Array.from(selectedSubjects).some(s => s === tSub);
-                                            const centreMatch = tCentres.length === 0 || Array.from(selectedCenters).some(dc => 
-                                                dc === 'n/a' || dc === '' || tCentres.some(tc => tc.includes(dc) || dc.includes(tc))
-                                            );
-
-                                            return subjectMatch && centreMatch;
-                                        });
-
-                                        const displayList = filtered.length > 0 ? filtered : teachers;
-
-                                        return displayList.map(teacher => (
-                                            <button 
-                                                key={teacher.id}
-                                                onClick={() => {
-                                                    setSelectedTeachersForBulk(prev => 
-                                                        prev.includes(teacher.id) ? prev.filter(id => id !== teacher.id) : [...prev, teacher.id]
-                                                    );
-                                                }}
-                                                className={`flex items-center gap-3 p-3 rounded-[5px] border-2 transition-all text-left ${selectedTeachersForBulk.includes(teacher.id) 
-                                                    ? 'border-orange-500 bg-orange-500/10' 
-                                                    : (isDarkMode ? 'border-white/5 bg-white/5 hover:border-white/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200')}`}>
-                                                <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${selectedTeachersForBulk.includes(teacher.id) ? 'bg-orange-500 text-white' : (isDarkMode ? 'bg-white/10' : 'bg-white border border-slate-200')}`}>
-                                                    {selectedTeachersForBulk.includes(teacher.id) && <CheckSquare size={14} />}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-black uppercase truncate">{teacher.name}</p>
-                                                    <p className="text-[9px] font-bold opacity-50 truncate">{teacher.subject_name}</p>
-                                                </div>
-                                            </button>
-                                        ));
-                                    })()}
+                                {/* Equal Distribution Toggle */}
+                                <div className="flex items-center justify-between p-4 rounded-[5px] bg-orange-500/5 border border-orange-500/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-full bg-orange-500/20 text-orange-500">
+                                            <LayoutGrid size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-black uppercase tracking-tight">Equal Distribution</p>
+                                            <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Divide doubts equally among teachers</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setDistributeEqually(!distributeEqually)}
+                                        className={`w-12 h-6 rounded-full transition-all relative ${distributeEqually ? 'bg-orange-600' : 'bg-slate-700'}`}>
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${distributeEqually ? 'left-7' : 'left-1'}`} />
+                                    </button>
                                 </div>
-                            </div>
 
-                            {/* Summary Footer */}
-                            <div className="pt-6 border-t border-white/5 flex flex-col gap-4">
-                                {distributeEqually && selectedTeachersForBulk.length > 0 && (
-                                    <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 py-2 rounded">
-                                        Each teacher will get ~{Math.ceil(selectedDoubtIds.length / selectedTeachersForBulk.length)} doubts
+                                {/* Department Tabs */}
+                                {bulkAvailableTabs.length > 0 && (
+                                    <div className={`flex rounded-[5px] border overflow-hidden ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                        {['Foundation', 'All India'].map(tab => {
+                                            const count = tab === 'Foundation' ? foundationBulk.length : allIndiaBulk.length;
+                                            if (count === 0) return null;
+                                            return (
+                                                <button
+                                                    key={tab}
+                                                    onClick={() => { setBulkDeptTab(tab); setBulkSearch(''); setBulkCentreFilter(''); setSelectedTeachersForBulk([]); }}
+                                                    className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
+                                                        bulkDeptTab === tab
+                                                            ? 'bg-orange-500 text-white'
+                                                            : isDarkMode ? 'bg-white/[0.02] text-slate-500 hover:text-slate-300' : 'bg-slate-50 text-slate-400 hover:text-slate-600'
+                                                    }`}
+                                                >
+                                                    {tab}
+                                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-black ${
+                                                        bulkDeptTab === tab ? 'bg-white/20 text-white' : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-200 text-slate-500'
+                                                    }`}>{count}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
-                                <button 
-                                    onClick={handleBulkConfirmAssign}
-                                    disabled={selectedTeachersForBulk.length === 0}
-                                    className={`w-full py-4 rounded-[5px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.98]
-                                        ${selectedTeachersForBulk.length > 0 
-                                            ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-orange-600/30' 
-                                            : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'}`}>
-                                    Execute Bulk Assignment
-                                </button>
+
+                                {/* Search + Centre Filter */}
+                                {bulkAvailableTabs.length > 0 && (
+                                    <div className={`flex gap-2`}>
+                                        <div className="relative flex-1">
+                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search teacher name..."
+                                                value={bulkSearch}
+                                                onChange={e => setBulkSearch(e.target.value)}
+                                                className={`w-full pl-8 pr-8 py-2 text-[11px] font-bold rounded-[5px] border outline-none transition-all ${
+                                                    isDarkMode
+                                                        ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-orange-500/50'
+                                                        : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-orange-400'
+                                                }`}
+                                            />
+                                            {bulkSearch && (
+                                                <button onClick={() => setBulkSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-500">
+                                                    <X size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <select
+                                                value={bulkCentreFilter}
+                                                onChange={e => setBulkCentreFilter(e.target.value)}
+                                                className={`appearance-none pl-3 pr-7 py-2 text-[11px] font-bold rounded-[5px] border outline-none min-w-[120px] ${
+                                                    bulkCentreFilter
+                                                        ? 'border-orange-500 bg-orange-500/10 text-orange-500'
+                                                        : isDarkMode
+                                                            ? 'bg-white/5 border-white/10 text-slate-300'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                                                }`}
+                                            >
+                                                <option value="">All Centres</option>
+                                                {bulkCentreOptions.map((c, i) => (
+                                                    <option key={i} value={c}>{c.replace(/_/g, ' ')}</option>
+                                                ))}
+                                            </select>
+                                            <Filter size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Teacher Multi-Select Cards */}
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                                        Select Teachers ({selectedTeachersForBulk.length})
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                                        {bulkAvailableTabs.length === 0 ? (
+                                            <div className="col-span-2 py-10 text-center opacity-40 space-y-2">
+                                                <AlertCircle size={28} className="mx-auto" />
+                                                <p className="text-xs font-black uppercase tracking-widest">No full-time teachers match selected doubts</p>
+                                            </div>
+                                        ) : activeBulkList.length === 0 ? (
+                                            <div className="col-span-2 py-10 text-center opacity-40 space-y-2">
+                                                <AlertCircle size={28} className="mx-auto" />
+                                                <p className="text-xs font-black uppercase tracking-widest">No {bulkDeptTab} teachers found</p>
+                                            </div>
+                                        ) : (
+                                            activeBulkList.map(teacher => {
+                                                const isChecked = selectedTeachersForBulk.includes(teacher.id);
+                                                const depts = parseDeptB(teacher.teacherDepartment);
+                                                return (
+                                                    <button
+                                                        key={teacher.id}
+                                                        onClick={() => {
+                                                            setSelectedTeachersForBulk(prev =>
+                                                                prev.includes(teacher.id) ? prev.filter(id => id !== teacher.id) : [...prev, teacher.id]
+                                                            );
+                                                        }}
+                                                        className={`flex items-start gap-3 p-3 rounded-[5px] border-2 transition-all text-left ${
+                                                            isChecked
+                                                                ? 'border-orange-500 bg-orange-500/10'
+                                                                : isDarkMode ? 'border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/5' : 'border-slate-100 bg-slate-50 hover:border-orange-300 hover:bg-orange-50/30'
+                                                        }`}
+                                                    >
+                                                        <div className={`w-5 h-5 shrink-0 mt-0.5 rounded flex items-center justify-center transition-all ${
+                                                            isChecked ? 'bg-orange-500 text-white' : isDarkMode ? 'bg-white/10 border border-white/10' : 'bg-white border border-slate-200'
+                                                        }`}>
+                                                            {isChecked && <CheckSquare size={13} />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-xs font-black uppercase truncate ${isChecked ? 'text-orange-500' : ''}`}>{teacher.name}</p>
+                                                            <p className="text-[9px] font-bold opacity-50 truncate uppercase">{teacher.subject_name || teacher.subject}</p>
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {depts.map((d, i) => (
+                                                                    <span key={i} className={`text-[7px] font-black uppercase tracking-widest px-1 py-0.5 rounded ${
+                                                                        d.toLowerCase().includes('all india') ? 'bg-blue-500/15 text-blue-400' : 'bg-purple-500/15 text-purple-400'
+                                                                    }`}>{d}</span>
+                                                                ))}
+                                                                {teacher.centres?.slice(0,1).map((c, i) => (
+                                                                    <span key={i} className="text-[7px] font-bold opacity-30 uppercase">{c}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className={`pt-5 border-t flex flex-col gap-4 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                                    {distributeEqually && selectedTeachersForBulk.length > 0 && (
+                                        <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 py-2 rounded">
+                                            Each teacher will get ~{Math.ceil(selectedDoubtIds.length / selectedTeachersForBulk.length)} doubts
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={handleBulkConfirmAssign}
+                                        disabled={selectedTeachersForBulk.length === 0}
+                                        className={`w-full py-4 rounded-[5px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.98] ${
+                                            selectedTeachersForBulk.length > 0
+                                                ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-orange-600/30'
+                                                : isDarkMode ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        Execute Bulk Assignment
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 };

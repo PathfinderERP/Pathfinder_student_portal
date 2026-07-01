@@ -370,6 +370,22 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
                                         <td className="py-6 px-4">
                                             <div className="text-sm font-black text-orange-500 mb-0.5">{t.subject_name || t.subject || 'All Subjects'}</div>
                                             <div className="text-[10px] font-bold opacity-50 uppercase tracking-tighter">{t.teacherType || 'Full-Time Faculty'}</div>
+                                            {t.teacherDepartment && (
+                                                <div className="text-[9px] font-black mt-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 inline-block uppercase tracking-widest">
+                                                    {(() => {
+                                                        const raw = t.teacherDepartment;
+                                                        if (Array.isArray(raw)) return raw.join(', ');
+                                                        const str = String(raw).trim();
+                                                        if (str.startsWith('[') && str.endsWith(']')) {
+                                                            try {
+                                                                const parsed = JSON.parse(str.replace(/'/g, '"'));
+                                                                if (Array.isArray(parsed)) return parsed.join(', ');
+                                                            } catch {}
+                                                        }
+                                                        return str;
+                                                    })()}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="py-6 px-4">
                                             <div className="flex items-center gap-2 mb-1">
