@@ -117,6 +117,10 @@ const AssignDoubt = () => {
             zIndex: 50,
             borderRadius: '5px',
         }),
+        menuPortal: (provided) => ({
+            ...provided,
+            zIndex: 9999,
+        }),
         option: (provided, state) => ({
             ...provided,
             backgroundColor: state.isSelected
@@ -540,6 +544,7 @@ const AssignDoubt = () => {
                                     placeholder="ALL SUBJECTS"
                                     styles={customSelectStyles}
                                     classNamePrefix="react-select"
+                                    menuPortalTarget={document.body}
                                 />
                             </div>
 
@@ -553,6 +558,7 @@ const AssignDoubt = () => {
                                     placeholder="ALL CENTERS"
                                     styles={customSelectStyles}
                                     classNamePrefix="react-select"
+                                    menuPortalTarget={document.body}
                                 />
                             </div>
 
@@ -566,6 +572,7 @@ const AssignDoubt = () => {
                                     placeholder="ALL CLASSES"
                                     styles={customSelectStyles}
                                     classNamePrefix="react-select"
+                                    menuPortalTarget={document.body}
                                 />
                             </div>
 
@@ -579,6 +586,7 @@ const AssignDoubt = () => {
                                     placeholder="ALL EXAMS"
                                     styles={customSelectStyles}
                                     classNamePrefix="react-select"
+                                    menuPortalTarget={document.body}
                                 />
                             </div>
 
@@ -613,6 +621,7 @@ const AssignDoubt = () => {
                                     styles={customSelectStyles}
                                     classNamePrefix="react-select"
                                     isSearchable={false}
+                                    menuPortalTarget={document.body}
                                 />
                             </div>
 
