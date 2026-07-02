@@ -13,7 +13,8 @@ from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
     get_student_classes, get_ongoing_classes, get_upcoming_classes, get_previous_classes,
     get_student_portal_profile, get_student_portal_report,
-    get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag
+    get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag,
+    sync_teachers_from_erp
 )
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
 from .gemini_views import generate_ai_study_plan, get_college_intelligence, search_college_ai, extract_marksheet_data, get_student_ai_insights, student_ai_insights_chat
@@ -63,6 +64,7 @@ urlpatterns = [
     path('admin/all-psychometric-profiles/', AdminAllPsychometricProfilesView.as_view(), name='admin-all-psychometric-profiles'),
     path('admin/erp-centres/', get_all_centres_erp_data, name='admin-erp-centres'),
     path('admin/erp-teachers/', get_all_teachers_erp_data, name='admin-erp-teachers'),
+    path('admin/sync-teachers/', sync_teachers_from_erp, name='admin-sync-teachers'),
     path('student/scholarlab/simulations/', get_scholarlab_simulations, name='scholarlab-simulations'),
     path('student/scholarlab/initialize/', initialize_scholarlab_simulation, name='scholarlab-initialize'),
     path('student/ai-mentor/study-plan/', generate_ai_study_plan, name='ai-mentor-study-plan'),

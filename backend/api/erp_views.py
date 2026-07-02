@@ -1089,3 +1089,150 @@ def get_exam_tag(request, tagId):
     except Exception as e:
         debug_log(f"[EXAM-TAG] Exception: {e}")
         return Response({"error": str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sync_teachers_from_erp(request):
+    """
+    Force-fetches the full teacher list from the ERP system (bypassing cache),
+    updates the Redis cache, and upserts matching portal User records.
+    Admin/staff/superadmin only.
+    Returns { created_count, updated_count, total } on success.
+    """
+    user = request.user
+    user_type = getattr(user, 'user_type', '')
+    if not (user.is_staff or user.is_superuser or user_type in ('admin', 'superadmin', 'staff')):
+        return Response({"error": "Permission denied. Only administrators can sync teachers."}, status=status.HTTP_403_FORBIDDEN)
+
+    CACHE_KEY = 'erp_all_teachers_v6'
+
+    try:
+        erp_url = _get_erp_url()
+        erp_token = _get_erp_admin_token(force_refresh=True)
+
+        if not erp_token:
+            return Response({"error": "ERP Authentication Failed. Token unavailable."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        # --- 1. Fetch teacher list from ERP ---
+        teacher_list = []
+        try:
+            t_resp = requests.get(
+                f"{erp_url}/api/student-portal/teachers?limit=1000",
+                headers={"Authorization": f"Bearer {erp_token}"},
+                timeout=30
+            )
+            if t_resp.status_code == 200:
+                data = t_resp.json()
+                teacher_list = data if isinstance(data, list) else (data.get('teachers') or data.get('data') or [])
+        except Exception as e:
+            debug_log(f"[SYNC-TEACHERS] Error fetching teacher list: {e}")
+
+        if not teacher_list:
+            return Response({"error": "No teacher data returned from ERP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # --- 2. Fetch HR employee IDs ---
+        emp_lookup = {}
+        try:
+            e_resp = requests.get(
+                f"{erp_url}/api/hr/employee?limit=1000",
+                headers={"Authorization": f"Bearer {erp_token}"},
+                timeout=20
+            )
+            if e_resp.status_code == 200:
+                data = e_resp.json()
+                e_list = data if isinstance(data, list) else (data.get('employees') or data.get('data') or [])
+                for emp in e_list:
+                    uid = (emp.get('user') or {}).get('_id')
+                    eid = emp.get('employeeId')
+                    if uid and eid:
+                        emp_lookup[str(uid)] = str(eid)
+        except Exception as e:
+            debug_log(f"[SYNC-TEACHERS] Error fetching HR employees: {e}")
+
+        # --- 3. Normalise raw ERP data (mirrors get_all_teachers_erp_data logic) ---
+        def _safe_str(val):
+            if not val: return ""
+            if isinstance(val, dict):
+                return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
+            return str(val)
+
+        final_data = []
+        for item in teacher_list:
+            try:
+                user_meta = item.get('user_meta') or item.get('user') or {}
+                if not isinstance(user_meta, dict): user_meta = {}
+                academic = item.get('academicInfo') or {}
+
+                emp_id = (
+                    emp_lookup.get(str(item.get('_id'))) or
+                    item.get('employeeId') or item.get('employee_id') or
+                    item.get('id') or item.get('empId') or item.get('code') or
+                    item.get('staffId') or item.get('teacherId') or
+                    user_meta.get('username') or user_meta.get('userId') or
+                    academic.get('employeeId')
+                )
+                if not emp_id:
+                    for k, v in item.items():
+                        if isinstance(v, str) and v.strip().upper().startswith('EMP'):
+                            emp_id = v.strip(); break
+                if not emp_id:
+                    emp_id = (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')
+
+                subject = _safe_str(
+                    user_meta.get('subject') or item.get('subject') or
+                    user_meta.get('teacherDepartment') or item.get('department') or 'General'
+                )
+                t_type = _safe_str(
+                    item.get('typeOfEmployment') or item.get('teacherType') or
+                    user_meta.get('teacherType') or academic.get('employmentType') or 'Full-Time'
+                )
+
+                final_data.append({
+                    'id': str(item.get('_id') or item.get('id') or ''),
+                    'name': _safe_str(item.get('name') or item.get('teacherName') or user_meta.get('name') or 'Unknown'),
+                    'email': str(item.get('email') or user_meta.get('email') or '').strip().lower(),
+                    'phone': str(item.get('mobNum') or item.get('phoneNumber') or item.get('mobileNum') or ''),
+                    'subject': subject,
+                    'subject_name': subject,
+                    'code': str(emp_id),
+                    'qualification': t_type,
+                    'teacherType': t_type,
+                    'centres': [_safe_str(c) for c in (item.get('centres') or user_meta.get('centres') or [])],
+                    'teacherDepartment': _safe_str(user_meta.get('teacherDepartment') or item.get('department') or 'Academic'),
+                    'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
+                    'designation': _safe_str(user_meta.get('designation') or item.get('designation') or 'Faculty'),
+                    'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
+                    'isBoardHod': bool(item.get('isBoardHod') or user_meta.get('isBoardHod')),
+                    'isSubjectHod': bool(item.get('isSubjectHod') or user_meta.get('isSubjectHod')),
+                    'academicInfo': {
+                        'joiningDate': _safe_str(item.get('dateOfJoining') or academic.get('joiningDate')),
+                        'employmentType': t_type,
+                        'gender': _safe_str(item.get('gender') or academic.get('gender')),
+                    }
+                })
+            except Exception as e_item:
+                debug_log(f"[SYNC-TEACHERS] Error mapping item: {e_item}")
+
+        # --- 4. Update cache ---
+        cache.set(CACHE_KEY, final_data, 86400)
+
+        # --- 5. Cache updated; teacher data lives in ERP/cache only ---
+        # (The portal User model uses erp_student_id for students only;
+        #  teacher identity is managed entirely through the ERP cache.)
+        created_count = 0
+        updated_count = 0
+
+        debug_log(f"[SYNC-TEACHERS] Done. Total: {len(final_data)}, Updated portal users: {updated_count}")
+
+        return Response({
+            "status": "success",
+            "message": f"Successfully synced {len(final_data)} teachers from ERP.",
+            "total": len(final_data),
+            "created_count": created_count,
+            "updated_count": updated_count,
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        debug_log(f"[SYNC-TEACHERS] Outer exception: {e}")
+        return Response({"error": f"Sync failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -40,6 +40,11 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
     const [selectedTeacher, setSelectedTeacher] = useState(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+    // Sync ERP state
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncSuccessMessage, setSyncSuccessMessage] = useState(null);
+    const [syncError, setSyncError] = useState(null);
+
     // Drag to scroll state
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
@@ -84,6 +89,31 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
             setIsLoading(false);
         }
     }, [allTeachers.length, itemsPerPage, token, getApiUrl, authLoading]);
+
+    const handleSyncERP = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+        setSyncSuccessMessage(null);
+        setSyncError(null);
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.post(`${apiUrl}/api/admin/sync-teachers/`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const { total } = response.data;
+            setSyncSuccessMessage(`Sync Complete! ${total} teachers synced from ERP.`);
+            setTimeout(() => setSyncSuccessMessage(null), 5000);
+            // Reload teacher data with fresh cache
+            await loadERPData(true);
+        } catch (err) {
+            console.error('❌ Teacher Sync ERP failed:', err);
+            const errMsg = err.response?.data?.error || err.message || 'Failed to sync with ERP';
+            setSyncError(`Sync failed: ${errMsg}`);
+            setTimeout(() => setSyncError(null), 6000);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     useEffect(() => {
         if (authLoading) return;
@@ -278,14 +308,32 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
                                     Filters
                                 </button>
                                 <button
-                                    onClick={() => loadERPData(true)}
-                                    className={`px-4 py-3 rounded-[5px] text-xs font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${isDarkMode ? 'bg-white/5 text-white border border-white/10' : 'bg-slate-900 text-white shadow-lg shadow-slate-900/30'}`}
+                                    onClick={handleSyncERP}
+                                    disabled={isSyncing}
+                                    className={`px-5 py-3 rounded-[5px] border font-black text-xs uppercase tracking-wider transition-all flex items-center gap-2 outline-none cursor-pointer active:scale-95 disabled:opacity-50 disabled:pointer-events-none shrink-0
+                                        ${isDarkMode
+                                            ? 'bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.05)]'
+                                            : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 shadow-sm'}`}
                                 >
-                                    <RotateCcw size={14} />
-                                    Sync
+                                    <RotateCcw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                                    <span>{isSyncing ? 'Syncing...' : 'Sync ERP'}</span>
                                 </button>
                             </div>
                         </div>
+
+                        {syncSuccessMessage && (
+                            <div className={`p-4 rounded-[5px] border flex items-center gap-3 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 animate-ping" />
+                                <span>{syncSuccessMessage}</span>
+                            </div>
+                        )}
+
+                        {syncError && (
+                            <div className={`p-4 rounded-[5px] border flex items-center gap-3 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                                <AlertCircle size={14} className="shrink-0 text-red-500" />
+                                <span>{syncError}</span>
+                            </div>
+                        )}
 
                         {showFilters && (
                             <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/2 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
