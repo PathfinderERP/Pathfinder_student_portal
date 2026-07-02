@@ -691,7 +691,7 @@ def get_all_teachers_erp_data(request):
         except Exception as e:
             debug_log(f"Error fetching teachers list: {e}")
 
-        # 2. Fetch from HR Employees list (for Employee IDs)
+        # 2. Fetch from HR Employees list
         emp_lookup = {}
         try:
             e_url = f"{erp_url}/api/hr/employee?limit=1000"
@@ -701,9 +701,8 @@ def get_all_teachers_erp_data(request):
                 e_list = data if isinstance(data, list) else (data.get('employees') or data.get('data') or [])
                 for emp in e_list:
                     uid = (emp.get('user', {}) or {}).get('_id')
-                    eid = emp.get('employeeId')
-                    if uid and eid:
-                        emp_lookup[str(uid)] = str(eid)
+                    if uid:
+                        emp_lookup[str(uid)] = emp
                 debug_log(f"Fetched {len(e_list)} from hr/employee, mapped {len(emp_lookup)} IDs")
         except Exception as e:
             debug_log(f"Error fetching employee list: {e}")
@@ -736,8 +735,9 @@ def get_all_teachers_erp_data(request):
                     gender = academic.get('gender', '')
                     emp_type = academic.get('employmentType', '')
                     
-                    # Merge ID from lookup
-                    emp_id_from_hr = emp_lookup.get(str(item.get('_id')))
+                    # Merge HR data
+                    hr_data = emp_lookup.get(str(item.get('_id'))) or {}
+                    emp_id_from_hr = hr_data.get('employeeId')
                     
                     # Comprehensive ID search
                     emp_id = (
@@ -747,7 +747,7 @@ def get_all_teachers_erp_data(request):
                         item.get('id') or
                         item.get('empId') or
                         item.get('emp_id') or
-                        item.get('code') or 
+                        item.get('code') or
                         item.get('staffId') or
                         item.get('teacherId') or
                         item.get('facultyId') or
@@ -779,9 +779,16 @@ def get_all_teachers_erp_data(request):
 
                     # Mapping other fields
                     name = item.get('name') or item.get('teacherName') or user_meta.get('name') or 'Unknown'
-                    subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'General')
-                    dept = _safe_str(user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
-                    desig = _safe_str(user_meta.get('designation') or item.get('designation') or 'Faculty')
+                    
+                    # HR data takes precedence for structural info
+                    hr_dept = hr_data.get('department')
+                    hr_dept_name = hr_dept.get('departmentName') if isinstance(hr_dept, dict) else hr_dept
+                    hr_desig = hr_data.get('designation')
+                    hr_desig_name = hr_desig.get('name') if isinstance(hr_desig, dict) else hr_desig
+                    
+                    subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or 'General')
+                    dept = _safe_str(hr_dept_name or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
+                    desig = _safe_str(hr_desig_name or user_meta.get('designation') or item.get('designation') or 'Faculty')
                     
                     raw_centres = item.get('centres') or user_meta.get('centres') or []
                     if not raw_centres and item.get('primaryCentre'):
@@ -1131,7 +1138,7 @@ def sync_teachers_from_erp(request):
         if not teacher_list:
             return Response({"error": "No teacher data returned from ERP."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # --- 2. Fetch HR employee IDs ---
+        # --- 2. Fetch HR employee data ---
         emp_lookup = {}
         try:
             e_resp = requests.get(
@@ -1144,9 +1151,8 @@ def sync_teachers_from_erp(request):
                 e_list = data if isinstance(data, list) else (data.get('employees') or data.get('data') or [])
                 for emp in e_list:
                     uid = (emp.get('user') or {}).get('_id')
-                    eid = emp.get('employeeId')
-                    if uid and eid:
-                        emp_lookup[str(uid)] = str(eid)
+                    if uid:
+                        emp_lookup[str(uid)] = emp
         except Exception as e:
             debug_log(f"[SYNC-TEACHERS] Error fetching HR employees: {e}")
 
@@ -1164,8 +1170,10 @@ def sync_teachers_from_erp(request):
                 if not isinstance(user_meta, dict): user_meta = {}
                 academic = item.get('academicInfo') or {}
 
+                hr_data = emp_lookup.get(str(item.get('_id'))) or {}
+
                 emp_id = (
-                    emp_lookup.get(str(item.get('_id'))) or
+                    hr_data.get('employeeId') or
                     item.get('employeeId') or item.get('employee_id') or
                     item.get('id') or item.get('empId') or item.get('code') or
                     item.get('staffId') or item.get('teacherId') or
@@ -1179,12 +1187,17 @@ def sync_teachers_from_erp(request):
                 if not emp_id:
                     emp_id = (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')
 
+                hr_dept = hr_data.get('department')
+                hr_dept_name = hr_dept.get('departmentName') if isinstance(hr_dept, dict) else hr_dept
+                hr_desig = hr_data.get('designation')
+                hr_desig_name = hr_desig.get('name') if isinstance(hr_desig, dict) else hr_desig
+
                 subject = _safe_str(
                     user_meta.get('subject') or item.get('subject') or
                     user_meta.get('teacherDepartment') or item.get('department') or 'General'
                 )
                 t_type = _safe_str(
-                    item.get('typeOfEmployment') or item.get('teacherType') or
+                    hr_data.get('typeOfEmployment') or item.get('typeOfEmployment') or item.get('teacherType') or
                     user_meta.get('teacherType') or academic.get('employmentType') or 'Full-Time'
                 )
 
@@ -1199,9 +1212,9 @@ def sync_teachers_from_erp(request):
                     'qualification': t_type,
                     'teacherType': t_type,
                     'centres': [_safe_str(c) for c in (item.get('centres') or user_meta.get('centres') or [])],
-                    'teacherDepartment': _safe_str(user_meta.get('teacherDepartment') or item.get('department') or 'Academic'),
+                    'teacherDepartment': _safe_str(hr_dept_name or user_meta.get('teacherDepartment') or item.get('department') or 'Academic'),
                     'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
-                    'designation': _safe_str(user_meta.get('designation') or item.get('designation') or 'Faculty'),
+                    'designation': _safe_str(hr_desig_name or user_meta.get('designation') or item.get('designation') or 'Faculty'),
                     'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
                     'isBoardHod': bool(item.get('isBoardHod') or user_meta.get('isBoardHod')),
                     'isSubjectHod': bool(item.get('isSubjectHod') or user_meta.get('isSubjectHod')),
