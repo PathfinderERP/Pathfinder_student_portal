@@ -404,7 +404,68 @@ class DoubtViewSet(viewsets.ModelViewSet):
             count = Doubt.objects.filter(status__in=['Unassigned', 'Pending']).count()
             return response.Response({'count': count})
 
-    def _format_doc(self, doc):
+    # Only fields the list view actually needs — keeps documents small over the wire
+    _LIST_PROJECTION = {
+        'id': 1, 'student_id': 1, 'student_name': 1, 'student_email': 1,
+        'admission_number': 1, 'student_class': 1, 'exam_tag': 1,
+        'subject': 1, 'chapter': 1, 'topic': 1, 'title': 1, 'description': 1,
+        'status': 1, 'created_at': 1,
+        'teacher_name': 1, 'teacher_id': 1, 'assign_date': 1,
+        'teacher_reply': 1, 'resolved_at': 1,
+        'image': 1, 'image2': 1, 'image3': 1, 'pdf': 1, 'voice_note': 1,
+        'reply_image': 1, 'reply_image2': 1, 'reply_image3': 1,
+        'reply_pdf': 1, 'reply_voice_note': 1,
+        'centre_code': 1, 'centre_name': 1,
+    }
+
+    @staticmethod
+    def _ensure_indexes(collection):
+        """Create MongoDB indexes if they don't already exist. No-op if already present."""
+        try:
+            collection.create_index([('created_at', -1)], background=True)
+            collection.create_index([('status', 1), ('created_at', -1)], background=True)
+            collection.create_index([('student_id', 1), ('created_at', -1)], background=True)
+            collection.create_index([('teacher_id', 1), ('created_at', -1)], background=True)
+        except Exception as e:
+            print(f"[DoubtViewSet] Index creation warning: {e}")
+
+    def _build_user_lookup(self, docs):
+        """
+        Bulk-fetch every User referenced by the given docs in a SINGLE query,
+        returning a dict keyed by every string form of the user pk.
+        Eliminates the N+1 per-doubt DB query pattern.
+        """
+        from django.contrib.auth import get_user_model
+        from bson import ObjectId as BsonObjectId
+
+        User = get_user_model()
+        student_ids = {str(doc.get('student_id', '')).strip() for doc in docs if doc.get('student_id')}
+        if not student_ids:
+            return {}
+
+        oid_set, str_set = set(), set()
+        for sid in student_ids:
+            if len(sid) == 24:
+                try:
+                    oid_set.add(BsonObjectId(sid))
+                    continue
+                except Exception:
+                    pass
+            str_set.add(sid)
+
+        users = list(
+            User.objects.filter(pk__in=oid_set | str_set)
+            .select_related('class_level', 'target_exam')
+        )
+
+        lookup = {}
+        for u in users:
+            for key in [str(u.pk), u.username, u.erp_student_id, u.admission_number]:
+                if key:
+                    lookup[key] = u
+        return lookup
+
+    def _format_doc(self, doc, user_lookup=None):
         """Convert a raw MongoDB document to a clean dict for JSON response."""
         def safe_str(val, default=''):
             return str(val) if val is not None else default
@@ -413,146 +474,129 @@ class DoubtViewSet(viewsets.ModelViewSet):
         if date_val and hasattr(date_val, 'isoformat'):
             date_val = date_val.isoformat()
 
-        # Handle image URL construction for all fields
         def get_full_url(path):
             if not path or str(path).strip() == '' or str(path) == 'None':
                 return None
             path_str = str(path)
-            
-            # Clean up corrupted/triple-prefixed URLs
             if 'doubts/' in path_str:
                 idx = path_str.find('doubts/')
                 if idx != -1:
                     path_str = path_str[idx:]
-            
-            # Handle unencoded double prefix fallback
             if path_str.startswith('http'):
-                # If it's a valid clean URL, return it
                 return path_str
             from django.conf import settings
             media_url = getattr(settings, 'MEDIA_URL', '/media/')
             s3_domain = getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', None)
-            
-            # If path already contains media_url, strip it to avoid double-prefixing
             if path_str.startswith(media_url):
                 path_str = path_str[len(media_url):]
-            
             if s3_domain:
-                # Cloudflare R2 / S3 path
                 return f"https://{s3_domain}/{path_str.lstrip('/')}"
-            
-            # Local storage path
-            request = self.request
-            base_url = f"{request.scheme}://{request.get_host()}"
+            req = self.request
+            base_url = f"{req.scheme}://{req.get_host()}"
             return f"{base_url}{media_url}{path_str.lstrip('/')}"
 
-        # Enrich with student context if missing or for fresh display
-        centre_code = doc.get('centre_code')
-        centre_name = doc.get('centre_name')
-        student_class = doc.get('student_class')
-        student_email = doc.get('student_email')
+        centre_code      = doc.get('centre_code')
+        centre_name      = doc.get('centre_name')
+        student_class    = doc.get('student_class')
+        student_email    = doc.get('student_email')
         admission_number = doc.get('admission_number')
-        exam_tag = doc.get('exam_tag')
+        exam_tag         = doc.get('exam_tag')
 
-        try:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            sid = doc.get('student_id')
-            if sid:
-                sid_str = str(sid).strip()
-                user_obj = None
-                
-                # 1. Try pk lookup (ObjectId)
-                from bson import ObjectId
+        # O(1) lookup from pre-built dict — no per-doc DB queries
+        sid      = str(doc.get('student_id', '')).strip()
+        user_obj = (user_lookup or {}).get(sid)
+
+        if user_obj:
+            centre_code      = centre_code      or getattr(user_obj, 'centre_code', None)
+            centre_name      = centre_name      or getattr(user_obj, 'centre_name', None)
+            student_email    = student_email    or getattr(user_obj, 'email', None)
+            admission_number = admission_number or getattr(user_obj, 'admission_number', None)
+            if not exam_tag:
                 try:
-                    if len(sid_str) == 24: # Likely ObjectId
-                        user_obj = User.objects.filter(pk=ObjectId(sid_str)).first()
-                except: pass
-                
-                # 2. Try pk lookup (Direct string)
-                if not user_obj:
-                    try: user_obj = User.objects.filter(pk=sid_str).first()
-                    except: pass
-                
-                # 3. Try fallback fields
-                if not user_obj:
-                    user_obj = User.objects.filter(username=sid_str).first() or \
-                               User.objects.filter(erp_student_id=sid_str).first() or \
-                               User.objects.filter(admission_number=sid_str).first()
-                
-                if user_obj:
-                    centre_code = centre_code or getattr(user_obj, 'centre_code', 'N/A')
-                    centre_name = centre_name or getattr(user_obj, 'centre_name', 'N/A')
-                    student_email = student_email or getattr(user_obj, 'email', 'N/A')
-                    admission_number = admission_number or getattr(user_obj, 'admission_number', 'N/A')
-                    
-                    # Hydrate Exam Tag
-                    if not exam_tag:
-                        try:
-                            if hasattr(user_obj, 'target_exam') and user_obj.target_exam:
-                                exam_tag = user_obj.target_exam.name
-                        except: pass
-                        exam_tag = exam_tag or 'N/A'
-                    
-                    # Hydrate Student Class
-                    if not student_class:
-                        try:
-                            c_lvl = getattr(user_obj.class_level, 'name', '') if user_obj.class_level else ''
-                            t_exm = getattr(user_obj.target_exam, 'name', '') if user_obj.target_exam else ''
-                            student_class = f"{c_lvl} - {t_exm}".strip(' - ')
-                        except: pass
-                        student_class = student_class or 'N/A'
-        except Exception as e:
-            print(f"[DoubtViewSet] Enrichment failed: {e}")
+                    exam_tag = user_obj.target_exam.name if user_obj.target_exam else None
+                except Exception:
+                    pass
+                exam_tag = exam_tag or getattr(user_obj, 'exam_tag_name', None) or 'N/A'
+            if not student_class:
+                try:
+                    c_lvl = user_obj.class_level.name if user_obj.class_level else ''
+                    t_exm = user_obj.target_exam.name if user_obj.target_exam else ''
+                    student_class = f"{c_lvl} - {t_exm}".strip(' - ') or 'N/A'
+                except Exception:
+                    student_class = 'N/A'
+
+        raw_status = doc.get('status', '')
+        if raw_status == 'Pending':
+            raw_status = 'Unassigned'
+        elif raw_status == 'In Progress':
+            raw_status = 'Assign'
 
         return {
-            'id':             safe_str(doc.get('id')),
-            'student_name':   safe_str(doc.get('student_name')),
-            'student_id':     safe_str(doc.get('student_id')),
-            'student_email':  student_email or 'N/A',
+            'id':               safe_str(doc.get('id')),
+            'student_name':     safe_str(doc.get('student_name')),
+            'student_id':       safe_str(doc.get('student_id')),
+            'student_email':    student_email    or 'N/A',
             'admission_number': admission_number or 'N/A',
-            'student_class':  student_class or 'N/A',
-            'exam_tag':       exam_tag or 'N/A',
-            'subject':        safe_str(doc.get('subject')),
-            'chapter':        safe_str(doc.get('chapter')),
-            'topic':          safe_str(doc.get('topic')),
-            'title':          safe_str(doc.get('title')),
-            'description':    safe_str(doc.get('description')),
-            'image':          get_full_url(doc.get('image')),
-            'image2':         get_full_url(doc.get('image2')),
-            'image3':         get_full_url(doc.get('image3')),
-            'pdf':            get_full_url(doc.get('pdf')),
-            'voice_note':     get_full_url(doc.get('voice_note')),
-            'status':         'Unassigned' if doc.get('status') == 'Pending' else ('Assign' if doc.get('status') == 'In Progress' else doc.get('status')),
-            'created_at':     date_val,
-            'teacher_name':   safe_str(doc.get('teacher_name')),
-            'teacher_id':     safe_str(doc.get('teacher_id')),
-            'assign_date':    safe_str(doc.get('assign_date')),
-            'teacher_reply':  safe_str(doc.get('teacher_reply')),
-            'resolved_at':    safe_str(doc.get('resolved_at')),
-            'reply_image':    get_full_url(doc.get('reply_image')),
-            'reply_image2':   get_full_url(doc.get('reply_image2')),
-            'reply_image3':   get_full_url(doc.get('reply_image3')),
-            'reply_pdf':      get_full_url(doc.get('reply_pdf')),
+            'student_class':    student_class    or 'N/A',
+            'exam_tag':         exam_tag         or 'N/A',
+            'subject':          safe_str(doc.get('subject')),
+            'chapter':          safe_str(doc.get('chapter')),
+            'topic':            safe_str(doc.get('topic')),
+            'title':            safe_str(doc.get('title')),
+            'description':      safe_str(doc.get('description')),
+            'image':            get_full_url(doc.get('image')),
+            'image2':           get_full_url(doc.get('image2')),
+            'image3':           get_full_url(doc.get('image3')),
+            'pdf':              get_full_url(doc.get('pdf')),
+            'voice_note':       get_full_url(doc.get('voice_note')),
+            'status':           raw_status,
+            'created_at':       date_val,
+            'teacher_name':     safe_str(doc.get('teacher_name')),
+            'teacher_id':       safe_str(doc.get('teacher_id')),
+            'assign_date':      safe_str(doc.get('assign_date')),
+            'teacher_reply':    safe_str(doc.get('teacher_reply')),
+            'resolved_at':      safe_str(doc.get('resolved_at')),
+            'reply_image':      get_full_url(doc.get('reply_image')),
+            'reply_image2':     get_full_url(doc.get('reply_image2')),
+            'reply_image3':     get_full_url(doc.get('reply_image3')),
+            'reply_pdf':        get_full_url(doc.get('reply_pdf')),
             'reply_voice_note': get_full_url(doc.get('reply_voice_note')),
-            'centre_code':    centre_code or 'N/A',
-            'centre_name':    centre_name or 'N/A',
+            'centre_code':      centre_code or 'N/A',
+            'centre_name':      centre_name or 'N/A',
         }
 
     def list(self, request, *args, **kwargs):
         from .db_utils import get_db
-        user = request.user
+        user      = request.user
         user_type = getattr(user, 'user_type', '')
-        db = get_db()
+        db        = get_db()
 
         if db is None:
             return response.Response([], status=200)
 
         try:
             collection = db['api_doubt']
+            self._ensure_indexes(collection)
+
+            # --- Build the MongoDB filter ---
+            mongo_filter = {}
+
+            # Optional status filter from query param (e.g. ?status=Unassigned)
+            status_param = request.query_params.get('status', '').strip()
+            if status_param:
+                # Map frontend tab names → stored DB values
+                status_map = {
+                    'Unassigned': {'$in': ['Unassigned', 'Pending']},
+                    'Assign':     {'$in': ['Assign', 'In Progress']},
+                    'Resolved':   'Resolved',
+                    'Rejected':   'Rejected',
+                }
+                mapped = status_map.get(status_param)
+                if mapped:
+                    mongo_filter['status'] = mapped
 
             if user_type in ('admin', 'staff', 'superadmin'):
-                docs = list(collection.find().sort('created_at', -1))
+                pass  # no extra filter — all doubts
             elif user_type == 'teacher':
                 from django.core.cache import cache
                 teachers_cache = cache.get('erp_all_teachers_v6') or []
@@ -563,7 +607,7 @@ class DoubtViewSet(viewsets.ModelViewSet):
                        (t.get('code') and t.get('code').strip().lower() == getattr(user, 'employee_id', '').strip().lower()):
                         teacher_erp_id = t.get('id')
                         break
-                
+
                 t_name = f"{user.first_name} {user.last_name}".strip()
                 or_queries = []
                 if teacher_erp_id:
@@ -572,16 +616,24 @@ class DoubtViewSet(viewsets.ModelViewSet):
                     or_queries.append({'teacher_name': {'$regex': f"^{t_name}$", '$options': 'i'}})
                 if user.username:
                     or_queries.append({'teacher_name': {'$regex': f"^{user.username}$", '$options': 'i'}})
-                
-                if or_queries:
-                    docs = list(collection.find({'$or': or_queries}).sort('created_at', -1))
-                else:
-                    docs = list(collection.find({'teacher_id': str(user.pk)}).sort('created_at', -1))
-            else:
-                student_id_str = str(user.pk)
-                docs = list(collection.find({'student_id': student_id_str}).sort('created_at', -1))
 
-            formatted = [self._format_doc(doc) for doc in docs]
+                if or_queries:
+                    mongo_filter['$or'] = or_queries
+                else:
+                    mongo_filter['teacher_id'] = str(user.pk)
+            else:
+                mongo_filter['student_id'] = str(user.pk)
+
+            # --- Single MongoDB query with projection ---
+            docs = list(
+                collection.find(mongo_filter, self._LIST_PROJECTION)
+                          .sort('created_at', -1)
+            )
+
+            # --- Bulk-fetch all referenced users in ONE DB query ---
+            user_lookup = self._build_user_lookup(docs)
+
+            formatted = [self._format_doc(doc, user_lookup) for doc in docs]
             return response.Response(formatted)
 
         except Exception as e:

@@ -168,11 +168,20 @@ const AssignDoubt = () => {
     const [doubts, setDoubts] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchDoubts = async () => {
+    // Map UI tab names to the status value the backend understands
+    const TAB_STATUS_MAP = {
+        'Unassigned': 'Unassigned',
+        'Assign':     'Assign',
+        'Solve':      'Resolved',
+        'Rejected':   'Rejected',
+    };
+
+    const fetchDoubts = async (status) => {
         setLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/doubts/`, {
+            const params = status ? `?status=${encodeURIComponent(status)}` : '';
+            const response = await axios.get(`${apiUrl}/api/doubts/${params}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             // Map the data to the format expected by the table
@@ -224,9 +233,11 @@ const AssignDoubt = () => {
         }
     };
 
+    // Fetch doubts whenever the active tab changes (server-side status filter)
     useEffect(() => {
-        fetchDoubts();
-    }, []);
+        const status = TAB_STATUS_MAP[activeTab];
+        fetchDoubts(status);
+    }, [activeTab]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -350,7 +361,7 @@ const AssignDoubt = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            fetchDoubts();
+            fetchDoubts(TAB_STATUS_MAP[activeTab]);
             handleCloseModal();
         } catch (error) {
             console.error('Failed to assign doubt:', error);
@@ -366,7 +377,7 @@ const AssignDoubt = () => {
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchDoubts();
+            fetchDoubts(TAB_STATUS_MAP[activeTab]);
         } catch (error) {
             console.error('Failed to reject doubt:', error);
         }
@@ -380,7 +391,7 @@ const AssignDoubt = () => {
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchDoubts();
+            fetchDoubts(TAB_STATUS_MAP[activeTab]);
         } catch (error) {
             console.error('Failed to restore doubt:', error);
         }
@@ -452,7 +463,7 @@ const AssignDoubt = () => {
                 await Promise.all(promises);
             }
 
-            fetchDoubts();
+            fetchDoubts(TAB_STATUS_MAP[activeTab]);
             setSelectedDoubtIds([]);
             setIsBulkAssignModalOpen(false);
             setSelectedTeachersForBulk([]);
@@ -632,7 +643,7 @@ const AssignDoubt = () => {
                             </div>
 
                             <button
-                                onClick={fetchDoubts}
+                                onClick={() => fetchDoubts(TAB_STATUS_MAP[activeTab])}
                                 className={`p-3 rounded-[5px] transition-all shrink-0 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/5' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
                                 <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                             </button>
