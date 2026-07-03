@@ -1020,19 +1020,34 @@ const AssignDoubt = () => {
                 // 3. Split by department
                 const getDeptGroup = (t, keyword) => {
                     const depts = parseDept(t.teacherDepartment);
+                    const hasCombo = depts.some(d => d.toLowerCase().includes('all-india + fnd'));
+                    
+                    if (keyword === 'All-India + FND') return hasCombo;
+                    
+                    if (keyword === 'Foundation') {
+                        return depts.some(d => !d.toLowerCase().includes('all-india + fnd') && (d.toLowerCase().includes('foundation') || d.toLowerCase().includes('fnd')));
+                    }
+                    if (keyword === 'All India') {
+                        return depts.some(d => !d.toLowerCase().includes('all-india + fnd') && (d.toLowerCase().includes('all india') || d.toLowerCase().includes('all-india')));
+                    }
                     return depts.some(d => d.toLowerCase().includes(keyword.toLowerCase()));
                 };
 
                 const foundationTeachers = subjectFiltered.filter(t => getDeptGroup(t, 'Foundation'));
                 const allIndiaTeachers   = subjectFiltered.filter(t => getDeptGroup(t, 'All India'));
+                const allIndiaFndTeachers = subjectFiltered.filter(t => getDeptGroup(t, 'All-India + FND'));
 
                 // Available tabs (only show if teachers exist)
                 const availableTabs = [];
                 if (foundationTeachers.length > 0) availableTabs.push('Foundation');
                 if (allIndiaTeachers.length > 0)   availableTabs.push('All India');
+                if (allIndiaFndTeachers.length > 0) availableTabs.push('All-India + FND');
 
                 // Active list based on selected tab
-                const rawActiveList = departmentTab === 'Foundation' ? foundationTeachers : allIndiaTeachers;
+                let rawActiveList = [];
+                if (departmentTab === 'Foundation') rawActiveList = foundationTeachers;
+                else if (departmentTab === 'All India') rawActiveList = allIndiaTeachers;
+                else if (departmentTab === 'All-India + FND') rawActiveList = allIndiaFndTeachers;
 
                 // 4. Apply modal search + centre filter
                 const activeList = rawActiveList.filter(t => {
@@ -1084,24 +1099,33 @@ const AssignDoubt = () => {
                             {/* Department Tabs */}
                             {availableTabs.length > 0 && (
                                 <div className={`flex border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
-                                    {['Foundation', 'All India'].map(tab => {
-                                        const count = tab === 'Foundation' ? foundationTeachers.length : allIndiaTeachers.length;
-                                        if (count === 0) return null;
+                                    {availableTabs.map(tab => {
+                                        const count = tab === 'Foundation' ? foundationTeachers.length :
+                                                      tab === 'All India' ? allIndiaTeachers.length :
+                                                      allIndiaFndTeachers.length;
+                                        const isActive = departmentTab === tab;
                                         return (
                                             <button
                                                 key={tab}
-                                                onClick={() => { setDepartmentTab(tab); setSelectedTeacher(''); setModalSearch(''); setModalCentreFilter(''); }}
-                                                className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-all relative ${
-                                                    departmentTab === tab
-                                                        ? 'text-orange-500 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-orange-500'
-                                                        : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'
+                                                onClick={() => {
+                                                    setDepartmentTab(tab);
+                                                    setModalSearch('');
+                                                    setModalCentreFilter('');
+                                                    setSelectedTeacher(null);
+                                                }}
+                                                className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 flex items-center justify-center gap-2 ${
+                                                    isActive
+                                                        ? 'border-orange-500 text-orange-500 bg-orange-500/5'
+                                                        : isDarkMode
+                                                            ? 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                                                 }`}
                                             >
                                                 {tab}
-                                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-black ${
-                                                    departmentTab === tab
-                                                        ? 'bg-orange-500/20 text-orange-500'
-                                                        : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'
+                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                                    isActive 
+                                                        ? 'bg-orange-500/20 text-orange-500' 
+                                                        : isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500'
                                                 }`}>
                                                     {count}
                                                 </span>
@@ -1207,7 +1231,7 @@ const AssignDoubt = () => {
                                                     <div className="flex flex-col items-end gap-1 shrink-0">
                                                         {depts.map((d, i) => (
                                                             <span key={i} className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
-                                                                d.toLowerCase().includes('all india')
+                                                                (d.toLowerCase().includes('all india') || d.toLowerCase().includes('all-india'))
                                                                     ? 'bg-blue-500/15 text-blue-400'
                                                                     : 'bg-purple-500/15 text-purple-400'
                                                             }`}>{d}</span>
@@ -1527,18 +1551,38 @@ const AssignDoubt = () => {
                 );
 
                 // 3. Split by department
-                const getDeptB = (t, kw) => parseDeptB(t.teacherDepartment).some(d => d.toLowerCase().includes(kw.toLowerCase()));
+                const getDeptB = (t, keyword) => {
+                    const depts = parseDeptB(t.teacherDepartment);
+                    const hasCombo = depts.some(d => d.toLowerCase().includes('all-india + fnd'));
+                    
+                    if (keyword === 'All-India + FND') return hasCombo;
+                    
+                    if (keyword === 'Foundation') {
+                        return depts.some(d => !d.toLowerCase().includes('all-india + fnd') && (d.toLowerCase().includes('foundation') || d.toLowerCase().includes('fnd')));
+                    }
+                    if (keyword === 'All India') {
+                        return depts.some(d => !d.toLowerCase().includes('all-india + fnd') && (d.toLowerCase().includes('all india') || d.toLowerCase().includes('all-india')));
+                    }
+                    return depts.some(d => d.toLowerCase().includes(keyword.toLowerCase()));
+                };
                 const foundationBulk = subjectFilteredBulk.filter(t => getDeptB(t, 'Foundation'));
                 const allIndiaBulk   = subjectFilteredBulk.filter(t => getDeptB(t, 'All India'));
+                const allIndiaFndBulk = subjectFilteredBulk.filter(t => getDeptB(t, 'All-India + FND'));
 
-                const bulkAvailableTabs = [];
-                if (foundationBulk.length > 0) bulkAvailableTabs.push('Foundation');
-                if (allIndiaBulk.length > 0)   bulkAvailableTabs.push('All India');
+                // Available tabs
+                const availableTabsB = [];
+                if (foundationBulk.length > 0) availableTabsB.push('Foundation');
+                if (allIndiaBulk.length > 0)   availableTabsB.push('All India');
+                if (allIndiaFndBulk.length > 0) availableTabsB.push('All-India + FND');
 
-                const rawBulkList = bulkDeptTab === 'Foundation' ? foundationBulk : allIndiaBulk;
+                // Active list
+                let rawActiveListB = [];
+                if (bulkDepartmentTab === 'Foundation') rawActiveListB = foundationBulk;
+                else if (bulkDepartmentTab === 'All India') rawActiveListB = allIndiaBulk;
+                else if (bulkDepartmentTab === 'All-India + FND') rawActiveListB = allIndiaFndBulk;
 
                 // 4. Search + centre filter
-                const activeBulkList = rawBulkList.filter(t => {
+                const activeBulkList = rawActiveListB.filter(t => {
                     const nameMatch = !bulkSearch.trim() ||
                         (t.name || '').toLowerCase().includes(bulkSearch.toLowerCase()) ||
                         (t.subject_name || t.subject || '').toLowerCase().includes(bulkSearch.toLowerCase());
@@ -1547,7 +1591,7 @@ const AssignDoubt = () => {
                     return nameMatch && centreMatch;
                 });
 
-                const bulkCentreOptions = [...new Set(rawBulkList.flatMap(t => t.centres || []))].sort();
+                const bulkCentreOptions = [...new Set(rawActiveListB.flatMap(t => t.centres || []))].sort();
 
                 return (
                     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto py-8 sm:py-16">
@@ -1588,25 +1632,38 @@ const AssignDoubt = () => {
                                 </div>
 
                                 {/* Department Tabs */}
-                                {bulkAvailableTabs.length > 0 && (
+                                {availableTabsB.length > 0 && (
                                     <div className={`flex rounded-[5px] border overflow-hidden ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
-                                        {['Foundation', 'All India'].map(tab => {
-                                            const count = tab === 'Foundation' ? foundationBulk.length : allIndiaBulk.length;
-                                            if (count === 0) return null;
+                                        {availableTabsB.map(tab => {
+                                            const count = tab === 'Foundation' ? foundationBulk.length :
+                                                          tab === 'All India' ? allIndiaBulk.length :
+                                                          allIndiaFndBulk.length;
+                                            const isActive = bulkDepartmentTab === tab;
                                             return (
                                                 <button
                                                     key={tab}
-                                                    onClick={() => { setBulkDeptTab(tab); setBulkSearch(''); setBulkCentreFilter(''); setSelectedTeachersForBulk([]); }}
-                                                    className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
-                                                        bulkDeptTab === tab
-                                                            ? 'bg-orange-500 text-white'
-                                                            : isDarkMode ? 'bg-white/[0.02] text-slate-500 hover:text-slate-300' : 'bg-slate-50 text-slate-400 hover:text-slate-600'
+                                                    onClick={() => {
+                                                        setBulkDepartmentTab(tab);
+                                                        setBulkSearch('');
+                                                        setBulkCentreFilter('');
+                                                        setSelectedTeachersForBulk([]);
+                                                    }}
+                                                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 flex items-center justify-center gap-2 ${
+                                                        isActive
+                                                            ? 'border-orange-500 text-orange-500 bg-orange-500/5'
+                                                            : isDarkMode
+                                                                ? 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                                                     }`}
                                                 >
                                                     {tab}
-                                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-black ${
-                                                        bulkDeptTab === tab ? 'bg-white/20 text-white' : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-200 text-slate-500'
-                                                    }`}>{count}</span>
+                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                                        isActive 
+                                                            ? 'bg-orange-500/20 text-orange-500' 
+                                                            : isDarkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500'
+                                                    }`}>
+                                                        {count}
+                                                    </span>
                                                 </button>
                                             );
                                         })}
