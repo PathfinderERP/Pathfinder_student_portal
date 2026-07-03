@@ -205,6 +205,11 @@ const AssignDoubt = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             // Map the data to the format expected by the table
+            const parseUTC = (str) => {
+                if (!str) return null;
+                return str.endsWith('Z') || str.includes('+') ? new Date(str) : new Date(str + 'Z');
+            };
+
             const mappedDoubts = response.data.map(d => {
                 const rawClass = d.student_class || 'N/A';
                 const cleanCls = rawClass.includes(' - ') ? rawClass.split(' - ')[0].trim() : rawClass;
@@ -221,7 +226,7 @@ const AssignDoubt = () => {
                     chapter: d.chapter,
                     topic: d.topic,
                     title: d.title,
-                    date: d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A',
+                    date: d.created_at ? parseUTC(d.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
                     status: d.status,
                     description: d.description,
                     image: d.image,
@@ -230,13 +235,13 @@ const AssignDoubt = () => {
                     pdf: d.pdf,
                     voice_note: d.voice_note,
                     teacherName: d.teacher_name,
-                    assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                    solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
-                    rawAssignDate: d.assign_date ? new Date(d.assign_date) : null,
-                    rawSolvedDate: d.resolved_at ? new Date(d.resolved_at) : null,
+                    assignDate: d.assign_date ? parseUTC(d.assign_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : null,
+                    solvedDate: d.resolved_at ? parseUTC(d.resolved_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : null,
+                    rawAssignDate: parseUTC(d.assign_date),
+                    rawSolvedDate: parseUTC(d.resolved_at),
                     centreName: d.centre_name,
                     centreCode: d.centre_code,
-                    rawDate: d.created_at ? new Date(d.created_at) : new Date(0),
+                    rawDate: d.created_at ? parseUTC(d.created_at) : new Date(0),
                     teacherReply: d.teacher_reply,
                     replyImage: d.reply_image,
                     replyImage2: d.reply_image2,
@@ -1635,9 +1640,9 @@ const AssignDoubt = () => {
 
                 // Active list
                 let rawActiveListB = [];
-                if (bulkDepartmentTab === 'Foundation') rawActiveListB = foundationBulk;
-                else if (bulkDepartmentTab === 'All India') rawActiveListB = allIndiaBulk;
-                else if (bulkDepartmentTab === 'All-India + FND') rawActiveListB = allIndiaFndBulk;
+                if (bulkDeptTab === 'Foundation') rawActiveListB = foundationBulk;
+                else if (bulkDeptTab === 'All India') rawActiveListB = allIndiaBulk;
+                else if (bulkDeptTab === 'All-India + FND') rawActiveListB = allIndiaFndBulk;
 
                 // 4. Search + centre filter
                 const activeBulkList = rawActiveListB.filter(t => {
@@ -1696,12 +1701,12 @@ const AssignDoubt = () => {
                                             const count = tab === 'Foundation' ? foundationBulk.length :
                                                           tab === 'All India' ? allIndiaBulk.length :
                                                           allIndiaFndBulk.length;
-                                            const isActive = bulkDepartmentTab === tab;
+                                            const isActive = bulkDeptTab === tab;
                                             return (
                                                 <button
                                                     key={tab}
                                                     onClick={() => {
-                                                        setBulkDepartmentTab(tab);
+                                                        setBulkDeptTab(tab);
                                                         setBulkSearch('');
                                                         setBulkCentreFilter('');
                                                         setSelectedTeachersForBulk([]);
@@ -1729,8 +1734,8 @@ const AssignDoubt = () => {
                                 )}
 
                                 {/* Search + Centre Filter */}
-                                {bulkAvailableTabs.length > 0 && (
-                                    <div className={`flex gap-2`}>
+                                {availableTabsB.length > 0 && (
+                                    <div className="flex gap-2">
                                         <div className="relative flex-1">
                                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                             <input
@@ -1778,7 +1783,7 @@ const AssignDoubt = () => {
                                         Select Teachers ({selectedTeachersForBulk.length})
                                     </p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                                        {bulkAvailableTabs.length === 0 ? (
+                                        {availableTabsB.length === 0 ? (
                                             <div className="col-span-2 py-10 text-center opacity-40 space-y-2">
                                                 <AlertCircle size={28} className="mx-auto" />
                                                 <p className="text-xs font-black uppercase tracking-widest">No full-time teachers match selected doubts</p>
