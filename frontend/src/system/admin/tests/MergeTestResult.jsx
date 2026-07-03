@@ -77,7 +77,8 @@ const MergeTestResult = ({ isOMR = false }) => {
                 test.code?.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = testFilter === 'all' ||
                 (testFilter === 'completed' && test.is_completed) ||
-                (testFilter === 'in_progress' && !test.is_completed);
+                (testFilter === 'in_progress' && !test.is_completed) ||
+                (testFilter === 'running' && test.is_running);
             const matchesSession = selectedSession === 'all' ||
                 test.session_details?.name === selectedSession;
 
@@ -409,6 +410,7 @@ const MergeTestResult = ({ isOMR = false }) => {
                                 className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}
                             >
                                 <option value="all">Every Test</option>
+                                <option value="running" className="text-emerald-500">Running Only</option>
                                 <option value="completed">Completed Only</option>
                                 <option value="in_progress">Pending Only</option>
                             </select>

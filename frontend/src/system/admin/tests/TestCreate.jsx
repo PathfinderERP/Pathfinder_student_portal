@@ -225,7 +225,7 @@ const TestCreate = ({ isOMR = false }) => {
 
 
     // Filter State
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'completed', 'pending'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'completed', 'pending', 'running'
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     // Modal State
@@ -593,6 +593,7 @@ const TestCreate = ({ isOMR = false }) => {
             let matchesStatus = true;
             if (statusFilter === 'completed') matchesStatus = item.is_completed === true;
             if (statusFilter === 'pending') matchesStatus = item.is_completed === false;
+            if (statusFilter === 'running') matchesStatus = item.is_running === true;
 
             let matchesOMR = true;
             const examTypeName = item.exam_type_details?.name?.toLowerCase() || '';
@@ -664,6 +665,7 @@ const TestCreate = ({ isOMR = false }) => {
                         className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
                     >
                         <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Test</option>
+                        <option value="running" className={isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600'}>Running Only</option>
                         <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
                         <option value="pending" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Pending Only</option>
                     </select>
