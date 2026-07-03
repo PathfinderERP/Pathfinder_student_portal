@@ -6,22 +6,30 @@ import { useAuth } from '../../context/AuthContext';
 
 const formatDuration = (start, end) => {
     if (!start || !end) return '-';
-    const diffMs = Math.abs(end - start);
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
+    const diff = end - start;
+    if (diff < 0) return '-';
 
-    if (diffDays > 0) {
-        return `${diffDays}d ${diffHours % 24}h`;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        const remHours = hours % 24;
+        return `${days}d ${remHours}h`;
     }
-    if (diffHours > 0) {
-        return `${diffHours}h ${diffMins % 60}m`;
-    }
-    if (diffMins > 0) {
-        return `${diffMins}m ${diffSecs % 60}s`;
-    }
-    return `${diffSecs}s`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+};
+
+const getTimePendingColor = (assignDate, isDarkMode) => {
+    if (!assignDate) return isDarkMode ? 'text-slate-400 bg-white/5' : 'text-slate-600 bg-slate-100';
+    
+    const diffHours = (new Date() - assignDate) / (1000 * 60 * 60);
+    
+    if (diffHours < 6) return isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-500/10';
+    if (diffHours < 12) return isDarkMode ? 'text-yellow-400 bg-yellow-500/10' : 'text-yellow-600 bg-yellow-500/10';
+    if (diffHours < 24) return isDarkMode ? 'text-orange-400 bg-orange-500/10' : 'text-orange-600 bg-orange-500/10';
+    return isDarkMode ? 'text-red-400 bg-red-500/10' : 'text-red-600 bg-red-500/10';
 };
 
 const SolveDoubt = () => {
@@ -298,7 +306,7 @@ const SolveDoubt = () => {
                                 <th className="py-4 px-6">Subject</th>
                                 <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Status' : 'Solved Date'}</th>
                                 <th className="py-4 px-6 text-center">Assign Date</th>
-                                <th className="py-4 px-6 text-center">Time Taken</th>
+                                <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Time Pending' : 'Time Taken'}</th>
                                 <th className="py-4 px-6 text-center">Action</th>
                             </tr>
                         </thead>
@@ -371,10 +379,10 @@ const SolveDoubt = () => {
                                         <td className="py-4 px-6 text-center">
                                             <span className={`text-xs font-black px-2.5 py-1 rounded-[5px] ${
                                                 activeTab === 'Unsolve' 
-                                                    ? (isDarkMode ? 'text-slate-500 bg-white/5' : 'text-slate-400 bg-slate-50')
+                                                    ? getTimePendingColor(doubt.rawAssignDate, isDarkMode)
                                                     : (isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-50')
                                             }`}>
-                                                {activeTab === 'Unsolve' ? '-' : formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}
+                                                {activeTab === 'Unsolve' ? formatDuration(doubt.rawAssignDate, new Date()) : formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6 text-center">
