@@ -450,11 +450,19 @@ const TestAllotment = ({ isOMR = false }) => {
                                     <td colSpan="8" className="py-20 text-center opacity-40">No tests found matching your criteria.</td>
                                 </tr>
                             ) : currentTests.map((test, index) => (
-                                <tr key={test.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50'} transition-colors`}>
+                                <tr key={test.id} className={`group ${test.is_running ? (isDarkMode ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-l-4 border-l-emerald-500' : 'bg-emerald-50 hover:bg-emerald-100 border-l-4 border-l-emerald-500') : (isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50')} transition-colors`}>
                                     <td className="py-5 px-6 text-center font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex flex-col">
-                                            <span className="font-extrabold text-xs mb-1 uppercase">{test.name}</span>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-extrabold text-xs uppercase">{test.name}</span>
+                                                {test.is_running && (
+                                                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-500/20">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                        Live
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="text-[9px] opacity-40 font-bold uppercase tracking-wider">
                                                 {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
