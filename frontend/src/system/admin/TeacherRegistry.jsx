@@ -149,6 +149,11 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
             result = result.filter(t => (t.subject || '').toLowerCase().includes(filters.subject.toLowerCase()));
         }
 
+        if (filters.status) {
+            const isLookingForActive = filters.status === 'ACTIVE';
+            result = result.filter(t => (t.isActive !== false) === isLookingForActive);
+        }
+
         setFilteredTeachers(result);
         setCurrentPage(1);
         setTotalPages(Math.ceil(result.length / itemsPerPage));
@@ -337,7 +342,7 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
 
                         {showFilters && (
                             <div className={`p-6 rounded-[5px] border space-y-4 animate-in slide-in-from-top-2 ${isDarkMode ? 'bg-white/2 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                     <div>
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Subject</label>
                                         <select
@@ -349,6 +354,18 @@ const TeacherRegistry = ({ teachersData, isERPLoading }) => {
                                             {uniqueSubjects.map((subject, idx) => (
                                                 <option key={idx} value={subject}>{subject}</option>
                                             ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Status</label>
+                                        <select
+                                            value={filters.status}
+                                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-[5px] text-xs font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${isDarkMode ? 'bg-black border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                                        >
+                                            <option value="">All Statuses</option>
+                                            <option value="ACTIVE">Active Only</option>
+                                            <option value="INACTIVE">Inactive Only</option>
                                         </select>
                                     </div>
                                     <div>

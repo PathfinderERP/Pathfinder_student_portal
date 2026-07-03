@@ -797,6 +797,18 @@ def get_all_teachers_erp_data(request):
                     
                     t_type = _safe_str(item.get('typeOfEmployment') or item.get('teacherType') or user_meta.get('teacherType') or emp_type or 'Full-Time')
 
+                    # Calculate active status
+                    is_active = True
+                    hr_status = hr_data.get('status')
+                    if hr_status and str(hr_status).lower() == 'inactive':
+                        is_active = False
+                    elif hr_data.get('deactivatedAt'):
+                        is_active = False
+                    elif isinstance(hr_data.get('user'), dict) and hr_data['user'].get('deactivatedAt'):
+                        is_active = False
+                    elif user_meta.get('deactivatedAt'):
+                        is_active = False
+
                     final_data.append({
                         'id': str(item.get('_id') or item.get('id') or ''),
                         'name': _safe_str(name),
@@ -809,6 +821,7 @@ def get_all_teachers_erp_data(request):
                         'teacherType': t_type,
                         'centres': centres,
                         'teacherDepartment': dept,
+                        'isActive': is_active,
                         'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
                         'designation': desig,
                         'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
@@ -1201,6 +1214,18 @@ def sync_teachers_from_erp(request):
                     user_meta.get('teacherType') or academic.get('employmentType') or 'Full-Time'
                 )
 
+                # Calculate active status
+                is_active = True
+                hr_status = hr_data.get('status')
+                if hr_status and str(hr_status).lower() == 'inactive':
+                    is_active = False
+                elif hr_data.get('deactivatedAt'):
+                    is_active = False
+                elif isinstance(hr_data.get('user'), dict) and hr_data['user'].get('deactivatedAt'):
+                    is_active = False
+                elif user_meta.get('deactivatedAt'):
+                    is_active = False
+
                 final_data.append({
                     'id': str(item.get('_id') or item.get('id') or ''),
                     'name': _safe_str(item.get('name') or item.get('teacherName') or user_meta.get('name') or 'Unknown'),
@@ -1213,6 +1238,7 @@ def sync_teachers_from_erp(request):
                     'teacherType': t_type,
                     'centres': [_safe_str(c) for c in (item.get('centres') or user_meta.get('centres') or [])],
                     'teacherDepartment': _safe_str(hr_dept_name or user_meta.get('teacherDepartment') or item.get('department') or 'Academic'),
+                    'isActive': is_active,
                     'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
                     'designation': _safe_str(hr_desig_name or user_meta.get('designation') or item.get('designation') or 'Faculty'),
                     'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),

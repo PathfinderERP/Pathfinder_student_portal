@@ -25,6 +25,26 @@ const formatDuration = (start, end) => {
     return `${diffSecs}s`;
 };
 
+const getTimePendingColor = (assignDate, isDarkMode) => {
+    if (!assignDate) return isDarkMode ? 'text-slate-400 bg-white/5' : 'text-slate-600 bg-slate-100';
+    
+    const diffHours = (new Date() - assignDate) / (1000 * 60 * 60);
+    
+    if (diffHours >= 24) {
+        // Critical: > 24 hours
+        return isDarkMode ? 'text-red-400 bg-red-500/10' : 'text-red-600 bg-red-50';
+    } else if (diffHours >= 12) {
+        // Warning: > 12 hours
+        return isDarkMode ? 'text-orange-400 bg-orange-500/10' : 'text-orange-600 bg-orange-50';
+    } else if (diffHours >= 6) {
+        // Attention: > 6 hours
+        return isDarkMode ? 'text-amber-400 bg-amber-500/10' : 'text-amber-600 bg-amber-50';
+    } else {
+        // Good: < 6 hours
+        return isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-50';
+    }
+};
+
 const AssignDoubt = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
@@ -531,7 +551,7 @@ const AssignDoubt = () => {
                                         onClick={() => setIsBulkAssignModalOpen(true)}
                                         className="px-6 py-2 bg-orange-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center gap-2">
                                         <Users size={14} />
-                                        Bulk Assign
+                                        {activeTab === 'Assign' ? 'Bulk Reassign' : 'Bulk Assign'}
                                     </button>
                                 </div>
                             </div>
@@ -660,11 +680,18 @@ const AssignDoubt = () => {
                             <tr className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-orange-50 text-orange-900/50'}`}>
                                 {activeTab === 'Assign' ? (
                                     <>
+                                        <th className="py-4 px-2 text-center w-12">
+                                            <button onClick={toggleSelectAll} className="text-slate-400 hover:text-orange-500 transition-colors">
+                                                {selectedDoubtIds.length === filteredDoubts.length && filteredDoubts.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
+                                            </button>
+                                        </th>
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2 text-center">Student Name</th>
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Teacher Name</th>
                                         <th className="py-4 px-2 text-center">Assign Date</th>
+                                        <th className="py-4 px-2 text-center">Time Pending</th>
+                                        <th className="py-4 px-2 text-center">Show Doubt</th>
                                         <th className="py-4 px-2 text-center">Action</th>
                                     </>
                                 ) : activeTab === 'Solve' ? (
@@ -739,6 +766,9 @@ const AssignDoubt = () => {
                                             <div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                         <td className="py-4 px-2 text-center">
+                                            <div className={`h-9 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-2 text-center">
                                             <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                         <td className="py-4 px-2 text-center">
@@ -756,6 +786,15 @@ const AssignDoubt = () => {
                                     <tr key={doubt.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         {activeTab === 'Assign' || activeTab === 'Solve' ? (
                                             <>
+                                                {activeTab === 'Assign' && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <button 
+                                                            onClick={() => toggleSelectDoubt(doubt.id)}
+                                                            className={`transition-colors ${selectedDoubtIds.includes(doubt.id) ? 'text-orange-500' : 'text-slate-300 hover:text-orange-400'}`}>
+                                                            {selectedDoubtIds.includes(doubt.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                        </button>
+                                                    </td>
+                                                )}
                                                 <td className="py-4 px-2 text-center">
                                                     <span className={`text-sm font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {doubt.id}
@@ -780,6 +819,13 @@ const AssignDoubt = () => {
                                                         {activeTab === 'Assign' ? (doubt.assignDate || '-') : (doubt.solvedDate || '-')}
                                                     </span>
                                                 </td>
+                                                {activeTab === 'Assign' && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <span className={`text-xs font-black px-2.5 py-1 rounded-[5px] ${getTimePendingColor(doubt.rawAssignDate, isDarkMode)}`}>
+                                                            {doubt.rawAssignDate ? formatDuration(doubt.rawAssignDate, new Date()) : '-'}
+                                                        </span>
+                                                    </td>
+                                                )}
                                                 {activeTab === 'Solve' && (
                                                     <td className="py-4 px-2 text-center">
                                                         <span className={`text-xs font-black px-2.5 py-1 rounded-[5px] ${
@@ -790,13 +836,23 @@ const AssignDoubt = () => {
                                                     </td>
                                                 )}
                                                 {activeTab === 'Assign' && (
-                                                    <td className="py-4 px-2 text-center">
-                                                        <button 
-                                                            onClick={() => handleAssignClick(doubt)}
-                                                            className="px-4 py-2 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
-                                                            <span>Reassign</span>
-                                                        </button>
-                                                    </td>
+                                                    <>
+                                                        <td className="py-4 px-2 text-center">
+                                                            <button
+                                                                onClick={() => handleShowDoubtClick(doubt)}
+                                                                className="px-4 py-2 rounded-[5px] bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
+                                                                <Eye size={12} strokeWidth={3} />
+                                                                <span>View</span>
+                                                            </button>
+                                                        </td>
+                                                        <td className="py-4 px-2 text-center">
+                                                            <button 
+                                                                onClick={() => handleAssignClick(doubt)}
+                                                                className="px-4 py-2 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
+                                                                <span>Reassign</span>
+                                                            </button>
+                                                        </td>
+                                                    </>
                                                 )}
                                                 {activeTab === 'Solve' && (
                                                     <td className="py-4 px-2 text-center">
@@ -1006,8 +1062,9 @@ const AssignDoubt = () => {
                     return match;
                 };
 
-                // 1. Only Full Time teachers
+                // 1. Only Active Full Time teachers
                 const fullTimeTeachers = teachers.filter(t => {
+                    if (t.isActive === false) return false;
                     const type = (t.teacherType || t.qualification || '').toLowerCase();
                     return type.includes('full');
                 });
@@ -1539,8 +1596,9 @@ const AssignDoubt = () => {
 
                 const selectedSubjectsSet = new Set(selectedDoubts.map(d => normalizeSubject(d.subject)));
 
-                // 1. Full Time only
+                // 1. Only Active Full Time teachers
                 const fullTimeBulk = teachers.filter(t => {
+                    if (t.isActive === false) return false;
                     const type = (t.teacherType || t.qualification || '').toLowerCase();
                     return type.includes('full');
                 });
