@@ -44,6 +44,11 @@ const SolveDoubt = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             // Map the data to the format expected by the table
+            const parseUTC = (str) => {
+                if (!str) return null;
+                return str.endsWith('Z') || str.includes('+') ? new Date(str) : new Date(str + 'Z');
+            };
+
             const mappedDoubts = response.data.map(d => ({
                 id: d.id,
                 student: d.student_name,
@@ -52,7 +57,7 @@ const SolveDoubt = () => {
                 chapter: d.chapter,
                 topic: d.topic,
                 title: d.title,
-                date: d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A',
+                date: d.created_at ? parseUTC(d.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
                 status: d.status,
                 description: d.description,
                 image: d.image,
@@ -62,10 +67,10 @@ const SolveDoubt = () => {
                 voice_note: d.voice_note,
                 teacherId: d.teacher_id,
                 teacherName: d.teacher_name,
-                assignDate: d.assign_date ? new Date(d.assign_date).toLocaleString() : null,
-                solvedDate: d.resolved_at ? new Date(d.resolved_at).toLocaleString() : null,
-                rawAssignDate: d.assign_date ? new Date(d.assign_date) : null,
-                rawSolvedDate: d.resolved_at ? new Date(d.resolved_at) : null,
+                assignDate: d.assign_date ? parseUTC(d.assign_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : null,
+                solvedDate: d.resolved_at ? parseUTC(d.resolved_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : null,
+                rawAssignDate: parseUTC(d.assign_date),
+                rawSolvedDate: parseUTC(d.resolved_at),
                 teacherReply: d.teacher_reply,
                 replyImage: d.reply_image,
                 replyImage2: d.reply_image2,
