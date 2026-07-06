@@ -692,6 +692,9 @@ const AssignDoubt = () => {
                                         </th>
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2 text-center">Student Name</th>
+                                        <th className="py-4 px-2 text-center">Class</th>
+                                        <th className="py-4 px-2 text-center">Centre</th>
+                                        <th className="py-4 px-2 text-center">Exam Tag</th>
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Teacher Name</th>
                                         <th className="py-4 px-2 text-center">Assign Date</th>
@@ -703,6 +706,9 @@ const AssignDoubt = () => {
                                     <>
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2 text-center">Student Name</th>
+                                        <th className="py-4 px-2 text-center">Class</th>
+                                        <th className="py-4 px-2 text-center">Centre</th>
+                                        <th className="py-4 px-2 text-center">Exam Tag</th>
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Teacher Name</th>
                                         <th className="py-4 px-2 text-center">Solved Date</th>
@@ -713,6 +719,9 @@ const AssignDoubt = () => {
                                     <>
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2 text-center">Student Name</th>
+                                        <th className="py-4 px-2 text-center">Class</th>
+                                        <th className="py-4 px-2 text-center">Centre</th>
+                                        <th className="py-4 px-2 text-center">Exam Tag</th>
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Show Doubt</th>
                                         <th className="py-4 px-2 text-center">Action</th>
@@ -812,6 +821,21 @@ const AssignDoubt = () => {
                                                     </div>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
+                                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                        {doubt.studentClass}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
+                                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                        {doubt.centreName || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {doubt.examTag}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                                                         {doubt.subject}
                                                     </span>
@@ -881,6 +905,21 @@ const AssignDoubt = () => {
                                                         <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
                                                         <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
                                                     </div>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
+                                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                        {doubt.studentClass}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
+                                                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                        {doubt.centreName || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {doubt.examTag}
+                                                    </span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>

@@ -64,6 +64,9 @@ const SolveDoubt = () => {
                 subject: d.subject,
                 chapter: d.chapter,
                 topic: d.topic,
+                centre: d.centre_name || d.centre || 'N/A',
+                studentClass: d.student_class || d.class_name || d.class || 'N/A',
+                examTag: d.exam_tag || d.exam || 'N/A',
                 title: d.title,
                 date: d.created_at ? parseUTC(d.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
                 status: d.status,
@@ -303,6 +306,9 @@ const SolveDoubt = () => {
                             <tr className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-orange-50 text-orange-900/50'}`}>
                                 <th className="py-4 px-6 text-center">Doubt No.</th>
                                 <th className="py-4 px-6">Student Name</th>
+                                <th className="py-4 px-6">Class</th>
+                                <th className="py-4 px-6">Centre</th>
+                                <th className="py-4 px-6">Exam Tag</th>
                                 <th className="py-4 px-6">Subject</th>
                                 <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Status' : 'Solved Date'}</th>
                                 <th className="py-4 px-6 text-center">Assign Date</th>
@@ -320,6 +326,15 @@ const SolveDoubt = () => {
                                                 <div className={`h-4 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                                 <div className={`h-2.5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                             </div>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                         <td className="py-4 px-6">
                                             <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
@@ -354,6 +369,21 @@ const SolveDoubt = () => {
                                                 <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
                                                 <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
                                             </div>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                {doubt.studentClass}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                {doubt.centre}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                {doubt.examTag}
+                                            </span>
                                         </td>
                                         <td className="py-4 px-6">
                                             <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
