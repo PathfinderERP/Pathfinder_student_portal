@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 import { getMyResults, getCachedResults } from '../../../services/resultsService';
 import ResultReport from './ResultReport';
+import ReviewMistakes from './ReviewMistakes';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -232,6 +233,7 @@ const Results = ({ isDarkMode }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('recent'); // 'recent', 'all'
     const [selectedReport, setSelectedReport] = useState(null);
+    const [selectedMistakesReport, setSelectedMistakesReport] = useState(null);
     const [detailedResults, setDetailedResults] = useState(() => {
         // Synchronously hydrate from cache on mount — no flash on tab switch
         return getCachedResults() || [];
@@ -380,6 +382,25 @@ const Results = ({ isDarkMode }) => {
                         test={selectedReport}
                         isDarkMode={isDarkMode}
                         onBack={() => setSelectedReport(null)}
+                    />
+                </motion.div>
+            </AnimatePresence>
+        );
+    }
+
+    // If review mistakes is selected, show the ReviewMistakes view
+    if (selectedMistakesReport) {
+        return (
+            <AnimatePresence mode="wait">
+                <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                >
+                    <ReviewMistakes
+                        test={selectedMistakesReport}
+                        isDarkMode={isDarkMode}
+                        onBack={() => setSelectedMistakesReport(null)}
                     />
                 </motion.div>
             </AnimatePresence>
@@ -578,12 +599,35 @@ const Results = ({ isDarkMode }) => {
                                                         Go To Test
                                                     </button>
                                                 ) : (
-                                                    <button
-                                                        onClick={() => setSelectedReport(res)}
-                                                        className={`${res.isMissed ? 'bg-slate-500 hover:bg-slate-600' : 'bg-[#4871D9] hover:bg-[#3D60B8]'} text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-blue-500/10`}
-                                                    >
-                                                        {res.isMissed ? 'Solutions' : 'Report'}
-                                                    </button>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        {!res.isMissed && res.has_mistakes === false ? (
+                                                            <button
+                                                                className={`bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] cursor-default shadow-lg shadow-emerald-500/10`}
+                                                            >
+                                                                Perfect Score
+                                                            </button>
+                                                        ) : !res.isMissed && res.has_unreviewed_mistakes === false ? (
+                                                            <button
+                                                                onClick={() => setSelectedMistakesReport(res)}
+                                                                className={`bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-emerald-500/10`}
+                                                            >
+                                                                Review Done
+                                                            </button>
+                                                        ) : !res.isMissed && (
+                                                            <button
+                                                                onClick={() => setSelectedMistakesReport(res)}
+                                                                className={`bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-rose-500/10`}
+                                                            >
+                                                                Review Mistakes
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setSelectedReport(res)}
+                                                            className={`${res.isMissed ? 'bg-slate-500 hover:bg-slate-600' : 'bg-[#4871D9] hover:bg-[#3D60B8]'} text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-blue-500/10`}
+                                                        >
+                                                            {res.isMissed ? 'Solutions' : 'Report'}
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </td>
                                         </tr>

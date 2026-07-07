@@ -8,8 +8,8 @@ import time
 import requests
 from api.erp_views import _get_erp_url, _get_erp_admin_token
 import logging
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer, PsychometricTraitSerializer, PsychometricQuestionSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason
+from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer, PsychometricTraitSerializer, PsychometricQuestionSerializer, MistakeReasonSerializer
 
 class StandardPagination(pagination.PageNumberPagination):
     page_size = 20
@@ -1120,6 +1120,17 @@ class CommunityViewSet(viewsets.ModelViewSet):
     serializer_class = CommunitySerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.AllowAny]
+
+class PsychometricQuestionViewSet(viewsets.ModelViewSet):
+    queryset = PsychometricQuestion.objects.all().order_by('trait', 'order')
+    serializer_class = PsychometricQuestionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = StandardPagination
+
+class MistakeReasonViewSet(viewsets.ModelViewSet):
+    queryset = MistakeReason.objects.filter(is_active=True).order_by('name')
+    serializer_class = MistakeReasonSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
 class PsychometricTraitViewSet(viewsets.ModelViewSet):
     queryset = PsychometricTrait.objects.all().order_by('order', 'created_at')

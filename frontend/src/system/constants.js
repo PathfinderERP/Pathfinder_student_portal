@@ -9,7 +9,8 @@ export const permissionTabs = [
             { id: 'test_create', label: 'Test Create' },
             { id: 'test_allotment', label: 'Test Allotment' },
             { id: 'test_responses', label: 'Test Responses' },
-            { id: 'test_result', label: 'Test Result' }
+            { id: 'test_result', label: 'Test Result' },
+            { id: 'student_reviews', label: 'Student Reviews' }
         ]
     },
     { id: 'question_bank', label: 'Question Bank' },

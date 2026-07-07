@@ -33,6 +33,7 @@ import TestAllotment from './admin/tests/TestAllotment';
 import TestResponses from './admin/tests/TestResponses';
 import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
+import StudentReviews from './admin/tests/StudentReviews';
 import PsychometricResponses from './admin/tests/PsychometricResponses';
 import QuestionBank from './admin/QuestionBank';
 
@@ -384,7 +385,8 @@ const SystemDashboard = () => {
                 { id: 'test_responses', label: 'Test Responses', active: activeTab === 'Test Responses', onClick: () => setActiveTab('Test Responses') },
                 { id: 'merge_test_result', label: 'Merge Test Result', active: activeTab === 'Merge Test Result', onClick: () => setActiveTab('Merge Test Result') },
                 { id: 'test_result', label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') },
-                { id: 'psychometric_responses', label: 'Psychometric Test', active: activeTab === 'Psychometric Test', onClick: () => setActiveTab('Psychometric Test') }
+                { id: 'psychometric_responses', label: 'Psychometric Test', active: activeTab === 'Psychometric Test', onClick: () => setActiveTab('Psychometric Test') },
+                { id: 'student_reviews', label: 'Student Reviews', active: activeTab === 'Student Reviews', onClick: () => setActiveTab('Student Reviews') }
             ].filter(sub => hasPermission('test_mgmt', sub.id))
         },
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
@@ -396,7 +398,8 @@ const SystemDashboard = () => {
                 { id: 'test_allotment', label: 'Test Allotment', active: activeTab === 'OMR Test Allotment', onClick: () => setActiveTab('OMR Test Allotment') },
                 { id: 'test_responses', label: 'Test Responses', active: activeTab === 'OMR Test Responses', onClick: () => setActiveTab('OMR Test Responses') },
                 { id: 'merge_test_result', label: 'Merge Test Result', active: activeTab === 'OMR Merge Test Result', onClick: () => setActiveTab('OMR Merge Test Result') },
-                { id: 'test_result', label: 'Test Result', active: activeTab === 'OMR Test Result', onClick: () => setActiveTab('OMR Test Result') }
+                { id: 'test_result', label: 'Test Result', active: activeTab === 'OMR Test Result', onClick: () => setActiveTab('OMR Test Result') },
+                { id: 'student_reviews', label: 'Student Reviews', active: activeTab === 'OMR Student Reviews', onClick: () => setActiveTab('OMR Student Reviews') }
             ].filter(sub => {
                 return hasPermission('test_mgmt', sub.id);
             })
@@ -466,6 +469,7 @@ const SystemDashboard = () => {
                         { label: 'Question Images', active: activeTab === 'Admin Master Data' && masterSubTab === 'Image', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Image'); } },
                         { label: 'Psychometric Traits', active: activeTab === 'Admin Master Data' && masterSubTab === 'Psychometric Traits', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Psychometric Traits'); } },
                         { label: 'Psychometric Questions', active: activeTab === 'Admin Master Data' && masterSubTab === 'Psychometric Questions', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Psychometric Questions'); } },
+                        { label: 'Mistake Reason', active: activeTab === 'Admin Master Data' && masterSubTab === 'Mistake Reason', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Mistake Reason'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
@@ -602,6 +606,10 @@ const SystemDashboard = () => {
                 return <TestResult isOMR={false} />;
             case 'OMR Test Result':
                 return <TestResult isOMR={true} />;
+            case 'Student Reviews':
+                return <StudentReviews isOMR={false} />;
+            case 'OMR Student Reviews':
+                return <StudentReviews isOMR={true} />;
             case 'Psychometric Test':
                 return <PsychometricResponses />;
             case 'Create Package':

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet, MasterSectionViewSet, PartialMarkRuleViewSet, PsychometricTraitViewSet, PsychometricQuestionViewSet
+from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet, MasterSectionViewSet, PartialMarkRuleViewSet, PsychometricTraitViewSet, PsychometricQuestionViewSet, MistakeReasonViewSet
 
 router = DefaultRouter()
 router.register(r'master-sections', MasterSectionViewSet)
@@ -28,6 +28,7 @@ router.register(r'guides', GuideViewSet)
 router.register(r'communities', CommunityViewSet)
 router.register(r'psychometric-traits', PsychometricTraitViewSet, basename='psychometric-trait')
 router.register(r'psychometric-questions', PsychometricQuestionViewSet, basename='psychometric-question')
+router.register(r'mistake-reasons', MistakeReasonViewSet, basename='mistake-reason')
 
 urlpatterns = [
     path('', include(router.urls)),

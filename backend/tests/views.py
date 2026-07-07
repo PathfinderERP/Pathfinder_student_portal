@@ -2532,6 +2532,235 @@ class TestViewSet(viewsets.ModelViewSet):
         })
 
 
+    @action(detail=True, methods=['post'], url_path='save_question_reflection')
+    def save_question_reflection(self, request, pk=None):
+        """
+        Saves student reflection for an incorrectly answered question.
+        Payload: {"question_id": "...", "reflection": "..."}
+        """
+        from api.db_utils import get_db
+        from bson import ObjectId
+        import json
+
+        test = self.get_object()
+        user = request.user
+        
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        question_id = request.data.get('question_id')
+        if isinstance(question_id, int):
+            question_id = str(question_id)
+            
+        reflection = request.data.get('reflection', '')
+        manual_subtopic = request.data.get('manual_subtopic')
+        
+        if not question_id:
+            return Response({'error': 'question_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database unavailable'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+        try: t_pk = ObjectId(test.pk)
+        except: t_pk = test.pk
+        
+        sub_doc = db['tests_testsubmission'].find_one(
+            {'test_id': t_pk, 'student_id': user.pk, 'is_finalized': True}
+        )
+        
+        if not sub_doc:
+            return Response({'error': 'Test submission not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        raw_res = sub_doc.get('responses', {})
+        if isinstance(raw_res, str):
+            try: raw_res = json.loads(raw_res)
+            except: raw_res = {}
+            
+        res_obj = raw_res.get(question_id)
+        if res_obj is None:
+            try: res_obj = raw_res.get(int(question_id))
+            except: pass
+            
+        if res_obj is None:
+            # If the user didn't even attempt the question, we might still want to allow reflection
+            # So initialize it as an empty dict
+            res_obj = {'answer': None, 'time': 0}
+            
+        if isinstance(res_obj, dict):
+            res_obj['reflection'] = reflection
+            if manual_subtopic is not None:
+                res_obj['manual_subtopic'] = manual_subtopic
+        else:
+            # Convert raw answer to dict
+            res_obj = {'answer': res_obj, 'reflection': reflection}
+            if manual_subtopic is not None:
+                res_obj['manual_subtopic'] = manual_subtopic
+            
+        raw_res[question_id] = res_obj
+        
+        db['tests_testsubmission'].update_one(
+            {'_id': sub_doc['_id']},
+            {'$set': {'responses': raw_res, 'has_reflections': True}}
+        )
+        
+        # In case the SQL model also keeps a copy
+        from .models import TestSubmission
+        try:
+            sql_sub = TestSubmission.objects.get(test=test, student=user)
+            sql_res = sql_sub.responses
+            if isinstance(sql_res, str):
+                try: sql_res = json.loads(sql_res)
+                except: sql_res = {}
+            if question_id in sql_res:
+                if isinstance(sql_res[question_id], dict):
+                    sql_res[question_id]['reflection'] = reflection
+                else:
+                    sql_res[question_id] = {'answer': sql_res[question_id], 'reflection': reflection}
+            else:
+                sql_res[question_id] = {'answer': None, 'reflection': reflection}
+            
+            if manual_subtopic is not None:
+                if isinstance(sql_res[question_id], dict):
+                    sql_res[question_id]['manual_subtopic'] = manual_subtopic
+                    
+            # Ensure it's a plain dict to avoid OrderedDict JSON loads issues in SQLite
+            import json
+            sql_sub.responses = json.loads(json.dumps(sql_res))
+            sql_sub.save(update_fields=['responses'])
+        except Exception as e:
+            import traceback
+            print("Error updating SQL model responses:", traceback.format_exc())
+            
+        return Response({'success': True, 'message': 'Reflection saved successfully'})
+
+    @action(detail=True, methods=['get'], url_path='student_reflections')
+    def student_reflections(self, request, pk=None):
+        """
+        Returns all student reflections for a specific test.
+        """
+        from api.db_utils import get_db
+        from bson import ObjectId
+        import json
+        
+        test = self.get_object()
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database unavailable'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+        try: t_pk = ObjectId(test.pk)
+        except: t_pk = test.pk
+        
+        submissions = db['tests_testsubmission'].find({'test_id': t_pk, 'is_finalized': True})
+        
+        # Load questions using Django ORM to ensure correct text
+        q_dict = {}
+        q_number = 1
+        for sec in test.sections.all().prefetch_related('questions', 'questions__chapter', 'questions__topic'):
+            order_list = sec.question_order or []
+            sec_q_map = {str(q.pk): q for q in sec.questions.all()}
+            
+            ordered_q_ids = [str(qid) for qid in order_list if str(qid) in sec_q_map]
+            for qid in sec_q_map.keys():
+                if qid not in ordered_q_ids:
+                    ordered_q_ids.append(qid)
+            
+            for qid in ordered_q_ids:
+                q = sec_q_map[qid]
+                q_dict[qid] = {
+                    'question_number': q_number,
+                    'content': getattr(q, 'content', 'Unknown Question'),
+                    'type': getattr(q, 'question_type', sec.question_type),
+                    'chapter': q.chapter.name if hasattr(q, 'chapter') and q.chapter else 'N/A',
+                    'topic': q.topic.name if hasattr(q, 'topic') and q.topic else 'N/A',
+                    'subtopic': 'N/A',
+                    'negative_marks': getattr(sec, 'negative_marks', 0),
+                    'solution': getattr(q, 'solution', ''),
+                    'options': getattr(q, 'question_options', []), 
+                    'answer_from': getattr(q, 'answer_from', None),
+                    'answer_to': getattr(q, 'answer_to', None),
+                    'sectionName': sec.name
+                }
+                q_number += 1
+                    
+        # Group by student
+        student_ids = []
+        subs_list = []
+        for sub in submissions:
+            subs_list.append(sub)
+            if 'student_id' in sub:
+                student_ids.append(sub['student_id'])
+                
+        from api.models import CustomUser
+        students = CustomUser.objects.filter(pk__in=student_ids).values('_id', 'first_name', 'last_name', 'admission_number', 'username', 'centre_name')
+        student_dict = {str(s['_id']): s for s in students}
+        
+        reflections = []
+        for sub in subs_list:
+            student_id = sub.get('student_id')
+            if not student_id:
+                continue
+            student_id_str = str(student_id)
+                
+            raw_res = sub.get('responses', {})
+            if isinstance(raw_res, str):
+                try: raw_res = json.loads(raw_res)
+                except: raw_res = {}
+                
+            student = student_dict.get(student_id_str, {})
+            name = f"{student.get('first_name', '')} {student.get('last_name', '')}".strip() or student.get('username') or "Unknown"
+            enrollment = student.get('admission_number') or student.get('username') or "N/A"
+                
+            for q_id, res_obj in raw_res.items():
+                if isinstance(res_obj, dict) and res_obj.get('reflection'):
+                    q_data = q_dict.get(str(q_id), {})
+                    reflections.append({
+                        'student_id': student_id_str,
+                        'student_name': name,
+                        'enrollment_number': enrollment,
+                        'centre_name': student.get('centre_name') or "Unknown Center",
+                        'question_id': str(q_id),
+                        'question_number': q_data.get('question_number', 0),
+                        'question_content': q_data.get('content', 'Unknown Question'),
+                        'type': q_data.get('type', ''),
+                        'chapter': q_data.get('chapter', ''),
+                        'topic': q_data.get('topic', ''),
+                        'subtopic': q_data.get('subtopic', ''),
+                        'negative_marks': q_data.get('negative_marks', 0),
+                        'solution': q_data.get('solution', ''),
+                        'options': q_data.get('options', []),
+                        'answer_from': q_data.get('answer_from'),
+                        'answer_to': q_data.get('answer_to'),
+                        'sectionName': q_data.get('sectionName', ''),
+                        'user_answer': res_obj.get('answer', ''),
+                        'reflection': res_obj['reflection']
+                    })
+                    
+        return Response({'reflections': reflections})
+
+    @action(detail=False, methods=['get'], url_path='with_reflections')
+    def with_reflections(self, request):
+        """
+        Returns a list of tests with their student reflection counts.
+        """
+        from api.db_utils import get_db
+        db = get_db()
+        if db is None:
+            return Response({'error': 'Database unavailable'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+        pipeline = [
+            {'$match': {'has_reflections': True}},
+            {'$group': {'_id': '$test_id', 'student_count': {'$sum': 1}}}
+        ]
+        results = db['tests_testsubmission'].aggregate(pipeline)
+        
+        counts_data = {}
+        for r in results:
+            counts_data[str(r['_id'])] = r['student_count']
+            
+        return Response({'tests': counts_data})
+
+
     @action(detail=True, methods=['get'], url_path='student_performance')
     def student_performance(self, request, pk=None):
         """
@@ -2841,6 +3070,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 total_positive += earned
                 total_negative += neg
 
+                student_reflection = res_obj.get('reflection', '') if isinstance(res_obj, dict) else ''
                 section_question_map[sec['name']].append({
                     'id': qid,
                     'content': qi['content'],
@@ -2856,7 +3086,8 @@ class TestViewSet(viewsets.ModelViewSet):
                     'user_answer': user_answer,
                     'result': q_result,
                     'earned': round(earned - neg, 2),
-                    'time_spent': q_time
+                    'time_spent': q_time,
+                    'student_reflection': student_reflection
                 })
 
         # 5. Compute aggregates
@@ -3803,6 +4034,9 @@ class TestViewSet(viewsets.ModelViewSet):
                     import json
                     try: user_res = json.loads(user_res)
                     except: user_res = {}
+                
+                has_mistakes = False
+                has_unreviewed_mistakes = False
 
                 for sec in sections:
                     sec_score = 0.0
@@ -3846,7 +4080,12 @@ class TestViewSet(viewsets.ModelViewSet):
                                     except: pass
                                 
                                 if is_correct: sec_score += c_marks
-                                else: sec_score -= n_marks
+                                else: 
+                                    sec_score -= n_marks
+                                    has_mistakes = True
+                                    reflection = res_item.get('reflection') if isinstance(res_item, dict) else None
+                                    if not reflection:
+                                        has_unreviewed_mistakes = True
                     
                     section_stats.append({
                         'name': sec.name,
@@ -3865,7 +4104,9 @@ class TestViewSet(viewsets.ModelViewSet):
                 'total': test.total_marks if (test.total_marks and test.total_marks > 0) else (sum(s['total'] for s in section_stats) or 100),
                 'rank': rank,
                 'percentile': percentile,
-                'section_stats': section_stats
+                'section_stats': section_stats,
+                'has_mistakes': has_mistakes,
+                'has_unreviewed_mistakes': has_unreviewed_mistakes
             })
             
         results.sort(key=lambda x: x['date'], reverse=True)

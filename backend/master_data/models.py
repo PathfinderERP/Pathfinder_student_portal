@@ -707,3 +707,19 @@ class PsychometricQuestion(models.Model):
 
     class Meta:
         ordering = ['order', 'created_at']
+
+
+class MistakeReason(models.Model):
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, unique=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_unique_code(MistakeReason, self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name

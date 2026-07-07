@@ -99,12 +99,18 @@ const DoughnutChart = ({ slices, size = 160, thickness = 28 }) => {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const ResultReport = ({ test, isDarkMode, onBack }) => {
     const { getApiUrl, token } = useAuth();
-    const [activeTab, setActiveTab] = useState('score_overview');
+    const [activeTab, setActiveTab] = useState(test?.defaultTab || 'score_overview');
     const [hovCard, setHovCard]     = useState(null);
     const [data, setData]           = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError]         = useState(null);
     const [activeSec, setActiveSec] = useState('');
+    const [mistakeReasons, setMistakeReasons] = useState([]);
+    const [reflections, setReflections] = useState({});
+
+    useEffect(() => {
+        if (test?.defaultTab) setActiveTab(test.defaultTab);
+    }, [test?.defaultTab]);
 
     useEffect(() => {
         const fetchPerformance = async () => {
@@ -125,7 +131,19 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                 setIsLoading(false);
             }
         };
+        const fetchMistakeReasons = async () => {
+            try {
+                const res = await axios.get(`${getApiUrl()}/api/master-data/mistake-reasons/`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const results = Array.isArray(res.data) ? res.data : (res.data.results || []);
+                setMistakeReasons(results);
+            } catch (err) {
+                console.error("Failed to fetch mistake reasons:", err);
+            }
+        };
         fetchPerformance();
+        fetchMistakeReasons();
     }, [test?.id]);
 
     if (isLoading) {
@@ -758,6 +776,46 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                         const [expandedSol, setExpandedSol]   = useState({});
                         const toggleSol = (id) => setExpandedSol(prev => ({ ...prev, [id]: !prev[id] }));
 
+                        const [reflections, setReflections] = useState({});
+                        const [isSavingAll, setIsSavingAll] = useState(false);
+
+                        const incorrectlyAnswered = mockQuestions.filter(q => q.result === 'IA');
+                        const unsavedQuestions = incorrectlyAnswered.filter(q => !q.student_reflection);
+                        const allReflectionsFilled = unsavedQuestions.length > 0 && unsavedQuestions.every(q => reflections[q.id] && reflections[q.id].trim().length > 0);
+
+                        const handleSaveAllReflections = async (questionsToSave) => {
+                            setIsSavingAll(true);
+                            try {
+                                await Promise.all(questionsToSave.map(q => 
+                                    axios.post(`${getApiUrl()}/api/tests/${test.id}/save_question_reflection/`, {
+                                        question_id: q.id,
+                                        reflection: reflections[q.id]
+                                    }, {
+                                        headers: { Authorization: `Bearer ${token}` }
+                                    })
+                                ));
+                                setReportData(prev => {
+                                    const newData = { ...prev };
+                                    if (newData.section_questions) {
+                                        for (const sec in newData.section_questions) {
+                                            newData.section_questions[sec] = newData.section_questions[sec].map(q => {
+                                                const savedQ = questionsToSave.find(sq => sq.id === q.id);
+                                                if (savedQ) {
+                                                    return { ...q, student_reflection: reflections[q.id] };
+                                                }
+                                                return q;
+                                            });
+                                        }
+                                    }
+                                    return newData;
+                                });
+                            } catch (err) {
+                                console.error('Failed to save reflections', err);
+                            } finally {
+                                setIsSavingAll(false);
+                            }
+                        };
+
                         const qBorder = isDarkMode ? 'border-white/[0.06]' : 'border-slate-200';
                         const qBg     = isDarkMode ? 'bg-[#10141D]'         : 'bg-white';
                         const optBg   = isDarkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-white border-slate-200';
@@ -957,10 +1015,88 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                                         <div dangerouslySetInnerHTML={{ __html: q.solution || '<p>No solution provided</p>' }} />
                                                     </div>
                                                 )}
+
+                                                {/* Student Reflection for Incorrect Questions */}
+                                                {isIncorrect && expandedSol[q.id] && (
+                                                    <div className={`px-5 py-4 border-t ${isDarkMode ? 'border-white/[0.06] bg-black/20' : 'border-slate-200 bg-slate-50'}`}>
+                                                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border inline-flex items-center gap-1.5 shadow-sm ${
+                                                                isDarkMode 
+                                                                    ? 'bg-[#4871D9]/10 text-[#4871D9] border-[#4871D9]/20' 
+                                                                    : 'bg-blue-50 text-[#4871D9] border-blue-200/60'
+                                                            }`}>
+                                                                My Reflection <span className="opacity-75 font-bold tracking-normal text-[9px]">(Why I got it wrong)</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex flex-col sm:flex-row gap-3">
+                                                            <select
+                                                                className={`flex-[1.5] w-full p-4 rounded-xl text-[13px] border-2 focus:outline-none focus:ring-4 focus:ring-[#4871D9]/20 transition-all shadow-inner font-medium appearance-none ${
+                                                                    isDarkMode 
+                                                                        ? 'bg-[#151B27] border-slate-700 focus:border-[#4871D9] text-white shadow-black/20' 
+                                                                        : 'bg-blue-50/30 border-blue-100 hover:bg-blue-50/50 focus:bg-white focus:border-[#4871D9] text-slate-800 shadow-slate-200/50'
+                                                                } ${q.student_reflection ? 'opacity-70 cursor-not-allowed border-dashed bg-slate-50' : ''}`}
+                                                                value={reflections[q.id] !== undefined ? reflections[q.id] : (q.student_reflection || '')}
+                                                                onChange={(e) => setReflections(prev => ({ ...prev, [q.id]: e.target.value }))}
+                                                                disabled={!!q.student_reflection}
+                                                            >
+                                                                <option value="">-- Select a reason --</option>
+                                                                {mistakeReasons.map(mr => (
+                                                                    <option key={mr.id} value={mr.name}>{mr.name}</option>
+                                                                ))}
+                                                                {q.student_reflection && !mistakeReasons.find(mr => mr.name === q.student_reflection) && (
+                                                                    <option value={q.student_reflection}>{q.student_reflection}</option>
+                                                                )}
+                                                            </select>
+
+                                                            <div className={`flex-[1] flex flex-col justify-center px-4 py-2 rounded-xl border-2 ${
+                                                                isDarkMode ? 'bg-[#151B27] border-slate-700' : 'bg-white border-indigo-100'
+                                                            }`}>
+                                                                <span className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-amber-500/80' : 'text-indigo-600'}`}>Subtopic</span>
+                                                                <span className={`font-black uppercase text-[12px] ${isDarkMode ? 'text-amber-400' : 'text-indigo-700'}`}>
+                                                                    {q.manual_subtopic || (typeof q.subtopic === 'object' && q.subtopic !== null ? q.subtopic.name : (q.subtopic || 'N/A'))}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                            {/* Removed per-question save button */}
+                                                            {q.student_reflection && (
+                                                                <div className="flex justify-end">
+                                                                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-500">
+                                                                        <CheckCircle size={14} /> Saved
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                )}
                                             </div>
                                         );
                                     })}
                                 </div>
+
+                                {/* Global Save Button for ResultReport inside the tab */}
+                                {incorrectlyAnswered.length > 0 && unsavedQuestions.length > 0 && (
+                                    <div className={`sticky bottom-6 z-10 flex justify-center mt-8 pb-8`}>
+                                        <button
+                                            onClick={() => handleSaveAllReflections(unsavedQuestions)}
+                                            disabled={isSavingAll || !allReflectionsFilled}
+                                            className={`flex items-center gap-2 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-xl ${
+                                                isSavingAll || !allReflectionsFilled
+                                                    ? `bg-slate-400 text-white cursor-not-allowed ${isDarkMode ? 'opacity-50' : ''}`
+                                                    : 'bg-[#4871D9] hover:bg-[#3D60B8] text-white active:scale-95 shadow-blue-500/20'
+                                            }`}
+                                        >
+                                            {isSavingAll ? (
+                                                <><Loader2 size={16} className="animate-spin" /> Saving All...</>
+                                            ) : 'Save Section Reflections'}
+                                        </button>
+                                    </div>
+                                )}
+                                {incorrectlyAnswered.length > 0 && unsavedQuestions.length === 0 && (
+                                    <div className={`flex justify-center mt-8 pb-8`}>
+                                        <span className="flex items-center gap-2 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                            <CheckCircle size={16} /> All Section Reflections Saved
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         );
                     };

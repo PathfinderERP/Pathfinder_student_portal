@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason
 from packages.models import Package
 from bson import ObjectId
 
@@ -35,6 +35,16 @@ class MasterSectionSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'subject_code', 'total_questions', 'allowed_questions',
                   'shuffle', 'correct_marks', 'negative_marks', 'partial_type',
                   'partial_marks', 'partial_mark_rule', 'partial_mark_rule_name', 'partial_mark_rule_id', 'priority', 'is_active', 'created_at', 'updated_at']
+
+class PsychometricQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PsychometricQuestion
+        fields = '__all__'
+
+class MistakeReasonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MistakeReason
+        fields = '__all__'
 
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:

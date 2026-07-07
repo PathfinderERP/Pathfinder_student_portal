@@ -175,6 +175,7 @@ const subTabs = [
     { id: 'Image', icon: ImageIcon, label: 'Question Images', endpoint: 'questions/images' },
     { id: 'Psychometric Traits', icon: Target, label: 'Psychometric Traits', endpoint: 'psychometric-traits' },
     { id: 'Psychometric Questions', icon: BookOpen, label: 'Psychometric Questions', endpoint: 'psychometric-questions' },
+    { id: 'Mistake Reason', icon: AlertTriangle, label: 'Mistake Reason', endpoint: 'mistake-reasons' },
 ];
 
 const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigate }) => {
