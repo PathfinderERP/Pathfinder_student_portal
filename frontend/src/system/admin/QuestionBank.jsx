@@ -2135,6 +2135,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </div>
                     <div className="flex items-center gap-4">
                         <button
+                            onClick={() => fetchMasterData(true)}
+                            title="Refresh Master Data (Chapters, Topics, etc.)"
+                            disabled={isLoadingMaster}
+                            className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white disabled:opacity-50' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 disabled:opacity-50 italic'}`}>
+                            <div className="flex items-center gap-2">
+                                <RefreshCcw size={20} className={isLoadingMaster ? 'animate-spin text-emerald-500' : ''} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">{isLoadingMaster ? 'Refreshing...' : 'Refresh'}</span>
+                            </div>
+                        </button>
+                        <button
                             onClick={() => { if (confirm("Clear all fields? This will lose current progress.")) resetForm(); }}
                             title="Clear All Fields"
                             className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 italic'}`}>
