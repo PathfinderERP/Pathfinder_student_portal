@@ -12,6 +12,7 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
     const [manualSubtopics, setManualSubtopics] = useState({});
     const [mistakeReasons, setMistakeReasons] = useState([]);
     const [isSavingAll, setIsSavingAll] = useState(false);
+    const [selectedSubject, setSelectedSubject] = useState('All');
 
     useEffect(() => {
         const fetchPerformance = async () => {
@@ -124,6 +125,9 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
     const unsavedQuestions = allMistakes.filter(q => !q.student_reflection);
     const allReflectionsFilled = unsavedQuestions.length > 0 && unsavedQuestions.every(q => reflections[q.id] && reflections[q.id].trim().length > 0);
 
+    const subjects = ['All', ...new Set(allMistakes.map(m => m.sectionName))];
+    const displayedMistakes = selectedSubject === 'All' ? allMistakes : allMistakes.filter(m => m.sectionName === selectedSubject);
+
     return (
         <div className="space-y-6 pb-20 mt-4">
             {/* Header */}
@@ -153,8 +157,34 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    {allMistakes.map((q, qIndex) => {
-                        const correctOptionsStr = (q.correct_options || []).join(',');
+                    {/* Subject Filter */}
+                    {subjects.length > 2 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {subjects.map(subject => (
+                                <button
+                                    key={subject}
+                                    onClick={() => setSelectedSubject(subject)}
+                                    className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                                        selectedSubject === subject
+                                            ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
+                                            : isDarkMode
+                                                ? 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/10'
+                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
+                                    }`}
+                                >
+                                    {subject}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {displayedMistakes.length === 0 ? (
+                        <div className={`p-10 text-center rounded-[12px] border ${isDarkMode ? 'bg-[#151B27] border-white/5 text-slate-400' : 'bg-white border-slate-100 text-slate-500'}`}>
+                            <p className="text-sm font-bold uppercase tracking-widest">No mistakes in this subject.</p>
+                        </div>
+                    ) : (
+                        displayedMistakes.map((q, qIndex) => {
+                            const correctOptionsStr = (q.correct_options || []).join(',');
                         const userOptionsStr = Array.isArray(q.user_answer) ? q.user_answer.join(',') : q.user_answer;
                         
                         const qTopic = typeof q.topic === 'object' && q.topic !== null ? (q.topic.name || 'N/A') : (q.topic || 'N/A');
@@ -319,7 +349,8 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
                                     </div>
                                 </div>
                         );
-                    })}
+                        })
+                    )}
                 </div>
             )}
 

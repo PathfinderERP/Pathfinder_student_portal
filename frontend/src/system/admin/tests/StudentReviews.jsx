@@ -24,6 +24,7 @@ const StudentReviews = ({ isOMR = false }) => {
     const [reviews, setReviews] = useState([]);
     const [isReviewsLoading, setIsReviewsLoading] = useState(false);
     const [selectedStudentReview, setSelectedStudentReview] = useState(null);
+    const [selectedSubject, setSelectedSubject] = useState('All');
     const [selectedCenter, setSelectedCenter] = useState('');
     const [selectedCenterFilters, setSelectedCenterFilters] = useState([]);
     const [isCenterFilterOpen, setIsCenterFilterOpen] = useState(false);
@@ -516,7 +517,13 @@ const StudentReviews = ({ isOMR = false }) => {
                             <MessageSquare size={48} className={`opacity-20 ${isDarkMode ? 'text-white' : 'text-slate-900'}`} />
                             <p className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>No student reflections found for this test.</p>
                         </div>
-                    ) : selectedStudentReview ? (
+                    ) : selectedStudentReview ? (() => {
+                        const subjects = ['All', ...new Set(selectedStudentReview.reflections.map(r => r.sectionName || 'N/A'))];
+                        const displayedReflections = selectedSubject === 'All' 
+                            ? selectedStudentReview.reflections 
+                            : selectedStudentReview.reflections.filter(r => (r.sectionName || 'N/A') === selectedSubject);
+
+                        return (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
                             <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-4">
@@ -535,10 +542,34 @@ const StudentReviews = ({ isOMR = false }) => {
                                         </p>
                                     </div>
                                 </div>
+                                
+                                {subjects.length > 1 && (
+                                    <select
+                                        value={selectedSubject}
+                                        onChange={(e) => setSelectedSubject(e.target.value)}
+                                        className={`px-3 py-2 rounded-[6px] text-[12px] font-bold uppercase tracking-widest border focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all ${
+                                            isDarkMode 
+                                                ? 'bg-[#151B27] border-white/10 text-slate-300' 
+                                                : 'bg-white border-slate-200 text-slate-600'
+                                        }`}
+                                    >
+                                        {subjects.map(subject => (
+                                            <option key={subject} value={subject}>
+                                                {subject === 'All' ? 'All Subjects' : subject}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
                             
                             <div className="space-y-6">
-                                {selectedStudentReview.reflections.map((rev, rIdx) => (
+
+                                        {displayedReflections.length === 0 ? (
+                                            <div className={`p-10 text-center rounded-[12px] border ${isDarkMode ? 'bg-[#151B27] border-white/5 text-slate-400' : 'bg-white border-slate-100 text-slate-500'}`}>
+                                                <p className="text-sm font-bold uppercase tracking-widest">No mistakes in this subject.</p>
+                                            </div>
+                                        ) : (
+                                            displayedReflections.map((rev, rIdx) => (
                                     <div key={rIdx} className={`rounded-[8px] border overflow-hidden ${isDarkMode ? 'bg-[#151B27] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                                         {/* Header */}
                                         <div className={`flex items-center justify-between px-5 py-3 border-b ${isDarkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
@@ -642,15 +673,17 @@ const StudentReviews = ({ isOMR = false }) => {
                                                     Student Reflection
                                                 </span>
                                             </div>
-                                            <div className={`px-4 py-3 rounded-[6px] text-[13px] italic border ${isDarkMode ? 'bg-[#10141D] border-slate-700 text-white shadow-black/20' : 'bg-white border-rose-100 text-slate-800 shadow-slate-200/50'}`}>
+                                            <div className={`px-4 py-3 rounded-[6px] text-[13px] italic font-semibold border ${isDarkMode ? 'bg-[#10141D] border-slate-700 text-[#D4AF37] shadow-black/20' : 'bg-white border-rose-100 text-[#B8860B] shadow-slate-200/50'}`}>
                                                 "{rev.reflection}"
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                ))
+                            )}
                             </div>
                         </div>
-                    ) : (
+                    );
+                    })() : (
                         <div className="space-y-12 animate-in fade-in duration-300">
                             {!selectedCenter && Object.keys(groupedReviews).length > 0 && (
                                 <div className="space-y-6">
