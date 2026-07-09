@@ -1838,32 +1838,68 @@ class TestViewSet(viewsets.ModelViewSet):
                         continue
                     q_type = q_data['type']
                     if q_type == 'SINGLE_CHOICE':
-                        ans_str = str(answer)
+                        ans_str = str(answer).strip()
                         is_correct = False
+                        matched_id = None
                         
-                        # Direct match
-                        if ans_str in q_data['correct_options']:
+                        # Pass 1: exact ID match
+                        for oi, opt in enumerate(q_data['options']):
+                            opt_id = str(opt.get('id', ''))
+                            if ans_str == opt_id or ans_str.lower() == opt_id.lower():
+                                matched_id = opt_id
+                                break
+                        
+                        # Pass 2: fallback
+                        if not matched_id:
+                            keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                            for oi, opt in enumerate(q_data['options']):
+                                opt_id = str(opt.get('id', ''))
+                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                opt_label = keys[oi] if oi < len(keys) else None
+                                if (ans_str.lower() == opt_content.lower() or 
+                                    (opt_label and ans_str.lower() == opt_label) or 
+                                    ans_str == str(oi + 1)):
+                                    matched_id = opt_id
+                                    break
+                                    
+                        if matched_id and matched_id in q_data['correct_options']:
                             is_correct = True
-                        else:
-                            # Handle A/B/C/D mapping to 1/2/3/4/etc based on index or mapping
-                            mapping = {'A': '1', 'B': '2', 'C': '3', 'D': '4'}
-                            if ans_str in mapping and mapping[ans_str] in q_data['correct_options']:
-                                is_correct = True
-                            
-                            # Handle if answer string matches the content of the correct option (rare but happens)
-                            if not is_correct:
-                                for opt in q_data['options']:
-                                    opt_id = str(opt.get('id', ''))
-                                    if opt_id in q_data['correct_options'] and (ans_str == opt_id or ans_str == opt.get('content')):
-                                        is_correct = True
-                                        break
-                                        
+
                         if is_correct:
                             q_data['correct'] += 1
                         else:
                             q_data['incorrect'] += 1
                     elif q_type == 'MULTI_CHOICE':
-                        selected = set(map(str, answer if isinstance(answer, list) else [answer]))
+                        raw_selected = answer if isinstance(answer, list) else [answer]
+                        selected = set()
+                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                        
+                        for item in raw_selected:
+                            item_str = str(item).strip().lower()
+                            matched_id = None
+                            
+                            # Pass 1: exact ID match
+                            for oi, opt in enumerate(q_data['options']):
+                                opt_id = str(opt.get('id', ''))
+                                if item_str == opt_id.lower():
+                                    matched_id = opt_id
+                                    break
+                                    
+                            # Pass 2: fallback
+                            if not matched_id:
+                                for oi, opt in enumerate(q_data['options']):
+                                    opt_id = str(opt.get('id', ''))
+                                    opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                    opt_label = keys[oi] if oi < len(keys) else None
+                                    if (item_str == opt_content.lower() or 
+                                        (opt_label and item_str == opt_label) or 
+                                        item_str == str(oi + 1)):
+                                        matched_id = opt_id
+                                        break
+                                        
+                            if matched_id:
+                                selected.add(matched_id)
+                                    
                         correct  = set(q_data['correct_options'])
                         if selected == correct:
                             q_data['correct'] += 1
@@ -2920,23 +2956,29 @@ class TestViewSet(viewsets.ModelViewSet):
                         ans_str = str(ans).strip()
                         
                         is_correct = False
-                        matched = False
+                        matched_id = None
+                        
                         # Primary: match by option ID (most reliable)
                         for oi, opt in enumerate(qi.get('options', [])):
                             opt_id = str(opt.get('id', ''))
                             if ans_str == opt_id or ans_str.lower() == opt_id.lower():
+                                matched_id = opt_id
                                 if opt.get('isCorrect'):
                                     is_correct = True
-                                matched = True
                                 break
 
-                        # Fallback: match by letter label (a/b/c/d) — for legacy submissions
-                        if not matched:
+                        # Fallback
+                        if not matched_id:
                             keys = ['a', 'b', 'c', 'd', 'e', 'f']
                             ans_lower = ans_str.lower()
                             for oi, opt in enumerate(qi.get('options', [])):
+                                opt_id = str(opt.get('id', ''))
+                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
                                 opt_label = keys[oi] if oi < len(keys) else None
-                                if opt_label and ans_lower == opt_label:
+                                if (ans_lower == opt_content.lower() or 
+                                    (opt_label and ans_lower == opt_label) or 
+                                    ans_str == str(oi + 1)):
+                                    matched_id = opt_id
                                     if opt.get('isCorrect'):
                                         is_correct = True
                                     break
@@ -2959,14 +3001,29 @@ class TestViewSet(viewsets.ModelViewSet):
                         
                         for item in raw_selected:
                             item_str = str(item).strip().lower()
-                            # Find matching option
+                            matched_id = None
+                            
+                            # Pass 1: exact ID
                             for oi, opt in enumerate(qi.get('options', [])):
                                 opt_id = str(opt.get('id', ''))
-                                opt_content = clean_html(opt.get('content') or opt.get('text', ''))
-                                opt_label = keys[oi] if oi < len(keys) else None
-                                if item_str == opt_id or item_str == opt_content or (opt_label and item_str == opt_label):
-                                    normalized_selected.add(opt_id)
+                                if item_str == opt_id.lower():
+                                    matched_id = opt_id
                                     break
+                                    
+                            # Pass 2: fallback
+                            if not matched_id:
+                                for oi, opt in enumerate(qi.get('options', [])):
+                                    opt_id = str(opt.get('id', ''))
+                                    opt_content = clean_html(opt.get('content') or opt.get('text', ''))
+                                    opt_label = keys[oi] if oi < len(keys) else None
+                                    if (item_str == opt_content.lower() or 
+                                        (opt_label and item_str == opt_label) or 
+                                        item_str == str(oi + 1)):
+                                        matched_id = opt_id
+                                        break
+                                        
+                            if matched_id:
+                                normalized_selected.add(matched_id)
                                     
                         correct = set(qi['correct_options'])
                         rule = qi.get('partial_mark_rule')
