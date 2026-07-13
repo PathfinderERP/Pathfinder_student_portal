@@ -9,10 +9,75 @@ class UserSerializer(serializers.ModelSerializer):
     
     permissions = serializers.JSONField(required=False, allow_null=True)
 
+    # Read-only human-readable labels derived from FK relationships
+    class_level_name = serializers.SerializerMethodField()
+    target_exam_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'user_type', 'profile_image', 'first_name', 'last_name', 'employee_id', 'permissions', 'is_active', 'date_joined', 'created_by_username', 'exam_section', 'study_section', 'omr_code', 'rm_code', 'admission_number', 'centre_code', 'centre_name', 'class_level']
+        fields = [
+            'id', 'username', 'email', 'user_type', 'profile_image',
+            'first_name', 'last_name', 'employee_id', 'permissions',
+            'is_active', 'date_joined', 'created_by_username',
+            'exam_section', 'study_section', 'omr_code', 'rm_code',
+            'admission_number', 'centre_code', 'centre_name',
+            'class_level', 'class_level_name',
+            'target_exam', 'target_exam_name', 'exam_tag_name',
+        ]
         read_only_fields = ['username', 'date_joined', 'created_by_username', 'admission_number']
+
+    def get_class_level_name(self, obj):
+        """Return the human-readable class name (e.g. 'Class 9', 'Class 11').
+        Checks local FK first, then falls back to cached ERP data."""
+        try:
+            if obj.class_level:
+                return str(obj.class_level)  # Uses ClassLevel.__str__ → name field
+        except Exception:
+            pass
+
+        # Fallback: read from cached ERP profile (populated at login)
+        try:
+            from django.core.cache import cache
+            cached = cache.get(f"erp_student_data_v6_{obj.pk}") or {}
+            # ERP shape: cached['class'] = { 'className': 'Class 11', ... }
+            cls_obj = cached.get('class') or {}
+            if isinstance(cls_obj, dict):
+                cls_name = (cls_obj.get('className') or cls_obj.get('name') or '').strip()
+                if cls_name:
+                    return cls_name
+        except Exception:
+            pass
+
+        return None
+
+    def get_target_exam_name(self, obj):
+        """Return the target exam name (e.g. 'NEET', 'JEE', 'WBJEE').
+        Checks local FK, then exam_tag_name field, then cached ERP course data."""
+        try:
+            if obj.target_exam:
+                return str(obj.target_exam)  # Uses TargetExam.__str__ → name field
+        except Exception:
+            pass
+
+        # exam_tag_name is a plain-text fallback stored at ERP login
+        if obj.exam_tag_name:
+            return obj.exam_tag_name
+
+        # Last resort: read from cached ERP course info
+        try:
+            from django.core.cache import cache
+            cached = cache.get(f"erp_student_data_v6_{obj.pk}") or {}
+            course_obj = cached.get('course') or {}
+            if isinstance(course_obj, dict):
+                tag = (course_obj.get('examTagName') or course_obj.get('examTag') or
+                       course_obj.get('name') or '').strip()
+                if tag:
+                    return tag
+        except Exception:
+            pass
+
+        return None
+
 
     def validate_user_type(self, value):
         request = self.context.get('request')

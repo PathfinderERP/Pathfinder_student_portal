@@ -147,6 +147,21 @@ class ERPStudentBackend(BaseBackend):
                                 user.first_name = parts[0]
                                 user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
                         
+                        # 3. Sync Exam Tag Name from course (e.g. 'JEE 1 YEAR', 'NEET 2 YEAR')
+                        # This is the key field used for Foundation vs Senior detection
+                        course = student_data.get('course', {})
+                        if isinstance(course, dict):
+                            tag_name = (course.get('examTagName') or course.get('examTag') or
+                                        course.get('name') or course.get('courseName') or '').strip()
+                            if tag_name:
+                                user.exam_tag_name = tag_name
+                                print(f"[OK] Synced exam_tag_name: {tag_name}")
+
+                        # 4. Sync Admission Number if missing
+                        adm_no = student_data.get('admissionNumber')
+                        if adm_no and not user.admission_number:
+                            user.admission_number = adm_no
+
                         user.save()
                         print(f"[OK] Fully synced {username} from ERP login response")
                     except Exception as e:

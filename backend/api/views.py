@@ -1398,12 +1398,20 @@ def get_student_activity_analytics(request):
                         p['score'] = min(20, dist_item['percent'])
                         p['trend'] = '+ engagement'
 
-        # 6. Summary stats
+        # 6. Summary stats — count unique videos watched (not raw play events)
+        # Raw play events include replays and events with no video_id; unique videos
+        # is what makes sense to show as "Videos Accessed"
         active_days = len(intensity_map)
         unique_sections = len(path_seconds)
-        video_plays = UserActivityLog.objects.filter(
+        all_play_events = list(UserActivityLog.objects.filter(
             user=user, activity_type='video_play'
-        ).count()
+        ).values_list('metadata', flat=True))
+        unique_video_ids = {
+            m.get('video_id') for m in all_play_events
+            if isinstance(m, dict) and m.get('video_id')
+        }
+        video_plays = len(unique_video_ids)
+
 
         # 7. Recent video activity (Deduplicated)
         all_play_logs = list(UserActivityLog.objects.filter(
@@ -1479,10 +1487,14 @@ def get_student_curriculum_progress(request):
             user=user, activity_type__startswith='video_'
         ))
         watched_video_ids = set()
+        watched_video_titles = set()
         for log in activity_logs:
             v_id = log.metadata.get('video_id')
+            v_title = log.metadata.get('video_title')
             if v_id: 
                 watched_video_ids.add(str(v_id))
+            if v_title:
+                watched_video_titles.add(str(v_title).strip().lower())
             
         # 3. Build the hierarchical structure: Subject -> Chapter -> Topics (Grouped by name)
         structure = {}
@@ -1505,16 +1517,24 @@ def get_student_curriculum_progress(request):
             item_prefix = f"{item.id}-v-"
             
             for idx, v in enumerate(item_videos):
-                v_id_erp = f"{item.id}-v-{idx}"
-                v_id_model = str(v.id)
+                v_id_erp = f"{item.id}-V-{idx}".lower()
+                v_id_erp_upper = f"{item.id}-V-{idx}".upper()
+                v_id_model = str(v.id).lower()
+                v_title_lower = (v.title or "").strip().lower()
                 
                 v_status = 'not_started'
-                if v_id_erp in watched_video_ids or v_id_model in watched_video_ids:
+                watched_video_ids_lower = {str(vid).lower() for vid in watched_video_ids}
+                if (v_id_erp in watched_video_ids_lower or 
+                    v_id_erp_upper in watched_video_ids_lower or 
+                    v_id_model in watched_video_ids_lower or
+                    (v_title_lower and v_title_lower in watched_video_titles)):
                     v_status = 'completed'
                     status = 'completed' # If any video is watched, topic is in_progress/completed
                 
                 v_watch_time = sum(log.duration for log in activity_logs 
-                                 if str(log.metadata.get('video_id')) == v_id_erp or str(log.metadata.get('video_id')) == v_id_model)
+                                 if str(log.metadata.get('video_id')).lower() == v_id_erp or 
+                                    str(log.metadata.get('video_id')).lower() == v_id_model or
+                                    (v_title_lower and str(log.metadata.get('video_title', '')).strip().lower() == v_title_lower))
                 
                 videos_data.append({
                     'title': v.title or f"Video {idx+1}",

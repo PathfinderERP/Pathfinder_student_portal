@@ -11,7 +11,7 @@ import axios from 'axios';
 import { getMyResults } from '../../../services/resultsService';
 
 const AdvancedAnalytics = ({ isDarkMode }) => {
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [selectedTimeframe, setSelectedTimeframe] = useState('This Month');
     const [realData, setRealData] = useState(null);
@@ -137,19 +137,60 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, refetchTick]);
 
-    // Mock data for things not yet tracked by activity logs
-    const mockPredictions = {
-        predictedRank: "1,200 - 1,500",
-        probabilityOfTarget: "78%",
-        focusArea: "Organic Chemistry",
-        strengthArea: "Calculus",
-        proficiency: [
-            { subject: 'Physics', score: 82, trend: '+4%', subtopics: ['Mechanics', 'Optics', 'Thermodynamics'] },
-            { subject: 'Chemistry', score: 68, trend: '-2%', subtopics: ['Organic', 'Inorganic', 'Physical'] },
-            { subject: 'Mathematics', score: 91, trend: '+7%', subtopics: ['Calculus', 'Algebra', 'Trigonometry'] },
-            { subject: 'Biology', score: 75, trend: '+1%', subtopics: ['Botany', 'Zoology', 'Genetics'] },
-        ]
+    // ── Student Type Detection ────────────────────────────────────────────────
+    // Multi-priority detection: class_level_name → exam_tag_name → exam_section
+    // because class_level FK is often not populated at ERP login time.
+    const detectStudentType = () => {
+        // Priority 1: Explicit class level name from profile FK (e.g. "Class 9")
+        const classLevelName = user?.class_level_name || '';
+        const classMatch = classLevelName.match(/(\d+)/);
+        if (classMatch) {
+            const num = parseInt(classMatch[1], 10);
+            if (num >= 5 && num <= 10) return 'foundation';
+            if (num >= 11) return 'senior';
+        }
+
+        // Priority 2: Target exam name — if a competitive exam is assigned, it's Senior
+        const targetRaw = (user?.target_exam_name || user?.exam_tag_name || '').toLowerCase();
+        const seniorKeywords = ['neet', 'jee', 'wbjee', 'bitsat', 'aiims', 'mhcet', 'kcet', 'comedk'];
+        if (seniorKeywords.some(kw => targetRaw.includes(kw))) return 'senior';
+        if (targetRaw.includes('foundation')) return 'foundation';
+
+        // Priority 3: exam_section text (e.g. "class8", "class 11 neet")
+        const section = (user?.exam_section || '').toLowerCase();
+        const secClassMatch = section.match(/class\s*(\d+)/);
+        if (secClassMatch) {
+            const num = parseInt(secClassMatch[1], 10);
+            if (num >= 5 && num <= 10) return 'foundation';
+            if (num >= 11) return 'senior';
+        }
+        if (seniorKeywords.some(kw => section.includes(kw))) return 'senior';
+        if (section.includes('foundation')) return 'foundation';
+
+        return 'unknown';
     };
+
+    const studentType = detectStudentType();
+    const isFoundation = studentType === 'foundation';
+    const isSenior = studentType === 'senior';
+
+    // Overall percentage for Foundation students (calculated from test results)
+    const overallPercentage = (() => {
+        if (testResults.length === 0) return null;
+        let totalMarks = 0, possibleMarks = 0;
+        testResults.forEach(test => {
+            const sections = test.section_stats || [];
+            sections.forEach(sec => {
+                totalMarks += parseFloat(sec.marks ?? sec.net_marks ?? 0);
+                possibleMarks += parseFloat(sec.total ?? sec.total_max ?? 0);
+            });
+        });
+        return possibleMarks > 0 ? Math.round((totalMarks / possibleMarks) * 100) : null;
+    })();
+
+    // Target exam name for Senior students
+    const targetExamName = user?.target_exam_name || user?.exam_tag_name || null;
+
 
     const getTestBadge = (score) => {
         if (score >= 80) return { label: 'Elite', color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' };
@@ -236,12 +277,55 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                     </div>
 
                     <div className="space-y-6">
+                        {/* Dynamic Prediction Card */}
                         <div className="p-6 rounded-[5px] bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-xl shadow-indigo-600/20">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Predicted Rank (WBJEE)</p>
-                            <p className="text-3xl font-black tracking-tight mb-4">Calculating...</p>
-                            <div className="flex items-center gap-2 text-[10px] font-bold bg-white/10 w-fit px-3 py-1.5 rounded-full">
-                                <TrendingUp size={12} /> Analyzing study patterns
-                            </div>
+                            {isFoundation ? (
+                                /* Foundation (Class 5-10): Show Overall Percentage */
+                                <>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">
+                                        Overall Performance
+                                    </p>
+                                    {overallPercentage !== null ? (
+                                        <>
+                                            <p className="text-4xl font-black tracking-tight mb-1">{overallPercentage}%</p>
+                                            <p className="text-[11px] font-semibold opacity-70 mb-3">
+                                                Across {testResults.length} test{testResults.length !== 1 ? 's' : ''}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <p className="text-2xl font-black tracking-tight mb-4">No tests yet</p>
+                                    )}
+                                    <div className="flex items-center gap-2 text-[10px] font-bold bg-white/10 w-fit px-3 py-1.5 rounded-full">
+                                        <Award size={12} /> Foundation Programme
+                                    </div>
+                                </>
+                            ) : isSenior ? (
+                                /* Senior (Class 11-12): Show Target Exam */
+                                <>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">
+                                        Target Exam
+                                    </p>
+                                    {targetExamName ? (
+                                        <p className="text-3xl font-black tracking-tight mb-4">{targetExamName}</p>
+                                    ) : (
+                                        <p className="text-2xl font-black tracking-tight mb-4">Analysing...</p>
+                                    )}
+                                    <div className="flex items-center gap-2 text-[10px] font-bold bg-white/10 w-fit px-3 py-1.5 rounded-full">
+                                        <TrendingUp size={12} /> Rank prediction coming soon
+                                    </div>
+                                </>
+                            ) : (
+                                /* Fallback: Class unknown */
+                                <>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">
+                                        Performance Overview
+                                    </p>
+                                    <p className="text-2xl font-black tracking-tight mb-4">Analysing...</p>
+                                    <div className="flex items-center gap-2 text-[10px] font-bold bg-white/10 w-fit px-3 py-1.5 rounded-full">
+                                        <TrendingUp size={12} /> Syncing study patterns
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -334,7 +418,7 @@ const AdvancedAnalytics = ({ isDarkMode }) => {
                                 {(realData?.heatmap || []).map((cell, i) => (
                                     <div
                                         key={i}
-                                        className={`rounded-[2px] transition-all duration-300 hover:scale-125 cursor-help
+                                        className={`rounded-[2px] transition-all duration-300 hover:scale-125 cursor-default
                                             ${cell.active
                                                 ? (cell.intensity > 3 ? 'bg-orange-500' : cell.intensity > 1 ? 'bg-orange-400/60' : 'bg-orange-300/30')
                                                 : (isDarkMode ? 'bg-white/10' : 'bg-slate-200')
