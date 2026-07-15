@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, AreaChart as RechartsAreaChart, Area, BarChart, Ba
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import TeacherFeedbackModal from './TeacherFeedbackModal';
 
 // Helper functions defined outside component to avoid hoisting issues
 const calculateStreak = (data) => {
@@ -255,11 +256,11 @@ const AttendanceCalendar = ({ dailyData, isDarkMode }) => {
     const handleCellEnter = React.useCallback((e, cell) => {
         const el = tooltipRef.current;
         if (!el || !cell) return;
-        
+
         const container = el.offsetParent;
         if (!container) return;
         const rect = container.getBoundingClientRect();
-        
+
         const d = cell.dayData;
         const statusEl = el.querySelector('.tt-status');
         const dateEl = el.querySelector('.tt-date');
@@ -284,11 +285,11 @@ const AttendanceCalendar = ({ dailyData, isDarkMode }) => {
         }
 
         dateEl.textContent = cell.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        
+
         // Accurate coordinate calculation relative to the 'relative' container
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
+
         el.style.left = `${x}px`;
         el.style.top = `${y - 10}px`;
         el.style.opacity = '1';
@@ -371,7 +372,7 @@ const AttendanceCalendar = ({ dailyData, isDarkMode }) => {
 
 
 
-const DetailedHistory = ({ records, isDarkMode }) => {
+const DetailedHistory = ({ records, isDarkMode, onFeedbackClick }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(5);
     const [jumpToPage, setJumpToPage] = useState('');
@@ -670,6 +671,7 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Teacher</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Chapter</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 text-center whitespace-nowrap">Status</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 text-center whitespace-nowrap">Feedback</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -708,12 +710,40 @@ const DetailedHistory = ({ records, isDarkMode }) => {
                                     </td>
                                     <td className="p-4">
                                         <div className="flex justify-center">
-                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap cursor-default
                                                 ${status === 'Present' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                                                     status === 'Absent' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
                                                         'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
                                                 {status}
                                             </span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex justify-center">
+                                            {status === 'Present' ? (
+                                                record.feedbackGiven ? (
+                                                    <button
+                                                        disabled
+                                                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest
+                                                            ${isDarkMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'} shadow-sm cursor-not-allowed opacity-70`}
+                                                    >
+                                                        Submitted
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if(onFeedbackClick) onFeedbackClick(record);
+                                                        }}
+                                                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95
+                                                            ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white'} shadow-sm`}
+                                                    >
+                                                        Feedback
+                                                    </button>
+                                                )
+                                            ) : (
+                                                <span className="text-[10px] font-black text-slate-400 opacity-50">-</span>
+                                            )}
                                         </div>
                                     </td>
                                 </motion.tr>
@@ -843,7 +873,7 @@ const MonthlyDigest = ({ data, isDarkMode }) => {
                                             {m.percentage}%
                                         </span>
                                         <div className="w-20 h-1 bg-black/10 rounded-full overflow-hidden">
-                                            <div 
+                                            <div
                                                 className={`h-full ${m.percentage >= 75 ? 'bg-emerald-500' : 'bg-rose-500'}`}
                                                 style={{ width: `${m.percentage}%` }}
                                             />
@@ -863,15 +893,15 @@ const AttendanceAreaChart = ({ data, isDarkMode }) => {
     // Gracefully handle empty or single-point data
     if (!data || data.length === 0) {
         return (
-            <div className={`h-[300px] flex items-center justify-center rounded-xl border border-dashed ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+            <div className={`h-[200px] flex items-center justify-center rounded-xl border border-dashed ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest opacity-40 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>No Data for this period</p>
             </div>
         );
     }
 
     const width = 1000;
-    const height = 300;
-    const padding = 60;
+    const height = 200;
+    const padding = 45;
     const maxValue = 100;
 
     // Handle single point case by creating a horizontal line or a single dot
@@ -984,10 +1014,11 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     const rawDataRef = useRef(cache?.loaded ? cache.data : []);
     const [rawData, setRawData] = useState(rawDataRef.current);
     // Only show loading if we don't have cached data yet
-    const [loading, setLoading] = useState(!cache?.loaded); 
+    const [loading, setLoading] = useState(!cache?.loaded);
     const [error, setError] = useState(null);
     const [timePeriod, setTimePeriod] = useState('all');
     const [viewMode, setViewMode] = useState('overview');
+    const [feedbackClass, setFeedbackClass] = useState(null);
 
     const fetchAttendance = useCallback(async (isBackground = false) => {
         if (!token) return;
@@ -996,15 +1027,18 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             const apiUrl = getApiUrl();
             const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Fetch history and summary in parallel to improve performance
-            const [historyResp, reportResp] = await Promise.all([
+            // Fetch history, summary, and submitted feedbacks in parallel
+            const [historyResp, reportResp, feedbackResp] = await Promise.all([
                 axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers }),
-                axios.get(`${apiUrl}/api/student-portal/report/`, { headers })
+                axios.get(`${apiUrl}/api/student-portal/report/`, { headers }),
+                axios.get(`${apiUrl}/api/class-feedback/`, { headers }).catch(() => ({ data: [] }))
             ]);
 
             const historyData = historyResp.data?.data || historyResp.data || [];
             const reportData = reportResp.data || {};
-            
+            const feedbackData = feedbackResp.data?.data || feedbackResp.data || [];
+            const submittedFeedbacks = Array.isArray(feedbackData.results || feedbackData) ? (feedbackData.results || feedbackData) : [];
+
             let records = Array.isArray(historyData) ? historyData : [];
             let summary = null;
 
@@ -1014,12 +1048,33 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                     presentCount: reportData.attendanceReport.presentCount,
                     absentCount: reportData.attendanceReport.absentCount
                 };
-                
+
                 // If history is empty but report has classes, use those as fallback
                 if (records.length === 0 && Array.isArray(reportData.attendanceReport.classes)) {
                     records = reportData.attendanceReport.classes;
                 }
             }
+
+            // Cross-reference records with submitted feedbacks
+            records = records.map(record => {
+                const recordDateStr = (record.date || record.classScheduleId?.date);
+                const recordDate = recordDateStr ? new Date(recordDateStr).toISOString().split('T')[0] : '';
+                const teacherId = record.teacherId?._id || record.teacherId || '';
+                const teacherName = record.teacherId?.name || record.teacherName || '';
+                
+                const hasFeedback = submittedFeedbacks.some(fb => {
+                    const fbDateStr = fb.date_of_class;
+                    const fbDate = fbDateStr ? new Date(fbDateStr).toISOString().split('T')[0] : '';
+                    if (fbDate !== recordDate) return false;
+                    
+                    if (fb.teacher_id && teacherId && fb.teacher_id === teacherId) return true;
+                    if (fb.teacher_name && teacherName && fb.teacher_name === teacherName) return true;
+                    
+                    return false;
+                });
+
+                return { ...record, feedbackGiven: hasFeedback };
+            });
 
             const isDataSame = JSON.stringify(records) === JSON.stringify(rawDataRef.current);
 
@@ -1049,12 +1104,12 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
         if (!Array.isArray(rawData)) return null;
         const now = new Date();
         const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        
+
         let filterDate;
         let monthsToInclude = [];
 
         // Determine range and filter date
-        switch(timePeriod) {
+        switch (timePeriod) {
             case '1month':
                 filterDate = new Date(new Date(startOfThisMonth).setMonth(startOfThisMonth.getMonth() - 1));
                 break;
@@ -1149,6 +1204,14 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
         return { overall, present: presentCount, absent: absentCount, total, monthlyData, subjectData, weekdayMap, dailyAttendance, streak: calculateStreak(filtered), trend: calculateTrend(monthlyData) };
     }, [rawData, timePeriod]);
 
+    const pendingFeedbackClasses = useMemo(() => {
+        if (!Array.isArray(rawData)) return [];
+        // Assuming classes without a feedback property need feedback. We'll show the top 3 most recent present classes.
+        const presentClasses = rawData.filter(r => (r.attendanceStatus || r.status) === 'Present' && !r.feedbackGiven);
+        if (presentClasses.length === 0) return [];
+        return presentClasses.sort((a, b) => new Date(b.date || b.classScheduleId?.date) - new Date(a.date || a.classScheduleId?.date)).slice(0, 3);
+    }, [rawData]);
+
     if (loading) return (
         <div className="space-y-8 animate-pulse pb-20">
             {/* Hero Skeleton */}
@@ -1235,6 +1298,57 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
             </div>
 
+            {/* Quick Feedback Banner */}
+            {pendingFeedbackClasses.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            Pending Feedback <span className="font-medium opacity-40">Action Required</span>
+                        </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {pendingFeedbackClasses.map((cls, idx) => (
+                            <motion.div 
+                                key={cls._id || idx}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.1 }}
+                                className="relative rounded-lg overflow-hidden p-[1.5px] group shadow-sm hover:shadow-md transition-all"
+                            >
+                                {/* Animated multicolor border beam */}
+                                <div className="absolute inset-[-150%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,transparent_50%,#f59e0b_65%,#ec4899_75%,#8b5cf6_85%,#3b82f6_100%)] opacity-80 group-hover:opacity-100 transition-opacity" />
+                                
+                                {/* Inner Card Content */}
+                                <div className={`relative h-full p-5 rounded-[6px] flex flex-col justify-between gap-4 z-10 ${isDarkMode ? 'bg-[#161B26]' : 'bg-white'}`}>
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2 rounded-full shrink-0 ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                                            <Award size={18} />
+                                        </div>
+                                        <div>
+                                            <p className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'} line-clamp-1`}>
+                                                {cls.subjectName || cls.subjectId?.subjectName || 'General Subject'}
+                                            </p>
+                                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} mt-1`}>
+                                                {cls.teacherId?.name || cls.teacherName || 'Assigned Staff'}
+                                            </p>
+                                            <p className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                {new Date(cls.date || cls.classScheduleId?.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setFeedbackClass(cls)}
+                                        className={`w-full py-2 rounded-md font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500 hover:text-white' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'}`}
+                                    >
+                                        Give Feedback
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 <MetricCard
@@ -1304,9 +1418,9 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                 </div>
 
                 <AttendanceAreaChart data={processedData.monthlyData} isDarkMode={isDarkMode} />
-                
+
                 <div className={`w-full h-px my-10 ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`} />
-                
+
                 <MonthlyDigest data={processedData.monthlyData} isDarkMode={isDarkMode} />
             </div>
 
@@ -1381,8 +1495,21 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
 
             {/* Attendance Dossier (History List) */}
             <div className={`p-8 rounded-lg border ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-2xl' : 'bg-white border-slate-100 shadow-xl'}`}>
-                <DetailedHistory records={rawData} isDarkMode={isDarkMode} />
+                <DetailedHistory records={rawData} isDarkMode={isDarkMode} onFeedbackClick={setFeedbackClass} />
             </div>
+
+            {feedbackClass && (
+                <TeacherFeedbackModal
+                    isOpen={!!feedbackClass}
+                    onClose={() => setFeedbackClass(null)}
+                    classRecord={feedbackClass}
+                    isDarkMode={isDarkMode}
+                    onSubmit={(data) => {
+                        console.log('Feedback submitted:', data);
+                        fetchAttendance(true);
+                    }}
+                />
+            )}
         </div>
     );
 };

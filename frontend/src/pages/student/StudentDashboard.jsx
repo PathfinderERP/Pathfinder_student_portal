@@ -115,7 +115,7 @@ const StudentDashboard = () => {
     const initialLoadDone = useRef(false);
     const [statsData, setStatsData] = useState({
         attendance: { value: '—%', subtext: 'Syncing attendance...', loaded: false },
-        gpa: { value: '—/10', subtext: 'Syncing GPA...', loaded: false },
+        gpa: { value: '—%', subtext: 'Syncing Score...', loaded: false },
         streak: { value: '— days', subtext: 'Keep it up!', loaded: false },
         rank: { value: '—', subtext: 'Institutional Standing', loaded: false }
     });
@@ -289,13 +289,13 @@ const StudentDashboard = () => {
             const completedTests = mergedData.filter(t => t.submission?.is_finalized);
             if (completedTests.length > 0) {
                 const totalScore = completedTests.reduce((acc, t) => acc + (t.submission.score || 0), 0);
-                const avgGpa = (totalScore / completedTests.length / 10).toFixed(1); // Assuming 0-100 scale -> 0-10 scale
+                const avgPercentage = Math.round(totalScore / completedTests.length);
                 const latestRank = completedTests[0]?.submission?.rank || '—';
 
                 setStatsData(prev => ({
                     ...prev,
                     gpa: {
-                        value: `${avgGpa}/10`,
+                        value: `${avgPercentage}%`,
                         subtext: `Based on ${completedTests.length} tests`,
                         loaded: true
                     },
@@ -370,6 +370,11 @@ const StudentDashboard = () => {
         { name: 'Notice Board', icon: Bell },
     ], []);
 
+    const pendingFeedbackCount = useMemo(() => {
+        if (!attendanceCache?.loaded || !Array.isArray(attendanceCache.data)) return 0;
+        return attendanceCache.data.filter(r => (r.attendanceStatus || r.status) === 'Present' && !r.feedbackGiven).length;
+    }, [attendanceCache]);
+
     const sidebarItems = useMemo(() => navItems.map(item => ({
         label: item.name,
         icon: item.icon,
@@ -377,14 +382,18 @@ const StudentDashboard = () => {
         onClick: item.subItems ? undefined : () => {
             setActiveTab(item.name);
         },
-        badge: item.name === 'Doubts' && unseenResolvedCount > 0 ? unseenResolvedCount : undefined,
+        badge: item.name === 'Doubts' && unseenResolvedCount > 0 
+            ? unseenResolvedCount 
+            : item.name === 'Attendance' && pendingFeedbackCount > 0 
+                ? pendingFeedbackCount 
+                : undefined,
         subItems: item.subItems?.map(sub => ({
             label: sub.name,
             icon: sub.icon,
             active: activeTab === sub.name,
             onClick: () => setActiveTab(sub.name)
         }))
-    })), [navItems, activeTab, unseenResolvedCount]);
+    })), [navItems, activeTab, unseenResolvedCount, pendingFeedbackCount]);
 
     // Extract Details safely
     const { basicInfo, rollNo, classNameValue } = useMemo(() => {
@@ -545,11 +554,29 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
 
         if (completedTests.length === 0) return null;
 
+        const extractSubject = (rawName) => {
+            const name = (rawName || 'General').toUpperCase();
+            if (name.includes('PHY')) return 'PHYSICS';
+            if (name.includes('CHE')) return 'CHEMISTRY';
+            if (name.includes('BIO')) return 'BIOLOGY';
+            if (name.includes('MATH')) return 'MATHEMATICS';
+            if (name.includes('BOT')) return 'BOTANY';
+            if (name.includes('ZOO')) return 'ZOOLOGY';
+            
+            const parsed = name.split(/[_ \-]/)[0];
+            // If it's just a number like "2026" or common non-subject prefixes
+            if (/^\d+$/.test(parsed) || ['MOCK', 'TEST', 'NEET', 'JEE', 'WBJEE', 'PAPER', 'CLASS', 'GENERAL', 'FOUNDATION'].includes(parsed)) {
+                return 'General';
+            }
+            return parsed;
+        };
+
         completedTests.forEach(e => {
             // New logic: prioritize section-wise performance breakdown
             if (e.submission?.section_stats && e.submission.section_stats.length > 0) {
                 e.submission.section_stats.forEach(sec => {
-                    const sName = sec.name || 'General';
+                    const sName = extractSubject(sec.name);
+
                     if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
 
                     const pct = sec.total > 0 ? (sec.marks / sec.total) * 100 : 0;
@@ -558,17 +585,20 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                 });
             } else {
                 // Fallback: extract subject name from test name
-                const sName = e.name?.split(' - ')[0] || 'General';
+                const sName = extractSubject(e.name?.split(' - ')[0]);
                 if (!subjects[sName]) subjects[sName] = { scores: [], total: 0 };
                 subjects[sName].scores.push(e.submission.score);
                 subjects[sName].total += e.submission.score;
             }
         });
 
-        const subjectList = Object.keys(subjects).map(sName => ({
-            name: sName,
-            average: Math.round(subjects[sName].total / subjects[sName].scores.length)
-        })).sort((a, b) => b.average - a.average);
+        const subjectList = Object.keys(subjects)
+            .filter(sName => sName !== 'General')
+            .map(sName => ({
+                name: sName,
+                average: Math.round(subjects[sName].total / subjects[sName].scores.length)
+            }))
+            .sort((a, b) => b.average - a.average);
 
         return {
             strongest: subjectList[0] || null,
@@ -656,12 +686,13 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
             trend: '+1.2%', trendUp: true, color: 'blue', icon: Activity, tab: 'Attendance'
         },
         {
-            label: 'CURRENT GPA',
-            value: dashboardStats?.gpa?.value || '—/10',
+            label: 'AVERAGE SCORE',
+            value: dashboardStats?.gpa?.value || '—%',
             subtext: dashboardStats?.gpa?.subtext || 'Processing results...',
             pill: dashboardStats?.rank?.value ? `Rank: ${dashboardStats.rank.value}` : 'Calculating Rank',
             color: 'indigo',
-            icon: GraduationCap
+            icon: GraduationCap,
+            tab: 'Results'
         },
         {
             label: 'NEXT EXAM',

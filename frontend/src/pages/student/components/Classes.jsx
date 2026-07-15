@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, AreaChart as RechartsAreaChart, Area, BarChart, Ba
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import TeacherFeedbackModal from './TeacherFeedbackModal';
 // Toggle to enable dummy data for UI testing. Set to false to use live API.
 const USE_DUMMY_CLASSES = false;
 // Use static import for reliability in bundlers
@@ -208,6 +209,7 @@ const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
     const [subjectFilter, setSubjectFilter] = useState('All');
     const [teacherFilter, setTeacherFilter] = useState('All');
     const [batchFilter, setBatchFilter] = useState('All');
+    const [feedbackClass, setFeedbackClass] = useState(null);
 
     const isFiltered = statusFilter !== 'All' || dateFilter !== '' || subjectFilter !== 'All' || teacherFilter !== 'All' || batchFilter !== 'All';
 
@@ -519,6 +521,7 @@ const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Teacher</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 whitespace-nowrap">Chapter</th>
                             <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 text-center whitespace-nowrap">Status</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest opacity-50 text-center whitespace-nowrap">Feedback</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -556,12 +559,30 @@ const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
                                     </td>
                                     <td className="p-4">
                                         <div className="flex justify-center">
-                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap cursor-default
                                                 ${status === 'Present' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                                                     status === 'Absent' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
                                                         'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
                                                 {status}
                                             </span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex justify-center">
+                                            {status === 'Present' ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setFeedbackClass(record);
+                                                    }}
+                                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95
+                                                        ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white'} shadow-sm`}
+                                                >
+                                                    Feedback
+                                                </button>
+                                            ) : (
+                                                <span className="text-[10px] font-black text-slate-400 opacity-50">-</span>
+                                            )}
                                         </div>
                                     </td>
                                 </motion.tr>
@@ -631,6 +652,17 @@ const DetailedHistory = ({ records, isDarkMode, defaultBatch }) => {
                         </div>
                     )}
                 </div>
+            )}
+            {feedbackClass && (
+                <TeacherFeedbackModal
+                    isOpen={!!feedbackClass}
+                    onClose={() => setFeedbackClass(null)}
+                    classRecord={feedbackClass}
+                    isDarkMode={isDarkMode}
+                    onSubmit={(data) => {
+                        console.log('Feedback submitted:', data);
+                    }}
+                />
             )}
         </div>
     );

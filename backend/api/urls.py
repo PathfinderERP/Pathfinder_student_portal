@@ -7,7 +7,7 @@ from .views import (
     StudyTaskViewSet, NoticeViewSet, UserSearchView, 
     StudentPsychometricProfileView, StudentStudyPlannerConfigView, AdminStudentPsychometricProfileView, AdminAllPsychometricProfilesView,
     UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress,
-    get_swot_analysis
+    get_swot_analysis, ClassFeedbackViewSet
 )
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
@@ -27,6 +27,7 @@ router.register(r'doubts', DoubtViewSet)
 router.register(r'study-tasks', StudyTaskViewSet, basename='study-task')
 router.register(r'notices', NoticeViewSet)
 router.register(r'activity-logs', UserActivityLogViewSet, basename='activity-log')
+router.register(r'class-feedback', ClassFeedbackViewSet, basename='class-feedback')
 
 urlpatterns = [
     path('system-status/', system_status, name='system-status'),

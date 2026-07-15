@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, Calendar, BookOpen,
     Bell, Settings, LogOut, CheckCircle, Clock,
-    FileText, User, ClipboardList, BookMarked
+    FileText, User, ClipboardList, BookMarked, Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,7 @@ import TeacherPerformance from './components/TeacherPerformance';
 import TeacherProfile from './components/TeacherProfile';
 import TeacherNotifications from './components/TeacherNotifications';
 import TeacherSettings from './components/TeacherSettings';
+import TeacherFeedbackView from './components/TeacherFeedbackView';
 
 const TeacherDashboard = () => {
     const { user, logout, token, getApiUrl } = useAuth();
@@ -29,6 +30,7 @@ const TeacherDashboard = () => {
     const [activeTab, setActiveTab] = useState('Overview');
     const [isLoading, setIsLoading] = useState(true);
     const [unsolvedCount, setUnsolvedCount] = useState(0);
+    const [unseenFeedbackCount, setUnseenFeedbackCount] = useState(0);
 
     const fetchUnsolvedCount = async () => {
         try {
@@ -45,16 +47,42 @@ const TeacherDashboard = () => {
         }
     };
 
+    const fetchFeedbackCount = async () => {
+        try {
+            const tokenVal = token || localStorage.getItem('auth_token');
+            if (!tokenVal) return;
+            const response = await fetch(`${getApiUrl()}/api/class-feedback/`, {
+                headers: { 'Authorization': `Bearer ${tokenVal}` }
+            });
+            const data = await response.json();
+            
+            const lastSeenTime = localStorage.getItem('last_seen_feedback_time');
+            if (!lastSeenTime) {
+                setUnseenFeedbackCount(data.length);
+            } else {
+                const unseen = data.filter(f => f.created_at && new Date(f.created_at) > new Date(lastSeenTime)).length;
+                setUnseenFeedbackCount(unseen);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     useEffect(() => {
         setTimeout(() => setIsLoading(false), 800);
         fetchUnsolvedCount();
-        const interval = setInterval(fetchUnsolvedCount, 15000);
+        fetchFeedbackCount();
+        const interval = setInterval(() => {
+            fetchUnsolvedCount();
+            fetchFeedbackCount();
+        }, 15000);
         return () => clearInterval(interval);
     }, [token, getApiUrl]);
 
     // Refresh count when activeTab changes (e.g. teacher resolves a doubt)
     useEffect(() => {
         fetchUnsolvedCount();
+        fetchFeedbackCount();
     }, [activeTab]);
 
     const sidebarItems = [
@@ -70,6 +98,17 @@ const TeacherDashboard = () => {
             active: activeTab === 'Doubt Portal',
             onClick: () => setActiveTab('Doubt Portal'),
             badge: unsolvedCount > 0 ? unsolvedCount : null
+        },
+        {
+            label: 'Class Feedback',
+            icon: Star,
+            active: activeTab === 'Class Feedback',
+            onClick: () => {
+                setActiveTab('Class Feedback');
+                localStorage.setItem('last_seen_feedback_time', new Date().toISOString());
+                setUnseenFeedbackCount(0);
+            },
+            badge: unseenFeedbackCount > 0 ? unseenFeedbackCount : null
         }
     ];
 
@@ -95,6 +134,8 @@ const TeacherDashboard = () => {
                 return <TeacherProfile user={user} />;
             case 'Notifications':
                 return <TeacherNotifications />;
+            case 'Class Feedback':
+                return <TeacherFeedbackView />;
             case 'Settings':
                 return <TeacherSettings />;
             default:

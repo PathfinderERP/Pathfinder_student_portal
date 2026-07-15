@@ -295,3 +295,27 @@ class Doubt(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.student_name}"
+
+class ClassFeedback(models.Model):
+    student = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='submitted_feedbacks')
+    teacher_id = models.CharField(max_length=100, null=True, blank=True)
+    teacher_name = models.CharField(max_length=255, null=True, blank=True)
+    subject = models.CharField(max_length=255, null=True, blank=True)
+    date_of_class = models.DateField(null=True, blank=True)
+    
+    # Store responses to the 10 questions as JSON: { "0": "EXCELLENT", "1": "GOOD", ... }
+    responses = SafeJSONField(default=dict)
+    
+    # Overall analytics
+    average_score = models.FloatField(default=0.0, help_text="Calculated out of 5 based on responses")
+    
+    # Centre info
+    centre_code = models.CharField(max_length=50, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Feedback for {self.teacher_name} by {self.student.username}"

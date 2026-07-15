@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     UploadedFile, CustomUser, LoginLog, Grievance, StudyTask, Notice, 
-    StudentPsychometricProfile, StudentStudyPlannerConfig, UserActivityLog, Doubt
+    StudentPsychometricProfile, StudentStudyPlannerConfig, UserActivityLog, Doubt,
+    ClassFeedback
 )
 from master_data.models import LibraryItem, Subject, Chapter, Topic
 from django.db.models import Q
@@ -17,7 +18,7 @@ from .serializers import (
     UserSerializer, UserCreateSerializer, LoginLogSerializer,
     GrievanceSerializer, StudyTaskSerializer, NoticeSerializer,
     StudentPsychometricProfileSerializer, StudentStudyPlannerConfigSerializer,
-    UserActivityLogSerializer, DoubtSerializer
+    UserActivityLogSerializer, DoubtSerializer, ClassFeedbackSerializer
 )
 
 @api_view(['GET'])
@@ -1609,3 +1610,34 @@ def get_swot_analysis(request):
         traceback.print_exc()
         return response.Response({"error": str(e)}, status=500)
 
+
+class ClassFeedbackViewSet(viewsets.ModelViewSet):
+    queryset = ClassFeedback.objects.all()
+    serializer_class = ClassFeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.user_type in ['superadmin', 'admin', 'staff']:
+            return self.queryset
+        elif user.user_type in ['teacher', 'faculty']:
+            # Teachers only see feedback assigned to them
+            return self.queryset.filter(Q(teacher_id=str(user.pk)) | Q(teacher_name__icontains=user.first_name))
+        else:
+            # Students can see their own feedback
+            return self.queryset.filter(student=user)
+
+    def perform_create(self, serializer):
+        responses = self.request.data.get('responses', {})
+        total_score = 0
+        count = 0
+        score_map = {'EXCELLENT': 5, 'GOOD': 4, 'AVERAGE': 3, 'BAD': 1}
+        
+        for q, ans in responses.items():
+            if ans in score_map:
+                total_score += score_map[ans]
+                count += 1
+        
+        avg_score = round(total_score / count, 1) if count > 0 else 0.0
+        
+        serializer.save(student=self.request.user, average_score=avg_score)

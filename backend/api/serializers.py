@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import UploadedFile, CustomUser, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig, Doubt
+from .models import UploadedFile, CustomUser, Grievance, StudyTask, Notice, StudentPsychometricProfile, StudentStudyPlannerConfig, Doubt, ClassFeedback
 from .models import UserActivityLog
 import json
 
@@ -305,3 +305,27 @@ class DoubtSerializer(serializers.ModelSerializer):
         model = Doubt
         fields = '__all__'
         read_only_fields = ['id', 'student_name', 'student_id', 'created_at']
+
+class ClassFeedbackSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='pk', read_only=True)
+    student_name = serializers.CharField(source='student.first_name', read_only=True)
+    student_username = serializers.CharField(source='student.username', read_only=True)
+    responses = serializers.JSONField(required=False, allow_null=True)
+    teacher_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    teacher_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    subject = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    centre_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    student_batch = serializers.CharField(source='student.assigned_batch', read_only=True)
+    student_center = serializers.CharField(source='student.centre_name', read_only=True)
+    student_exam_tag = serializers.CharField(source='student.exam_tag_name', read_only=True)
+
+    class Meta:
+        model = ClassFeedback
+        fields = [
+            'id', 'student', 'student_name', 'student_username',
+            'student_batch', 'student_center', 'student_exam_tag',
+            'teacher_id', 'teacher_name', 'subject', 'date_of_class',
+            'responses', 'average_score', 'centre_code', 'created_at'
+        ]
+        read_only_fields = ['student', 'average_score', 'created_at']
