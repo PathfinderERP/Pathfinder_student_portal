@@ -512,7 +512,7 @@ class DoubtViewSet(viewsets.ModelViewSet):
             centre_name      = centre_name      or getattr(user_obj, 'centre_name', None)
             student_email    = student_email    or getattr(user_obj, 'email', None)
             admission_number = admission_number or getattr(user_obj, 'admission_number', None)
-            if not exam_tag:
+            if not exam_tag or len(str(exam_tag)) == 24:
                 try:
                     exam_tag = user_obj.target_exam.name if user_obj.target_exam else None
                 except Exception:
@@ -1254,6 +1254,139 @@ class UserActivityLogViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_admin_student_activity_summary(request, admission_number):
+    """Admin endpoint to get local app activity + test count for a specific student."""
+    user = request.user
+    if user.user_type not in ['superadmin', 'admin', 'teacher', 'faculty', 'staff']:
+        return response.Response({"error": "Unauthorized"}, status=403)
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    from django.db.models import Q
+    student = User.objects.filter(Q(username=admission_number) | Q(admission_number=admission_number)).first()
+    
+    # 1. Local App Logins
+    login_count = LoginLog.objects.filter(Q(username=admission_number) | (Q(username=student.username) if student else Q())).count()
+    
+    # 2. Local Video Watches & Last Active
+    videos_watched = 0
+    last_active = None
+    if student:
+        videos_watched = UserActivityLog.objects.filter(
+            user=student, 
+            activity_type__in=['video_complete', 'video_play']
+        ).values('path').distinct().count()
+
+        last_log = UserActivityLog.objects.filter(user=student).order_by('-timestamp').first()
+        if last_log:
+            last_active = last_log.timestamp.isoformat()
+
+    # 3. Local Portal Tests
+    tests_taken = 0
+    total_tests = 0
+    if student:
+        from tests.models import TestSubmission
+        tests_taken = TestSubmission.objects.filter(student=student).count()
+        
+        try:
+            from django.db.models import Q
+            from centres.models import Centre
+            from tests.models import Test
+            
+            c_code = str(getattr(student, 'centre_code', '') or '').lower().strip()
+            c_name = str(getattr(student, 'centre_name', '') or '').lower().strip()
+            
+            centre_test_ids = []
+            if c_code or c_name:
+                matching_centre_ids = list(
+                    Centre.objects.filter(
+                        Q(code__iexact=c_code) | Q(name__iexact=c_name)
+                    ).values_list('_id', flat=True)
+                )
+                if matching_centre_ids:
+                    centre_test_ids = list(
+                        Test.objects.filter(centres__in=matching_centre_ids).values_list('pk', flat=True)
+                    )
+
+            if student.class_level:
+                qs_academic = Test.objects.filter(class_level=student.class_level)
+            else:
+                qs_academic = Test.objects.filter(class_level__isnull=True)
+
+            if student.target_exam:
+                te_test_ids = list(
+                    Test.objects.filter(target_exams=student.target_exam).values_list('pk', flat=True)
+                )
+                qs_academic = qs_academic.filter(pk__in=te_test_ids)
+
+            if student.session:
+                session_m2m_ids = list(
+                    Test.objects.filter(sessions=student.session).values_list('pk', flat=True)
+                )
+                qs_academic = qs_academic.filter(
+                    Q(exam_type__name__icontains='STUDY PLANNER') |
+                    Q(exam_type__name__icontains='STUDY_PLANNER') |
+                    Q(session=student.session) |
+                    Q(pk__in=session_m2m_ids)
+                )
+
+            academic_test_ids = list(qs_academic.values_list('pk', flat=True))
+            eligible_ids = set(str(pk) for pk in centre_test_ids) & set(str(pk) for pk in academic_test_ids)
+            
+            total_tests = len(eligible_ids)
+        except Exception as e:
+            print(f"[TESTS] Error fetching total tests for student: {e}")
+
+    # 4. ERP Attendance
+    erp_id = request.query_params.get('erp_id')
+    attendance_present = 0
+    attendance_total = 0
+    if erp_id:
+        try:
+            from api.erp_views import _get_erp_url, _get_erp_admin_token
+            import requests
+            erp_url = _get_erp_url()
+            erp_token = _get_erp_admin_token()
+            resp = requests.get(
+                f"{erp_url}/api/student-portal/attendance",
+                headers={'Authorization': f"Bearer {erp_token}"},
+                params={'studentId': erp_id},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                records = data if isinstance(data, list) else data.get('data', [])
+                if isinstance(records, list):
+                    valid_records = [r for r in records if r.get('attendanceStatus', r.get('status')) not in ['Not Marked', 'Not_Marked', '', None]]
+                    attendance_total = len(valid_records)
+                    attendance_present = sum(1 for r in valid_records if r.get('attendanceStatus', r.get('status')) == 'Present')
+        except Exception as e:
+            print(f"[ATTENDANCE] Error fetching attendance for {erp_id}: {e}")
+
+    # 5. Total Study Time (from heartbeats)
+    from django.db.models import Sum
+    total_study_time_seconds = 0
+    if student:
+        agg = UserActivityLog.objects.filter(
+            user=student,
+            activity_type='heartbeat'
+        ).aggregate(total=Sum('duration'))
+        total_study_time_seconds = agg['total'] or 0
+
+    return response.Response({
+        'loginCount': login_count,
+        'videosWatched': videos_watched,
+        'testsTaken': tests_taken,
+        'testsTotal': total_tests,
+        'lastActive': last_active,
+        'attendancePresent': attendance_present,
+        'attendanceTotal': attendance_total,
+        'totalStudyTimeSeconds': total_study_time_seconds
+    }, status=200)
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])

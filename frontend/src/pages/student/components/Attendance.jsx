@@ -1019,6 +1019,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
     const [timePeriod, setTimePeriod] = useState('all');
     const [viewMode, setViewMode] = useState('overview');
     const [feedbackClass, setFeedbackClass] = useState(null);
+    const [showAllFeedback, setShowAllFeedback] = useState(false);
 
     const fetchAttendance = useCallback(async (isBackground = false) => {
         if (!token) return;
@@ -1029,7 +1030,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
 
             // Fetch history, summary, and submitted feedbacks in parallel
             const [historyResp, reportResp, feedbackResp] = await Promise.all([
-                axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers }),
+                axios.get(`${apiUrl}/api/student/attendance/`, { headers }),
                 axios.get(`${apiUrl}/api/student-portal/report/`, { headers }),
                 axios.get(`${apiUrl}/api/class-feedback/`, { headers }).catch(() => ({ data: [] }))
             ]);
@@ -1054,6 +1055,12 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
                     records = reportData.attendanceReport.classes;
                 }
             }
+
+            // Filter out Not Marked classes to only show actual attendance
+            records = records.filter(r => {
+                const status = r.attendanceStatus || r.status;
+                return status && status !== 'Not Marked' && status !== 'Not_Marked';
+            });
 
             // Cross-reference records with submitted feedbacks
             records = records.map(record => {
@@ -1194,7 +1201,7 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
         });
 
         const gradedTotal = presentCount + absentCount;
-        const total = filtered.length;
+        const total = gradedTotal;
         const overall = gradedTotal > 0 ? Math.round((presentCount / gradedTotal) * 100) : 0;
         const subjectData = Object.values(subjectMap).map(s => ({
             ...s,
@@ -1204,13 +1211,14 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
         return { overall, present: presentCount, absent: absentCount, total, monthlyData, subjectData, weekdayMap, dailyAttendance, streak: calculateStreak(filtered), trend: calculateTrend(monthlyData) };
     }, [rawData, timePeriod]);
 
-    const pendingFeedbackClasses = useMemo(() => {
+    const allPendingFeedbackClasses = useMemo(() => {
         if (!Array.isArray(rawData)) return [];
-        // Assuming classes without a feedback property need feedback. We'll show the top 3 most recent present classes.
         const presentClasses = rawData.filter(r => (r.attendanceStatus || r.status) === 'Present' && !r.feedbackGiven);
         if (presentClasses.length === 0) return [];
-        return presentClasses.sort((a, b) => new Date(b.date || b.classScheduleId?.date) - new Date(a.date || a.classScheduleId?.date)).slice(0, 3);
+        return presentClasses.sort((a, b) => new Date(b.date || b.classScheduleId?.date) - new Date(a.date || a.classScheduleId?.date));
     }, [rawData]);
+
+    const displayFeedbackClasses = showAllFeedback ? allPendingFeedbackClasses : allPendingFeedbackClasses.slice(0, 3);
 
     if (loading) return (
         <div className="space-y-8 animate-pulse pb-20">
@@ -1299,15 +1307,23 @@ const Attendance = ({ isDarkMode, cache, setCache }) => {
             </div>
 
             {/* Quick Feedback Banner */}
-            {pendingFeedbackClasses.length > 0 && (
+            {allPendingFeedbackClasses.length > 0 && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             Pending Feedback <span className="font-medium opacity-40">Action Required</span>
                         </h3>
+                        {allPendingFeedbackClasses.length > 3 && (
+                            <button
+                                onClick={() => setShowAllFeedback(!showAllFeedback)}
+                                className={`text-[10px] font-black uppercase tracking-widest transition-all hover:underline ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}
+                            >
+                                {showAllFeedback ? 'Show Less' : `View All (${allPendingFeedbackClasses.length})`}
+                            </button>
+                        )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {pendingFeedbackClasses.map((cls, idx) => (
+                        {displayFeedbackClasses.map((cls, idx) => (
                             <motion.div 
                                 key={cls._id || idx}
                                 initial={{ opacity: 0, y: 10 }}

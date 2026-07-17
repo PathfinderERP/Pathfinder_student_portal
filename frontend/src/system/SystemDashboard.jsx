@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
-    MessageSquare, Image, CircleDot, Compass,
+    MessageSquare, Image, CircleDot, Compass, Activity,
     Contact, Home, LayoutGrid, PieChart, BookOpen, Star
 } from 'lucide-react';
 
@@ -63,6 +63,7 @@ import GuideRegistry from './content/GuideRegistry';
 import CommunityRegistry from './content/CommunityRegistry';
 import GrievanceManagement from './admin/GrievanceManagement';
 import ClassFeedbackManagement from './admin/ClassFeedbackManagement';
+import StudentActivity from './admin/StudentActivity';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
@@ -424,6 +425,7 @@ const SystemDashboard = () => {
             ]
         },
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
+        { id: 'student_activity', icon: Activity, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
         { id: 'class_feedback', icon: Star, label: 'Class Feedback', active: activeTab === 'Class Feedback', onClick: () => setActiveTab('Class Feedback') },
         {
             id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Nexus Hub', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
@@ -630,6 +632,8 @@ const SystemDashboard = () => {
                 return <SolveDoubt />;
             case 'Grievance Management':
                 return <GrievanceManagement />;
+            case 'Student Activity':
+                return <StudentActivity studentsData={erpStudents} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(true)} />;
             case 'Library':
                 return <LibraryRegistry />;
             case 'Solution To Dpp Rpp':
@@ -695,7 +699,7 @@ const SystemDashboard = () => {
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
             'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Class Feedback',
-            'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide',
+            'Student Activity', 'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide',
             'OMR Test Create', 'OMR Test Allotment', 'OMR Test Responses', 'OMR Merge Test Result', 'OMR Test Result'
         ];
 

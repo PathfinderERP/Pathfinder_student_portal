@@ -697,12 +697,18 @@ const Classes = ({ isDarkMode, cache, setCache, studentBatch }) => {
             const [ongoingRes, upcomingRes, historyRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/student-portal/classes/ongoing/`, { headers }),
                 axios.get(`${apiUrl}/api/student-portal/classes/upcoming/`, { headers }),
-                axios.get(`${apiUrl}/api/student-portal/classes/previous/`, { headers })
+                axios.get(`${apiUrl}/api/student/attendance/`, { headers })
             ]);
 
             const fetchedOngoing = ongoingRes.data?.data || ongoingRes.data || [];
             const fetchedUpcoming = upcomingRes.data?.data || upcomingRes.data || [];
-            const fetchedPrevious = historyRes.data?.data || historyRes.data || [];
+            let fetchedPrevious = historyRes.data?.data || historyRes.data || [];
+            
+            // Filter out Not Marked classes so that "Previous Classes" only shows actually held classes
+            fetchedPrevious = fetchedPrevious.filter(r => {
+                const status = r.attendanceStatus || r.status;
+                return status && status !== 'Not Marked' && status !== 'Not_Marked';
+            });
 
             if (JSON.stringify(ongoingClasses) !== JSON.stringify(fetchedOngoing)) setOngoingClasses(fetchedOngoing);
             if (JSON.stringify(upcomingClasses) !== JSON.stringify(fetchedUpcoming)) setUpcomingClasses(fetchedUpcoming);
