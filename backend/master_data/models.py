@@ -379,6 +379,7 @@ class LibraryItem(models.Model):
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     sessions = models.ManyToManyField(Session, blank=True, related_name='library_items_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
+    class_levels = models.ManyToManyField(ClassLevel, blank=True, related_name='library_items_multi')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     chapter = models.ForeignKey(Chapter, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')
     topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, blank=True, related_name='library_items')

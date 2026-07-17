@@ -181,8 +181,10 @@ class LibraryItemSerializer(serializers.ModelSerializer):
     target_exam_name = serializers.CharField(source='target_exam.name', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
     session_names = serializers.SerializerMethodField()
+    class_levels = ObjectIdRelatedField(many=True, queryset=ClassLevel.objects.all(), required=False)
     target_exams = ObjectIdRelatedField(many=True, queryset=TargetExam.objects.all(), required=False)
     target_exam_names = serializers.SerializerMethodField()
+    class_level_names = serializers.SerializerMethodField()
     pdfs = LibraryPDFSerializer(many=True, read_only=True)
     videos = LibraryVideoSerializer(many=True, read_only=True)
     dpps = LibraryDPPSerializer(many=True, read_only=True)
@@ -195,6 +197,8 @@ class LibraryItemSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if 'sessions' in ret:
             ret['sessions'] = [str(s.pk) for s in instance.sessions.all()]
+        if 'class_levels' in ret:
+            ret['class_levels'] = [str(cl.pk) for cl in instance.class_levels.all()]
         if 'target_exams' in ret:
             ret['target_exams'] = [str(te.pk) for te in instance.target_exams.all()]
             
@@ -218,6 +222,10 @@ class LibraryItemSerializer(serializers.ModelSerializer):
 
     def get_target_exam_names(self, obj):
         try: return [te.name for te in obj.target_exams.all()]
+        except: return []
+
+    def get_class_level_names(self, obj):
+        try: return [cl.name for cl in obj.class_levels.all()]
         except: return []
 
     def get_questions_count(self, obj):

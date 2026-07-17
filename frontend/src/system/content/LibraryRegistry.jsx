@@ -376,6 +376,7 @@ const LibraryRegistry = () => {
         session: '',
         sessions: [],
         class_level: '',
+        class_levels: [],
         subject: '',
         chapter: '',
         topic: '',
@@ -410,6 +411,7 @@ const LibraryRegistry = () => {
         session: '',
         sessions: [],
         class_level: '',
+        class_levels: [],
         subject: '',
         chapter: '',
         topic: '',
@@ -708,6 +710,11 @@ const LibraryRegistry = () => {
                 } else if (newItem.target_exam) {
                     formData.append('target_exams', newItem.target_exam);
                 }
+                if (newItem.class_levels && newItem.class_levels.length > 0) {
+                    newItem.class_levels.forEach(cid => formData.append('class_levels', cid));
+                } else if (newItem.class_level) {
+                    formData.append('class_levels', newItem.class_level);
+                }
                 formData.append('class_level', newItem.class_level || '');
                 formData.append('subject', newItem.subject || '');
                 formData.append('chapter', newItem.chapter || '');
@@ -815,14 +822,15 @@ const LibraryRegistry = () => {
             name: item.name,
             description: item.description,
             session: item.session || '',
-            sessions: item.sessions || [],
+            sessions: item.sessions?.length > 0 ? item.sessions : (item.session ? [item.session] : []),
             class_level: item.class_level || '',
+            class_levels: item.class_levels?.length > 0 ? item.class_levels : (item.class_level ? [item.class_level] : []),
             subject: item.subject || '',
             chapter: item.chapter || '',
             topic: item.topic || '',
             exam_type: item.exam_type || '',
             target_exam: item.target_exam || '',
-            target_exams: item.target_exams || [],
+            target_exams: item.target_exams?.length > 0 ? item.target_exams : (item.target_exam ? [item.target_exam] : []),
             section: item.section || '',
             thumbnail: null,
             pdf: null,
@@ -886,6 +894,11 @@ const LibraryRegistry = () => {
                 newItem.sessions.forEach(sid => formData.append('sessions', sid));
             } else if (newItem.session) {
                 formData.append('sessions', newItem.session);
+            }
+            if (newItem.class_levels && newItem.class_levels.length > 0) {
+                newItem.class_levels.forEach(cid => formData.append('class_levels', cid));
+            } else if (newItem.class_level) {
+                formData.append('class_levels', newItem.class_level);
             }
             formData.append('class_level', newItem.class_level || '');
             formData.append('subject', newItem.subject || '');
@@ -1761,7 +1774,7 @@ const LibraryRegistry = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     {[
                                         { label: 'Session', field: 'sessions', options: sessions, isMulti: true },
-                                        { label: 'Class Level', field: 'class_level', options: classes },
+                                        { label: 'Class Level', field: 'class_levels', options: classes, isMulti: true },
                                         { label: 'Subject', field: 'subject', options: subjects },
                                         { 
                                             label: 'Chapter', 
@@ -1785,7 +1798,7 @@ const LibraryRegistry = () => {
                                                     
                                                     // Implementation of selection persistence (avoiding aggressive reset)
                                                     if (!isIndependentMode) {
-                                                        const nextClass = meta.field === 'class_level' ? val : newItem.class_level;
+                                                        const nextClass = meta.field === 'class_levels' ? (val.length > 0 ? val[0] : '') : newItem.class_levels?.[0];
                                                         const nextSubject = meta.field === 'subject' ? val : newItem.subject;
                                                         const nextChapter = meta.field === 'chapter' ? val : newItem.chapter;
 
