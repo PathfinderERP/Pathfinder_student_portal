@@ -228,13 +228,28 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
         flattenedMaterials.forEach(item => {
             const normalize = (val) => String(val || '').toLowerCase().trim().replace(/class\s*/g, '');
+            const normAssigned = assignedClass ? normalize(assignedClass) : '';
             
             // Apply student context filtering (Normalization for fuzzy matching)
-            if (assignedClass && item.class_name) {
-                if (normalize(item.class_name) !== normalize(assignedClass)) return;
+            if (assignedClass) {
+                const classNames = item.class_level_names?.length > 0 
+                    ? item.class_level_names 
+                    : (item.class_name ? [item.class_name] : []);
+                
+                if (classNames.length > 0) {
+                    const hasClassMatch = classNames.some(c => normalize(c).includes(normAssigned) || normAssigned.includes(normalize(c)));
+                    if (!hasClassMatch) return;
+                }
             }
-            if (studentSession && item.session_name) {
-                if (normalize(item.session_name) !== normalize(studentSession)) return;
+
+            if (studentSession) {
+                const sessionNames = item.session_names?.length > 0
+                    ? item.session_names
+                    : (item.session_name ? [item.session_name] : []);
+                if (sessionNames.length > 0) {
+                    const hasSessionMatch = sessionNames.some(s => normalize(s) === normalize(studentSession));
+                    if (!hasSessionMatch) return;
+                }
             }
             if (studentSection && item.section_name) {
                 if (normalize(item.section_name) !== normalize(studentSection)) return;
@@ -246,9 +261,12 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
             // SMART BIOLOGY FILTERING: 
             // 5-10: Only Biology (Hide Botany/Zoology)
-            // 11-12: Only Botany/Zoology (Hide general Biology)
+            // 11-12 & Repeater: Only Botany/Zoology (Hide general Biology)
             const classMatch = assignedClass?.match(/\d+/);
-            const classNum = classMatch ? parseInt(classMatch[0]) : 0;
+            let classNum = classMatch ? parseInt(classMatch[0]) : 0;
+            if (normAssigned === 'repeater' || normAssigned === 'dropper') {
+                classNum = 13;
+            }
 
             if (classNum >= 5 && classNum <= 10) {
                 if (subName.toLowerCase().includes('botany') || subName.toLowerCase().includes('zoology')) return;

@@ -1228,7 +1228,9 @@ const LibraryRegistry = () => {
                 String(item.session) === String(activeFilters.session) || 
                 (item.sessions && item.sessions.some(s => String(s) === String(activeFilters.session))) || 
                 item.is_virtual;
-            const matchesClass = !activeFilters.class_level || String(item.class_level) === String(activeFilters.class_level);
+            const matchesClass = !activeFilters.class_level || 
+                String(item.class_level) === String(activeFilters.class_level) ||
+                (item.class_levels && item.class_levels.some(c => String(c) === String(activeFilters.class_level)));
             const matchesSubject = !activeFilters.subject || String(item.subject) === String(activeFilters.subject);
             const matchesChapter = !activeFilters.chapter || String(item.chapter) === String(activeFilters.chapter);
             const matchesTopic = !activeFilters.topic || String(item.topic) === String(activeFilters.topic);
@@ -1250,7 +1252,9 @@ const LibraryRegistry = () => {
         }).sort((a, b) => {
             if (sortOrder === 'chapter') {
                 // Primary: Class, Secondary: Subject, Tertiary: Chapter Order, Quaternary: Item Name
-                const classComp = (a.class_name || "").localeCompare(b.class_name || "");
+                const classA = a.class_level_names?.length > 0 ? a.class_level_names[0] : (a.class_name || "");
+                const classB = b.class_level_names?.length > 0 ? b.class_level_names[0] : (b.class_name || "");
+                const classComp = classA.localeCompare(classB);
                 if (classComp !== 0) return classComp;
 
                 const subComp = (a.subject_name || "").localeCompare(b.subject_name || "");
@@ -1586,7 +1590,9 @@ const LibraryRegistry = () => {
                                             </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <span className="font-black text-xs tracking-widest text-[#E67E22] uppercase">{item.class_name || '-'}</span>
+                                            <span className="font-black text-xs tracking-widest text-[#E67E22] uppercase">
+                                                {item.class_level_names?.length > 0 ? item.class_level_names.join(', ') : (item.class_name || '-')}
+                                            </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             {item.subject_name ? (

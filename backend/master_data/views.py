@@ -49,17 +49,30 @@ class StudentSectionFilterMixin:
             filter_q &= (session_q | no_session_q)
 
         # 2. Class Level Filtering
-        if hasattr(queryset.model, 'class_level'):
-            class_q = Q(class_level__isnull=True)
+        if hasattr(queryset.model, 'class_levels') or hasattr(queryset.model, 'class_level'):
+            class_q = Q()
+            
+            if hasattr(queryset.model, 'class_levels'):
+                class_q |= Q(class_levels__isnull=True)
+            if hasattr(queryset.model, 'class_level'):
+                class_q |= Q(class_level__isnull=True)
+                
             if hasattr(user, 'class_level') and user.class_level:
-                class_q |= Q(class_level=user.class_level)
+                if hasattr(queryset.model, 'class_levels'):
+                    class_q |= Q(class_levels=user.class_level)
+                if hasattr(queryset.model, 'class_level'):
+                    class_q |= Q(class_level=user.class_level)
+                    
             filter_q &= class_q
 
         # 3. Target Exam Filtering
         if hasattr(queryset.model, 'target_exams') or hasattr(queryset.model, 'target_exam'):
             te_q = Q()
             # Default: visible if no target exam is set
-            te_q |= (Q(target_exams__isnull=True) & Q(target_exam__isnull=True))
+            if hasattr(queryset.model, 'target_exams'):
+                te_q |= Q(target_exams__isnull=True)
+            if hasattr(queryset.model, 'target_exam'):
+                te_q |= Q(target_exam__isnull=True)
             
             if hasattr(user, 'target_exam') and user.target_exam:
                 if hasattr(queryset.model, 'target_exams'):
