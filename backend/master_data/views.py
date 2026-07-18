@@ -784,7 +784,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
             'session', 'class_level', 'subject', 'chapter', 'topic', 
             'exam_type', 'target_exam', 'section'
         ).prefetch_related(
-            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
+            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams', 'class_levels'
         )
             
         queryset = queryset.all().order_by('-created_at')
@@ -797,7 +797,7 @@ class LibraryItemViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, view
             'session', 'class_level', 'subject', 'chapter', 'topic', 
             'exam_type', 'target_exam', 'section'
         ).prefetch_related(
-            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams'
+            'pdfs', 'videos', 'dpps', 'questions', 'sessions', 'target_exams', 'class_levels'
         )
         # Get the single object by primary key
         pk = self.kwargs.get(self.lookup_url_kwarg or self.lookup_field)
