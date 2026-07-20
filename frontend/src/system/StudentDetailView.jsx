@@ -15,7 +15,7 @@ const StudentDetailView = ({ student, onClose }) => {
     }
 
     // Helper to extract nested data safely
-    const details = student?.student?.studentsDetails?.[0] || {};
+    const details = student?.student?.studentsDetails?.[0] || student?.studentsDetails?.[0] || student || {};
     const course = student?.course || {};
     const paymentBreakdown = student?.paymentBreakdown || [];
     const feeStructure = student?.feesStructure || student?.feeStructureSnapshot || [];
@@ -44,7 +44,7 @@ const StudentDetailView = ({ student, onClose }) => {
                         </div>
                         <div>
                             <h2 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                {details.studentName || 'Student Details'}
+                                {details.studentName || details.name || 'Student Details'}
                             </h2>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border
@@ -78,12 +78,12 @@ const StudentDetailView = ({ student, onClose }) => {
                                     <User size={14} className="text-orange-500" /> Personal Information
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <InfoItem label="Full Name" value={details.studentName} isDark={isDarkMode} Icon={User} />
+                                    <InfoItem label="Full Name" value={details.studentName || details.name} isDark={isDarkMode} Icon={User} />
                                     <InfoItem label="Date of Birth" value={details.dateOfBirth} isDark={isDarkMode} Icon={Calendar} />
                                     <InfoItem label="Gender" value={details.gender} isDark={isDarkMode} Icon={User} />
                                     <InfoItem label="Admission Number" value={student.admissionNumber} isDark={isDarkMode} Icon={FileText} />
-                                    <InfoItem label="Email" value={details.studentEmail} isDark={isDarkMode} Icon={Mail} />
-                                    <InfoItem label="Mobile" value={`+91 ${details.mobileNum}`} isDark={isDarkMode} Icon={Phone} />
+                                    <InfoItem label="Email" value={details.studentEmail || details.email} isDark={isDarkMode} Icon={Mail} />
+                                    <InfoItem label="Mobile" value={details.mobileNum ? `+91 ${details.mobileNum}` : (details.phone ? `+91 ${details.phone}` : '')} isDark={isDarkMode} Icon={Phone} />
                                     <InfoItem label="Class" value={student.class?.name || details.className || student.class} isDark={isDarkMode} Icon={BookOpen} />
                                     <InfoItem label="School" value={details.schoolName} isDark={isDarkMode} Icon={BookOpen} />
                                     <InfoItem label="Board" value={details.board} isDark={isDarkMode} Icon={Award} />

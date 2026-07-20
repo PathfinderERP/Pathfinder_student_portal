@@ -3,9 +3,86 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
     Search, Filter, ChevronLeft, ChevronRight, Activity, Clock, FileText, RotateCcw,
-    MonitorPlay, Download, RefreshCw, CheckCircle2, Timer
+    MonitorPlay, Download, RefreshCw, CheckCircle2, Timer, Eye, X
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
+
+// Inline Modal for Activity Details
+const StudentActivityModal = ({ student, activity, onClose, isDarkMode }) => {
+    if (!student || !activity) return null;
+
+    const details = student?.student?.studentsDetails?.[0] || student?.studentsDetails?.[0] || student || {};
+    const name = details.studentName || details.name || 'Unknown';
+    const admissionNumber = student.admissionNumber || 'N/A';
+
+    return (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            
+            <div className={`relative z-10 w-full max-w-2xl overflow-hidden rounded-[5px] border shadow-2xl flex flex-col animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                {/* Header */}
+                <div className={`px-8 py-6 border-b flex justify-between items-center z-10 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                    <div>
+                        <h2 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {name}
+                        </h2>
+                        <div className="text-xs font-bold text-orange-500 mt-1 uppercase tracking-widest">
+                            ID: {admissionNumber}
+                        </div>
+                    </div>
+                    <button onClick={onClose} className={`p-3 rounded-[5px] transition-all hover:rotate-90 hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-200 text-slate-900 hover:bg-slate-300'}`}>
+                        <X size={20} strokeWidth={2.5} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-8 grid grid-cols-2 sm:grid-cols-3 gap-6">
+                    {/* App Logins */}
+                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <Activity className="w-8 h-8 mx-auto mb-3 text-blue-500" />
+                        <div className="text-3xl font-black">{activity.loginCount || 0}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">App Logins</div>
+                    </div>
+                    
+                    {/* Videos Watched */}
+                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <MonitorPlay className="w-8 h-8 mx-auto mb-3 text-purple-500" />
+                        <div className="text-3xl font-black">{activity.videosWatched || 0}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Videos Watched</div>
+                    </div>
+
+                    {/* Tests Taken */}
+                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <FileText className="w-8 h-8 mx-auto mb-3 text-orange-500" />
+                        <div className="text-3xl font-black">{activity.testsTaken || 0} <span className="text-lg opacity-50">/ {activity.testsTotal || 0}</span></div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Tests Taken</div>
+                    </div>
+
+                    {/* Attendance */}
+                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <CheckCircle2 className="w-8 h-8 mx-auto mb-3 text-emerald-500" />
+                        <div className="text-3xl font-black">{activity.attendanceTotal ? `${activity.attendancePresent}` : '-'} <span className="text-lg opacity-50">{activity.attendanceTotal ? `/ ${activity.attendanceTotal}` : ''}</span></div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Attendance</div>
+                    </div>
+
+                    {/* Study Time */}
+                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <Timer className="w-8 h-8 mx-auto mb-3 text-teal-500" />
+                        <div className="text-xl font-black mt-2">{formatTime(activity.totalStudyTimeSeconds)}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-2">Study Time</div>
+                    </div>
+
+                    {/* Last Active */}
+                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <Clock className="w-8 h-8 mx-auto mb-3 text-slate-500" />
+                        <div className="text-lg font-black mt-2">{activity.lastActive ? new Date(activity.lastActive).toLocaleDateString() : 'Never'}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-2">Last Active</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const formatTime = (seconds) => {
     if (!seconds) return '0m';
@@ -19,12 +96,13 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({
         course: [],
-        status: [],
+        status: ['ACTIVE'],
         centre: [],
         className: [],
         examTag: []
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState(null);
 
     // Auth and Activity Loading
     const { token, getApiUrl } = useAuth();
@@ -134,7 +212,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
     };
 
     const clearFilters = () => {
-        setFilters({ course: [], status: [], centre: [], className: [], examTag: [] });
+        setFilters({ course: [], status: ['ACTIVE'], centre: [], className: [], examTag: [] });
         setSearchQuery('');
         setCurrentPage(1);
     };
@@ -274,6 +352,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                                 <th className="px-4 py-3 text-center">Attendance</th>
                                 <th className="px-4 py-3 text-center">Study Time</th>
                                 <th className="px-4 py-3 text-right">Last Active</th>
+                                <th className="px-4 py-3 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-200'}`}>
@@ -352,6 +431,15 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                                                 </button>
                                             </td>
                                         )}
+                                        <td className="px-4 py-3 text-center">
+                                            <button
+                                                onClick={() => setSelectedStudent(student)}
+                                                className={`p-1.5 rounded-[5px] transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                                title="View Details"
+                                            >
+                                                <Eye size={16} />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (
@@ -423,6 +511,15 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                     </div>
                 </div>
             </div>
+            
+            {selectedStudent && (
+                <StudentActivityModal
+                    student={selectedStudent}
+                    activity={activityData[selectedStudent.admissionNumber] || {}}
+                    isDarkMode={isDarkMode}
+                    onClose={() => setSelectedStudent(null)}
+                />
+            )}
         </div>
     );
 };
