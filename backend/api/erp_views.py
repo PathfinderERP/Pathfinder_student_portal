@@ -8,6 +8,7 @@ import threading
 from django.core.cache import cache
 from django.db import close_old_connections
 from master_data.models import Session, ClassLevel, TargetExam
+from .models import CustomUser
 
 
 def _get_erp_url():
@@ -1275,3 +1276,91 @@ def sync_teachers_from_erp(request):
     except Exception as e:
         debug_log(f"[SYNC-TEACHERS] Outer exception: {e}")
         return Response({"error": f"Sync failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_admin_student_attendance(request, admission_number):
+    """
+    Fetches attendance for a single student on behalf of an admin.
+    Since the ERP requires a student token to hit /attendance/previous without a 500 error,
+    this view performs a mock login to get the student's token.
+    """
+    user = request.user
+    user_type = getattr(user, 'user_type', '')
+    if not (user.is_staff or user.is_superuser or user_type in ('admin', 'superadmin', 'staff')):
+        return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+    try:
+        # Step 1: Find the local student user to get their email/username
+        student_user = CustomUser.objects.filter(admission_number=admission_number).first()
+        username = None
+        student_id = None
+        
+        if student_user and student_user.username:
+            username = student_user.username
+            student_id = student_user.erp_student_id
+            
+        # Fallback to ERP cache if not in local DB or missing username
+        if not username:
+            erp_idx = get_student_lookup_index(force_refresh=False, block=False)
+            if erp_idx:
+                erp_record = erp_idx.get(f"adm_{admission_number.upper()}")
+                if erp_record:
+                    details = erp_record.get('student', {}).get('studentsDetails', [{}])[0]
+                    username = details.get('studentEmail') or details.get('mobileNum')
+                    student_id = erp_record.get('student', {}).get('_id')
+                    
+        if not username:
+            return Response({"error": f"Student {admission_number} not found or missing email/phone."}, status=404)
+            
+        # The ERP password for students is typically their admission number
+        password = admission_number.upper()
+        
+        # In case the student username is an email but password is known:
+        auth_payload = {
+            "username": username,
+            "password": password
+        }
+        
+        erp_url = _get_erp_url()
+        login_url = f"{erp_url}/api/student-portal/login"
+        
+        # Step 2: Login as student
+        resp = requests.post(login_url, json=auth_payload, timeout=10)
+        
+        # If we can't login, we can't fetch attendance via student token.
+        # Alternative: Admin token might work if we pass `?studentId=` using MongoDB _id. Let's try that as a fallback!
+        student_token = None
+        if resp.status_code == 200:
+            student_token = resp.json().get('token')
+            
+        if not student_token:
+            # Fallback: Try with Admin Token and studentId
+            erp_token = _get_erp_admin_token()
+            if student_id:
+                try:
+                    att_resp = requests.get(
+                        f"{erp_url}/api/student-portal/attendance/previous?studentId={student_id}",
+                        headers={"Authorization": f"Bearer {erp_token}"},
+                        timeout=15
+                    )
+                    if att_resp.status_code == 200:
+                        return Response(att_resp.json(), status=200)
+                except Exception as ex:
+                    debug_log(f"[ADMIN-ATTENDANCE] Fallback failed: {ex}")
+            return Response({"error": f"Failed to login to ERP as student {username}. Status: {resp.status_code}"}, status=400)
+            
+        # Step 3: Fetch attendance
+        att_resp = requests.get(
+            f"{erp_url}/api/student-portal/attendance/previous",
+            headers={"Authorization": f"Bearer {student_token}"},
+            timeout=15
+        )
+        
+        if att_resp.status_code == 200:
+            return Response(att_resp.json(), status=200)
+        else:
+            return Response({"error": f"Failed to fetch attendance. Status: {att_resp.status_code}"}, status=att_resp.status_code)
+            
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)

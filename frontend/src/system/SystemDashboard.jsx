@@ -4,7 +4,7 @@ import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
     MessageSquare, Image, CircleDot, Compass, Activity,
-    Contact, Home, LayoutGrid, PieChart, BookOpen, Star
+    Contact, Home, LayoutGrid, PieChart, BookOpen, Star, Calendar
 } from 'lucide-react';
 
 // Common
@@ -63,6 +63,7 @@ import GuideRegistry from './content/GuideRegistry';
 import CommunityRegistry from './content/CommunityRegistry';
 import GrievanceManagement from './admin/GrievanceManagement';
 import ClassFeedbackManagement from './admin/ClassFeedbackManagement';
+import StudentAttendancePage from './admin/StudentAttendancePage';
 import StudentActivity from './admin/StudentActivity';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
@@ -427,6 +428,7 @@ const SystemDashboard = () => {
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
         { id: 'student_activity', icon: Activity, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
         { id: 'class_feedback', icon: Star, label: 'Class Feedback', active: activeTab === 'Class Feedback', onClick: () => setActiveTab('Class Feedback') },
+        { id: 'student_attendance', icon: Calendar, label: 'Student Attendance', active: activeTab === 'Student Attendance', onClick: () => setActiveTab('Student Attendance') },
         {
             id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Nexus Hub', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
             subItems: [
@@ -680,6 +682,8 @@ const SystemDashboard = () => {
                 return <SettingsPage isDarkMode={isDarkMode} />;
             case 'Class Feedback':
                 return <ClassFeedbackManagement />;
+            case 'Student Attendance':
+                return <StudentAttendancePage />;
             default:
                 return (
                     <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
@@ -698,7 +702,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Class Feedback',
+            'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Class Feedback', 'Student Attendance',
             'Student Activity', 'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide',
             'OMR Test Create', 'OMR Test Allotment', 'OMR Test Responses', 'OMR Merge Test Result', 'OMR Test Result'
         ];
