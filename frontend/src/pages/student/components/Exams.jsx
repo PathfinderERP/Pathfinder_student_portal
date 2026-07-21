@@ -581,7 +581,7 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                     const isUpcoming = start && now < start;
                                     const noSchedule = !start && !end;
                                     const isUnlocked = test.submission?.allow_resume;
-                                    const studentCompleted = (test.submission?.is_finalized || isExpired) && !test.submission?.allow_resume;
+                                    const studentCompleted = test.submission?.is_finalized && !test.submission?.allow_resume;
                                     const hasStarted = (test.submission?.time_spent > 0) || test.submission?.is_finalized;
                                     const isMissed = isExpired && !hasStarted;
                                     const isDisabled = studentCompleted || isUpcoming || noSchedule;
@@ -635,12 +635,14 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
                                                     onClick={() => handleStartClick(test)}
                                                     className={`px-4 py-2 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg
                                                     ${isDisabled
-                                                        ? isMissed ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none border border-slate-200' : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                                                        : isUnlocked || hasStarted
-                                                            ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/30'
-                                                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/30'}`}
+                                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                                                        : isMissed 
+                                                            ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-600/30'
+                                                            : isUnlocked || hasStarted
+                                                                ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/30'
+                                                                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/30'}`}
                                                 >
-                                                    {studentCompleted ? (isMissed ? 'Expired' : 'Completed') : (isUpcoming ? 'Upcoming' : (noSchedule ? 'Unscheduled' : (isUnlocked || hasStarted ? 'Resume Profile' : 'Start Test')))}
+                                                    {studentCompleted ? 'Completed' : (isUpcoming ? 'Upcoming' : (noSchedule ? 'Unscheduled' : (isMissed ? 'Attempt Late' : (isUnlocked || hasStarted ? 'Resume Profile' : 'Start Test'))))}
                                                 </button>
                                             </td>
                                         </tr>

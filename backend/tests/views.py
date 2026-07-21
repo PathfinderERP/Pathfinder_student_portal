@@ -3692,8 +3692,8 @@ class TestViewSet(viewsets.ModelViewSet):
         now = timezone.now()
         if allotment.start_time and now < allotment.start_time:
             return Response({'error': 'Test has not started yet.'}, status=status.HTTP_403_FORBIDDEN)
-        if allotment.end_time and now > allotment.end_time:
-            return Response({'error': 'Test has already expired.'}, status=status.HTTP_403_FORBIDDEN)
+        # if allotment.end_time and now > allotment.end_time:
+        #     return Response({'error': 'Test has already expired.'}, status=status.HTTP_403_FORBIDDEN)
 
         if allotment.access_code == entered_code:
             return Response({'success': True, 'message': 'Access code verified.'})
