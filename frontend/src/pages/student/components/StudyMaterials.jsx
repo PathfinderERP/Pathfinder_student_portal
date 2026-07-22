@@ -214,7 +214,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
             }
             if (baseItem.videos?.length > 0) {
                 hasGranular = true;
-                baseItem.videos.forEach((v, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-v-${i}`, name: v.title || baseItem.name, description: v.description || baseItem.description, video_file: v.video_file, video_link: v.video_link, thumbnail: v.thumbnail || baseItem.thumbnail, pdf_file: null, dpp_file: null, resource_type: 'VIDEO' }));
+                baseItem.videos.forEach((v, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-v-${i}`, name: v.title || baseItem.name, description: v.description || baseItem.description, video_file: v.video_file, video_link: v.video_link, thumbnail: v.thumbnail || (v.video_link ? getYouTubeThumbnail(v.video_link) : null) || baseItem.thumbnail, pdf_file: null, dpp_file: null, resource_type: 'VIDEO' }));
             }
             if (baseItem.dpps?.length > 0) {
                 hasGranular = true;
