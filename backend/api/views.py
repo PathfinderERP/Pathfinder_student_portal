@@ -90,6 +90,17 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user_types = self.request.query_params.get('user_types')
+        user_type = self.request.query_params.get('user_type')
+        if user_types:
+            types_list = [t.strip() for t in user_types.split(',')]
+            queryset = queryset.filter(user_type__in=types_list)
+        elif user_type:
+            queryset = queryset.filter(user_type=user_type)
+        return queryset
+        
     def get_object(self):
         """
         Override get_object to handle MongoDB ObjectId lookups properly with Djongo
