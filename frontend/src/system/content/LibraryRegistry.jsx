@@ -1236,7 +1236,7 @@ const LibraryRegistry = () => {
             const matchesTopic = !activeFilters.topic || String(item.topic) === String(activeFilters.topic);
             const matchesExamType = !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
             const matchesTargetExam = activeFilters.target_exams.length === 0 || 
-                (item.target_exams && item.target_exams.some(te => activeFilters.target_exams.includes(te)));
+                (item.target_exams && item.target_exams.some(te => activeFilters.target_exams.map(String).includes(String(te))));
             const matchesSection = true;
             
             const hasPDF = !!(item.pdf_file || (item.pdfs && item.pdfs.length > 0));

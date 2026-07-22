@@ -32,21 +32,22 @@ class StudentSectionFilterMixin:
         
         # 1. Session Filtering
         if hasattr(queryset.model, 'sessions') or hasattr(queryset.model, 'session'):
-            session_q = Q()
-            if hasattr(user, 'session') and user.session:
-                if hasattr(queryset.model, 'sessions'):
-                    session_q |= Q(sessions=user.session)
-                if hasattr(queryset.model, 'session'):
-                    session_q |= Q(session=user.session)
-            
-            # If item has NO session assigned, it's global
-            no_session_q = Q()
-            if hasattr(queryset.model, 'sessions'):
-                no_session_q &= Q(sessions__isnull=True)
-            if hasattr(queryset.model, 'session'):
-                no_session_q &= Q(session__isnull=True)
-            
-            filter_q &= (session_q | no_session_q)
+            pass
+            # session_q = Q()
+            # if hasattr(user, 'session') and user.session:
+            #     if hasattr(queryset.model, 'sessions'):
+            #         session_q |= Q(sessions=user.session)
+            #     if hasattr(queryset.model, 'session'):
+            #         session_q |= Q(session=user.session)
+            # 
+            # # If item has NO session assigned, it's global
+            # no_session_q = Q()
+            # if hasattr(queryset.model, 'sessions'):
+            #     no_session_q &= Q(sessions__isnull=True)
+            # if hasattr(queryset.model, 'session'):
+            #     no_session_q &= Q(session__isnull=True)
+            # 
+            # filter_q &= (session_q | no_session_q)
 
         # 2. Class Level Filtering
         if hasattr(queryset.model, 'class_levels') or hasattr(queryset.model, 'class_level'):
