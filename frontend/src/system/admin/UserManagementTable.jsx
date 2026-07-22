@@ -82,7 +82,14 @@ const UserManagementTable = ({
                                             admin.username?.charAt(0).toUpperCase()
                                         )}
                                     </div>
-                                    <span className={`font-bold text-sm ${!admin.is_active && 'opacity-40 grayscale'}`}>{admin.username}</span>
+                                    <div className="flex flex-col">
+                                        <span className={`font-bold text-sm ${!admin.is_active && 'opacity-40 grayscale'}`}>
+                                            {(admin.first_name || admin.last_name) ? `${admin.first_name || ''} ${admin.last_name || ''}`.trim() : admin.username}
+                                        </span>
+                                        {(admin.first_name || admin.last_name) && (
+                                            <span className="text-[10px] font-bold opacity-40">@{admin.username}</span>
+                                        )}
+                                    </div>
                                 </div>
                             </td>
                             <td className="py-5 px-4 text-sm font-bold opacity-70">

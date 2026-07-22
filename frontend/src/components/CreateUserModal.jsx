@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getBaseApiUrl } from '../services/apiConfig';
 import { useTheme } from '../context/ThemeContext';
 import { UserPlus, User, Mail, Lock, Briefcase, AlertCircle, X, CheckCircle2, Shield } from 'lucide-react';
 
@@ -40,7 +41,7 @@ const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
         setError('');
         setIsLoading(true);
         try {
-            await axios.post('http://127.0.0.1:3001/api/register/', formData);
+            await axios.post(`${getBaseApiUrl()}/api/register/`, formData);
             setIsSuccess(true);
             setTimeout(() => {
                 if (onSuccess) onSuccess();

@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           // Use VITE_API_URL from .env files, fallback to local for safety
-          target: env.VITE_API_URL || 'http://127.0.0.1:3001',
+          target: env.VITE_API_URL || 'http://127.0.0.1:8000',
           changeOrigin: true,
           secure: false,
         },

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { getBaseApiUrl } from '../../services/apiConfig';
 import { useTheme } from '../../context/ThemeContext';
 import { FileText, Plus, Trash2, Edit2, Search, Filter, X, CheckCircle, RefreshCw, Eye, File, ChevronDown, Check, Square, CheckSquare } from 'lucide-react';
 
 const PenPaperTestRegistry = () => {
     const { isDarkMode } = useTheme();
-    const getApiUrl = useCallback(() => localStorage.getItem('apiUrl') || 'http://127.0.0.1:3001', []);
+    const getApiUrl = useCallback(() => localStorage.getItem('apiUrl') || getBaseApiUrl(), []);
 
     // State Management
     const [tests, setTests] = useState([]);
