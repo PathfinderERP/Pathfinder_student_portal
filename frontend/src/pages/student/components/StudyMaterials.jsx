@@ -214,7 +214,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
             }
             if (baseItem.videos?.length > 0) {
                 hasGranular = true;
-                baseItem.videos.forEach((v, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-v-${i}`, name: v.title || baseItem.name, description: v.description || baseItem.description, video_file: v.video_file, video_link: v.video_link, thumbnail: v.thumbnail || baseItem.thumbnail, pdf_file: null, dpp_file: null, resource_type: 'VIDEO' }));
+                baseItem.videos.forEach((v, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-v-${i}`, name: v.title || baseItem.name, description: v.description || baseItem.description, video_file: v.video_file, video_link: v.video_link, thumbnail: v.thumbnail || (v.video_link ? getYouTubeThumbnail(v.video_link) : null) || baseItem.thumbnail, pdf_file: null, dpp_file: null, resource_type: 'VIDEO' }));
             }
             if (baseItem.dpps?.length > 0) {
                 hasGranular = true;
@@ -242,15 +242,16 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 }
             }
 
-            if (studentSession) {
-                const sessionNames = item.session_names?.length > 0
-                    ? item.session_names
-                    : (item.session_name ? [item.session_name] : []);
-                if (sessionNames.length > 0) {
-                    const hasSessionMatch = sessionNames.some(s => normalize(s) === normalize(studentSession));
-                    if (!hasSessionMatch) return;
-                }
-            }
+            // Session filtering temporarily disabled
+            // if (studentSession) {
+            //     const sessionNames = item.session_names?.length > 0
+            //         ? item.session_names
+            //         : (item.session_name ? [item.session_name] : []);
+            //     if (sessionNames.length > 0) {
+            //         const hasSessionMatch = sessionNames.some(s => normalize(s) === normalize(studentSession));
+            //         if (!hasSessionMatch) return;
+            //     }
+            // }
             if (studentSection && item.section_name) {
                 if (normalize(item.section_name) !== normalize(studentSection)) return;
             }
@@ -272,6 +273,16 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 if (subName.toLowerCase().includes('botany') || subName.toLowerCase().includes('zoology')) return;
             } else if (classNum >= 11) {
                 if (subName.toLowerCase() === 'biology') return;
+            }
+
+            // EXAM TAG FILTERING
+            const targetExamStr = String(user?.target_exam_name || user?.exam_tag_name || '').toLowerCase();
+            if (targetExamStr.includes('jee')) {
+                // For JEE students, hide Biology, Botany, Zoology
+                if (subName.toLowerCase().includes('biology') || subName.toLowerCase().includes('botany') || subName.toLowerCase().includes('zoology')) return;
+            } else if (targetExamStr.includes('neet')) {
+                // For NEET students, hide Math/Mathematics
+                if (subName.toLowerCase().includes('math')) return;
             }
 
             // Check content type
