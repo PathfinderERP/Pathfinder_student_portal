@@ -1179,3 +1179,67 @@ Do not explain. Do not add any other text."""
             status=status.HTTP_200_OK
         )
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_chapter_test(request):
+    try:
+        data = request.data
+        subject_name = data.get('subject_name')
+        chapter_name = data.get('chapter_name')
+        toughness = data.get('toughness', 'MEDIUM')
+
+        if not subject_name or not chapter_name:
+            return Response({"error": "subject_name and chapter_name are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        api_key = _get_gemini_api_key()
+        if not api_key:
+            return _gemini_not_configured_response()
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-flash-lite-latest', generation_config={"response_mime_type": "application/json"})
+
+        prompt = f"""
+        Generate exactly 20 multiple-choice questions for a student test.
+        Subject: {subject_name}
+        Chapter: {chapter_name}
+        Toughness Level: {toughness}
+
+        Return a JSON array of objects. Each object must have exactly the following structure:
+        {{
+            "id": 1,
+            "question": "The question text here... (Use Markdown for formatting or math formulas)",
+            "options": ["Option A", "Option B", "Option C", "Option D"],
+            "correctAnswer": "Option A",
+            "explanation": "Brief explanation of why this is correct. (Use Markdown)",
+            "imageUrl": "Optional public URL to a relevant diagram or image. Leave as null if not needed.",
+            "svgDiagram": "Optional raw SVG code for a diagram. Use this if the question requires a specific physics graph, circuit, or shape. Must include viewBox and proper SVG tags. Leave as null if not needed."
+        }}
+        Make the IDs numeric and unique (1 to 20).
+        Ensure the options are randomized (correct answer isn't always the first one).
+        Make sure the difficulty reflects the requested toughness level.
+        If a question relies on a specific physics/math diagram (like a graph, circuit, or mechanics diagram), generate the raw SVG code for it in 'svgDiagram'. The SVG should have a clean, light/dark mode compatible style with transparent background.
+        CRITICAL MATH FORMATTING: Always escape percentage signs in LaTeX (use `\%` instead of `%` or `\text{{%}}`) to prevent rendering errors.
+        Only return the JSON array, no markdown wrappers around the JSON itself.
+        """
+
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        
+        # Clean response text if Gemini wraps it in markdown despite instructions
+        if text.startswith("```json"): text = text[7:]
+        if text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        text = text.strip()
+        
+        result = json.loads(text)
+        return Response(result, status=status.HTTP_200_OK)
+
+    except google_exceptions.ResourceExhausted:
+        return Response({"error": "AI Quota Exceeded"}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    except json.JSONDecodeError as je:
+        logger.error(f"[AI GENERATE TEST] JSON Decode Error: {je}")
+        return Response({"error": "Invalid response format from AI"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"[AI GENERATE TEST] Error: {str(e)}", exc_info=True)
+        return Response({"error": "Failed to generate test"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

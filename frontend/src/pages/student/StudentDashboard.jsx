@@ -27,6 +27,7 @@ import StudyPlanner from './components/StudyPlanner';
 import NoticeBoard from './components/NoticeBoard';
 import Scholarlab from './components/Scholarlab';
 import SocialFeed from './components/SocialFeed';
+import ChapterTest from './components/ChapterTest';
 import { useActivityTracker } from '../../services/useActivityTracker';
 
 import PortalLayout from '../../components/common/PortalLayout';
@@ -342,33 +343,57 @@ const StudentDashboard = () => {
         loadInitialData();
     }, [user, fetchStudentData, authLoading, fetchAttendanceStats, fetchUpcomingExams, fetchAnalytics]);
 
-    const navItems = useMemo(() => [
-        { name: 'Dashboard', icon: LayoutDashboard },
-        { name: 'Nexus Hub', icon: Compass },
-        { name: 'My Profile', icon: User },
-        { name: 'Classes', icon: CalendarDays },
-        { name: 'Attendance', icon: CheckSquare },
-        { name: 'Exams', icon: FileText },
-        { name: 'Results', icon: Trophy },
-        { name: 'Performance', icon: TrendingUp },
-        { name: 'SWOT Analysis', icon: Target },
-        { name: 'Grievances', icon: AlertCircle },
-        { name: 'Doubts', icon: HelpCircle },
-        {
-            name: 'Study Materials',
-            icon: BookOpen,
-            subItems: [
-                { name: 'Video Content', icon: PlayCircle },
-                { name: 'Notes', icon: FileText },
-                { name: 'DPP Questions', icon: Target }
-            ]
-        },
-        { name: 'Scholarlab', icon: Beaker },
-        { name: 'Advanced Analytics', icon: BarChart2 },
-        { name: 'AI Insights', icon: Brain },
-        { name: 'Study Planner', icon: Calendar },
-        { name: 'Notice Board', icon: Bell },
-    ], []);
+    // Extract Details safely
+    const { basicInfo, rollNo, classNameValue } = useMemo(() => {
+        const detailsList = studentData?.student?.studentsDetails || [];
+        const basic = detailsList.find(d =>
+            (user?.email && d?.studentEmail?.toLowerCase() === user.email.toLowerCase()) ||
+            d?.studentEmail?.toLowerCase() === user?.username?.toLowerCase()
+        ) || detailsList[0] || {};
+
+        return {
+            basicInfo: basic,
+            rollNo: studentData?.admissionNumber || "N/A",
+            classNameValue: studentData?.class?.name || "N/A"
+        };
+    }, [studentData, user]);
+
+    const navItems = useMemo(() => {
+        const items = [
+            { name: 'Dashboard', icon: LayoutDashboard },
+            { name: 'Nexus Hub', icon: Compass },
+            { name: 'My Profile', icon: User },
+            { name: 'Classes', icon: CalendarDays },
+            { name: 'Attendance', icon: CheckSquare },
+            { name: 'Exams', icon: FileText },
+            { name: 'Results', icon: Trophy },
+            { name: 'Performance', icon: TrendingUp },
+            { name: 'SWOT Analysis', icon: Target },
+            { name: 'Grievances', icon: AlertCircle },
+            { name: 'Doubts', icon: HelpCircle },
+            {
+                name: 'Study Materials',
+                icon: BookOpen,
+                subItems: [
+                    { name: 'Video Content', icon: PlayCircle },
+                    { name: 'Notes', icon: FileText },
+                    { name: 'DPP Questions', icon: Target }
+                ]
+            },
+            { name: 'Scholarlab', icon: Beaker },
+            { name: 'Advanced Analytics', icon: BarChart2 },
+            { name: 'AI Insights', icon: Brain },
+            { name: 'Study Planner', icon: Calendar },
+            { name: 'Notice Board', icon: Bell },
+        ];
+        
+        const classStr = classNameValue.toLowerCase();
+        if ((classStr.includes('11') || classStr.includes('12') || classStr.includes('repeater')) && import.meta.env.DEV) {
+            items.splice(6, 0, { name: 'Chapter Test', icon: FileText });
+        }
+        
+        return items;
+    }, [classNameValue]);
 
     const pendingFeedbackCount = useMemo(() => {
         if (!attendanceCache?.loaded || !Array.isArray(attendanceCache.data)) return 0;
@@ -394,21 +419,6 @@ const StudentDashboard = () => {
             onClick: () => setActiveTab(sub.name)
         }))
     })), [navItems, activeTab, unseenResolvedCount, pendingFeedbackCount]);
-
-    // Extract Details safely
-    const { basicInfo, rollNo, classNameValue } = useMemo(() => {
-        const detailsList = studentData?.student?.studentsDetails || [];
-        const basic = detailsList.find(d =>
-            (user?.email && d?.studentEmail?.toLowerCase() === user.email.toLowerCase()) ||
-            d?.studentEmail?.toLowerCase() === user?.username?.toLowerCase()
-        ) || detailsList[0] || {};
-
-        return {
-            basicInfo: basic,
-            rollNo: studentData?.admissionNumber || "N/A",
-            classNameValue: studentData?.class?.name || "N/A"
-        };
-    }, [studentData, user]);
 
     if (loading) {
         return (
@@ -473,6 +483,8 @@ const StudentDashboard = () => {
                 return <Attendance isDarkMode={isDarkMode} cache={attendanceCache} setCache={setAttendanceCache} />;
             case 'Exams':
                 return <Exams isDarkMode={isDarkMode} onRefresh={fetchStudentData} cache={examsCache} setCache={setExamsCache} />;
+            case 'Chapter Test':
+                return <ChapterTest isDarkMode={isDarkMode} />;
             case 'Results':
                 return <Results isDarkMode={isDarkMode} />;
             case 'Performance':
