@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -6,83 +6,594 @@ import {
     MonitorPlay, Download, RefreshCw, CheckCircle2, Timer, Eye, X
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
+import ResultReport from '../../pages/student/components/ResultReport';
 
-// Inline Modal for Activity Details
-const StudentActivityModal = ({ student, activity, onClose, isDarkMode }) => {
+// Full-Page Student Detail View (replaces modal)
+
+const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMode, onBack }) => {
     if (!student || !activity) return null;
 
     const details = student?.student?.studentsDetails?.[0] || student?.studentsDetails?.[0] || student || {};
     const name = details.studentName || details.name || 'Unknown';
-    const admissionNumber = student.admissionNumber || 'N/A';
+    const admNo = student.admissionNumber || 'N/A';
+    const course = student.course?.courseName || 'N/A';
+    const centre = student.centre || 'N/A';
+    const className = student.class?.name || student.student?.studentsDetails?.[0]?.className || 'N/A';
+    const email = details.studentEmail || 'N/A';
 
-    return (
-        <div className="fixed inset-0 z-9999 flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            
-            <div className={`relative z-10 w-full max-w-2xl overflow-hidden rounded-[5px] border shadow-2xl flex flex-col animate-in zoom-in duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                {/* Header */}
-                <div className={`px-8 py-6 border-b flex justify-between items-center z-10 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
-                    <div>
-                        <h2 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {name}
-                        </h2>
-                        <div className="text-xs font-bold text-orange-500 mt-1 uppercase tracking-widest">
-                            ID: {admissionNumber}
+    const { token, getApiUrl } = useAuth();
+    const [activeDetail, setActiveDetail] = useState(null);
+    const [cachedData, setCachedData] = useState({}); // { logins: [...], videos: [...], ... }
+    const [loadingDetail, setLoadingDetail] = useState(false);
+    const [studyView, setStudyView] = useState('date');       // 'date' | 'tab'
+    const [attendanceView, setAttendanceView] = useState('date'); // 'date' | 'subject'
+
+    // Attendance Filters State
+    const [attFilterDate, setAttFilterDate] = useState('');
+    const [attFilterSubject, setAttFilterSubject] = useState('All');
+    const [attFilterTeacher, setAttFilterTeacher] = useState('All');
+    const [attFilterStatus, setAttFilterStatus] = useState('All');
+
+    // Report View State
+    const [selectedReport, setSelectedReport] = useState(null);
+
+
+    const fetchDetail = useCallback(async (type) => {
+        if (activeDetail === type) { setActiveDetail(null); return; }
+        setActiveDetail(type);
+        
+        // If data is already cached, don't reload
+        if (cachedData[type]) {
+            return;
+        }
+
+        setLoadingDetail(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(
+                `${apiUrl}/api/admin/student-activity-detail/${admissionNumber}/`,
+                { params: { type, erp_id: erpId }, headers: { Authorization: `Bearer ${token}` } }
+            );
+            setCachedData(prev => ({ ...prev, [type]: res.data || [] }));
+        } catch (e) {
+            setCachedData(prev => ({ ...prev, [type]: [] }));
+        } finally {
+            setLoadingDetail(false);
+        }
+    }, [activeDetail, cachedData, admissionNumber, erpId, token, getApiUrl]);
+
+    const handleRefreshDetail = useCallback(async () => {
+        if (!activeDetail) return;
+        setLoadingDetail(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(
+                `${apiUrl}/api/admin/student-activity-detail/${admissionNumber}/`,
+                { params: { type: activeDetail, erp_id: erpId }, headers: { Authorization: `Bearer ${token}` } }
+            );
+            setCachedData(prev => ({ ...prev, [activeDetail]: res.data || [] }));
+        } catch (e) {
+            setCachedData(prev => ({ ...prev, [activeDetail]: [] }));
+        } finally {
+            setLoadingDetail(false);
+        }
+    }, [activeDetail, admissionNumber, erpId, token, getApiUrl]);
+
+    const fmtDate = useCallback((str) => {
+        if (!str) return 'N/A';
+        const d = new Date(str);
+        if (isNaN(d)) return str;
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }, []);
+
+    const fmtTime = useCallback((str) => {
+        if (!str) return null;
+        // Handle "HH:MM" or ISO
+        if (str.includes('T')) {
+            return new Date(str).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        }
+        return str;
+    }, []);
+
+    const renderDetailTable = () => {
+        const detailData = cachedData[activeDetail] || [];
+        if (loadingDetail) return (
+            <div className="flex items-center justify-center py-10 gap-3">
+                <div className="w-5 h-5 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Loading records...</span>
+            </div>
+        );
+        if (!detailData.length) return (
+            <div className={`text-center py-10 text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>No records found.</div>
+        );
+
+        if (activeDetail === 'logins') return (
+            <table className="w-full text-xs">
+                <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
+                    <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Date & Time</th>
+                    <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">IP Address</th>
+                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Status</th>
+                </tr></thead>
+                <tbody>{detailData.map((r, i) => (
+                    <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
+                        <td className="py-3 px-4 font-mono">{r.created_at ? new Date(r.created_at).toLocaleString('en-IN') : 'N/A'}</td>
+                        <td className="py-3 px-4 font-mono">{r.ip_address || 'N/A'}</td>
+                        <td className="py-3 px-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'Success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{r.status}</span></td>
+                    </tr>
+                ))}</tbody>
+            </table>
+        );
+
+        if (activeDetail === 'videos') {
+            const byVideo = {};
+            detailData.forEach(r => {
+                const title = r.path || 'Unknown Video';
+                if (!byVideo[title]) {
+                    byVideo[title] = {
+                        duration: 0,
+                        isCompleted: false,
+                        latestTimestamp: null,
+                    };
+                }
+                byVideo[title].duration = Math.max(byVideo[title].duration, r.duration || 0);
+                if (r.activity_type === 'video_complete') {
+                    byVideo[title].isCompleted = true;
+                }
+                if (!byVideo[title].latestTimestamp || new Date(r.timestamp) > new Date(byVideo[title].latestTimestamp)) {
+                    byVideo[title].latestTimestamp = r.timestamp;
+                }
+            });
+
+            const aggregatedVideos = Object.entries(byVideo).map(([title, data]) => ({
+                title,
+                ...data
+            })).sort((a, b) => new Date(b.latestTimestamp) - new Date(a.latestTimestamp));
+
+            return (
+                <table className="w-full text-xs">
+                    <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Video / Module</th>
+                        <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Duration Watched</th>
+                        <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Status</th>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Last Watched</th>
+                    </tr></thead>
+                    <tbody>{aggregatedVideos.map((r, i) => {
+                        const mins = (r.duration / 60).toFixed(1);
+                        const durationStr = `${mins} MIN`;
+                        return (
+                            <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
+                                <td className="py-3 px-4 font-medium">{r.title}</td>
+                                <td className="py-3 px-4 text-center font-mono text-indigo-500 font-bold">{r.duration > 0 ? durationStr : '—'}</td>
+                                <td className="py-3 px-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.isCompleted ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>{r.isCompleted ? 'Completed' : 'Played'}</span></td>
+                                <td className="py-3 px-4">{r.latestTimestamp ? fmtDate(r.latestTimestamp) : 'N/A'}</td>
+                            </tr>
+                        );
+                    })}</tbody>
+                </table>
+            );
+        }
+
+        if (activeDetail === 'tests') return (
+            <table className="w-full text-xs">
+                <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
+                    <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Test Name</th>
+                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Score</th>
+                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">%</th>
+                    <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Submitted</th>
+                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Action</th>
+                </tr></thead>
+                <tbody>{detailData.map((r, i) => (
+                    <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
+                        <td className="py-3 px-4 font-medium max-w-xs truncate">{r.test_name}</td>
+                        <td className="py-3 px-4 text-center font-bold">{r.score}{r.total_marks ? `/${r.total_marks}` : ''}</td>
+                        <td className="py-3 px-4 text-center">{r.percentage != null ? <span className={`font-bold ${r.percentage >= 60 ? 'text-emerald-500' : r.percentage >= 40 ? 'text-orange-500' : 'text-red-500'}`}>{r.percentage}%</span> : '—'}</td>
+                        <td className="py-3 px-4">{r.submitted_at ? fmtDate(r.submitted_at) : 'N/A'}</td>
+                        <td className="py-3 px-4 text-center">
+                            {r.id && (
+                                <button
+                                    onClick={() => setSelectedReport({ id: r.id, enrollment: admissionNumber })}
+                                    className="bg-[#4871D9] hover:bg-[#3D60B8] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-blue-500/10"
+                                >
+                                    Report
+                                </button>
+                            )}
+                        </td>
+                    </tr>
+                ))}</tbody>
+            </table>
+        );
+
+        if (activeDetail === 'attendance') {
+            const detailData = cachedData[activeDetail] || [];
+            // Apply filtering client-side
+            const filteredAttendance = detailData.filter(r => {
+                const status = r.attendanceStatus || r.status;
+                const dateVal = r.classDate || r.date || r.classScheduleId?.date;
+                const teacher = r.teacherId?.name || r.teacherName || '—';
+                const subject = r.subject || r.subjectName || r.subjectId?.subjectName || '—';
+                
+                const matchStatus = attFilterStatus === 'All' || status === attFilterStatus;
+                const matchSubject = attFilterSubject === 'All' || subject === attFilterSubject;
+                const matchTeacher = attFilterTeacher === 'All' || teacher === attFilterTeacher;
+                
+                let matchDate = true;
+                if (attFilterDate && dateVal) {
+                    const formattedRowDate = new Date(dateVal).toISOString().split('T')[0];
+                    matchDate = formattedRowDate === attFilterDate;
+                }
+
+                return matchStatus && matchSubject && matchTeacher && matchDate;
+            });
+
+            // Get unique values for filters from full un-filtered list
+            const uniqueSubjects = ['All', ...new Set(detailData.map(r => r.subject || r.subjectName || r.subjectId?.subjectName || '—').filter(Boolean))].sort();
+            const uniqueTeachers = ['All', ...new Set(detailData.map(r => r.teacherId?.name || r.teacherName || '—').filter(Boolean))].sort();
+
+            // Group by subject (using filtered data)
+            const bySubject = {};
+            let totalClasses = 0;
+            filteredAttendance.forEach(r => {
+                const subject = r.subject || r.subjectName || r.subjectId?.subjectName || 'Unknown';
+                const status = r.attendanceStatus || r.status;
+                if (!bySubject[subject]) bySubject[subject] = { present: 0, absent: 0, total: 0 };
+                bySubject[subject].total++;
+                totalClasses++;
+                if (status === 'Present') bySubject[subject].present++;
+                else bySubject[subject].absent++;
+            });
+            const subjectRows = Object.entries(bySubject).sort((a, b) => b[1].total - a[1].total);
+
+            const ToggleBar = () => (
+                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border-b ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setAttendanceView('date')} className={`px-3 py-1 rounded text-[11px] font-black uppercase tracking-wider transition-all ${attendanceView === 'date' ? 'bg-emerald-500 text-white' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200')}`}>By Date</button>
+                        <button onClick={() => setAttendanceView('subject')} className={`px-3 py-1 rounded text-[11px] font-black uppercase tracking-wider transition-all ${attendanceView === 'subject' ? 'bg-emerald-500 text-white' : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200')}`}>By Subject</button>
+                    </div>
+
+                    {/* Filter controls */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {/* Date Filter */}
+                        <div className="flex flex-col">
+                            <input
+                                type="date"
+                                value={attFilterDate}
+                                onChange={(e) => setAttFilterDate(e.target.value)}
+                                className={`px-2 py-1 border rounded-[5px] focus:outline-none text-xs ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                            />
                         </div>
+
+                        {/* Subject Filter */}
+                        <div className="flex flex-col">
+                            <select
+                                value={attFilterSubject}
+                                onChange={(e) => setAttFilterSubject(e.target.value)}
+                                className={`px-2 py-1 border rounded-[5px] focus:outline-none text-xs ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                            >
+                                {uniqueSubjects.map(sub => <option key={sub} value={sub}>{sub === 'All' ? 'All Subjects' : sub}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Teacher Filter */}
+                        <div className="flex flex-col">
+                            <select
+                                value={attFilterTeacher}
+                                onChange={(e) => setAttFilterTeacher(e.target.value)}
+                                className={`px-2 py-1 border rounded-[5px] focus:outline-none text-xs ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                            >
+                                {uniqueTeachers.map(tch => <option key={tch} value={tch}>{tch === 'All' ? 'All Teachers' : tch}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="flex flex-col">
+                            <select
+                                value={attFilterStatus}
+                                onChange={(e) => setAttFilterStatus(e.target.value)}
+                                className={`px-2 py-1 border rounded-[5px] focus:outline-none text-xs ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                            >
+                                <option value="All">All Status</option>
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                            </select>
+                        </div>
+
+                        {/* Reset Button */}
+                        {(attFilterDate || attFilterSubject !== 'All' || attFilterTeacher !== 'All' || attFilterStatus !== 'All') && (
+                            <button
+                                onClick={() => {
+                                    setAttFilterDate('');
+                                    setAttFilterSubject('All');
+                                    setAttFilterTeacher('All');
+                                    setAttFilterStatus('All');
+                                }}
+                                className={`px-2 py-1 rounded-[5px] text-[10px] font-black uppercase tracking-wider transition-all ${isDarkMode ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                            >
+                                Reset
+                            </button>
+                        )}
                     </div>
-                    <button onClick={onClose} className={`p-3 rounded-[5px] transition-all hover:rotate-90 hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-200 text-slate-900 hover:bg-slate-300'}`}>
-                        <X size={20} strokeWidth={2.5} />
-                    </button>
                 </div>
+            );
 
-                {/* Content */}
-                <div className="p-8 grid grid-cols-2 sm:grid-cols-3 gap-6">
-                    {/* App Logins */}
-                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <Activity className="w-8 h-8 mx-auto mb-3 text-blue-500" />
-                        <div className="text-3xl font-black">{activity.loginCount || 0}</div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">App Logins</div>
-                    </div>
-                    
-                    {/* Videos Watched */}
-                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <MonitorPlay className="w-8 h-8 mx-auto mb-3 text-purple-500" />
-                        <div className="text-3xl font-black">{activity.videosWatched || 0}</div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Videos Watched</div>
-                    </div>
-
-                    {/* Tests Taken */}
-                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <FileText className="w-8 h-8 mx-auto mb-3 text-orange-500" />
-                        <div className="text-3xl font-black">{activity.testsTaken || 0} <span className="text-lg opacity-50">/ {activity.testsTotal || 0}</span></div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Tests Taken</div>
-                    </div>
-
-                    {/* Attendance */}
-                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <CheckCircle2 className="w-8 h-8 mx-auto mb-3 text-emerald-500" />
-                        <div className="text-3xl font-black">{activity.attendanceTotal ? `${activity.attendancePresent}` : '-'} <span className="text-lg opacity-50">{activity.attendanceTotal ? `/ ${activity.attendanceTotal}` : ''}</span></div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Attendance</div>
-                    </div>
-
-                    {/* Study Time */}
-                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <Timer className="w-8 h-8 mx-auto mb-3 text-teal-500" />
-                        <div className="text-xl font-black mt-2">{formatTime(activity.totalStudyTimeSeconds)}</div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-2">Study Time</div>
-                    </div>
-
-                    {/* Last Active */}
-                    <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <Clock className="w-8 h-8 mx-auto mb-3 text-slate-500" />
-                        <div className="text-lg font-black mt-2">{activity.lastActive ? new Date(activity.lastActive).toLocaleDateString() : 'Never'}</div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-2">Last Active</div>
+            if (attendanceView === 'subject') return (
+                <div>
+                    <ToggleBar />
+                    <div className="p-5 space-y-4">
+                        <div className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Filtered total classes: <span className={isDarkMode ? 'text-white' : 'text-slate-800'}>{totalClasses}</span>
+                        </div>
+                        {subjectRows.map(([subject, data], i) => {
+                            const pct = Math.round((data.present / data.total) * 100) || 0;
+                            const barColor = pct >= 75 ? 'from-emerald-500 to-green-400' : pct >= 50 ? 'from-amber-500 to-yellow-400' : 'from-red-500 to-rose-400';
+                            const pctText = pct >= 75 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500';
+                            return (
+                                <div key={i}>
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <span className={`text-xs font-black uppercase tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{subject}</span>
+                                        <div className="flex items-center gap-4">
+                                            <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                <span className="text-emerald-500">{data.present}P</span>
+                                                {' / '}
+                                                <span className="text-red-500">{data.absent}A</span>
+                                                {' / '}{data.total} classes
+                                            </span>
+                                            <span className={`text-sm font-black min-w-[42px] text-right ${pctText}`}>{pct}%</span>
+                                        </div>
+                                    </div>
+                                    <div className={`w-full rounded-full h-2 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}>
+                                        <div className={`h-2 rounded-full bg-gradient-to-r ${barColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
+            );
+
+            return (
+                <div>
+                    <ToggleBar />
+                    <table className="w-full text-xs">
+                        <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Date</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Subject</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Teacher</th>
+                            <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Start Time</th>
+                            <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">End Time</th>
+                            <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Status</th>
+                        </tr></thead>
+                        <tbody>{filteredAttendance.map((r, i) => {
+                            const status = r.attendanceStatus || r.status;
+                            const dateVal = r.classDate || r.date || r.classScheduleId?.date;
+                            const teacher = r.teacherId?.name || r.teacherName || '—';
+                            const subject = r.subject || r.subjectName || r.subjectId?.subjectName || '—';
+                            const startT = r.startTime || r.classScheduleId?.startTime;
+                            const endT = r.endTime || r.classScheduleId?.endTime;
+                            return (
+                                <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
+                                    <td className="py-3 px-4 font-medium">{fmtDate(dateVal)}</td>
+                                    <td className="py-3 px-4 font-medium">{subject}</td>
+                                    <td className="py-3 px-4">{teacher}</td>
+                                    <td className="py-3 px-4 text-center font-mono">{fmtTime(startT) || '—'}</td>
+                                    <td className="py-3 px-4 text-center font-mono">{fmtTime(endT) || '—'}</td>
+                                    <td className="py-3 px-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${status === 'Present' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{status}</span></td>
+                                </tr>
+                            );
+                        })}</tbody>
+                    </table>
+                </div>
+            );
+        }
+
+        if (activeDetail === 'study_time') {
+            const detailData = cachedData[activeDetail] || [];
+            // --- By Date view ---
+            const byDate = {};
+            const byTab = {};
+            let totalAll = 0;
+            detailData.forEach(r => {
+                const dur = r.duration || 0;
+                totalAll += dur;
+                // group by date
+                const dateKey = r.timestamp ? fmtDate(r.timestamp) : 'Unknown';
+                if (!byDate[dateKey]) byDate[dateKey] = { totalSeconds: 0, pages: new Set(), rawDate: r.timestamp };
+                byDate[dateKey].totalSeconds += dur;
+                const pageLabel = r.path ? r.path.replace('StudentPortal/', '').split('/')[0] || 'Dashboard' : 'Portal';
+                byDate[dateKey].pages.add(pageLabel);
+                // group by tab
+                const tabKey = r.path ? r.path.replace('StudentPortal/', '').split('/')[0] || 'Dashboard' : 'Portal';
+                if (!byTab[tabKey]) byTab[tabKey] = 0;
+                byTab[tabKey] += dur;
+            });
+            const grouped = Object.entries(byDate).sort((a, b) => new Date(b[1].rawDate) - new Date(a[1].rawDate));
+            const tabRows = Object.entries(byTab).sort((a, b) => b[1] - a[1]);
+            const maxTabSeconds = tabRows.length ? tabRows[0][1] : 1;
+
+            return (
+                <div>
+                    {/* View Toggle */}
+                    <div className={`flex items-center gap-2 px-4 py-2 border-b ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                        <button
+                            onClick={() => setStudyView('date')}
+                            className={`px-3 py-1 rounded text-[11px] font-black uppercase tracking-wider transition-all ${
+                                studyView === 'date'
+                                    ? 'bg-teal-500 text-white'
+                                    : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200')
+                            }`}
+                        >By Date</button>
+                        <button
+                            onClick={() => setStudyView('tab')}
+                            className={`px-3 py-1 rounded text-[11px] font-black uppercase tracking-wider transition-all ${
+                                studyView === 'tab'
+                                    ? 'bg-teal-500 text-white'
+                                    : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200')
+                            }`}
+                        >By Tab</button>
+                    </div>
+
+                    {studyView === 'date' ? (
+                        <table className="w-full text-xs">
+                            <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
+                                <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Date</th>
+                                <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Pages Visited</th>
+                                <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Total Study Time</th>
+                            </tr></thead>
+                            <tbody>{grouped.map(([date, data], i) => (
+                                <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
+                                    <td className="py-3 px-4 font-medium">{date}</td>
+                                    <td className="py-3 px-4">
+                                        <div className="flex flex-wrap gap-1">
+                                            {[...data.pages].slice(0, 5).map((p, j) => (
+                                                <span key={j} className={`px-2 py-0.5 rounded text-[10px] font-bold ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>{p}</span>
+                                            ))}
+                                            {data.pages.size > 5 && <span className="text-[10px] opacity-50">+{data.pages.size - 5} more</span>}
+                                        </div>
+                                    </td>
+                                    <td className="py-3 px-4 text-center font-bold text-teal-500">{formatTime(data.totalSeconds)}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                    ) : (
+                        <div className="p-4 space-y-3">
+                            <div className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Total across all sessions: <span className="text-teal-500">{formatTime(totalAll)}</span>
+                            </div>
+                            {tabRows.map(([tab, seconds], i) => {
+                                const pct = Math.round((seconds / totalAll) * 100) || 0;
+                                const barPct = Math.round((seconds / maxTabSeconds) * 100);
+                                return (
+                                    <div key={i}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{tab}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{pct}%</span>
+                                                <span className="text-xs font-black text-teal-500">{formatTime(seconds)}</span>
+                                            </div>
+                                        </div>
+                                        <div className={`w-full rounded-full h-1.5 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}>
+                                            <div
+                                                className="h-1.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                                                style={{ width: `${barPct}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        return null;
+    };
+
+    const StatCard = ({ icon: Icon, color, value, label, detailKey }) => (
+        <div
+            onClick={() => fetchDetail(detailKey)}
+            className={`p-6 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group
+                ${activeDetail === detailKey
+                    ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-400 bg-orange-50')
+                    : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-md')
+                }`}
+        >
+            <Icon className={`w-8 h-8 mx-auto mb-3 ${color} transition-transform group-hover:scale-110`} />
+            <div className="text-3xl font-black">{value}</div>
+            <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">{label}</div>
+            <div className={`text-[9px] mt-2 font-bold uppercase tracking-wider ${activeDetail === detailKey ? 'text-orange-500' : 'opacity-25'}`}>
+                {activeDetail === detailKey ? '▲ Collapse' : '▼ View Details'}
             </div>
         </div>
     );
+
+    const detailTitles = { logins: 'Login History', videos: 'Videos Watched', tests: 'Test Submissions', attendance: 'Attendance Records', study_time: 'Study Sessions' };
+
+    if (selectedReport) {
+        return (
+            <div className="space-y-4 animate-fade-in-up">
+                <ResultReport
+                    test={selectedReport}
+                    isDarkMode={isDarkMode}
+                    onBack={() => setSelectedReport(null)}
+                />
+            </div>
+        );
+    }
+
+    // Calculate dynamic stats from cachedData if loaded, otherwise fall back to summary
+    const uniqueVideosCount = useMemo(() => {
+        if (cachedData.videos) {
+            // Count unique video paths/titles from the detail logs
+            return new Set(cachedData.videos.map(v => v.path).filter(Boolean)).size;
+        }
+        return activity.videosWatched || 0;
+    }, [cachedData.videos, activity.videosWatched]);
+
+    return (
+        <div className="space-y-6 animate-fade-in-up">
+            {/* Header with Back Button */}
+            <div className={`flex items-center justify-between p-5 rounded-[5px] border ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={onBack}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-[5px] text-sm font-bold transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                    >
+                        <ChevronLeft size={16} /> Back to List
+                    </button>
+                    <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    <div>
+                        <h2 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{name}</h2>
+                        <div className="text-xs font-bold text-orange-500 uppercase tracking-widest">ID: {admNo}</div>
+                    </div>
+                </div>
+                <div className={`hidden md:flex items-center gap-6 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <div><span className="opacity-50 uppercase tracking-wider font-bold">Class</span><div className="font-bold text-sm mt-0.5">{className}</div></div>
+                    <div><span className="opacity-50 uppercase tracking-wider font-bold">Course</span><div className="font-bold text-sm mt-0.5">{course}</div></div>
+                    <div><span className="opacity-50 uppercase tracking-wider font-bold">Centre</span><div className="font-bold text-sm mt-0.5">{centre}</div></div>
+                    <div><span className="opacity-50 uppercase tracking-wider font-bold">Email</span><div className="font-bold text-sm mt-0.5">{email}</div></div>
+                </div>
+            </div>
+
+            {/* Stat Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <StatCard icon={Activity} color="text-blue-500" value={activity.loginCount || 0} label="App Logins" detailKey="logins" />
+                <StatCard icon={MonitorPlay} color="text-purple-500" value={uniqueVideosCount} label="Videos Watched" detailKey="videos" />
+                <StatCard icon={FileText} color="text-orange-500" value={`${activity.testsTaken || 0}/${activity.testsTotal || 0}`} label="Tests Taken" detailKey="tests" />
+                <StatCard icon={CheckCircle2} color="text-emerald-500" value={activity.attendanceTotal ? `${activity.attendancePresent}/${activity.attendanceTotal}` : '—'} label="Attendance" detailKey="attendance" />
+                <StatCard icon={Timer} color="text-teal-500" value={formatTime(activity.totalStudyTimeSeconds)} label="Study Time" detailKey="study_time" />
+                <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <Clock className="w-8 h-8 mx-auto mb-3 text-slate-500" />
+                    <div className="text-sm font-black leading-tight">{activity.lastActive ? fmtDate(activity.lastActive) : 'Never'}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Last Active</div>
+                </div>
+            </div>
+
+            {/* Detail Table Panel */}
+            {activeDetail && (
+                <div className={`rounded-[5px] border overflow-hidden ${isDarkMode ? 'border-white/10 bg-[#0B0F15]' : 'border-slate-200 bg-white'}`}>
+                    <div className={`px-5 py-3 border-b flex items-center justify-between gap-3 ${isDarkMode ? 'border-white/10 bg-white/[0.03]' : 'border-slate-100 bg-slate-50'}`}>
+                        <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{detailTitles[activeDetail]}</span>
+                        <div className="flex items-center gap-3 ml-auto">
+                            {!loadingDetail && <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{(cachedData[activeDetail] || []).length} record{((cachedData[activeDetail] || []).length) !== 1 ? 's' : ''}</span>}
+                            <button
+                                onClick={handleRefreshDetail}
+                                disabled={loadingDetail}
+                                className={`p-1 rounded-[3px] transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'hover:bg-white/10 text-slate-300' : 'hover:bg-slate-200 text-slate-600'}`}
+                                title="Refresh Detail Records"
+                            >
+                                <RefreshCw size={14} className={loadingDetail ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className={`overflow-x-auto ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                        {renderDetailTable()}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
+
 
 const formatTime = (seconds) => {
     if (!seconds) return '0m';
@@ -109,7 +620,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
     const [activityData, setActivityData] = useState({});
     const [loadingActivity, setLoadingActivity] = useState({});
 
-    const loadActivity = async (student) => {
+    const loadActivity = useCallback(async (student) => {
         const admissionNumber = student.admissionNumber;
         const erpId = student.student?._id || student._id;
         if (!admissionNumber) return;
@@ -127,15 +638,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
         } finally {
             setLoadingActivity(prev => ({ ...prev, [admissionNumber]: false }));
         }
-    };
-
-    const loadAllDisplayedActivity = () => {
-        displayedStudents.forEach(student => {
-            if (!activityData[student.admissionNumber] && !loadingActivity[student.admissionNumber]) {
-                loadActivity(student);
-            }
-        });
-    };
+    }, [token, getApiUrl]);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -206,6 +709,14 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
         return filteredStudents.slice(startIdx, startIdx + itemsPerPage);
     }, [filteredStudents, currentPage, itemsPerPage]);
 
+    const loadAllDisplayedActivity = useCallback((force = false) => {
+        displayedStudents.forEach(student => {
+            if (force || (!activityData[student.admissionNumber] && !loadingActivity[student.admissionNumber])) {
+                loadActivity(student);
+            }
+        });
+    }, [displayedStudents, activityData, loadingActivity, loadActivity]);
+
     const handleFilterChange = (e) => {
         setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
         setCurrentPage(1);
@@ -223,6 +734,20 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
                 <p className="text-slate-500">Loading student data...</p>
             </div>
+        );
+    }
+
+    // If a student is selected, show full detail page
+    if (selectedStudent) {
+        return (
+            <StudentDetailPage
+                student={selectedStudent}
+                activity={activityData[selectedStudent.admissionNumber] || {}}
+                admissionNumber={selectedStudent.admissionNumber}
+                erpId={selectedStudent.student?._id || selectedStudent._id}
+                isDarkMode={isDarkMode}
+                onBack={() => setSelectedStudent(null)}
+            />
         );
     }
 
@@ -251,11 +776,18 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                             />
                         </div>
                         <button
-                            onClick={loadAllDisplayedActivity}
+                            onClick={() => loadAllDisplayedActivity(false)}
                             title="Load Activity for Current Page"
                             className={`p-2 rounded-[5px] border transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20 text-orange-500 hover:bg-orange-500/20' : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100'}`}
                         >
                             <Download size={18} />
+                        </button>
+                        <button
+                            onClick={() => loadAllDisplayedActivity(true)}
+                            title="Force Refresh Page Summaries"
+                            className={`p-2 rounded-[5px] border transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                            <RotateCcw size={18} />
                         </button>
                         <button
                             onClick={() => setShowFilters(!showFilters)}
@@ -432,13 +964,17 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                                             </td>
                                         )}
                                         <td className="px-4 py-3 text-center">
-                                            <button
-                                                onClick={() => setSelectedStudent(student)}
-                                                className={`p-1.5 rounded-[5px] transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
-                                                title="View Details"
-                                            >
-                                                <Eye size={16} />
-                                            </button>
+                                            {activityData[student.admissionNumber] ? (
+                                                <button
+                                                    onClick={() => setSelectedStudent(student)}
+                                                    className={`p-1.5 rounded-[5px] transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                                    title="View Details"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+                                            ) : (
+                                                <span className="text-[10px] font-semibold opacity-30 select-none">—</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -511,15 +1047,6 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                     </div>
                 </div>
             </div>
-            
-            {selectedStudent && (
-                <StudentActivityModal
-                    student={selectedStudent}
-                    activity={activityData[selectedStudent.admissionNumber] || {}}
-                    isDarkMode={isDarkMode}
-                    onClose={() => setSelectedStudent(null)}
-                />
-            )}
         </div>
     );
 };

@@ -1287,10 +1287,16 @@ def get_admin_student_activity_summary(request, admission_number):
     videos_watched = 0
     last_active = None
     if student:
-        videos_watched = UserActivityLog.objects.filter(
+        video_logs = UserActivityLog.objects.filter(
             user=student, 
-            activity_type__in=['video_complete', 'video_play']
-        ).values('path').distinct().count()
+            activity_type__in=['video_complete', 'video_play', 'video_pause']
+        )
+        unique_video_ids = set()
+        for log in video_logs:
+            v_id = log.metadata.get('video_id') or log.metadata.get('video_title') or log.path
+            if v_id:
+                unique_video_ids.add(v_id)
+        videos_watched = len(unique_video_ids)
 
         last_log = UserActivityLog.objects.filter(user=student).order_by('-timestamp').first()
         if last_log:
@@ -1398,6 +1404,118 @@ def get_admin_student_activity_summary(request, admission_number):
         'attendanceTotal': attendance_total,
         'totalStudyTimeSeconds': total_study_time_seconds
     }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_admin_student_activity_detail(request, admission_number):
+    """Returns detailed records for a specific activity type for the admin drilldown modal."""
+    user = request.user
+    if user.user_type not in ['superadmin', 'admin', 'teacher', 'faculty', 'staff']:
+        return response.Response({"error": "Unauthorized"}, status=403)
+
+    detail_type = request.query_params.get('type', 'logins')
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    from django.db.models import Q
+    student = User.objects.filter(Q(username=admission_number) | Q(admission_number=admission_number)).first()
+
+    if detail_type == 'logins':
+        logs = list(
+            LoginLog.objects.filter(
+                Q(username=admission_number) | (Q(username=student.username) if student else Q())
+            ).order_by('-created_at').values('created_at', 'ip_address', 'user_agent', 'status')[:50]
+        )
+        # Serialize datetime
+        for log in logs:
+            if log.get('created_at'):
+                log['created_at'] = log['created_at'].isoformat()
+        return response.Response(logs, status=200)
+
+    elif detail_type == 'videos':
+        if not student:
+            return response.Response([], status=200)
+        logs = UserActivityLog.objects.filter(
+            user=student,
+            activity_type__in=['video_complete', 'video_play', 'video_pause']
+        ).order_by('-timestamp')[:50]
+        records = []
+        for log in logs:
+            video_title = log.metadata.get('video_title') or log.metadata.get('video_id') or log.path
+            records.append({
+                'path': video_title,
+                'timestamp': log.timestamp.isoformat() if log.timestamp else None,
+                'activity_type': log.activity_type,
+                'duration': log.duration or 0
+            })
+        return response.Response(records, status=200)
+
+    elif detail_type == 'tests':
+        if not student:
+            return response.Response([], status=200)
+        try:
+            from tests.models import TestSubmission
+            submissions = TestSubmission.objects.filter(student=student).select_related('test').order_by('-submitted_at')[:50]
+            data = []
+            for sub in submissions:
+                total_marks = getattr(sub.test, 'total_marks', None) if sub.test else None
+                data.append({
+                    'id': sub.test.pk if sub.test else None,
+                    'test_id': sub.test.pk if sub.test else None,
+                    'test_name': sub.test.name if sub.test else 'Unknown',
+                    'score': sub.score,
+                    'total_marks': total_marks,
+                    'percentage': round((sub.score / total_marks * 100), 1) if total_marks and total_marks > 0 else None,
+                    'is_finalized': sub.is_finalized,
+                    'submitted_at': sub.submitted_at.isoformat() if sub.submitted_at else None,
+                    'time_spent': sub.time_spent,
+                })
+            return response.Response(data, status=200)
+        except Exception as e:
+            print(f"[DETAIL:tests] Error: {e}")
+            return response.Response([], status=200)
+
+    elif detail_type == 'attendance':
+        erp_id = request.query_params.get('erp_id')
+        if not erp_id:
+            return response.Response([], status=200)
+        try:
+            from api.erp_views import _get_erp_url, _get_erp_admin_token
+            import requests as ext_requests
+            erp_url = _get_erp_url()
+            erp_token = _get_erp_admin_token()
+            resp = ext_requests.get(
+                f"{erp_url}/api/student-portal/attendance",
+                headers={'Authorization': f"Bearer {erp_token}"},
+                params={'studentId': erp_id},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                records = data if isinstance(data, list) else data.get('data', [])
+                valid = [r for r in records if r.get('attendanceStatus', r.get('status')) not in ['Not Marked', 'Not_Marked', '', None]]
+                return response.Response(valid, status=200)
+        except Exception as e:
+            print(f"[DETAIL:attendance] Error: {e}")
+        return response.Response([], status=200)
+
+    elif detail_type == 'study_time':
+        if not student:
+            return response.Response([], status=200)
+        records = list(
+            UserActivityLog.objects.filter(
+                user=student,
+                activity_type='heartbeat'
+            ).order_by('-timestamp').values('timestamp', 'duration', 'path')[:100]
+        )
+        for r in records:
+            if r.get('timestamp'):
+                r['timestamp'] = r['timestamp'].isoformat()
+        return response.Response(records, status=200)
+
+    return response.Response([], status=200)
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])

@@ -7,7 +7,7 @@ from .views import (
     StudyTaskViewSet, NoticeViewSet, UserSearchView, 
     StudentPsychometricProfileView, StudentStudyPlannerConfigView, AdminStudentPsychometricProfileView, AdminAllPsychometricProfilesView,
     UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress,
-    get_swot_analysis, ClassFeedbackViewSet, get_admin_student_activity_summary
+    get_swot_analysis, ClassFeedbackViewSet, get_admin_student_activity_summary, get_admin_student_activity_detail
 )
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
@@ -62,6 +62,7 @@ urlpatterns = [
     path('student-portal/report/<str:studentId>', get_student_portal_report),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
     path('admin/student-activity-summary/<str:admission_number>/', get_admin_student_activity_summary, name='admin-student-activity-summary'),
+    path('admin/student-activity-detail/<str:admission_number>/', get_admin_student_activity_detail, name='admin-student-activity-detail'),
     path('admin/student-attendance/<str:admission_number>/', get_admin_student_attendance, name='admin-student-attendance'),
     path('admin/student-psychometric-profile/<str:email>/', AdminStudentPsychometricProfileView.as_view(), name='admin-student-psychometric-profile'),
     path('admin/all-psychometric-profiles/', AdminAllPsychometricProfilesView.as_view(), name='admin-all-psychometric-profiles'),

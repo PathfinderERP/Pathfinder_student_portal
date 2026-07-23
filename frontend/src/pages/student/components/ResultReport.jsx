@@ -118,6 +118,7 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
             setIsLoading(true);
             try {
                 const res = await axios.get(`${getApiUrl()}/api/tests/${test.id}/student_performance/`, {
+                    params: test.enrollment ? { enrollment: test.enrollment } : {},
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setData(res.data);
