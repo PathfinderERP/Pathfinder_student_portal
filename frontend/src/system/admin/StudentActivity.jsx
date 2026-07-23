@@ -10,6 +10,15 @@ import ResultReport from '../../pages/student/components/ResultReport';
 
 // Full-Page Student Detail View (replaces modal)
 
+const parseDate = (str) => {
+    if (!str) return null;
+    let formatted = str;
+    if (typeof str === 'string' && !str.includes('Z') && !str.includes('+') && str.includes('T')) {
+        formatted = str + 'Z';
+    }
+    return new Date(formatted);
+};
+
 const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMode, onBack }) => {
     if (!student || !activity) return null;
 
@@ -79,21 +88,23 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
         }
     }, [activeDetail, admissionNumber, erpId, token, getApiUrl]);
 
+
     const fmtDate = useCallback((str) => {
         if (!str) return 'N/A';
-        const d = new Date(str);
-        if (isNaN(d)) return str;
+        const d = parseDate(str);
+        if (!d || isNaN(d)) return str;
         return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    }, []);
+    }, [parseDate]);
 
     const fmtTime = useCallback((str) => {
         if (!str) return null;
         // Handle "HH:MM" or ISO
         if (str.includes('T')) {
-            return new Date(str).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const d = parseDate(str);
+            return d ? d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : null;
         }
         return str;
-    }, []);
+    }, [parseDate]);
 
     const renderDetailTable = () => {
         const detailData = cachedData[activeDetail] || [];
@@ -114,13 +125,16 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
                     <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">IP Address</th>
                     <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Status</th>
                 </tr></thead>
-                <tbody>{detailData.map((r, i) => (
-                    <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
-                        <td className="py-3 px-4 font-mono">{r.created_at ? new Date(r.created_at).toLocaleString('en-IN') : 'N/A'}</td>
-                        <td className="py-3 px-4 font-mono">{r.ip_address || 'N/A'}</td>
-                        <td className="py-3 px-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'Success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{r.status}</span></td>
-                    </tr>
-                ))}</tbody>
+                <tbody>{detailData.map((r, i) => {
+                    const parsed = parseDate(r.created_at);
+                    return (
+                        <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
+                            <td className="py-3 px-4 font-mono">{parsed ? parsed.toLocaleString('en-IN') : 'N/A'}</td>
+                            <td className="py-3 px-4 font-mono">{r.ip_address || 'N/A'}</td>
+                            <td className="py-3 px-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'Success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{r.status}</span></td>
+                        </tr>
+                    );
+                })}</tbody>
             </table>
         );
 
@@ -139,7 +153,9 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
                 if (r.activity_type === 'video_complete') {
                     byVideo[title].isCompleted = true;
                 }
-                if (!byVideo[title].latestTimestamp || new Date(r.timestamp) > new Date(byVideo[title].latestTimestamp)) {
+                const currentTS = parseDate(r.timestamp);
+                const existingTS = parseDate(byVideo[title].latestTimestamp);
+                if (!existingTS || (currentTS && currentTS > existingTS)) {
                     byVideo[title].latestTimestamp = r.timestamp;
                 }
             });
@@ -147,7 +163,11 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
             const aggregatedVideos = Object.entries(byVideo).map(([title, data]) => ({
                 title,
                 ...data
-            })).sort((a, b) => new Date(b.latestTimestamp) - new Date(a.latestTimestamp));
+            })).sort((a, b) => {
+                const da = parseDate(a.latestTimestamp);
+                const db = parseDate(b.latestTimestamp);
+                return (db || 0) - (da || 0);
+            });
 
             return (
                 <table className="w-full text-xs">
@@ -218,7 +238,8 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
                 
                 let matchDate = true;
                 if (attFilterDate && dateVal) {
-                    const formattedRowDate = new Date(dateVal).toISOString().split('T')[0];
+                    const parsedDate = parseDate(dateVal);
+                    const formattedRowDate = parsedDate ? parsedDate.toISOString().split('T')[0] : '';
                     matchDate = formattedRowDate === attFilterDate;
                 }
 
@@ -405,7 +426,11 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
                 if (!byTab[tabKey]) byTab[tabKey] = 0;
                 byTab[tabKey] += dur;
             });
-            const grouped = Object.entries(byDate).sort((a, b) => new Date(b[1].rawDate) - new Date(a[1].rawDate));
+            const grouped = Object.entries(byDate).sort((a, b) => {
+                const da = parseDate(a[1].rawDate);
+                const db = parseDate(b[1].rawDate);
+                return (db || 0) - (da || 0);
+            });
             const tabRows = Object.entries(byTab).sort((a, b) => b[1] - a[1]);
             const maxTabSeconds = tabRows.length ? tabRows[0][1] : 1;
 
@@ -943,7 +968,11 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="inline-flex items-center justify-end gap-1.5 text-xs text-slate-500 w-full">
                                                         <Clock size={12} title="Last Active" />
-                                                        <span>{activityData[student.admissionNumber].lastActive ? new Date(activityData[student.admissionNumber].lastActive).toLocaleDateString() : 'Never'}</span>
+                                                        <span>{(() => {
+                                                            const la = activityData[student.admissionNumber].lastActive;
+                                                            const d = la ? parseDate(la) : null;
+                                                            return d ? d.toLocaleDateString('en-IN') : 'Never';
+                                                        })()}</span>
                                                     </div>
                                                 </td>
                                             </>
