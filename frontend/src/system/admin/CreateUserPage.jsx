@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import {
     User, Mail, Eye, EyeOff, ChevronDown, UserPlus, Shield, ArrowLeft, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { permissionTabs } from '../constants';
+import { permissionTabs, getSafePermissions } from '../constants';
 
 const CreateUserPage = ({ onBack }) => {
     const { isDarkMode } = useTheme();
@@ -17,110 +17,60 @@ const CreateUserPage = ({ onBack }) => {
 
     const [formData, setFormData] = useState({
         username: '',
+        first_name: '',
+        last_name: '',
         email: '',
         password: '',
         user_type: 'student',
-        permissions: {
-            dashboard: { view: true, create: false, edit: false, delete: false },
-            centre_mgmt: { view: false, create: false, edit: false, delete: false },
-            section_mgmt: { view: false, create: false, edit: false, delete: false },
-            test_mgmt: {
-                view: false, create: false, edit: false, delete: false,
-                test_create: { view: false, create: false, edit: false, delete: false },
-                test_allotment: { view: false, create: false, edit: false, delete: false },
-                test_responses: { view: false, create: false, edit: false, delete: false },
-                test_result: { view: false, create: false, edit: false, delete: false }
-            },
-            question_bank: { view: false, create: false, edit: false, delete: false },
-            admin_mgmt: {
-                view: false, create: false, edit: false, delete: false,
-                admin_system: { view: false, create: false, edit: false, delete: false },
-                admin_student: { view: false, create: false, edit: false, delete: false },
-                admin_parent: { view: false, create: false, edit: false, delete: false },
-                admin_master_data: { view: false, create: false, edit: false, delete: false },
-                settings: { view: false, create: false, edit: false, delete: false }
-            },
-        }
+        permissions: getSafePermissions()
     });
 
-    useEffect(() => {
-        if (formData.user_type === 'superadmin') {
-            const fullPermissions = JSON.parse(JSON.stringify(formData.permissions));
-            Object.keys(fullPermissions).forEach(key => {
-                Object.keys(fullPermissions[key]).forEach(action => {
-                    if (typeof fullPermissions[key][action] === 'object') {
-                        Object.keys(fullPermissions[key][action]).forEach(subAction => {
-                            fullPermissions[key][action][subAction] = true;
-                        });
-                    } else {
-                        fullPermissions[key][action] = true;
-                    }
-                });
-            });
-            setFormData(prev => ({ ...prev, permissions: fullPermissions }));
-        }
-    }, [formData.user_type]);
-
     const handlePermissionChange = (tab, action, subTab = null) => {
-        if (formData.user_type === 'superadmin') return;
-
         setFormData(prev => {
-            const newPerms = { ...prev.permissions };
+            const newPerms = JSON.parse(JSON.stringify(prev.permissions));
             if (subTab) {
-                newPerms[tab] = {
-                    ...newPerms[tab],
-                    [subTab]: {
-                        ...newPerms[tab][subTab],
-                        [action]: !newPerms[tab][subTab][action]
-                    }
-                };
+                if (!newPerms[tab]) newPerms[tab] = {};
+                if (!newPerms[tab][subTab]) newPerms[tab][subTab] = { view: false, create: false, edit: false, delete: false };
+                newPerms[tab][subTab][action] = !newPerms[tab][subTab][action];
             } else {
-                newPerms[tab] = {
-                    ...newPerms[tab],
-                    [action]: !newPerms[tab][action]
-                };
+                if (!newPerms[tab]) newPerms[tab] = { view: false, create: false, edit: false, delete: false };
+                newPerms[tab][action] = !newPerms[tab][action];
             }
             return { ...prev, permissions: newPerms };
         });
     };
 
     const toggleAllPermissions = (tab, subTab = null) => {
-        if (formData.user_type === 'superadmin') return;
-
         setFormData(prev => {
             const newPerms = JSON.parse(JSON.stringify(prev.permissions));
-
             if (subTab) {
+                if (!newPerms[tab]) newPerms[tab] = {};
+                if (!newPerms[tab][subTab]) newPerms[tab][subTab] = { view: false, create: false, edit: false, delete: false };
                 const target = newPerms[tab][subTab];
                 const allTrue = ['view', 'create', 'edit', 'delete'].every(action => target[action]);
-
-                const subUpdate = {};
                 ['view', 'create', 'edit', 'delete'].forEach(action => {
-                    subUpdate[action] = !allTrue;
+                    newPerms[tab][subTab][action] = !allTrue;
                 });
-                newPerms[tab][subTab] = subUpdate;
             } else {
                 const tabConfig = permissionTabs.find(t => t.id === tab);
-                if (tabConfig.subs) {
-                    const allSubsTrue = tabConfig.subs.every(sub =>
-                        ['view', 'create', 'edit', 'delete'].every(action => newPerms[tab][sub.id][action])
-                    );
-
+                if (tabConfig && tabConfig.subs) {
+                    if (!newPerms[tab]) newPerms[tab] = {};
+                    const allSubsTrue = tabConfig.subs.every(sub => {
+                        const target = newPerms[tab][sub.id] || {};
+                        return ['view', 'create', 'edit', 'delete'].every(action => target[action]);
+                    });
                     tabConfig.subs.forEach(sub => {
-                        const subUpdate = {};
+                        if (!newPerms[tab][sub.id]) newPerms[tab][sub.id] = { view: false, create: false, edit: false, delete: false };
                         ['view', 'create', 'edit', 'delete'].forEach(action => {
-                            subUpdate[action] = !allSubsTrue;
+                            newPerms[tab][sub.id][action] = !allSubsTrue;
                         });
-                        newPerms[tab][sub.id] = subUpdate;
                     });
                 } else {
-                    const target = newPerms[tab];
-                    const allTrue = ['view', 'create', 'edit', 'delete'].every(action => target[action]);
-                    const mainUpdate = {};
+                    if (!newPerms[tab]) newPerms[tab] = { view: false, create: false, edit: false, delete: false };
+                    const allTrue = ['view', 'create', 'edit', 'delete'].every(action => newPerms[tab][action]);
                     ['view', 'create', 'edit', 'delete'].forEach(action => {
-                        mainUpdate[action] = !allTrue;
+                        newPerms[tab][action] = !allTrue;
                     });
-                    newPerms[tab] = mainUpdate;
                 }
             }
             return { ...prev, permissions: newPerms };
@@ -131,16 +81,20 @@ const CreateUserPage = ({ onBack }) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
+        setSuccessMessage('');
+
         try {
             const apiUrl = getApiUrl();
-            await axios.post(`${apiUrl}/api/register/`, formData);
-            setSuccessMessage('User account created successfully!');
-            setTimeout(() => {
-                setSuccessMessage('');
-                onBack();
-            }, 2000);
+            const response = await axios.post(`${apiUrl}/api/register/`, formData);
+            if (response.data) {
+                setSuccessMessage(`User "${formData.username}" created successfully!`);
+                setTimeout(() => {
+                    onBack();
+                }, 1500);
+            }
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to create user');
+            console.error("Failed to create user", err);
+            setError(err.response?.data?.error || err.response?.data?.username?.[0] || "Failed to create user");
         } finally {
             setIsLoading(false);
         }
@@ -182,10 +136,28 @@ const CreateUserPage = ({ onBack }) => {
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">First Name</label>
+                                    <input type="text" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })}
+                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                        className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                            ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                                        placeholder="First Name"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Last Name</label>
+                                    <input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })}
+                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
+                                        className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                            ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                                        placeholder="Last Name"
+                                    />
+                                </div>
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Username</label>
                                     <input required type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
+                                        className={`w-full p-4 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 
                                             ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-400'}
                                             autofill:transition-colors autofill:duration-5000000`}
                                         placeholder="admin_atanu"
@@ -239,22 +211,18 @@ const CreateUserPage = ({ onBack }) => {
                                             <option value="admin">Admin</option>
                                             <option value="superadmin">Super Admin</option>
                                         </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                                            <ChevronDown size={18} strokeWidth={2.5} />
-                                        </div>
+                                        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" />
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="pt-10">
-                            <button disabled={isLoading} type="submit" className="w-full py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-sm shadow-2xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-4">
-                                {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>CREATE USER <UserPlus size={20} /></>}
-                            </button>
-                        </div>
+                        <button disabled={isLoading} type="submit" className="w-full py-5 bg-orange-600 hover:bg-orange-700 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-orange-600/30 transition-all active:scale-95 flex items-center justify-center gap-3">
+                            {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <> <UserPlus size={18} /> <span>Create Account</span> </>}
+                        </button>
                     </div>
 
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-3">
                             <Shield size={20} className="text-orange-500" />
                             Module Access Control
@@ -269,11 +237,10 @@ const CreateUserPage = ({ onBack }) => {
                                             <button
                                                 type="button"
                                                 onClick={() => toggleAllPermissions(tab.id)}
-                                                disabled={formData.user_type === 'superadmin'}
-                                                className={`px-3 py-1 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[a])
+                                                className={`px-3 py-1 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all hover:scale-110 active:scale-95 cursor-pointer ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[a])
                                                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                                    : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-200 text-slate-600'
-                                                    } ${formData.user_type === 'superadmin' ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
+                                                    : isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-200 text-slate-600'
+                                                    }`}
                                             >
                                                 ALL
                                             </button>
@@ -289,12 +256,11 @@ const CreateUserPage = ({ onBack }) => {
                                                 <button
                                                     key={action}
                                                     type="button"
-                                                    disabled={formData.user_type === 'superadmin'}
                                                     onClick={() => handlePermissionChange(tab.id, action)}
-                                                    className={`py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id][action]
-                                                        ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                                        : isDarkMode ? 'bg-white/5 border-white/5 text-slate-500' : 'bg-white border-slate-200 text-slate-400'
-                                                        } ${formData.user_type === 'superadmin' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                                                    className={`py-2 rounded-[5px] text-[9px] font-black uppercase tracking-widest transition-all border cursor-pointer hover:scale-105 active:scale-95 ${formData.permissions[tab.id]?.[action]
+                                                        ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20 font-black'
+                                                        : isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-100'
+                                                        }`}
                                                 >
                                                     {action}
                                                 </button>
@@ -312,11 +278,10 @@ const CreateUserPage = ({ onBack }) => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => toggleAllPermissions(tab.id, sub.id)}
-                                                                disabled={formData.user_type === 'superadmin'}
-                                                                className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest transition-all ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[sub.id]?.[a])
+                                                                className={`px-2 py-0.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest transition-all hover:scale-110 active:scale-95 cursor-pointer ${['view', 'create', 'edit', 'delete'].every(a => formData.permissions[tab.id]?.[sub.id]?.[a])
                                                                     ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
-                                                                    : isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500'
-                                                                    } ${formData.user_type === 'superadmin' ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
+                                                                    : isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500'
+                                                                    }`}
                                                             >
                                                                 ALL
                                                             </button>
@@ -330,12 +295,11 @@ const CreateUserPage = ({ onBack }) => {
                                                             <button
                                                                 key={action}
                                                                 type="button"
-                                                                disabled={formData.user_type === 'superadmin'}
                                                                 onClick={() => handlePermissionChange(tab.id, action, sub.id)}
-                                                                className={`py-1.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest transition-all border ${formData.permissions[tab.id]?.[sub.id]?.[action]
-                                                                    ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                                                                    : isDarkMode ? 'bg-white/5 border-white/5 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-500'
-                                                                    } ${formData.user_type === 'superadmin' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                                                                className={`py-1.5 rounded-[5px] text-[8px] font-black uppercase tracking-widest transition-all border cursor-pointer hover:scale-105 active:scale-95 ${formData.permissions[tab.id]?.[sub.id]?.[action]
+                                                                    ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/20 font-black'
+                                                                    : isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-100'
+                                                                    }`}
                                                             >
                                                                 {action}
                                                             </button>

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, ChevronDown, Shield } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { permissionTabs } from '../constants';
+import { permissionTabs, getSafePermissions } from '../constants';
 
 const EditUserModal = ({ user, onClose, onUpdate }) => {
     const { isDarkMode } = useTheme();
@@ -11,40 +11,6 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
     const [isLoading, setIsLoading] = useState(false);
 
     const isCurrentSuperAdmin = currentUser?.user_type === 'superadmin';
-
-    const getSafePermissions = (perms) => {
-        const base = {
-            dashboard: { view: true, create: false, edit: false, delete: false },
-            centre_mgmt: { view: false, create: false, edit: false, delete: false },
-            section_mgmt: { view: false, create: false, edit: false, delete: false },
-            test_mgmt: {
-                view: false, create: false, edit: false, delete: false,
-                test_create: { view: false, create: false, edit: false, delete: false },
-                test_allotment: { view: false, create: false, edit: false, delete: false },
-                test_responses: { view: false, create: false, edit: false, delete: false },
-                test_result: { view: false, create: false, edit: false, delete: false }
-            },
-            question_bank: { view: false, create: false, edit: false, delete: false },
-            admin_mgmt: {
-                view: false, create: false, edit: false, delete: false,
-                admin_system: { view: false, create: false, edit: false, delete: false },
-                admin_student: { view: false, create: false, edit: false, delete: false },
-                admin_parent: { view: false, create: false, edit: false, delete: false },
-                admin_master_data: { view: false, create: false, edit: false, delete: false },
-                settings: { view: false, create: false, edit: false, delete: false }
-            },
-        };
-
-        if (perms) {
-            try {
-                const p = typeof perms === 'string' ? JSON.parse(perms) : perms;
-                return { ...base, ...p };
-            } catch (e) {
-                return base;
-            }
-        }
-        return base;
-    };
 
     const [formData, setFormData] = useState({
         first_name: user?.first_name || '',
@@ -54,47 +20,27 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
         permissions: getSafePermissions(user?.permissions)
     });
 
-    useEffect(() => {
-        if (formData.user_type === 'superadmin') {
-            const fullPermissions = JSON.parse(JSON.stringify(formData.permissions));
-            Object.keys(fullPermissions).forEach(key => {
-                if (typeof fullPermissions[key] === 'object' && fullPermissions[key] !== null) {
-                    Object.keys(fullPermissions[key]).forEach(action => {
-                        if (typeof fullPermissions[key][action] === 'object' && fullPermissions[key][action] !== null) {
-                            Object.keys(fullPermissions[key][action]).forEach(subAction => {
-                                fullPermissions[key][action][subAction] = true;
-                            });
-                        } else {
-                            fullPermissions[key][action] = true;
-                        }
-                    });
-                }
-            });
-            setFormData(prev => ({ ...prev, permissions: fullPermissions }));
-        }
-    }, [formData.user_type]);
-
     const handlePermissionChange = (tab, action, subTab = null) => {
-        if (formData.user_type === 'superadmin') return;
         setFormData(prev => {
-            const newPerms = { ...prev.permissions };
+            const newPerms = JSON.parse(JSON.stringify(prev.permissions));
             if (subTab) {
-                newPerms[tab] = {
-                    ...newPerms[tab],
-                    [subTab]: { ...newPerms[tab][subTab], [action]: !newPerms[tab][subTab][action] }
-                };
+                if (!newPerms[tab]) newPerms[tab] = {};
+                if (!newPerms[tab][subTab]) newPerms[tab][subTab] = { view: false, create: false, edit: false, delete: false };
+                newPerms[tab][subTab][action] = !newPerms[tab][subTab][action];
             } else {
-                newPerms[tab] = { ...newPerms[tab], [action]: !newPerms[tab][action] };
+                if (!newPerms[tab]) newPerms[tab] = { view: false, create: false, edit: false, delete: false };
+                newPerms[tab][action] = !newPerms[tab][action];
             }
             return { ...prev, permissions: newPerms };
         });
     };
 
     const toggleAllPermissions = (tab, subTab = null) => {
-        if (formData.user_type === 'superadmin') return;
         setFormData(prev => {
             const newPerms = JSON.parse(JSON.stringify(prev.permissions));
             if (subTab) {
+                if (!newPerms[tab]) newPerms[tab] = {};
+                if (!newPerms[tab][subTab]) newPerms[tab][subTab] = { view: false, create: false, edit: false, delete: false };
                 const target = newPerms[tab][subTab];
                 const allTrue = ['view', 'create', 'edit', 'delete'].every(action => target[action]);
                 ['view', 'create', 'edit', 'delete'].forEach(action => {
@@ -102,16 +48,20 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                 });
             } else {
                 const tabConfig = permissionTabs.find(t => t.id === tab);
-                if (tabConfig.subs) {
-                    const allSubsTrue = tabConfig.subs.every(sub =>
-                        ['view', 'create', 'edit', 'delete'].every(action => newPerms[tab][sub.id][action])
-                    );
+                if (tabConfig && tabConfig.subs) {
+                    if (!newPerms[tab]) newPerms[tab] = {};
+                    const allSubsTrue = tabConfig.subs.every(sub => {
+                        const target = newPerms[tab][sub.id] || {};
+                        return ['view', 'create', 'edit', 'delete'].every(action => target[action]);
+                    });
                     tabConfig.subs.forEach(sub => {
+                        if (!newPerms[tab][sub.id]) newPerms[tab][sub.id] = { view: false, create: false, edit: false, delete: false };
                         ['view', 'create', 'edit', 'delete'].forEach(action => {
                             newPerms[tab][sub.id][action] = !allSubsTrue;
                         });
                     });
                 } else {
+                    if (!newPerms[tab]) newPerms[tab] = { view: false, create: false, edit: false, delete: false };
                     const allTrue = ['view', 'create', 'edit', 'delete'].every(action => newPerms[tab][action]);
                     ['view', 'create', 'edit', 'delete'].forEach(action => {
                         newPerms[tab][action] = !allTrue;
@@ -212,14 +162,14 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                                     <div key={tab.id} className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-100'}`}>
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{tab.label}</span>
-                                            <button type="button" onClick={() => toggleAllPermissions(tab.id)} disabled={formData.user_type === 'superadmin'}
-                                                className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-500 hover:text-white' : 'bg-slate-200 text-slate-600'} ${formData.user_type === 'superadmin' && 'opacity-20'}`}>ALL</button>
+                                            <button type="button" onClick={() => toggleAllPermissions(tab.id)}
+                                                className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black uppercase transition-all ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-200 text-slate-600'}`}>ALL</button>
                                         </div>
                                         {!tab.subs ? (
                                             <div className="grid grid-cols-4 gap-2">
                                                 {['view', 'create', 'edit', 'delete'].map(action => (
-                                                    <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action)}
-                                                        className={`py-1.5 rounded-[5px] text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
+                                                    <button key={action} type="button" onClick={() => handlePermissionChange(tab.id, action)}
+                                                        className={`py-1.5 rounded-[5px] text-[8px] font-black uppercase border transition-all cursor-pointer hover:scale-105 active:scale-95 ${formData.permissions[tab.id]?.[action] ? 'bg-orange-500 border-orange-500 text-white font-black' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
                                                         {action}
                                                     </button>
                                                 ))}
@@ -230,13 +180,13 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                                                     <div key={sub.id} className="space-y-2">
                                                         <div className="flex justify-between items-center px-1">
                                                             <span className="text-[9px] font-bold opacity-60">{sub.label}</span>
-                                                            <button type="button" onClick={() => toggleAllPermissions(tab.id, sub.id)} disabled={formData.user_type === 'superadmin'}
-                                                                className={`text-[8px] font-black uppercase ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Toggle</button>
+                                                            <button type="button" onClick={() => toggleAllPermissions(tab.id, sub.id)}
+                                                                className={`text-[8px] font-black uppercase ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}>Toggle</button>
                                                         </div>
                                                         <div className="grid grid-cols-4 gap-2">
                                                             {['view', 'create', 'edit', 'delete'].map(action => (
-                                                                <button key={action} type="button" disabled={formData.user_type === 'superadmin'} onClick={() => handlePermissionChange(tab.id, action, sub.id)}
-                                                                    className={`py-1 rounded-[3px] text-[8px] font-black uppercase border transition-all ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-700' : 'bg-white border-slate-100 text-slate-300'}`}>
+                                                                <button key={action} type="button" onClick={() => handlePermissionChange(tab.id, action, sub.id)}
+                                                                    className={`py-1 rounded-[3px] text-[8px] font-black uppercase border transition-all cursor-pointer hover:scale-105 active:scale-95 ${formData.permissions[tab.id]?.[sub.id]?.[action] ? 'bg-blue-500 border-blue-500 text-white font-black' : isDarkMode ? 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-100'}`}>
                                                                     {action}
                                                                 </button>
                                                             ))}

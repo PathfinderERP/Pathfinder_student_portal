@@ -421,7 +421,7 @@ const SystemDashboard = () => {
                 { id: 'add_course', label: 'Add Course', active: activeTab === 'Add Course', onClick: () => setActiveTab('Add Course') },
                 { id: 'package_allotment', label: 'Package Allotment', active: activeTab === 'Package Allotment', onClick: () => setActiveTab('Package Allotment') },
                 { id: 'test_analysis', label: 'Test Analysis', active: activeTab === 'Test Analysis', onClick: () => setActiveTab('Test Analysis') }
-            ]
+            ].filter(sub => hasPermission('package_mgmt', sub.id))
         },
         {
             id: 'doubt_mgmt', icon: FileText, label: 'Doubt Management', active: activeTab.startsWith('Doubt') || activeTab.startsWith('Assign Doubt') || activeTab.startsWith('Solve Doubt'),
@@ -429,7 +429,7 @@ const SystemDashboard = () => {
             subItems: [
                 { id: 'assign_doubt', label: 'Assign Doubt', active: activeTab === 'Assign Doubt', onClick: () => setActiveTab('Assign Doubt') },
                 { id: 'solve_doubt', label: 'Solve Doubt', active: activeTab === 'Solve Doubt', onClick: () => setActiveTab('Solve Doubt') },
-            ]
+            ].filter(sub => hasPermission('doubt_mgmt', sub.id))
         },
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
         { id: 'student_activity', icon: Activity, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
@@ -450,7 +450,7 @@ const SystemDashboard = () => {
                 { id: 'seminar', label: 'Seminar', icon: CircleDot, active: activeTab === 'Seminar', onClick: () => setActiveTab('Seminar') },
                 { id: 'test_shift', label: 'Test Shift', icon: CircleDot, active: activeTab === 'Test Shift', onClick: () => setActiveTab('Test Shift') },
                 { id: 'guide', label: 'Guide', icon: CircleDot, active: activeTab === 'Guide', onClick: () => setActiveTab('Guide') },
-            ]
+            ].filter(sub => hasPermission('content_mgmt', sub.id))
         },
         {
             id: 'admin_mgmt', icon: ShieldCheck, label: 'Admin Management', active: activeTab.startsWith('Admin') || activeTab === 'Center Admin Management' || activeTab === 'Head Office Admin',

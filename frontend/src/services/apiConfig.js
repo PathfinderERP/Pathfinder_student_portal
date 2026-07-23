@@ -3,7 +3,7 @@ export const getBaseApiUrl = () => {
     
     // In Vite, import.meta.env is available in all modules
     if (import.meta.env.MODE === 'development') {
-        defaultUrl = 'http://127.0.0.1:3001';
+        defaultUrl = 'http://127.0.0.1:8000';
     }
     
     let url = import.meta.env.VITE_API_URL || defaultUrl;
