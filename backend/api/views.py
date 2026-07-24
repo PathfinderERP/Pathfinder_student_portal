@@ -1937,3 +1937,190 @@ class ClassFeedbackViewSet(viewsets.ModelViewSet):
         avg_score = round(total_score / count, 1) if count > 0 else 0.0
         
         serializer.save(student=self.request.user, average_score=avg_score)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_admin_teacher_activity_summary(request, username):
+    """Admin endpoint to get local app activity for a specific teacher."""
+    user = request.user
+    if user.user_type not in ['superadmin', 'admin', 'faculty', 'staff', 'teacher']:
+        return response.Response({"error": "Unauthorized"}, status=403)
+
+    from django.contrib.auth import get_user_model
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_admin_teacher_activity_summary(request, username):
+    """Admin endpoint to get local app activity for a specific teacher."""
+    user = request.user
+    if user.user_type not in ['superadmin', 'admin', 'faculty', 'staff', 'teacher']:
+        return response.Response({"error": "Unauthorized"}, status=403)
+
+    from django.contrib.auth import get_user_model
+    from api.models import Doubt, ClassFeedback
+    from django.db.models import Q, Avg, F
+    
+    User = get_user_model()
+    
+    teacher = User.objects.filter(username=username).first()
+    erp_id = request.query_params.get('erp_id')
+    
+    login_count = 0
+    last_active = None
+    doubts_solved = 0
+    total_doubts = 0
+    class_rating = 0.0
+    total_feedbacks = 0
+    
+    if teacher:
+        login_count = LoginLog.objects.filter(username=teacher.username).count()
+        last_log = UserActivityLog.objects.filter(user=teacher).order_by('-timestamp').first()
+        if last_log:
+            last_active = last_log.timestamp.isoformat()
+        else:
+            last_login = LoginLog.objects.filter(username=teacher.username, status='Success').order_by('-created_at').first()
+            if last_login:
+                last_active = last_login.created_at.isoformat()
+                
+    teacher_id_q = Q(teacher_id=username)
+    if erp_id:
+        teacher_id_q |= Q(teacher_id=erp_id)
+        
+    if teacher and teacher.email:
+        teacher_id_q |= Q(teacher_id=teacher.email)
+        
+    # Doubts
+    doubts = Doubt.objects.filter(teacher_id_q)
+    total_doubts = doubts.count()
+    doubts_solved = doubts.filter(status='Resolved').count()
+    
+    avg_doubt_time_str = "-"
+    resolved_doubts = doubts.filter(
+        status='Resolved', 
+        assign_date__isnull=False, 
+        resolved_at__isnull=False
+    ).values_list('assign_date', 'resolved_at')
+
+    if resolved_doubts:
+        from dateutil.parser import parse
+        
+        def parse_date(d):
+            if isinstance(d, str):
+                return parse(d)
+            return d
+
+        total_duration = 0
+        valid_count = 0
+        for r in resolved_doubts:
+            try:
+                start = parse_date(r[0])
+                end = parse_date(r[1])
+                total_duration += (end - start).total_seconds()
+                valid_count += 1
+            except Exception:
+                pass
+                
+        if valid_count > 0:
+            avg_seconds = total_duration / valid_count
+            days, remainder = divmod(avg_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, _ = divmod(remainder, 60)
+        if days > 0:
+            avg_doubt_time_str = f"{int(days)}d {int(hours)}h"
+        elif hours > 0:
+            avg_doubt_time_str = f"{int(hours)}h {int(minutes)}m"
+        else:
+            avg_doubt_time_str = f"{int(minutes)}m"
+    
+    # Feedback
+    feedbacks = list(ClassFeedback.objects.filter(teacher_id_q).values('average_score'))
+    total_feedbacks = len(feedbacks)
+    class_rating = sum(f['average_score'] for f in feedbacks) / total_feedbacks if total_feedbacks > 0 else 0.0
+
+    return response.Response({
+        'loginCount': login_count,
+        'lastActive': last_active,
+        'doubtsSolved': doubts_solved,
+        'totalDoubts': total_doubts,
+        'avgDoubtTime': avg_doubt_time_str,
+        'classRating': round(class_rating, 1),
+        'totalFeedbacks': total_feedbacks
+    }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_admin_teacher_activity_detail(request, username):
+    """Admin endpoint to get detailed activity records for a teacher."""
+    user = request.user
+    if user.user_type not in ['superadmin', 'admin', 'faculty', 'staff', 'teacher']:
+        return response.Response({"error": "Unauthorized"}, status=403)
+
+    activity_type = request.query_params.get('type')
+    erp_id = request.query_params.get('erp_id')
+    
+    if not activity_type:
+        return response.Response({"error": "Type parameter required"}, status=400)
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    teacher = User.objects.filter(username=username).first()
+
+    if activity_type == 'logins':
+        if not teacher:
+            return response.Response([])
+        logs = LoginLog.objects.filter(username=teacher.username).order_by('-created_at')[:100]
+        data = [{
+            'created_at': log.created_at.isoformat(),
+            'ip_address': log.ip_address,
+            'status': log.status,
+            'user_agent': log.user_agent
+        } for log in logs]
+        return response.Response(data)
+        
+    from django.db.models import Q
+    teacher_id_q = Q(teacher_id=username)
+    if erp_id:
+        teacher_id_q |= Q(teacher_id=erp_id)
+        
+    if teacher and teacher.email:
+        teacher_id_q |= Q(teacher_id=teacher.email)
+
+    def format_dt(dt):
+        if not dt: return None
+        if hasattr(dt, 'isoformat'): return dt.isoformat()
+        return str(dt)
+
+    if activity_type == 'doubts':
+        from api.models import Doubt
+        doubts = Doubt.objects.filter(teacher_id_q).order_by('-created_at')[:100]
+        data = [{
+            'id': d.id,
+            'title': d.title,
+            'subject': d.subject,
+            'status': d.status,
+            'created_at': format_dt(d.created_at),
+            'assign_date': format_dt(d.assign_date),
+            'resolved_at': format_dt(d.resolved_at),
+            'student_name': d.student_name
+        } for d in doubts]
+        return response.Response(data)
+        
+    if activity_type == 'feedback':
+        from api.models import ClassFeedback
+        feedbacks = ClassFeedback.objects.filter(teacher_id_q).order_by('-created_at')[:100]
+        data = [{
+            'id': f.id,
+            'subject': f.subject,
+            'date_of_class': format_dt(f.date_of_class),
+            'start_time': format_dt(f.start_time),
+            'end_time': format_dt(f.end_time),
+            'average_score': f.average_score,
+            'student_name': f.student.username if f.student else 'Unknown',
+            'student_class': str(f.student.class_level) if f.student and f.student.class_level else 'N/A',
+            'student_center': str(f.student.centre_name) if f.student and f.student.centre_name else 'N/A',
+            'student_exam_tag': str(f.student.exam_tag_name) if f.student and f.student.exam_tag_name else 'N/A',
+            'created_at': format_dt(f.created_at)
+        } for f in feedbacks]
+        return response.Response(data)
+
+    return response.Response([])

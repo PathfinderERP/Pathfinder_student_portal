@@ -65,6 +65,7 @@ import GrievanceManagement from './admin/GrievanceManagement';
 import ClassFeedbackManagement from './admin/ClassFeedbackManagement';
 import StudentAttendancePage from './admin/StudentAttendancePage';
 import StudentActivity from './admin/StudentActivity';
+import TeacherActivity from './admin/TeacherActivity';
 import EditUserModal from './modals/EditUserModal';
 import PasswordResetModal from './modals/PasswordResetModal';
 import DeleteUserModal from './modals/DeleteUserModal';
@@ -433,6 +434,7 @@ const SystemDashboard = () => {
         },
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
         { id: 'student_activity', icon: Activity, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
+        { id: 'teacher_activity', icon: Activity, label: 'Teacher Activity', active: activeTab === 'Teacher Activity', onClick: () => setActiveTab('Teacher Activity') },
         { id: 'class_feedback', icon: Star, label: 'Class Feedback', active: activeTab === 'Class Feedback', onClick: () => setActiveTab('Class Feedback') },
         { id: 'student_attendance', icon: Calendar, label: 'Student Attendance', active: activeTab === 'Student Attendance', onClick: () => setActiveTab('Student Attendance') },
         {
@@ -642,6 +644,8 @@ const SystemDashboard = () => {
                 return <GrievanceManagement />;
             case 'Student Activity':
                 return <StudentActivity studentsData={erpStudents} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(true)} />;
+            case 'Teacher Activity':
+                return <TeacherActivity teachersData={erpTeachers} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(false)} />;
             case 'Library':
                 return <LibraryRegistry />;
             case 'Solution To Dpp Rpp':

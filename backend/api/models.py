@@ -302,6 +302,8 @@ class ClassFeedback(models.Model):
     teacher_name = models.CharField(max_length=255, null=True, blank=True)
     subject = models.CharField(max_length=255, null=True, blank=True)
     date_of_class = models.DateField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
     
     # Store responses to the 10 questions as JSON: { "0": "EXCELLENT", "1": "GOOD", ... }
     responses = SafeJSONField(default=dict)
