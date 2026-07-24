@@ -1372,7 +1372,7 @@ def get_admin_student_activity_summary(request, admission_number):
                 f"{erp_url}/api/student-portal/attendance",
                 headers={'Authorization': f"Bearer {erp_token}"},
                 params={'studentId': erp_id},
-                timeout=5
+                timeout=15
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -1384,15 +1384,23 @@ def get_admin_student_activity_summary(request, admission_number):
         except Exception as e:
             print(f"[ATTENDANCE] Error fetching attendance for {erp_id}: {e}")
 
-    # 5. Total Study Time (from heartbeats)
+    # 5. Total Study Time (from heartbeats + test submissions)
     from django.db.models import Sum
     total_study_time_seconds = 0
     if student:
+        # standard study time
         agg = UserActivityLog.objects.filter(
             user=student,
             activity_type='heartbeat'
         ).aggregate(total=Sum('duration'))
         total_study_time_seconds = agg['total'] or 0
+        
+        # add test submission time
+        from tests.models import TestSubmission
+        test_agg = TestSubmission.objects.filter(
+            student=student
+        ).aggregate(total=Sum('time_spent'))
+        total_study_time_seconds += (test_agg['total'] or 0)
 
     return response.Response({
         'loginCount': login_count,
@@ -1489,7 +1497,7 @@ def get_admin_student_activity_detail(request, admission_number):
                 f"{erp_url}/api/student-portal/attendance",
                 headers={'Authorization': f"Bearer {erp_token}"},
                 params={'studentId': erp_id},
-                timeout=5
+                timeout=15
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -1503,15 +1511,41 @@ def get_admin_student_activity_detail(request, admission_number):
     elif detail_type == 'study_time':
         if not student:
             return response.Response([], status=200)
+        
+        # 1. Get ALL portal heartbeats (no limit — frontend groups by date anyway)
         records = list(
             UserActivityLog.objects.filter(
                 user=student,
                 activity_type='heartbeat'
-            ).order_by('-timestamp').values('timestamp', 'duration', 'path')[:100]
+            ).order_by('-timestamp').values('timestamp', 'duration', 'path')
         )
+        
+        # 2. Get test submissions and treat their time_spent as study time
+        from tests.models import TestSubmission
+        test_submissions = TestSubmission.objects.filter(student=student).select_related('test').order_by('-submitted_at')
+        for sub in test_submissions:
+            if getattr(sub, 'time_spent', 0) > 0:
+                records.append({
+                    'timestamp': sub.submitted_at,
+                    'duration': sub.time_spent,
+                    'path': f'StudentPortal/Exams/{sub.test.name if sub.test else "Unknown"}'
+                })
+        
+        # Sort combined records by timestamp descending
+        def get_sort_key(r):
+            ts = r.get('timestamp')
+            if not ts:
+                return ''
+            if isinstance(ts, str):
+                return ts
+            return ts.isoformat()
+            
+        records.sort(key=get_sort_key, reverse=True)
+        
         for r in records:
-            if r.get('timestamp'):
+            if r.get('timestamp') and not isinstance(r['timestamp'], str):
                 r['timestamp'] = r['timestamp'].isoformat()
+                
         return response.Response(records, status=200)
 
     return response.Response([], status=200)
