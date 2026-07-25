@@ -5,7 +5,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle, Video
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,7 @@ import Grievances from './components/Grievances';
 import Doubts from './components/Doubts';
 import SWOTAnalysis from './components/SWOTAnalysis';
 import StudyMaterials from './components/StudyMaterials';
+import StudentLiveClass from './components/StudentLiveClass';
 import AdvancedAnalytics from './components/AdvancedAnalytics';
 import AIInsights from './components/AIInsights';
 import StudyPlanner from './components/StudyPlanner';
@@ -332,11 +333,10 @@ const StudentDashboard = () => {
 
             fetchUpcomingExams(); // Fetch exams for countdown
 
-            // If data is offline/mock and we haven't tried syncing yet this mount, do it now
-            if (data?.is_offline && !hasAutoSynced.current) {
+            // Automatically trigger fresh ERP sync in background on initial load so ERP updates (like Programme changes) fetch immediately
+            if (!hasAutoSynced.current) {
                 hasAutoSynced.current = true;
-                // Add a small delay so UI doesn't flicker too much
-                setTimeout(() => fetchStudentData(true, true), 1200);
+                setTimeout(() => fetchStudentData(true, true), 800);
             }
         };
 
@@ -377,7 +377,8 @@ const StudentDashboard = () => {
                 subItems: [
                     { name: 'Video Content', icon: PlayCircle },
                     { name: 'Notes', icon: FileText },
-                    { name: 'DPP Questions', icon: Target }
+                    { name: 'DPP Questions', icon: Target },
+                    { name: 'Live Class', icon: Video }
                 ]
             },
             { name: 'Scholarlab', icon: Beaker },
@@ -501,6 +502,8 @@ const StudentDashboard = () => {
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="STUDY_MATERIAL" />;
             case 'DPP Questions':
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="DPP" />;
+            case 'Live Class':
+                return <StudentLiveClass isDarkMode={isDarkMode} />;
             case 'Study Materials':
                 // Default to Video Content if parent is clicked
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;

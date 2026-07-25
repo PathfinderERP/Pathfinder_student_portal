@@ -8,8 +8,8 @@ import time
 import requests
 from api.erp_views import _get_erp_url, _get_erp_admin_token
 import logging
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason
-from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer, PsychometricTraitSerializer, PsychometricQuestionSerializer, MistakeReasonSerializer
+from .models import Session, TargetExam, ExamType, ClassLevel, Programme, ensure_default_programmes, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason
+from .serializers import SessionSerializer, TargetExamSerializer, ProgrammeSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer, PsychometricTraitSerializer, PsychometricQuestionSerializer, MistakeReasonSerializer
 
 class StandardPagination(pagination.PageNumberPagination):
     page_size = 20
@@ -83,7 +83,100 @@ class StudentSectionFilterMixin:
             
             filter_q &= te_q
 
-        return queryset.filter(filter_q).distinct()
+        # 4. Centre Filtering
+        if hasattr(queryset.model, 'centres'):
+            centre_q = Q(centres__isnull=True)
+            c_code = getattr(user, 'centre_code', None)
+            c_name = getattr(user, 'centre_name', None)
+            if c_code or c_name:
+                from centres.models import Centre
+                matching_centre_ids = list(Centre.objects.filter(
+                    Q(code__iexact=c_code) | Q(name__iexact=c_name)
+                ).values_list('pk', flat=True))
+                if matching_centre_ids:
+                    centre_q |= Q(centres__in=matching_centre_ids)
+            filter_q &= centre_q
+
+        # 5. Programme (CRP / NCRP) Filtering
+        if hasattr(queryset.model, 'programmes'):
+            prog_q = Q(programmes__isnull=True) | Q(programmes=[])
+            student_programme = getattr(user, 'programme', None)
+            if not student_programme:
+                batch_str = str(getattr(user, 'assigned_batch', '') or '').upper()
+                sec_str = str(getattr(user, 'study_section', '') or '').upper()
+                if 'NCRP' in batch_str or 'NCRP' in sec_str:
+                    student_programme = 'NCRP'
+                else:
+                    student_programme = 'CRP'
+            
+            if student_programme:
+                prog_q |= Q(programmes__contains=student_programme) | Q(programmes__icontains=student_programme)
+            filter_q &= prog_q
+
+        qs = queryset.filter(filter_q).distinct()
+
+        # For LiveClass model, enforce strict triple-combination matching (Programme + Class Level + Centre)
+        if queryset.model.__name__ == 'LiveClass':
+            student_prog = (getattr(user, 'programme', None) or '').upper()
+            if not student_prog:
+                batch_str = str(getattr(user, 'assigned_batch', '') or '').upper()
+                sec_str = str(getattr(user, 'study_section', '') or '').upper()
+                student_prog = 'NCRP' if ('NCRP' in batch_str or 'NCRP' in sec_str) else 'CRP'
+
+            student_class_id = str(user.class_level_id) if getattr(user, 'class_level_id', None) else (str(user.class_level.pk) if getattr(user, 'class_level', None) else None)
+            student_class_name = str(user.class_level.name).strip().lower() if getattr(user, 'class_level', None) and getattr(user.class_level, 'name', None) else None
+
+            student_c_code = str(getattr(user, 'centre_code', '') or '').strip().lower()
+            student_c_name = str(getattr(user, 'centre_name', '') or '').strip().lower()
+
+            valid_pks = []
+            for item in qs:
+                # 1. Programme check (CRP / NCRP)
+                progs = getattr(item, 'programmes', [])
+                if progs and isinstance(progs, list) and len(progs) > 0:
+                    upper_progs = [str(p).upper() for p in progs]
+                    if student_prog not in upper_progs:
+                        continue  # REJECT: Programme mismatch
+
+                # 2. Class Level check
+                cls_list = list(item.class_levels.all()) if hasattr(item, 'class_levels') else []
+                if cls_list:
+                    match_class = False
+                    for cl in cls_list:
+                        cl_id = str(cl.pk)
+                        cl_name = str(cl.name).strip().lower() if hasattr(cl, 'name') else ''
+                        if (student_class_id and cl_id == student_class_id) or (student_class_name and cl_name == student_class_name):
+                            match_class = True
+                            break
+                    if not match_class:
+                        continue  # REJECT: Class Level mismatch
+                elif getattr(item, 'class_level', None):
+                    cl_id = str(item.class_level.pk)
+                    cl_name = str(item.class_level.name).strip().lower() if hasattr(item.class_level, 'name') else ''
+                    if (student_class_id and cl_id != student_class_id) and (student_class_name and cl_name != student_class_name):
+                        continue  # REJECT: Class Level mismatch
+
+                # 3. Active Centre check
+                ctr_list = list(item.centres.all()) if hasattr(item, 'centres') else []
+                if ctr_list:
+                    match_ctr = False
+                    for ctr in ctr_list:
+                        c_code = str(getattr(ctr, 'code', '') or '').strip().lower()
+                        c_name = str(getattr(ctr, 'name', '') or '').strip().lower()
+                        if (student_c_code and c_code == student_c_code) or \
+                           (student_c_name and c_name == student_c_name) or \
+                           (student_c_name and (c_name in student_c_name or student_c_name in c_name)) or \
+                           (student_c_code and (c_code in student_c_code or student_c_code in c_code)):
+                            match_ctr = True
+                            break
+                    if not match_ctr:
+                        continue  # REJECT: Centre mismatch
+
+                valid_pks.append(item.pk)
+
+            return qs.filter(pk__in=valid_pks)
+
+        return qs
 
 def deep_serialize(data):
     """Recursively convert DRF ReturnList / OrderedDict / ReturnDict to plain Python
@@ -287,6 +380,14 @@ class SessionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": f"ERP returned {resp.status_code}"}, status=resp.status_code)
         except Exception as e:
             return response.Response({"error": str(e)}, status=500)
+
+class ProgrammeViewSet(viewsets.ModelViewSet):
+    queryset = Programme.objects.all().order_by('code')
+    serializer_class = ProgrammeSerializer
+
+    def get_queryset(self):
+        ensure_default_programmes()
+        return Programme.objects.all().order_by('code')
 
 class TargetExamViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = TargetExam.objects.all().order_by('-created_at')
@@ -1072,7 +1173,7 @@ class LiveClassViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewse
     def get_queryset(self):
         queryset = LiveClass.objects.select_related(
             'session', 'class_level', 'subject', 'exam_type', 'target_exam', 'section'
-        ).prefetch_related('packages', 'sessions', 'target_exams').all().order_by('-created_at')
+        ).prefetch_related('packages', 'sessions', 'target_exams', 'class_levels', 'centres').all().order_by('-created_at')
         return self.filter_by_section(queryset, 'section')
 
 class VideoViewSet(CachedListViewSetMixin, StudentSectionFilterMixin, viewsets.ModelViewSet):

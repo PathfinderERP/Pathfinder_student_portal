@@ -12,6 +12,8 @@ class UserSerializer(serializers.ModelSerializer):
     # Read-only human-readable labels derived from FK relationships
     class_level_name = serializers.SerializerMethodField()
     target_exam_name = serializers.SerializerMethodField()
+    programme_name = serializers.SerializerMethodField()
+    programme_id = serializers.CharField(source='programme_ref_id', read_only=True, allow_null=True)
 
     class Meta:
         model = CustomUser
@@ -21,6 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
             'is_active', 'date_joined', 'created_by_username',
             'exam_section', 'study_section', 'omr_code', 'rm_code',
             'admission_number', 'centre_code', 'centre_name',
+            'programme', 'programme_ref', 'programme_id', 'programme_name',
             'class_level', 'class_level_name',
             'target_exam', 'target_exam_name', 'exam_tag_name',
         ]
@@ -77,6 +80,16 @@ class UserSerializer(serializers.ModelSerializer):
             pass
 
         return None
+
+    def get_programme_name(self, obj):
+        """Return human-readable Programme name (e.g. 'Classroom Programme (CRP)', 'Non-Classroom Programme (NCRP)').
+        Checks local FK first, then code fallback."""
+        try:
+            if obj.programme_ref:
+                return str(obj.programme_ref.name)
+        except Exception:
+            pass
+        return getattr(obj, 'programme', None) or 'CRP'
 
 
     def validate_user_type(self, value):

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, ChevronsLeft, ChevronsRight, ChevronRight, Filter, Bell, CheckCircle } from 'lucide-react';
+import { Search, Plus, FileText, Eye, Edit2, Trash2, RefreshCw, X, Upload, FileCheck, AlertCircle, ChevronLeft, Loader2, Maximize2, Minimize2, ExternalLink, ChevronsLeft, ChevronsRight, ChevronRight, Filter, Bell, CheckCircle, ChevronDown, Check, Video } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
@@ -22,7 +22,11 @@ const LiveClassRegistry = () => {
     const [examTypes, setExamTypes] = useState([]);
     const [targetExams, setTargetExams] = useState([]);
     const [sections, setSections] = useState([]);
-    const [packages, setPackages] = useState([]); // New Package State
+    const [packages, setPackages] = useState([]);
+    const [centres, setCentres] = useState([]);
+
+    // Live Stream Modal State
+    const [activeLiveStream, setActiveLiveStream] = useState(null);
 
     // View Modal State
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -52,13 +56,9 @@ const LiveClassRegistry = () => {
         start_time: '',
         duration: '',
         description: '',
-        sessions: [],
-        class_level: '',
-        subject: '',
-        exam_type: '',
-        target_exams: [],
-        is_general: false,
-        packages: []
+        class_levels: [],
+        centres: [],
+        programmes: []
     });
 
     const fetchLiveClasses = useCallback(async () => {
@@ -78,14 +78,15 @@ const LiveClassRegistry = () => {
     const fetchMasterData = useCallback(async () => {
         try {
             const apiUrl = getApiUrl();
-            const [sessRes, classRes, subRes, etRes, teRes, secRes, pkgRes] = await Promise.all([
+            const [sessRes, classRes, subRes, etRes, teRes, secRes, pkgRes, centreRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/sessions/`),
                 axios.get(`${apiUrl}/api/master-data/classes/`),
                 axios.get(`${apiUrl}/api/master-data/subjects/`),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`),
                 axios.get(`${apiUrl}/api/master-data/master-sections/`),
-                axios.get(`${apiUrl}/api/packages/`)
+                axios.get(`${apiUrl}/api/packages/`),
+                axios.get(`${apiUrl}/api/centres/`)
             ]);
 
             // Handle MasterSection API (Array, {results: []}, or {sections: []})
@@ -102,7 +103,7 @@ const LiveClassRegistry = () => {
             setExamTypes(etRes.data);
             setTargetExams(teRes.data);
             setPackages(pkgRes.data);
-            console.log('Packages fetched:', pkgRes.data);
+            setCentres(Array.isArray(centreRes.data) ? centreRes.data : (centreRes.data?.results || []));
         } catch (error) {
             console.error("Failed to fetch master data", error);
         }
@@ -120,34 +121,16 @@ const LiveClassRegistry = () => {
         try {
             const apiUrl = getApiUrl();
 
-            console.log('=== DEBUG: handleAddItem ===');
-            console.log('newItem:', newItem);
-            console.log('packages array:', newItem.packages);
-            console.log('is_general:', newItem.is_general);
-
-            // Validate package selection
-            if (!newItem.is_general && (!newItem.packages || newItem.packages.length === 0 || newItem.packages.every(p => !p))) {
-                toast.error("Please select at least one package");
-                setIsActionLoading(false);
-                return;
-            }
-
             const payload = {
                 name: newItem.name,
                 meeting_link: newItem.meeting_link,
                 start_time: newItem.start_time,
                 duration: newItem.duration,
                 description: newItem.description,
-                sessions: newItem.is_general ? (newItem.sessions || []) : [],
-                class_level: newItem.is_general ? (newItem.class_level || null) : null,
-                subject: newItem.is_general ? (newItem.subject || null) : null,
-                exam_type: newItem.is_general ? (newItem.exam_type || null) : null,
-                target_exams: newItem.is_general ? (newItem.target_exams || []) : [],
-                is_general: newItem.is_general,
-                packages: !newItem.is_general ? (newItem.packages || []).filter(p => p !== null && p !== '' && p !== undefined) : [],
+                class_levels: newItem.class_levels || [],
+                centres: newItem.centres || [],
+                programmes: newItem.programmes || []
             };
-
-            console.log('Payload being sent:', payload);
 
             await axios.post(`${apiUrl}/api/master-data/live-classes/`, payload);
 
@@ -181,6 +164,15 @@ const LiveClassRegistry = () => {
 
         const safeValue = Array.isArray(value) ? value : [];
 
+        const selectedNames = useMemo(() => {
+            return options
+                .filter(opt => {
+                    const optId = opt.id !== undefined ? opt.id : opt.value;
+                    return safeValue.some(v => String(v) === String(optId));
+                })
+                .map(opt => opt.label || opt.name || opt.value);
+        }, [options, safeValue]);
+
         const filteredOptions = useMemo(() => {
             if (!searchTerm) return options;
             return options.filter(opt => {
@@ -190,8 +182,9 @@ const LiveClassRegistry = () => {
         }, [options, searchTerm]);
 
         const toggleOption = (id) => {
-            const newValue = safeValue.includes(id)
-                ? safeValue.filter(v => v !== id)
+            const isAlreadySelected = safeValue.some(v => String(v) === String(id));
+            const newValue = isAlreadySelected
+                ? safeValue.filter(v => String(v) !== String(id))
                 : [...safeValue, id];
             onChange(newValue);
         };
@@ -200,7 +193,7 @@ const LiveClassRegistry = () => {
             if (safeValue.length === options.length) {
                 onChange([]);
             } else {
-                onChange(options.map(opt => opt.id || opt.value));
+                onChange(options.map(opt => opt.id !== undefined ? opt.id : opt.value));
             }
         };
 
@@ -222,7 +215,7 @@ const LiveClassRegistry = () => {
                         ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
                         : (isDarkMode ? 'text-white' : 'text-slate-700')}`}>
                         {safeValue.length > 0 
-                            ? `${safeValue.length} Selected` 
+                            ? (selectedNames.length > 0 ? selectedNames.join(', ') : `${safeValue.length} Selected`) 
                             : placeholder}
                     </span>
 
@@ -272,13 +265,14 @@ const LiveClassRegistry = () => {
 
                         <div className="max-h-60 overflow-y-auto custom-scrollbar">
                             {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
-                                const isSelected = safeValue.includes(opt.id) || safeValue.includes(opt.value);
+                                const optId = opt.id !== undefined ? opt.id : opt.value;
+                                const isSelected = safeValue.some(v => String(v) === String(optId));
                                 return (
                                     <div
                                         key={i}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            toggleOption(opt.id || opt.value);
+                                            toggleOption(optId);
                                         }}
                                         className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
                                             ${isSelected
@@ -308,17 +302,12 @@ const LiveClassRegistry = () => {
         setNewItem({
             name: item.name,
             meeting_link: item.meeting_link,
-            start_time: item.start_time ? item.start_time.slice(0, 16) : '', // Format for datetime-local
+            start_time: item.start_time ? item.start_time.slice(0, 16) : '',
             duration: item.duration,
             description: item.description || '',
-            session: item.session || '',
-            sessions: item.sessions || [],
-            class_level: item.class_level || '',
-            subject: item.subject || '',
-            exam_type: item.exam_type || '',
-            target_exams: item.target_exams || [],
-            is_general: item.is_general || false,
-            packages: item.packages || []
+            class_levels: item.class_levels || (item.class_level ? [item.class_level] : []),
+            centres: item.centres || [],
+            programmes: Array.isArray(item.programmes) ? item.programmes : []
         });
         setIsEditModalOpen(true);
     };
@@ -329,30 +318,16 @@ const LiveClassRegistry = () => {
         try {
             const apiUrl = getApiUrl();
 
-            // Validate package selection
-            if (!newItem.is_general && (!newItem.packages || newItem.packages.length === 0 || newItem.packages.every(p => !p))) {
-                toast.error("Please select at least one package");
-                setIsActionLoading(false);
-                return;
-            }
-
             const payload = {
                 name: newItem.name,
                 meeting_link: newItem.meeting_link,
                 start_time: newItem.start_time,
                 duration: newItem.duration,
                 description: newItem.description,
-                sessions: newItem.is_general ? (newItem.sessions?.length > 0 ? newItem.sessions : (newItem.session ? [newItem.session] : [])) : [],
-                class_level: newItem.is_general ? (newItem.class_level || null) : null,
-                subject: newItem.is_general ? (newItem.subject || null) : null,
-                exam_type: newItem.is_general ? (newItem.exam_type || null) : null,
-                target_exam: newItem.is_general ? (newItem.target_exam || null) : null,
-                section: newItem.is_general ? (newItem.section || null) : null,
-                is_general: newItem.is_general,
-                packages: !newItem.is_general ? (newItem.packages || []).filter(p => p !== null && p !== '' && p !== undefined) : [],
+                class_levels: newItem.class_levels || [],
+                centres: newItem.centres || [],
+                programmes: newItem.programmes || []
             };
-
-            console.log('Update payload being sent:', payload);
 
             await axios.put(`${apiUrl}/api/master-data/live-classes/${selectedItemForEdit.id}/`, payload);
 
@@ -384,36 +359,16 @@ const LiveClassRegistry = () => {
     };
 
     const resetForm = () => {
-        setNewItem({ name: '', meeting_link: '', start_time: '', duration: '', description: '', sessions: [], class_level: '', subject: '', exam_type: '', target_exams: [], is_general: false, packages: [] });
+        setNewItem({ name: '', meeting_link: '', start_time: '', duration: '', description: '', class_levels: [], centres: [], programmes: [] });
     };
 
     // Advanced Filtered Logic
     const filteredLiveClasses = useMemo(() => {
         return liveClasses.filter(n => {
-            const matchesSearch = n.name.toLowerCase().includes(searchQuery.toLowerCase());
-
-            // View Mode Filter
-            if (viewTargeting === 'packages') {
-                if (n.is_general) return false;
-                if (activeFilters.package && !n.packages.includes(activeFilters.package)) return false;
-            } else if (viewTargeting === 'general') {
-                if (!n.is_general) return false;
-                const matchesSession = !activeFilters.session || 
-                    String(n.session) === String(activeFilters.session) || 
-                    (n.sessions && n.sessions.some(s => String(s) === String(activeFilters.session)));
-                if (!matchesSession) return false;
-                if (activeFilters.class_level && n.class_level !== activeFilters.class_level) return false;
-                if (activeFilters.subject && n.subject !== activeFilters.subject) return false;
-                if (activeFilters.exam_type && n.exam_type !== activeFilters.exam_type) return false;
-                const matchesTargetExam = activeFilters.target_exams.length === 0 || 
-                    (n.target_exams && n.target_exams.some(te => activeFilters.target_exams.includes(te)));
-                if (!matchesTargetExam) return false;
-            }
-            // If viewTargeting === 'all', show everything (no filtering by type)
-
+            const matchesSearch = (n.name || '').toLowerCase().includes(searchQuery.toLowerCase());
             return matchesSearch;
         });
-    }, [liveClasses, searchQuery, activeFilters, viewTargeting]);
+    }, [liveClasses, searchQuery]);
 
     // Dynamic Filter Options based on available data
     const dynamicFilterOptions = useMemo(() => {
@@ -492,106 +447,7 @@ const LiveClassRegistry = () => {
 
                         {/* Filter Bar */}
                         <div className="flex flex-wrap items-center gap-3">
-                            {/* Toggle View Mode */}
-                            <div className={`p-1 rounded-[5px] flex items-center gap-1 border transition-all ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
-                                <span className="px-2 text-[10px] font-black uppercase tracking-widest opacity-50">Targeting:</span>
-                                <button
-                                    onClick={() => setViewTargeting('all')}
-                                    className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'all' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
-                                >
-                                    All
-                                </button>
-                                <button
-                                    onClick={() => setViewTargeting('packages')}
-                                    className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'packages' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
-                                >
-                                    Packages
-                                </button>
-                                <button
-                                    onClick={() => setViewTargeting('general')}
-                                    className={`px-3 py-1.5 rounded-[5px] text-[10px] font-black uppercase tracking-wide transition-all ${viewTargeting === 'general' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'opacity-60 hover:opacity-100'}`}
-                                >
-                                    General
-                                </button>
-                            </div>
-
-                            <div className={`w-px h-8 mx-2 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`}></div>
-
-                            <div className={`p-2 rounded-[5px] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
-                                <Filter size={14} /> Filters
-                            </div>
-
-                            {viewTargeting === 'all' ? (
-                                <span className={`px-4 py-2.5 rounded-[5px] font-bold text-xs ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>Showing all live classes</span>
-                            ) : viewTargeting === 'packages' ? (
-                                <select
-                                    value={activeFilters.package}
-                                    onChange={(e) => setActiveFilters({ ...activeFilters, package: e.target.value })}
-                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                    className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                                >
-                                    <option value="">All Packages</option>
-                                    {packages.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                                </select>
-                            ) : (
-                                <>
-                                    <select
-                                        value={activeFilters.session}
-                                        onChange={(e) => setActiveFilters({ ...activeFilters, session: e.target.value })}
-                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                                    >
-                                        <option value="">All Sessions</option>
-                                        {dynamicFilterOptions.sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-
-                                    <select
-                                        value={activeFilters.class_level}
-                                        onChange={(e) => setActiveFilters({ ...activeFilters, class_level: e.target.value })}
-                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                                    >
-                                        <option value="">All Classes</option>
-                                        {dynamicFilterOptions.classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                    <select
-                                        value={activeFilters.subject}
-                                        onChange={(e) => setActiveFilters({ ...activeFilters, subject: e.target.value })}
-                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                                    >
-                                        <option value="">All Subjects</option>
-                                        {dynamicFilterOptions.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                    <select
-                                        value={activeFilters.exam_type}
-                                        onChange={(e) => setActiveFilters({ ...activeFilters, exam_type: e.target.value })}
-                                        style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                        className={`px-4 py-2.5 rounded-[5px] font-bold text-xs outline-none border-none cursor-pointer transition-all ${isDarkMode ? 'bg-[#1a1f2e] text-white hover:bg-[#252c41]' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                                    >
-                                        <option value="">All Exam Types</option>
-                                        {dynamicFilterOptions.examTypes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                    </select>
-                                    <MultiSelect
-                                        label="Target Exam"
-                                        options={targetExams}
-                                        value={activeFilters.target_exams}
-                                        placeholder="All Target Exams"
-                                        isDarkMode={isDarkMode}
-                                        onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
-                                        className="min-w-[200px]"
-                                    />
-                                </>
-                            )}
-
-                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.exam_type || activeFilters.target_exams.length > 0 || activeFilters.section || activeFilters.package) && (
-                                <button
-                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', exam_type: '', target_exams: [], section: '', package: '' })}
-                                    className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
-                                >
-                                    Clear All Filters
-                                </button>
-                            )}
+                            <span className={`px-4 py-2.5 rounded-[5px] font-bold text-xs ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>Showing all live classes</span>
                         </div>
                     </div>
                 </div>
@@ -606,8 +462,9 @@ const LiveClassRegistry = () => {
                                 <th className="py-5 px-6">Name</th>
                                 <th className="py-5 px-6 text-center">Date</th>
                                 <th className="py-5 px-6 text-center">Duration</th>
-                                <th className="py-5 px-6 text-center">Type</th>
-                                <th className="py-5 px-6 text-center">Targeting</th>
+                                <th className="py-5 px-6 text-center">Programme</th>
+                                <th className="py-5 px-6 text-center">Class</th>
+                                <th className="py-5 px-6 text-center">Active Centre</th>
                                 <th className="py-5 px-6 text-center">Action</th>
                                 <th className="py-5 px-6 text-center">Delete</th>
                             </tr>
@@ -630,6 +487,9 @@ const LiveClassRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className={`h-3 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className={`h-6 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className={`h-6 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
@@ -675,32 +535,33 @@ const LiveClassRegistry = () => {
                                             <span className="text-[11px] font-bold opacity-70">{item.duration}</span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <span className={`px-2 py-1 rounded-[5px] text-[10px] font-black uppercase ${item.is_general ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
-                                                {item.is_general ? 'General' : 'Package'}
-                                            </span>
+                                            {Array.isArray(item.programmes) && item.programmes.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 justify-center">
+                                                    {item.programmes.map((p, i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-blue-500/10 text-blue-500 text-[9px] font-black uppercase rounded-[5px] border border-blue-500/20">{p}</span>
+                                                    ))}
+                                                </div>
+                                            ) : <span className="text-[9px] font-black uppercase opacity-20">-</span>}
                                         </td>
                                         <td className="py-5 px-6 text-center">
-                                            <div className="flex flex-col gap-1 items-center justify-center">
-                                                {item.is_general ? (
-                                                    <>
-                                                        {item.subject_name ? (
-                                                            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-[5px] border border-emerald-500/20">{item.subject_name}</span>
-                                                        ) : <span className="text-[9px] font-black uppercase opacity-20">General</span>}
-                                                        {item.class_name && <span className="text-[8px] font-black uppercase opacity-40">{item.class_name}</span>}
-                                                    </>
-                                                ) : (
-                                                    <div className="flex flex-col gap-1">
-                                                        {item.package_names && item.package_names.length > 0 ? (
-                                                            item.package_names.slice(0, 2).map((p, i) => (
-                                                                <span key={i} className="px-2 py-0.5 bg-purple-500/10 text-purple-500 text-[9px] font-black uppercase rounded-[5px] border border-purple-500/20 max-w-[150px] truncate">{p}</span>
-                                                            ))
-                                                        ) : <span className="text-[9px] opacity-30">-</span>}
-                                                        {item.package_names && item.package_names.length > 2 && (
-                                                            <span className="text-[9px] opacity-40">+{item.package_names.length - 2} more</span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
+                                            {item.class_level_names && item.class_level_names.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 justify-center">
+                                                    {item.class_level_names.map((c, i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-[5px] border border-emerald-500/20">{c}</span>
+                                                    ))}
+                                                </div>
+                                            ) : item.class_name ? (
+                                                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase rounded-[5px] border border-emerald-500/20">{item.class_name}</span>
+                                            ) : <span className="text-[9px] font-black uppercase opacity-20">-</span>}
+                                        </td>
+                                        <td className="py-5 px-6 text-center">
+                                            {item.centre_names && item.centre_names.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 justify-center">
+                                                    {item.centre_names.map((c, i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase rounded-[5px] border border-amber-500/20">{c}</span>
+                                                    ))}
+                                                </div>
+                                            ) : <span className="text-[9px] font-black uppercase opacity-20">-</span>}
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex justify-center">
@@ -719,7 +580,7 @@ const LiveClassRegistry = () => {
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan={8} className="py-20 text-center text-slate-500 font-bold uppercase tracking-[0.2em] text-xs opacity-40 italic">No live classes matching criteria</td></tr>
+                                <tr><td colSpan={9} className="py-20 text-center text-slate-500 font-bold uppercase tracking-[0.2em] text-xs opacity-40 italic">No live classes matching criteria</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -767,124 +628,49 @@ const LiveClassRegistry = () => {
 
             {/* Modal */}
             {(isAddModalOpen || isEditModalOpen) && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-                    <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                    <div className={`w-full max-w-2xl rounded-[5px] border shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 ${isDarkMode ? 'bg-[#10141D] border-white/10 shadow-black text-white' : 'bg-white border-slate-100 shadow-slate-200 text-slate-800'}`}>
+                        <div className="p-6 border-b border-white/10 flex justify-between items-center flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-amber-500 rounded-[5px] text-white shadow-lg shadow-amber-500/20"><Bell size={20} /></div>
                                 <h2 className="text-xl font-black uppercase tracking-tight">{isAddModalOpen ? 'Create New' : 'Edit'} <span className="text-amber-500">Live Class</span></h2>
                             </div>
-                            <button onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-[5px] transition-colors"><X size={20} /></button>
+                            <button type="button" onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); resetForm(); }} className="p-2 hover:bg-white/10 rounded-[5px] transition-colors"><X size={20} /></button>
                         </div>
 
-                        <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                            {/* Top Section: Academic Targeting */}
-                            <div className="flex flex-col gap-6">
-                                {/* Type Toggle */}
-                                <div className="flex items-center gap-4 p-4 rounded-[5px] bg-slate-100 dark:bg-white/5">
-                                    <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'opacity-60 text-white' : 'text-slate-500'}`}>Targeting Type:</span>
-                                    <div className="flex bg-white dark:bg-black/20 p-1 rounded-[5px]">
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewItem({ ...newItem, is_general: false })}
-                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${!newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
-                                        >
-                                            Packages
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setNewItem({ ...newItem, is_general: true })}
-                                            className={`px-4 py-2 rounded-[5px] text-xs font-bold transition-all ${newItem.is_general ? 'bg-amber-500 text-white shadow-lg' : (isDarkMode ? 'opacity-40 hover:opacity-100' : 'text-slate-400 hover:text-slate-600')}`}
-                                        >
-                                            General (Master Data)
-                                        </button>
-                                    </div>
-                                </div>
+                        <form onSubmit={isAddModalOpen ? handleAddItem : handleUpdateItem} className="p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+                            {/* Programme, Class Level & Active Centre MultiSelect Dropdowns */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <MultiSelect 
+                                    label="Programmes" 
+                                    options={[{ id: 'CRP', name: 'CRP' }, { id: 'NCRP', name: 'NCRP' }]} 
+                                    value={newItem.programmes} 
+                                    onChange={(val) => setNewItem({ ...newItem, programmes: val })} 
+                                    placeholder="Select Programmes (CRP/NCRP)" 
+                                    isDarkMode={isDarkMode}
+                                />
 
-                                {!newItem.is_general ? (
-                                    /* Package Selection */
-                                    <div className="space-y-3">
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Select Packages *</label>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar p-2 rounded-[5px] border border-dashed border-slate-300 dark:border-white/10">
-                                            {packages.map(pkg => (
-                                                <label key={pkg._id} className={`flex items-center gap-3 p-3 rounded-[5px] border transition-all cursor-pointer ${newItem.packages.includes(pkg._id) ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-white dark:bg-white/5 border-transparent hover:bg-slate-50 dark:hover:bg-white/10'}`}>
-                                                    <div className={`w-5 h-5 rounded-[5px] border-2 flex items-center justify-center transition-all ${newItem.packages.includes(pkg._id) ? 'bg-amber-500 border-amber-500' : 'border-slate-300 dark:border-slate-600'}`}>
-                                                        {newItem.packages.includes(pkg._id) && <CheckCircle size={12} className="text-white" />}
-                                                    </div>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="hidden"
-                                                        checked={newItem.packages.includes(pkg._id)}
-                                                        onChange={(e) => {
-                                                            console.log('Checkbox changed:', pkg.name, pkg._id, 'checked:', e.target.checked);
-                                                            if (e.target.checked) {
-                                                                setNewItem(prev => {
-                                                                    const updated = { ...prev, packages: [...prev.packages, pkg._id] };
-                                                                    console.log('Adding package, new state:', updated.packages);
-                                                                    return updated;
-                                                                });
-                                                            } else {
-                                                                setNewItem(prev => {
-                                                                    const updated = { ...prev, packages: prev.packages.filter(id => id !== pkg._id) };
-                                                                    console.log('Removing package, new state:', updated.packages);
-                                                                    return updated;
-                                                                });
-                                                            }
-                                                        }}
-                                                    />
-                                                    <span className="text-xs font-bold">{pkg.name}</span>
-                                                </label>
-                                            ))}
-                                            {packages.length === 0 && <p className="text-xs opacity-50 p-4">No packages found.</p>}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* Master Data Grid */
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className="space-y-1.5">
-                                            <MultiSelect 
-                                                label="Sessions" 
-                                                options={sessions} 
-                                                value={newItem.sessions} 
-                                                onChange={(val) => setNewItem({ ...newItem, sessions: val })} 
-                                                placeholder="Select Sessions" 
-                                                isDarkMode={isDarkMode}
-                                            />
-                                        </div>
-                                        {[
-                                            { label: 'Class Level', field: 'class_level', options: classes },
-                                            { label: 'Subject', field: 'subject', options: subjects },
-                                            { label: 'Exam Type', field: 'exam_type', options: examTypes },
-                                        ].map((meta, idx) => (
-                                            <div key={idx} className="space-y-1.5">
-                                                <label className={`block text-[10px] font-black uppercase tracking-widest ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>{meta.label}</label>
-                                                <select
-                                                    value={newItem[meta.field]}
-                                                    onChange={(e) => setNewItem({ ...newItem, [meta.field]: e.target.value })}
-                                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
-                                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/5 text-white focus:border-amber-500/50' : 'bg-white border-slate-200 text-slate-800 focus:border-amber-500'}`}
-                                                >
-                                                    <option value="">All {meta.label}s</option>
-                                                    {meta.options.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
-                                                </select>
-                                            </div>
-                                        ))}
-                                        <div className="space-y-1.5">
-                                            <MultiSelect 
-                                                label="Target Exams" 
-                                                options={targetExams} 
-                                                value={newItem.target_exams} 
-                                                onChange={(val) => setNewItem({ ...newItem, target_exams: val })} 
-                                                placeholder="Select Target Exams" 
-                                                isDarkMode={isDarkMode}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
+                                <MultiSelect 
+                                    label="Classes" 
+                                    options={classes.map(c => ({ id: c.id, name: c.name }))} 
+                                    value={newItem.class_levels} 
+                                    onChange={(val) => setNewItem({ ...newItem, class_levels: val })} 
+                                    placeholder="Select Classes" 
+                                    isDarkMode={isDarkMode}
+                                />
+
+                                <MultiSelect 
+                                    label="Active Centres" 
+                                    options={centres.map(c => ({ id: c._id || c.id, name: c.name ? `${c.name} (${c.code})` : (c.code || c.id) }))} 
+                                    value={newItem.centres} 
+                                    onChange={(val) => setNewItem({ ...newItem, centres: val })} 
+                                    placeholder="Select Active Centres" 
+                                    isDarkMode={isDarkMode}
+                                />
                             </div>
 
                             {/* Bottom Section: Content Details */}
-                            <div className="grid grid-cols-1 gap-8">
+                            <div className="grid grid-cols-1 gap-6">
                                 <div className="space-y-6">
                                     <div>
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-2 ml-1 ${isDarkMode ? 'opacity-40' : 'opacity-70 text-slate-500'}`}>Live Class Title *</label>
@@ -955,10 +741,10 @@ const LiveClassRegistry = () => {
                             </button>
                         </form>
                     </div>
-                </div >
+                </div>
             )}
 
-        </div >
+        </div>
     );
 };
 

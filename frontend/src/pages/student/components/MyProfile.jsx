@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 
 const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
-    const { token, getApiUrl } = useAuth();
+    const { token, getApiUrl, user } = useAuth();
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [examTagName, setExamTagName] = useState('—');
     const [tagLoading, setTagLoading] = useState(false);
@@ -18,6 +18,17 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
     const examTagRaw = details.examTag || studentData?.examTag || studentData?.student?.examTag;
     const examTagId = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw._id || examTagRaw.id) : examTagRaw;
     const preResolvedTagName = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw.name || examTagRaw.tagName) : null;
+
+    const programme = user?.programme_name || 
+                      user?.programme || 
+                      studentData?.programme_name || 
+                      studentData?.programme || 
+                      studentData?.programmeName || 
+                      studentData?.course?.programme || 
+                      studentData?.student?.programme || 
+                      studentData?.user?.programme || 
+                      (batches.some(b => (b.batchName || '').toUpperCase().includes('NCRP')) ? 'NCRP' : 'CRP');
+
 
     useEffect(() => {
         const fetchExamTag = async () => {
@@ -140,6 +151,10 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border
                                 ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm'}`}>
                                 <Star size={12} className="text-indigo-500" /> Elite Rank
+                            </div>
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border
+                                ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-600 shadow-sm'}`}>
+                                <Award size={12} className="text-amber-500" /> {programme} Programme
                             </div>
                             {examTagId && (
                                 <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border
@@ -294,6 +309,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                     <InfoField label="Registered Course" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Academic Session" value={studentData?.academicSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Level / Class" value={studentData?.class?.name} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                    <InfoField label="Programme" value={programme} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="orange" />
                     <InfoField label="Delivery Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Assigned Batch" value={batches.map(b => b.batchName).join(', ')} icon={Users} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Exam Tag" value={tagLoading ? 'Syncing...' : examTagName} icon={Tag} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />

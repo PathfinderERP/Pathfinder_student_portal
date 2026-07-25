@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason
+from .models import Session, TargetExam, ExamType, ClassLevel, Programme, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason
 from packages.models import Package
+from centres.models import Centre
 from bson import ObjectId
 
 class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
@@ -54,6 +55,11 @@ class SessionSerializer(serializers.ModelSerializer):
 class TargetExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = TargetExam
+        fields = '__all__'
+
+class ProgrammeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Programme
         fields = '__all__'
 
 class ExamTypeSerializer(serializers.ModelSerializer):
@@ -316,8 +322,12 @@ class LiveClassSerializer(serializers.ModelSerializer):
     section = serializers.PrimaryKeyRelatedField(queryset=MasterSection.objects.all(), required=False, allow_null=True)
     sessions = ObjectIdRelatedField(many=True, queryset=Session.objects.all(), required=False)
     target_exams = ObjectIdRelatedField(many=True, queryset=TargetExam.objects.all(), required=False)
+    class_levels = ObjectIdRelatedField(many=True, queryset=ClassLevel.objects.all(), required=False)
+    centres = ObjectIdRelatedField(many=True, queryset=Centre.objects.all(), required=False)
     session_names = serializers.SerializerMethodField()
     target_exam_names = serializers.SerializerMethodField()
+    class_level_names = serializers.SerializerMethodField()
+    centre_names = serializers.SerializerMethodField()
     packages = ObjectIdRelatedField(many=True, queryset=Package.objects.all(), required=False)
     package_names = serializers.SerializerMethodField()
 
@@ -333,6 +343,14 @@ class LiveClassSerializer(serializers.ModelSerializer):
              ret['sessions'] = [str(s.pk) for s in instance.sessions.all()]
         if 'target_exams' in ret:
              ret['target_exams'] = [str(te.pk) for te in instance.target_exams.all()]
+        if 'class_levels' in ret:
+             ret['class_levels'] = [str(cl.pk) for cl in instance.class_levels.all()]
+        if 'centres' in ret:
+             ret['centres'] = [str(c.pk) for c in instance.centres.all()]
+        progs = getattr(instance, 'programmes', [])
+        if not isinstance(progs, list):
+            progs = list(progs) if isinstance(progs, (tuple, set)) else []
+        ret['programmes'] = progs
         return ret
 
     def get_session_names(self, obj):
@@ -341,6 +359,14 @@ class LiveClassSerializer(serializers.ModelSerializer):
 
     def get_target_exam_names(self, obj):
         try: return [te.name for te in obj.target_exams.all()]
+        except: return []
+
+    def get_class_level_names(self, obj):
+        try: return [cl.name for cl in obj.class_levels.all()]
+        except: return []
+
+    def get_centre_names(self, obj):
+        try: return [c.name for c in obj.centres.all()]
         except: return []
 
     def get_package_names(self, obj):

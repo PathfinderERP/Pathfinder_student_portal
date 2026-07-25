@@ -1,12 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SessionViewSet, TargetExamViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet, MasterSectionViewSet, PartialMarkRuleViewSet, PsychometricTraitViewSet, PsychometricQuestionViewSet, MistakeReasonViewSet
+from .views import SessionViewSet, TargetExamViewSet, ProgrammeViewSet, ExamTypeViewSet, ClassLevelViewSet, ExamDetailViewSet, SubjectViewSet, TopicViewSet, ChapterViewSet, SubTopicViewSet, TeacherViewSet, LibraryItemViewSet, SolutionItemViewSet, NoticeViewSet, LiveClassViewSet, VideoViewSet, PenPaperTestViewSet, HomeworkViewSet, BannerViewSet, SeminarViewSet, GuideViewSet, CommunityViewSet, MasterSectionViewSet, PartialMarkRuleViewSet, PsychometricTraitViewSet, PsychometricQuestionViewSet, MistakeReasonViewSet
 
 router = DefaultRouter()
 router.register(r'master-sections', MasterSectionViewSet)
 router.register(r'partial-mark-rules', PartialMarkRuleViewSet)
 router.register(r'sessions', SessionViewSet)
 router.register(r'target-exams', TargetExamViewSet)
+router.register(r'programmes', ProgrammeViewSet, basename='programme')
 router.register(r'exam-types', ExamTypeViewSet)
 router.register(r'classes', ClassLevelViewSet)
 router.register(r'chapters', ChapterViewSet)

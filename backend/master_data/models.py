@@ -1,7 +1,12 @@
 from django.db import models
+from djongo import models as djongo_models
 import re
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
+
+class SafeJSONField(djongo_models.JSONField):
+    def get_internal_type(self):
+        return 'JSONField'
 
 class MasterSection(models.Model):
     name = models.CharField(max_length=255)
@@ -143,6 +148,81 @@ class ClassLevel(models.Model):
 
     def __str__(self):
         return self.name
+
+class Programme(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, unique=True, blank=True)
+    erp_id = models.CharField(max_length=100, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = generate_unique_code(Programme, self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+def ensure_default_programmes():
+    """Ensures default CRP and NCRP Programme entries exist in the database."""
+    try:
+        # 1. Django ORM check & create
+        if not Programme.objects.filter(code__iexact='CRP').exists():
+            try:
+                Programme.objects.create(
+                    name='Classroom Programme (CRP)',
+                    code='CRP',
+                    description='Classroom Programme'
+                )
+            except Exception as e:
+                print(f"[PROGRAMME-INIT-ERROR-CRP] {e}")
+
+        if not Programme.objects.filter(code__iexact='NCRP').exists():
+            try:
+                Programme.objects.create(
+                    name='Non-Classroom Programme (NCRP)',
+                    code='NCRP',
+                    description='Non-Classroom Programme'
+                )
+            except Exception as e:
+                print(f"[PROGRAMME-INIT-ERROR-NCRP] {e}")
+
+        # 2. Direct MongoDB fallback guarantee
+        try:
+            from api.db_utils import get_db
+            import datetime
+            db = get_db()
+            if db is not None:
+                coll = db['master_data_programme']
+                if not coll.find_one({'code': 'CRP'}):
+                    coll.insert_one({
+                        'name': 'Classroom Programme (CRP)',
+                        'code': 'CRP',
+                        'erp_id': None,
+                        'description': 'Classroom Programme',
+                        'is_active': True,
+                        'created_at': datetime.datetime.utcnow(),
+                        'updated_at': datetime.datetime.utcnow()
+                    })
+                if not coll.find_one({'code': 'NCRP'}):
+                    coll.insert_one({
+                        'name': 'Non-Classroom Programme (NCRP)',
+                        'code': 'NCRP',
+                        'erp_id': None,
+                        'description': 'Non-Classroom Programme',
+                        'is_active': True,
+                        'created_at': datetime.datetime.utcnow(),
+                        'updated_at': datetime.datetime.utcnow()
+                    })
+        except Exception as e:
+            print(f"[PROGRAMME-INIT-MONGO-ERROR] {e}")
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error ensuring default programmes: {e}")
 
 class ExamDetail(models.Model):
     name = models.CharField(max_length=255, help_text="Exam Title", default='')
@@ -506,6 +586,9 @@ class LiveClass(models.Model):
     session = models.ForeignKey(Session, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     sessions = models.ManyToManyField(Session, blank=True, related_name='live_classes_multi')
     class_level = models.ForeignKey(ClassLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
+    class_levels = models.ManyToManyField(ClassLevel, blank=True, related_name='live_classes_multi')
+    centres = models.ManyToManyField('centres.Centre', blank=True, related_name='live_classes')
+    programmes = SafeJSONField(default=list, blank=True, help_text="List of selected programmes e.g. ['CRP', 'NCRP']")
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_classes')

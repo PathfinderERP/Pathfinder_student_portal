@@ -327,6 +327,10 @@ def get_student_erp_data(request):
     # OPTIMIZATION: Serving from cache avoids expensive ERP calls entirely
     if _is_profile_rich(cached) and not force_refresh:
         print(f"[ERP] Serving {search_email} from cache (avoiding expensive ERP call).")
+        if isinstance(cached, dict):
+            _sync_user_to_erp(user, cached)
+            cached['programme'] = getattr(user, 'programme', None) or cached.get('programme') or 'CRP'
+            cached['programmeName'] = cached['programme']
         return Response(cached, status=200)
 
     # Strategy 2: High-Speed Index (Bypass if force_refresh)
@@ -337,35 +341,65 @@ def get_student_erp_data(request):
             if match:
                 print(f"[ERP] Found {search_email} via Index.")
                 _sync_user_to_erp(user, match)
+                match['programme'] = getattr(user, 'programme', None) or match.get('programme') or 'CRP'
+                match['programmeName'] = match['programme']
                 cache.set(student_cache_key, match, 300)
                 return Response(match, status=200)
 
-    # ── Strategy 3: Targeted Fetch (Only if NO cache/index exists) ─────────────
-    # If we are here, we MUST block because we have zero data to show.
+    # ── Strategy 3: Targeted Real-Time Sync (On force_refresh=true) ─────────────
     if force_refresh:
-        # Check lock to avoid parallel threads
-        if cache.get(lock_key):
-            if cached: return Response(cached, status=200)
-            return Response({"status": "syncing", "message": "First-time enrichment in progress"}, status=202)
+        print(f"[ERP] Real-time force refresh requested for {user.username} ({search_email})...")
+        cache.delete(student_cache_key)
+        admin_token = _get_erp_admin_token(force_refresh=True)
+        target_record = None
 
-    # Strategy 3: Targeted Fetch (Non-blocking)
-    if force_refresh:
-        # Trigger the background sync instead of blocking the request
-        cache.set(lock_key, True, 60) # 60s lock
-        t = threading.Thread(
-            target=_perform_background_erp_sync,
-            args=(user.pk, search_email, student_cache_key, force_refresh),
-            daemon=True
-        )
-        t.start()
-        
-        # Return whatever we have (even if it's stale) while background sync runs
-        if cached:
-            print(f"[ERP] Strategy 3: Started background sync. Serving stale cached data.")
-            return Response(cached, status=200)
-        else:
-            print(f"[ERP] Strategy 3: Started background sync. No cached data, returning syncing status.")
-            return Response({"status": "syncing", "message": "Enrichment started in background"}, status=202)
+        if admin_token:
+            # 1. Targeted Email Search on ERP
+            try:
+                resp = requests.get(
+                    f"{erp_url}/api/admission?studentEmail={search_email}",
+                    headers={"Authorization": f"Bearer {admin_token}"},
+                    timeout=15
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    potential = data[0] if isinstance(data, list) and len(data) > 0 else (data.get('student') or data if isinstance(data, dict) else None)
+                    if potential and isinstance(potential, dict):
+                        student_obj = potential.get('student') or {}
+                        details = student_obj.get('studentsDetails', [])
+                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
+                            target_record = potential
+            except Exception as e:
+                print(f"[FORCE-REFRESH] Email lookup exception: {e}")
+
+            # 2. Targeted Student ID Profile Search on ERP
+            if not target_record:
+                target_id = _fetch_erp_student_id(user)
+                if target_id:
+                    try:
+                        resp2 = requests.get(
+                            f"{erp_url}/api/student-portal/profile/{target_id}",
+                            headers={"Authorization": f"Bearer {admin_token}"},
+                            timeout=15
+                        )
+                        if resp2.status_code == 200 and isinstance(resp2.json(), dict):
+                            target_record = resp2.json()
+                    except Exception as e:
+                        print(f"[FORCE-REFRESH] ID profile lookup exception: {e}")
+
+            # 3. Fallback to fresh bulk index
+            if not target_record:
+                index = get_student_lookup_index(force_refresh=True, block=True)
+                if index:
+                    target_record = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
+
+        if target_record:
+            _sync_user_to_erp(user, target_record)
+            target_record['programme'] = getattr(user, 'programme', None) or 'CRP'
+            target_record['programmeName'] = target_record['programme']
+            cache.set(student_cache_key, target_record, 3600)
+            print(f"[FORCE-REFRESH] Successfully synced fresh ERP data for {user.username}: Programme={target_record['programme']}")
+            return Response(target_record, status=200)
     
     # If we got here, it's either an initial load OR Strategy 3 failed
     if not force_refresh:
@@ -439,6 +473,92 @@ def _sync_user_to_erp(user, admission_data):
             if user.assigned_batch != new_batch:
                 user.assigned_batch = new_batch
                 has_changed = True
+
+        # 3.6 Sync Programme (CRP / NCRP)
+        student_obj = admission_data.get('student') or {}
+        details_list = student_obj.get('studentsDetails') or admission_data.get('studentsDetails') or []
+        first_detail = details_list[0] if (isinstance(details_list, list) and len(details_list) > 0) else {}
+        course_obj = admission_data.get('course') or {}
+        batches_list = student_obj.get('batches') or admission_data.get('batches') or []
+
+        erp_prog = (
+            first_detail.get('programme') or 
+            first_detail.get('program') or 
+            first_detail.get('programmeName') or 
+            first_detail.get('programName') or 
+            admission_data.get('programme') or 
+            admission_data.get('program') or 
+            admission_data.get('programmeName') or 
+            admission_data.get('programName') or 
+            admission_data.get('programme_type') or 
+            admission_data.get('program_type') or 
+            course_obj.get('programme') or 
+            course_obj.get('program') or 
+            course_obj.get('programmeName') or 
+            course_obj.get('programName') or 
+            course_obj.get('courseType') or 
+            course_obj.get('name') or 
+            course_obj.get('courseName') or 
+            student_obj.get('programme') or 
+            student_obj.get('program') or 
+            student_obj.get('programmeName') or 
+            student_obj.get('programName')
+        )
+        new_prog = None
+        if erp_prog:
+            erp_prog_u = str(erp_prog).upper()
+            if 'NCRP' in erp_prog_u or 'NON' in erp_prog_u:
+                new_prog = 'NCRP'
+            elif 'CRP' in erp_prog_u:
+                new_prog = 'CRP'
+
+        # Also check batches for explicit NCRP/CRP keywords
+        if not new_prog and isinstance(batches_list, list):
+            for b in batches_list:
+                b_name = str((b.get('batchName') if isinstance(b, dict) else b) or '').upper()
+                if 'NCRP' in b_name or 'NON' in b_name:
+                    new_prog = 'NCRP'
+                    break
+                elif 'CRP' in b_name:
+                    new_prog = 'CRP'
+
+        if not new_prog:
+            b_name = str(user.assigned_batch or '').upper()
+            s_name = str(user.study_section or '').upper()
+            if 'NCRP' in b_name or 'NCRP' in s_name or 'NON' in b_name or 'NON' in s_name:
+                new_prog = 'NCRP'
+            elif getattr(user, 'programme', None):
+                new_prog = user.programme
+            else:
+                new_prog = 'CRP'
+
+        # Lookup/Link Programme master_data model instance
+        from master_data.models import Programme, ensure_default_programmes
+        ensure_default_programmes()
+        prog_obj = None
+        if new_prog:
+            prog_obj = Programme.objects.filter(code__iexact=new_prog).first()
+            if not prog_obj:
+                try:
+                    if new_prog.upper() == 'NCRP':
+                        prog_obj = Programme.objects.create(name='Non-Classroom Programme (NCRP)', code='NCRP')
+                    else:
+                        prog_obj = Programme.objects.create(name='Classroom Programme (CRP)', code='CRP')
+                except Exception:
+                    pass
+
+        if prog_obj and getattr(user, 'programme_ref_id', None) != prog_obj.id:
+            user.programme_ref = prog_obj
+            has_changed = True
+
+        if user.programme != new_prog:
+            user.programme = new_prog
+            has_changed = True
+
+        # Always inject synced programme, programmeName, and programme_id onto admission_data
+        admission_data['programme'] = user.programme
+        admission_data['programmeName'] = prog_obj.name if prog_obj else user.programme
+        admission_data['programme_id'] = str(prog_obj.id) if prog_obj else None
         
         # 4. Sync Centre Info
         venue = admission_data.get('venue') or admission_data.get('centre')
