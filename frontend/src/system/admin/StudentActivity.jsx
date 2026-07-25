@@ -533,6 +533,15 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
 
     const detailTitles = { logins: 'Login History', videos: 'Videos Watched', tests: 'Test Submissions', attendance: 'Attendance Records', study_time: 'Study Sessions' };
 
+    // Calculate dynamic stats from cachedData if loaded, otherwise fall back to summary
+    const uniqueVideosCount = useMemo(() => {
+        if (cachedData.videos) {
+            // Count unique video paths/titles from the detail logs
+            return new Set(cachedData.videos.map(v => v.path).filter(Boolean)).size;
+        }
+        return activity.videosWatched || 0;
+    }, [cachedData.videos, activity.videosWatched]);
+
     if (selectedReport) {
         return (
             <div className="space-y-4 animate-fade-in-up">
@@ -544,15 +553,6 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
             </div>
         );
     }
-
-    // Calculate dynamic stats from cachedData if loaded, otherwise fall back to summary
-    const uniqueVideosCount = useMemo(() => {
-        if (cachedData.videos) {
-            // Count unique video paths/titles from the detail logs
-            return new Set(cachedData.videos.map(v => v.path).filter(Boolean)).size;
-        }
-        return activity.videosWatched || 0;
-    }, [cachedData.videos, activity.videosWatched]);
 
     return (
         <div className="space-y-6 animate-fade-in-up">
