@@ -5,6 +5,20 @@ import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
+const getCleanId = (val) => {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return String(val);
+    if (val.id) return String(val.id);
+    if (val._id) {
+        if (typeof val._id === 'string') return val._id;
+        if (val._id.$oid) return String(val._id.$oid);
+        return String(val._id);
+    }
+    if (val.$oid) return String(val.$oid);
+    return String(val);
+};
+
 const LiveClassRegistry = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl } = useAuth();
@@ -65,7 +79,7 @@ const LiveClassRegistry = () => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/master-data/live-classes/`);
+            const response = await axios.get(`${apiUrl}/api/master-data/live-classes/?refresh=true`);
             setLiveClasses(response.data);
         } catch (error) {
             console.error("Failed to fetch live classes", error);
@@ -127,8 +141,8 @@ const LiveClassRegistry = () => {
                 start_time: newItem.start_time,
                 duration: newItem.duration,
                 description: newItem.description,
-                class_levels: newItem.class_levels || [],
-                centres: newItem.centres || [],
+                class_levels: (newItem.class_levels || []).map(c => getCleanId(c)),
+                centres: (newItem.centres || []).map(c => getCleanId(c)),
                 programmes: newItem.programmes || []
             };
 
@@ -162,13 +176,13 @@ const LiveClassRegistry = () => {
             return () => document.removeEventListener("mousedown", handleClickOutside);
         }, []);
 
-        const safeValue = Array.isArray(value) ? value : [];
+        const safeValue = (Array.isArray(value) ? value : []).map(v => getCleanId(v));
 
         const selectedNames = useMemo(() => {
             return options
                 .filter(opt => {
-                    const optId = opt.id !== undefined ? opt.id : opt.value;
-                    return safeValue.some(v => String(v) === String(optId));
+                    const optId = getCleanId(opt.id !== undefined ? opt.id : opt.value);
+                    return safeValue.some(v => v === optId);
                 })
                 .map(opt => opt.label || opt.name || opt.value);
         }, [options, safeValue]);
@@ -181,10 +195,11 @@ const LiveClassRegistry = () => {
             });
         }, [options, searchTerm]);
 
-        const toggleOption = (id) => {
-            const isAlreadySelected = safeValue.some(v => String(v) === String(id));
+        const toggleOption = (rawId) => {
+            const id = getCleanId(rawId);
+            const isAlreadySelected = safeValue.some(v => v === id);
             const newValue = isAlreadySelected
-                ? safeValue.filter(v => String(v) !== String(id))
+                ? safeValue.filter(v => v !== id)
                 : [...safeValue, id];
             onChange(newValue);
         };
@@ -193,7 +208,7 @@ const LiveClassRegistry = () => {
             if (safeValue.length === options.length) {
                 onChange([]);
             } else {
-                onChange(options.map(opt => opt.id !== undefined ? opt.id : opt.value));
+                onChange(options.map(opt => getCleanId(opt.id !== undefined ? opt.id : opt.value)));
             }
         };
 
@@ -265,8 +280,8 @@ const LiveClassRegistry = () => {
 
                         <div className="max-h-60 overflow-y-auto custom-scrollbar">
                             {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
-                                const optId = opt.id !== undefined ? opt.id : opt.value;
-                                const isSelected = safeValue.some(v => String(v) === String(optId));
+                                const optId = getCleanId(opt.id !== undefined ? opt.id : opt.value);
+                                const isSelected = safeValue.some(v => v === optId);
                                 return (
                                     <div
                                         key={i}
@@ -305,8 +320,8 @@ const LiveClassRegistry = () => {
             start_time: item.start_time ? item.start_time.slice(0, 16) : '',
             duration: item.duration,
             description: item.description || '',
-            class_levels: item.class_levels || (item.class_level ? [item.class_level] : []),
-            centres: item.centres || [],
+            class_levels: (item.class_levels || (item.class_level ? [item.class_level] : [])).map(c => getCleanId(c)),
+            centres: (item.centres || []).map(c => getCleanId(c)),
             programmes: Array.isArray(item.programmes) ? item.programmes : []
         });
         setIsEditModalOpen(true);
@@ -324,8 +339,8 @@ const LiveClassRegistry = () => {
                 start_time: newItem.start_time,
                 duration: newItem.duration,
                 description: newItem.description,
-                class_levels: newItem.class_levels || [],
-                centres: newItem.centres || [],
+                class_levels: (newItem.class_levels || []).map(c => getCleanId(c)),
+                centres: (newItem.centres || []).map(c => getCleanId(c)),
                 programmes: newItem.programmes || []
             };
 
@@ -652,18 +667,18 @@ const LiveClassRegistry = () => {
 
                                 <MultiSelect 
                                     label="Classes" 
-                                    options={classes.map(c => ({ id: c.id, name: c.name }))} 
+                                    options={classes.map(c => ({ id: getCleanId(c), name: c.name }))} 
                                     value={newItem.class_levels} 
-                                    onChange={(val) => setNewItem({ ...newItem, class_levels: val })} 
+                                    onChange={(val) => setNewItem({ ...newItem, class_levels: (val || []).map(v => getCleanId(v)) })} 
                                     placeholder="Select Classes" 
                                     isDarkMode={isDarkMode}
                                 />
 
                                 <MultiSelect 
                                     label="Active Centres" 
-                                    options={centres.map(c => ({ id: c._id || c.id, name: c.name ? `${c.name} (${c.code})` : (c.code || c.id) }))} 
+                                    options={centres.map(c => ({ id: getCleanId(c), name: c.name ? `${c.name} (${c.code})` : (c.code || c.id) }))} 
                                     value={newItem.centres} 
-                                    onChange={(val) => setNewItem({ ...newItem, centres: val })} 
+                                    onChange={(val) => setNewItem({ ...newItem, centres: (val || []).map(v => getCleanId(v)) })} 
                                     placeholder="Select Active Centres" 
                                     isDarkMode={isDarkMode}
                                 />

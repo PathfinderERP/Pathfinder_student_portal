@@ -113,11 +113,9 @@ class StudentSectionFilterMixin:
                 prog_q |= Q(programmes__contains=student_programme) | Q(programmes__icontains=student_programme)
             filter_q &= prog_q
 
-        qs = queryset.filter(filter_q).distinct()
-
         # For LiveClass model, enforce strict triple-combination matching (Programme + Class Level + Centre)
         if queryset.model.__name__ == 'LiveClass':
-            student_prog = (getattr(user, 'programme', None) or '').upper()
+            student_prog = (getattr(user, 'programme', None) or '').upper().strip()
             if not student_prog:
                 batch_str = str(getattr(user, 'assigned_batch', '') or '').upper()
                 sec_str = str(getattr(user, 'study_section', '') or '').upper()
@@ -125,35 +123,63 @@ class StudentSectionFilterMixin:
 
             student_class_id = str(user.class_level_id) if getattr(user, 'class_level_id', None) else (str(user.class_level.pk) if getattr(user, 'class_level', None) else None)
             student_class_name = str(user.class_level.name).strip().lower() if getattr(user, 'class_level', None) and getattr(user.class_level, 'name', None) else None
+            if not student_class_name:
+                sec_name = str(getattr(user, 'study_section', '') or getattr(user, 'exam_section', '') or '').strip().lower()
+                student_class_name = sec_name if sec_name else None
 
             student_c_code = str(getattr(user, 'centre_code', '') or '').strip().lower()
             student_c_name = str(getattr(user, 'centre_name', '') or '').strip().lower()
 
+            import re
+            student_digits = set(re.findall(r'\d+', student_class_name)) if student_class_name else set()
+
             valid_pks = []
-            for item in qs:
+            # Evaluate directly over active live classes to avoid Djongo ORM list filtering quirks on MongoDB
+            all_live_classes = queryset.all()
+            for item in all_live_classes:
                 # 1. Programme check (CRP / NCRP)
                 progs = getattr(item, 'programmes', [])
                 if progs and isinstance(progs, list) and len(progs) > 0:
-                    upper_progs = [str(p).upper() for p in progs]
-                    if student_prog not in upper_progs:
+                    prog_match = False
+                    for p in progs:
+                        p_str = str(p).upper().strip()
+                        is_ncrp_item = ('NCRP' in p_str) or ('NON' in p_str)
+                        if student_prog == 'NCRP' and is_ncrp_item:
+                            prog_match = True
+                            break
+                        elif student_prog == 'CRP' and not is_ncrp_item:
+                            prog_match = True
+                            break
+                    if not prog_match:
                         continue  # REJECT: Programme mismatch
 
                 # 2. Class Level check
                 cls_list = list(item.class_levels.all()) if hasattr(item, 'class_levels') else []
+                single_cl = getattr(item, 'class_level', None)
                 if cls_list:
                     match_class = False
                     for cl in cls_list:
                         cl_id = str(cl.pk)
                         cl_name = str(cl.name).strip().lower() if hasattr(cl, 'name') else ''
-                        if (student_class_id and cl_id == student_class_id) or (student_class_name and cl_name == student_class_name):
+                        cl_digits = set(re.findall(r'\d+', cl_name)) if cl_name else set()
+
+                        if (student_class_id and cl_id == student_class_id) or \
+                           (student_class_name and (cl_name == student_class_name or cl_name in student_class_name or student_class_name in cl_name)) or \
+                           (student_digits and cl_digits and not student_digits.isdisjoint(cl_digits)):
                             match_class = True
                             break
                     if not match_class:
                         continue  # REJECT: Class Level mismatch
-                elif getattr(item, 'class_level', None):
-                    cl_id = str(item.class_level.pk)
-                    cl_name = str(item.class_level.name).strip().lower() if hasattr(item.class_level, 'name') else ''
-                    if (student_class_id and cl_id != student_class_id) and (student_class_name and cl_name != student_class_name):
+                elif single_cl:
+                    cl_id = str(single_cl.pk)
+                    cl_name = str(single_cl.name).strip().lower() if hasattr(single_cl, 'name') else ''
+                    cl_digits = set(re.findall(r'\d+', cl_name)) if cl_name else set()
+                    match_class = False
+                    if (student_class_id and cl_id == student_class_id) or \
+                       (student_class_name and (cl_name == student_class_name or cl_name in student_class_name or student_class_name in cl_name)) or \
+                       (student_digits and cl_digits and not student_digits.isdisjoint(cl_digits)):
+                        match_class = True
+                    if not match_class:
                         continue  # REJECT: Class Level mismatch
 
                 # 3. Active Centre check
@@ -163,10 +189,8 @@ class StudentSectionFilterMixin:
                     for ctr in ctr_list:
                         c_code = str(getattr(ctr, 'code', '') or '').strip().lower()
                         c_name = str(getattr(ctr, 'name', '') or '').strip().lower()
-                        if (student_c_code and c_code == student_c_code) or \
-                           (student_c_name and c_name == student_c_name) or \
-                           (student_c_name and (c_name in student_c_name or student_c_name in c_name)) or \
-                           (student_c_code and (c_code in student_c_code or student_c_code in c_code)):
+                        if (student_c_code and (c_code == student_c_code or c_code in student_c_code or student_c_code in c_code)) or \
+                           (student_c_name and (c_name == student_c_name or c_name in student_c_name or student_c_name in c_name)):
                             match_ctr = True
                             break
                     if not match_ctr:
@@ -174,8 +198,9 @@ class StudentSectionFilterMixin:
 
                 valid_pks.append(item.pk)
 
-            return qs.filter(pk__in=valid_pks)
+            return queryset.filter(pk__in=valid_pks)
 
+        qs = queryset.filter(filter_q).distinct()
         return qs
 
 def deep_serialize(data):
@@ -193,7 +218,7 @@ class CachedListViewSetMixin(object):
 
     def get_cache_version(self):
         """Gets the current version for this viewset class. IncrementING this clears all lists."""
-        v_key = f"v_v2_{self.__class__.__name__}"
+        v_key = f"v_v3_{self.__class__.__name__}"
         v = cache.get(v_key)
         if v is None:
             v = 1
@@ -202,7 +227,7 @@ class CachedListViewSetMixin(object):
 
     def clear_cache(self):
         """Increment version to effectively invalidate all cached list responses instantly."""
-        v_key = f"v_v2_{self.__class__.__name__}"
+        v_key = f"v_v3_{self.__class__.__name__}"
         try:
             cache.incr(v_key)
         except:
@@ -229,10 +254,13 @@ class CachedListViewSetMixin(object):
         # If this viewset uses StudentSectionFilterMixin, we must include the targeting in the cache key
         if isinstance(self, StudentSectionFilterMixin) and user.is_authenticated:
             # Normalize targeting params for the cache key
+            prog = str(getattr(user, 'programme', '') or '').lower()
+            c_code = str(getattr(user, 'centre_code', '') or '').lower()
+            c_name = str(getattr(user, 'centre_name', '') or '').lower()
             te = str(getattr(user, 'target_exam_id', getattr(user, 'target_exam', 'none'))).lower()
             cl = str(getattr(user, 'class_level_id', getattr(user, 'class_level', 'none'))).lower()
             sess = str(getattr(user, 'session_id', getattr(user, 'session', 'none'))).lower()
-            return f"{base_key}_TE{te}_CL{cl}_S{sess}"
+            return f"{base_key}_U{user.pk}_P{prog}_C{c_code}_{c_name}_TE{te}_CL{cl}_S{sess}"
             
         return base_key
 

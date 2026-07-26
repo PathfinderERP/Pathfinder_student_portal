@@ -10,15 +10,37 @@ class ObjectIdRelatedField(serializers.PrimaryKeyRelatedField):
     Djongo often requires strings to be converted to ObjectIds explicitly for lookups.
     """
     def to_internal_value(self, data):
+        if not data:
+            return super().to_internal_value(data)
         try:
-            if isinstance(data, str) and ObjectId.is_valid(data):
-                data = ObjectId(data)
+            str_data = str(data).strip()
+            queryset = self.get_queryset()
+
+            # 1. Try ObjectId lookup
+            if isinstance(data, str) and ObjectId.is_valid(str_data):
+                try:
+                    return queryset.get(pk=ObjectId(str_data))
+                except Exception:
+                    pass
+
+            # 2. Try direct pk string lookup
+            try:
+                return queryset.get(pk=str_data)
+            except Exception:
+                pass
+
+            # 3. Try code lookup if model has code field (e.g. Centre.code)
+            if hasattr(queryset.model, 'code'):
+                try:
+                    return queryset.get(code__iexact=str_data)
+                except Exception:
+                    pass
         except Exception:
             pass
         return super().to_internal_value(data)
 
     def to_representation(self, value):
-        return str(value.pk)
+        return str(getattr(value, 'pk', value))
 
 class PartialMarkRuleSerializer(serializers.ModelSerializer):
     exam_type_name = serializers.CharField(source='exam_type.name', read_only=True)
@@ -366,7 +388,7 @@ class LiveClassSerializer(serializers.ModelSerializer):
         except: return []
 
     def get_centre_names(self, obj):
-        try: return [c.name for c in obj.centres.all()]
+        try: return [f"{c.name} ({c.code})" if getattr(c, 'code', None) else c.name for c in obj.centres.all()]
         except: return []
 
     def get_package_names(self, obj):

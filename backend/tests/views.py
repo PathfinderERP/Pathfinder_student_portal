@@ -57,10 +57,10 @@ def _compute_roster_counts():
         tests = Test.objects.all().prefetch_related('centres')
 
         # Pre-bucket local students by uppercased centre name AND code, so we
-        # avoid an extra DB query per test.
+        # avoid an extra DB query per test. Include '_id' for Djongo primary key compatibility.
         local_by_centre = {}
         for u in CustomUser.objects.filter(user_type='student').only(
-            'username', 'admission_number', 'email', 'centre_code', 'centre_name'
+            '_id', 'username', 'admission_number', 'email', 'centre_code', 'centre_name'
         ):
             uid = (u.username or str(u.pk)).upper().strip()
             adm = (u.admission_number or '').upper().strip()

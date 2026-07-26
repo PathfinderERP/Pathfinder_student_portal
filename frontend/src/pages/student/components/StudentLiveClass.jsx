@@ -1,21 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Video, Calendar, Clock, Search, RefreshCw, Maximize2, X, AlertCircle, Play, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
 const StudentLiveClass = ({ isDarkMode }) => {
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, user } = useAuth();
     const [liveClasses, setLiveClasses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeLiveStream, setActiveLiveStream] = useState(null);
+    const iframeLoadCountRef = useRef(0);
+
+    const studentDisplayName = useMemo(() => {
+        if (!user) return 'Student';
+        const fullName = user.full_name || user.name || (user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '');
+        return fullName || user.username || 'Student';
+    }, [user]);
+
+    const getMeetingUrlWithStudentName = (rawUrl, name) => {
+        if (!rawUrl) return '';
+        try {
+            const urlObj = new URL(rawUrl);
+            urlObj.searchParams.set('loginName', name);
+            urlObj.searchParams.set('name', name);
+            urlObj.searchParams.set('uname', name);
+            urlObj.searchParams.set('username', name);
+            urlObj.searchParams.set('displayName', name);
+            urlObj.searchParams.set('participantName', name);
+            urlObj.searchParams.set('usrName', name);
+            return urlObj.toString();
+        } catch (e) {
+            const sep = rawUrl.includes('?') ? '&' : '?';
+            const encodedName = encodeURIComponent(name);
+            return `${rawUrl}${sep}loginName=${encodedName}&name=${encodedName}&uname=${encodedName}&username=${encodedName}&displayName=${encodedName}`;
+        }
+    };
+
+    // Reset load count when active meeting changes
+    useEffect(() => {
+        iframeLoadCountRef.current = 0;
+    }, [activeLiveStream]);
+
+    // Detect meeting end / close window events via postMessage
+    useEffect(() => {
+        if (!activeLiveStream) return;
+
+        const handleMessage = (event) => {
+            if (!event.data) return;
+            let dataStr = '';
+            try {
+                dataStr = typeof event.data === 'string' ? event.data : JSON.stringify(event.data);
+            } catch (e) {
+                dataStr = String(event.data);
+            }
+            const lowerData = dataStr.toLowerCase();
+            if (
+                lowerData.includes('closewindow') ||
+                lowerData.includes('close_window') ||
+                lowerData.includes('meeting_left') ||
+                lowerData.includes('meetingleft') ||
+                lowerData.includes('left_meeting') ||
+                lowerData.includes('leftmeeting') ||
+                lowerData.includes('end_meeting') ||
+                lowerData.includes('endmeeting') ||
+                lowerData.includes('meeting_ended') ||
+                lowerData.includes('meetingended') ||
+                lowerData.includes('leave_meeting') ||
+                lowerData.includes('leavemeeting') ||
+                lowerData.includes('zoho.meeting')
+            ) {
+                setActiveLiveStream(null);
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [activeLiveStream]);
+
+    const handleIframeLoad = () => {
+        iframeLoadCountRef.current += 1;
+        // When iframe navigates away from initial meeting room (e.g. user clicks Close Window or leaves call)
+        if (iframeLoadCountRef.current > 1) {
+            setActiveLiveStream(null);
+        }
+    };
 
     const fetchLiveClasses = async () => {
         setIsLoading(true);
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/api/master-data/live-classes/`, {
+            const response = await axios.get(`${apiUrl}/api/master-data/live-classes/?refresh=true&_t=${Date.now()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = response.data.results || response.data || [];
@@ -30,6 +106,10 @@ const StudentLiveClass = ({ isDarkMode }) => {
 
     useEffect(() => {
         fetchLiveClasses();
+        const interval = setInterval(() => {
+            fetchLiveClasses();
+        }, 30000);
+        return () => clearInterval(interval);
     }, []);
 
     const filteredClasses = liveClasses.filter(c => 
@@ -180,24 +260,26 @@ const StudentLiveClass = ({ isDarkMode }) => {
             )}
 
             {/* In-App Embedded Live Class Player Modal */}
-            {activeLiveStream && (
-                <div className="fixed inset-0 z-[150] flex flex-col bg-black/90 backdrop-blur-xl animate-in fade-in duration-300 p-4 md:p-8">
+            {activeLiveStream && createPortal(
+                <div className="fixed inset-0 z-[99999] flex flex-col bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 p-2 sm:p-4 md:p-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-4 bg-[#10141D] border border-white/10 rounded-[5px] mb-4 text-white">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-amber-500/20 text-amber-500 rounded-[5px]">
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-[#10141D] border border-white/10 rounded-[5px] mb-2 sm:mb-4 text-white shrink-0 shadow-2xl">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 sm:p-2.5 bg-amber-500/20 text-amber-500 rounded-[5px] shrink-0">
                                 <Video size={20} />
                             </div>
-                            <div>
-                                <h3 className="font-black text-sm uppercase tracking-tight text-amber-500">{activeLiveStream.name}</h3>
-                                <div className="flex items-center gap-3 text-[11px] font-bold opacity-60 mt-0.5">
+                            <div className="min-w-0">
+                                <h3 className="font-black text-sm sm:text-base uppercase tracking-tight text-amber-500 truncate">{activeLiveStream.name}</h3>
+                                <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-bold opacity-70 mt-0.5 flex-wrap">
                                     <span>Duration: {activeLiveStream.duration || 60} mins</span>
-                                    {activeLiveStream.start_time && <span>• Scheduled: {new Date(activeLiveStream.start_time).toLocaleString('en-GB')}</span>}
+                                    {activeLiveStream.start_time && (
+                                        <span>• Scheduled: {new Date(activeLiveStream.start_time).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-2">
                             <button
                                 onClick={() => {
                                     const iframe = document.getElementById('student-zoho-iframe');
@@ -209,31 +291,36 @@ const StudentLiveClass = ({ isDarkMode }) => {
                                         }
                                     }
                                 }}
-                                className="p-2.5 rounded-[5px] bg-white/5 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-2 transition-all"
+                                className="p-2 sm:px-3 sm:py-2 rounded-[5px] bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-2 transition-all active:scale-95"
                             >
-                                <Maximize2 size={16} /> Fullscreen
+                                <Maximize2 size={16} />
+                                <span className="hidden sm:inline">Fullscreen</span>
                             </button>
                             <button
                                 onClick={() => setActiveLiveStream(null)}
-                                className="p-2.5 rounded-[5px] bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                                className="p-2 sm:px-3 sm:py-2 rounded-[5px] bg-red-500/20 hover:bg-red-600 text-red-400 hover:text-white transition-all active:scale-95 flex items-center gap-1.5 font-black text-xs uppercase tracking-wider"
+                                title="Leave / Exit Meeting"
                             >
-                                <X size={20} strokeWidth={3} />
+                                <X size={18} strokeWidth={2.5} />
+                                <span className="hidden sm:inline">Leave</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Embedded Player */}
-                    <div className="flex-1 w-full bg-black rounded-[5px] overflow-hidden border border-white/10 relative">
+                    {/* Embedded Player Container */}
+                    <div className="flex-1 w-full bg-black rounded-[5px] overflow-hidden border border-white/10 relative shadow-2xl">
                         <iframe
                             id="student-zoho-iframe"
-                            src={activeLiveStream.meeting_link}
+                            src={getMeetingUrlWithStudentName(activeLiveStream.meeting_link, studentDisplayName)}
                             title={activeLiveStream.name}
+                            onLoad={handleIframeLoad}
                             className="w-full h-full border-none"
                             allow="camera; microphone; display-capture; autoplay; clipboard-write; encrypted-media; fullscreen"
                             allowFullScreen
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

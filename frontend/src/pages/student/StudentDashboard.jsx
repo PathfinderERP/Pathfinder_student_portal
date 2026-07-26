@@ -173,7 +173,7 @@ const StudentDashboard = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // If we forced a refresh, also update the global user profile (for name/header)
+            // If we forced a refresh, update global user profile context before completing UI refresh
             if (forceRefresh) {
                 await refreshUser();
             }
@@ -354,7 +354,7 @@ const StudentDashboard = () => {
         return {
             basicInfo: basic,
             rollNo: studentData?.admissionNumber || "N/A",
-            classNameValue: studentData?.class?.name || "N/A"
+            classNameValue: user?.class_level_name || studentData?.class?.name || studentData?.class?.className || "N/A"
         };
     }, [studentData, user]);
 

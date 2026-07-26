@@ -350,7 +350,10 @@ def get_student_erp_data(request):
     if force_refresh:
         print(f"[ERP] Real-time force refresh requested for {user.username} ({search_email})...")
         cache.delete(student_cache_key)
-        admin_token = _get_erp_admin_token(force_refresh=True)
+        # Use cached token first to avoid blocking login HTTP request (~1-5s saved)
+        admin_token = _get_erp_admin_token(force_refresh=False)
+        if not admin_token:
+            admin_token = _get_erp_admin_token(force_refresh=True)
         target_record = None
 
         if admin_token:
@@ -359,35 +362,47 @@ def get_student_erp_data(request):
                 resp = requests.get(
                     f"{erp_url}/api/admission?studentEmail={search_email}",
                     headers={"Authorization": f"Bearer {admin_token}"},
-                    timeout=15
+                    timeout=8
                 )
+                if resp.status_code == 401:  # Token expired, refresh token once
+                    admin_token = _get_erp_admin_token(force_refresh=True)
+                    if admin_token:
+                        resp = requests.get(
+                            f"{erp_url}/api/admission?studentEmail={search_email}",
+                            headers={"Authorization": f"Bearer {admin_token}"},
+                            timeout=8
+                        )
                 if resp.status_code == 200:
                     data = resp.json()
-                    potential = data[0] if isinstance(data, list) and len(data) > 0 else (data.get('student') or data if isinstance(data, dict) else None)
-                    if potential and isinstance(potential, dict):
-                        student_obj = potential.get('student') or {}
-                        details = student_obj.get('studentsDetails', [])
-                        if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in details):
-                            target_record = potential
+                    # Robustly unwrap payload shapes (list, {data:[]}, {admissions:[]}, {students:[]})
+                    records = data if isinstance(data, list) else (data.get('data') or data.get('admissions') or data.get('students') or ([data] if isinstance(data, dict) else []))
+                    for rec in records:
+                        if isinstance(rec, dict):
+                            s_obj = rec.get('student') or rec
+                            details = s_obj.get('studentsDetails') or rec.get('studentsDetails') or []
+                            if any(d and str(d.get('studentEmail') or '').strip().lower() == search_email for d in (details if isinstance(details, list) else [details])):
+                                target_record = rec
+                                break
             except Exception as e:
                 print(f"[FORCE-REFRESH] Email lookup exception: {e}")
 
-            # 2. Targeted Student ID Profile Search on ERP
-            if not target_record:
-                target_id = _fetch_erp_student_id(user)
-                if target_id:
-                    try:
-                        resp2 = requests.get(
-                            f"{erp_url}/api/student-portal/profile/{target_id}",
-                            headers={"Authorization": f"Bearer {admin_token}"},
-                            timeout=15
-                        )
-                        if resp2.status_code == 200 and isinstance(resp2.json(), dict):
-                            target_record = resp2.json()
-                    except Exception as e:
-                        print(f"[FORCE-REFRESH] ID profile lookup exception: {e}")
+            # 2. Targeted Admission Number Search on ERP if email search missed
+            if not target_record and search_username:
+                try:
+                    resp = requests.get(
+                        f"{erp_url}/api/admission?admissionNumber={search_username}",
+                        headers={"Authorization": f"Bearer {admin_token}"},
+                        timeout=8
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        records = data if isinstance(data, list) else (data.get('data') or data.get('admissions') or data.get('students') or ([data] if isinstance(data, dict) else []))
+                        if records and isinstance(records[0], dict):
+                            target_record = records[0]
+                except Exception as e:
+                    print(f"[FORCE-REFRESH] Admission Number lookup exception: {e}")
 
-            # 3. Fallback to fresh bulk index
+            # 3. Fallback: Force fresh lookup index if targeted lookup missed
             if not target_record:
                 index = get_student_lookup_index(force_refresh=True, block=True)
                 if index:
@@ -396,9 +411,16 @@ def get_student_erp_data(request):
         if target_record:
             _sync_user_to_erp(user, target_record)
             target_record['programme'] = getattr(user, 'programme', None) or 'CRP'
-            target_record['programmeName'] = target_record['programme']
+            target_record['programme_name'] = str(getattr(user, 'programme_ref').name) if getattr(user, 'programme_ref', None) else (getattr(user, 'programme', None) or 'CRP')
+            target_record['programmeName'] = target_record['programme_name']
+            if getattr(user, 'class_level', None):
+                target_record['class'] = {
+                    '_id': str(getattr(user.class_level, 'pk', user.class_level_id)),
+                    'name': str(user.class_level.name),
+                    'className': str(user.class_level.name)
+                }
             cache.set(student_cache_key, target_record, 3600)
-            print(f"[FORCE-REFRESH] Successfully synced fresh ERP data for {user.username}: Programme={target_record['programme']}")
+            print(f"[FORCE-REFRESH] Successfully synced fresh ERP data for {user.username}: Programme={target_record['programme']}, Class={getattr(user.class_level, 'name', 'N/A')}")
             return Response(target_record, status=200)
     
     # If we got here, it's either an initial load OR Strategy 3 failed
@@ -480,6 +502,7 @@ def _sync_user_to_erp(user, admission_data):
         first_detail = details_list[0] if (isinstance(details_list, list) and len(details_list) > 0) else {}
         course_obj = admission_data.get('course') or {}
         batches_list = student_obj.get('batches') or admission_data.get('batches') or []
+        sec_allot = admission_data.get('sectionAllotment') or {}
 
         erp_prog = (
             first_detail.get('programme') or 
@@ -497,8 +520,6 @@ def _sync_user_to_erp(user, admission_data):
             course_obj.get('programmeName') or 
             course_obj.get('programName') or 
             course_obj.get('courseType') or 
-            course_obj.get('name') or 
-            course_obj.get('courseName') or 
             student_obj.get('programme') or 
             student_obj.get('program') or 
             student_obj.get('programmeName') or 
@@ -512,21 +533,31 @@ def _sync_user_to_erp(user, admission_data):
             elif 'CRP' in erp_prog_u:
                 new_prog = 'CRP'
 
-        # Also check batches for explicit NCRP/CRP keywords
+        # Also check fresh batches for explicit NCRP/CRP keywords
         if not new_prog and isinstance(batches_list, list):
             for b in batches_list:
-                b_name = str((b.get('batchName') if isinstance(b, dict) else b) or '').upper()
+                b_name = str((b.get('batchName') if isinstance(b, dict) else (b.get('name') if isinstance(b, dict) else b)) or '').upper()
                 if 'NCRP' in b_name or 'NON' in b_name:
                     new_prog = 'NCRP'
                     break
                 elif 'CRP' in b_name:
                     new_prog = 'CRP'
 
+        # Also check fresh study/exam section from ERP payload
+        if not new_prog:
+            s_name = str(sec_allot.get('studySection') or sec_allot.get('examSection') or '').upper()
+            if 'NCRP' in s_name or 'NON' in s_name:
+                new_prog = 'NCRP'
+            elif 'CRP' in s_name:
+                new_prog = 'CRP'
+
         if not new_prog:
             b_name = str(user.assigned_batch or '').upper()
             s_name = str(user.study_section or '').upper()
             if 'NCRP' in b_name or 'NCRP' in s_name or 'NON' in b_name or 'NON' in s_name:
                 new_prog = 'NCRP'
+            elif 'CRP' in b_name or 'CRP' in s_name:
+                new_prog = 'CRP'
             elif getattr(user, 'programme', None):
                 new_prog = user.programme
             else:
@@ -582,17 +613,74 @@ def _sync_user_to_erp(user, admission_data):
             if session_obj and user.session_id != session_obj.id:
                 user.session = session_obj; has_changed = True
 
-        # Class
-        class_info = admission_data.get('class', {})
-        erp_class_id = class_info.get('_id')
-        erp_class_name = class_info.get('name')
+        # Class Sync (prioritizes fresh CLASSIFICATION (CLASS) updates from studentsDetails)
+        erp_class_id = None
+        erp_class_name = None
+
+        if first_detail and isinstance(first_detail, dict):
+            raw_c = first_detail.get('class') or first_detail.get('class_level')
+            if isinstance(raw_c, dict):
+                erp_class_id = raw_c.get('_id') or raw_c.get('id')
+                erp_class_name = raw_c.get('classification') or raw_c.get('className') or raw_c.get('name')
+            else:
+                erp_class_name = (
+                    first_detail.get('classification') or 
+                    first_detail.get('class') or 
+                    first_detail.get('className') or 
+                    first_detail.get('class_name') or 
+                    first_detail.get('class_level')
+                )
+
+        if not erp_class_name and not erp_class_id:
+            erp_class_name = admission_data.get('classification') or sec_allot.get('studySection') or sec_allot.get('examSection')
+
+        if not erp_class_name and not erp_class_id:
+            class_info = admission_data.get('class') or admission_data.get('class_level') or student_obj.get('class') or {}
+            if isinstance(class_info, str):
+                erp_class_name = class_info
+            elif isinstance(class_info, dict):
+                erp_class_id = class_info.get('_id') or class_info.get('id')
+                erp_class_name = class_info.get('classification') or class_info.get('className') or class_info.get('name') or class_info.get('class') or class_info.get('code')
+
+        if not erp_class_name and not erp_class_id:
+            erp_class_name = (
+                admission_data.get('className') or 
+                admission_data.get('class_name') or 
+                course_obj.get('className') or 
+                course_obj.get('class_name') or 
+                course_obj.get('class') or 
+                course_obj.get('courseName') or 
+                course_obj.get('name')
+            )
+            if not erp_class_name and isinstance(batches_list, list) and len(batches_list) > 0:
+                first_b = batches_list[0]
+                erp_class_name = (first_b.get('batchName') if isinstance(first_b, dict) else str(first_b))
+
         if erp_class_id or erp_class_name:
             class_obj = None
-            if erp_class_id: class_obj = ClassLevel.objects.filter(erp_id=erp_class_id).first()
-            if not class_obj and erp_class_name: class_obj = ClassLevel.objects.filter(name__iexact=erp_class_name).first()
+            if erp_class_id:
+                class_obj = ClassLevel.objects.filter(erp_id=erp_class_id).first()
+            if not class_obj and erp_class_name:
+                clean_name = str(erp_class_name).strip()
+                class_obj = ClassLevel.objects.filter(name__iexact=clean_name).first()
+                if not class_obj:
+                    import re
+                    digits = re.findall(r'\d+', clean_name)
+                    if digits:
+                        d_str = digits[0]
+                        class_obj = (
+                            ClassLevel.objects.filter(name__icontains=d_str).first() or 
+                            ClassLevel.objects.filter(code__iexact=d_str).first()
+                        )
+                        if not class_obj:
+                            try:
+                                class_obj = ClassLevel.objects.create(name=f"Class {d_str}", code=f"CLASS_{d_str}")
+                            except Exception:
+                                pass
             
-            if class_obj and user.class_level_id != class_obj.id:
-                user.class_level = class_obj; has_changed = True
+            if class_obj and str(getattr(user, 'class_level_id', None)) != str(class_obj.id):
+                user.class_level = class_obj
+                has_changed = True
 
         # Target Exam (Exam Tag)
         details = details_list[0] if details_list else {}
@@ -602,8 +690,8 @@ def _sync_user_to_erp(user, admission_data):
         if isinstance(exam_tag_raw, dict):
             erp_tag_id = exam_tag_raw.get('_id') or exam_tag_raw.get('id')
             erp_tag_name = exam_tag_raw.get('name') or exam_tag_raw.get('tagName')
-        else:
-            erp_tag_id = exam_tag_raw
+        elif isinstance(exam_tag_raw, str):
+            erp_tag_name = exam_tag_raw
             
         if erp_tag_id or erp_tag_name:
             tag_obj = None
@@ -626,13 +714,11 @@ def _sync_user_to_erp(user, admission_data):
             # (like loading tests) use the fresh section data immediately.
             from django.core.cache import cache
             cache.delete(f"erp_validation_{user.pk}")
-            print(f"[SYNC] User {user.username} updated and saved.")
-        else:
-            print(f"[SYNC] User {user.username} already up to date.")
+            cache.delete(f"user_profile_{user.pk}")
+            cache.delete(f"erp_student_data_v6_{user.pk}")
+            print(f"[SYNC] User {user.username} updated and saved. Programme={user.programme}, Class={user.class_level}")
     except Exception as e:
-        print(f"[SYNC] Failed to sync user {user.username}: {e}")
-
-
+        print(f"[SYNC ERROR] Failed to sync user {user.username}: {e}")
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_students_erp_data(request):
