@@ -548,7 +548,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 # Exact case-insensitive match for each instance
                 instance_qs = TargetExam.objects.none()
                 for inst in exam_instances:
-                    instance_qs |= TargetExam.objects.filter(name__iexact=inst)
+                    instance_qs |= TargetExam.objects.filter(Q(name__iexact=inst) | Q(name=inst))
                 
                 matching_te_ids = list(instance_qs.values_list('pk', flat=True))
                 if matching_te_ids:
