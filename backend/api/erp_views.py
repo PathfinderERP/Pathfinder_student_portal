@@ -499,6 +499,12 @@ def _sync_user_to_erp(user, admission_data):
         if raw_name and getattr(user, 'exam_tag_name', None) != raw_name:
             user.exam_tag_name = raw_name; has_changed = True
 
+        # Extract Exam Instances
+        exam_schema = student_obj.get('examSchema', [])
+        if isinstance(exam_schema, list):
+            instances = [ex.get('examName') for ex in exam_schema if isinstance(ex, dict) and ex.get('examName')]
+            if instances != getattr(user, 'exam_instances', []):
+                user.exam_instances = instances; has_changed = True
 
         if has_changed:
             user.save()

@@ -537,9 +537,26 @@ class TestViewSet(viewsets.ModelViewSet):
                 # If the student has no class, only show tests that have NO class restriction
                 qs_academic = Test.objects.filter(class_level__isnull=True)
 
+            target_match = Q()
             if user.target_exam:
+                target_match |= Q(target_exams=user.target_exam)
+            
+            exam_instances = getattr(user, 'exam_instances', [])
+            if isinstance(exam_instances, list) and exam_instances:
+                from master_data.models import TargetExam
+                # Exact case-insensitive match for each instance
+                instance_qs = TargetExam.objects.none()
+                for inst in exam_instances:
+                    if inst:
+                        instance_qs |= TargetExam.objects.filter(name__iexact=inst)
+                
+                matching_te_ids = list(instance_qs.values_list('pk', flat=True))
+                if matching_te_ids:
+                    target_match |= Q(target_exams__in=matching_te_ids)
+
+            if target_match:
                 te_test_ids = list(
-                    Test.objects.filter(target_exams=user.target_exam).values_list('pk', flat=True)
+                    Test.objects.filter(target_match).values_list('pk', flat=True)
                 )
                 qs_academic = qs_academic.filter(pk__in=te_test_ids)
 
