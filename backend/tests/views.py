@@ -541,14 +541,14 @@ class TestViewSet(viewsets.ModelViewSet):
             if user.target_exam:
                 target_match |= Q(target_exams=user.target_exam)
             
-            exam_instances = getattr(user, 'exam_instances', [])
-            if isinstance(exam_instances, list) and exam_instances:
+            exam_instance_names = getattr(user, 'exam_instance_names', "")
+            if exam_instance_names and isinstance(exam_instance_names, str):
                 from master_data.models import TargetExam
+                exam_instances = [x.strip() for x in exam_instance_names.split(',') if x.strip()]
                 # Exact case-insensitive match for each instance
                 instance_qs = TargetExam.objects.none()
                 for inst in exam_instances:
-                    if inst:
-                        instance_qs |= TargetExam.objects.filter(name__iexact=inst)
+                    instance_qs |= TargetExam.objects.filter(name__iexact=inst)
                 
                 matching_te_ids = list(instance_qs.values_list('pk', flat=True))
                 if matching_te_ids:

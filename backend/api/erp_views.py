@@ -466,6 +466,17 @@ def _sync_user_to_erp(user, admission_data):
         class_info = admission_data.get('class', {})
         erp_class_id = class_info.get('_id')
         erp_class_name = class_info.get('name')
+        
+        # Fallback: check examSchema for class if not found in admissions
+        if not erp_class_id and not erp_class_name:
+            exam_schema = student_obj.get('examSchema', [])
+            if isinstance(exam_schema, list) and len(exam_schema) > 0:
+                # Get the first valid class from examSchema
+                for ex in exam_schema:
+                    if isinstance(ex, dict) and ex.get('class') and ex.get('class') != 'ALL CLASS':
+                        erp_class_name = ex.get('class')
+                        break
+                        
         if erp_class_id or erp_class_name:
             class_obj = None
             if erp_class_id: class_obj = ClassLevel.objects.filter(erp_id=erp_class_id).first()
@@ -503,8 +514,9 @@ def _sync_user_to_erp(user, admission_data):
         exam_schema = student_obj.get('examSchema', [])
         if isinstance(exam_schema, list):
             instances = [ex.get('examName') for ex in exam_schema if isinstance(ex, dict) and ex.get('examName')]
-            if instances != getattr(user, 'exam_instances', []):
-                user.exam_instances = instances; has_changed = True
+            instances_str = ",".join(instances) if instances else ""
+            if instances_str != getattr(user, 'exam_instance_names', ""):
+                user.exam_instance_names = instances_str; has_changed = True
 
         if has_changed:
             user.save()
