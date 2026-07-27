@@ -351,10 +351,18 @@ const StudentDashboard = () => {
             d?.studentEmail?.toLowerCase() === user?.username?.toLowerCase()
         ) || detailsList[0] || {};
 
+        // Fallback for class name
+        let derivedClass = studentData?.class?.name;
+        if (!derivedClass) {
+            const examSchema = studentData?.student?.examSchema || [];
+            const fallback = examSchema.find(ex => ex.class && ex.class !== 'ALL CLASS');
+            if (fallback) derivedClass = fallback.class;
+        }
+
         return {
             basicInfo: basic,
             rollNo: studentData?.admissionNumber || "N/A",
-            classNameValue: studentData?.class?.name || "N/A"
+            classNameValue: derivedClass || "N/A"
         };
     }, [studentData, user]);
 

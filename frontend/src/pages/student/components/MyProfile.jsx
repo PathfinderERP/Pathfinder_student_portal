@@ -18,6 +18,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
     const examTagRaw = details.examTag || studentData?.examTag || studentData?.student?.examTag;
     const examTagId = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw._id || examTagRaw.id) : examTagRaw;
     const preResolvedTagName = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw.name || examTagRaw.tagName) : null;
+    
+    let derivedClass = studentData?.class?.name;
+    if (!derivedClass) {
+        const fallback = examSchema.find(ex => ex.class && ex.class !== 'ALL CLASS');
+        if (fallback) derivedClass = fallback.class;
+    }
 
     useEffect(() => {
         const fetchExamTag = async () => {
@@ -147,6 +153,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                                     <Tag size={12} className="text-rose-500" /> {tagLoading ? 'Loading Tag...' : examTagName}
                                 </div>
                             )}
+                            {examSchema.length > 0 && examSchema.map((exam, i) => exam.examName ? (
+                                <div key={`ei-${i}`} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border
+                                    ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-600 shadow-sm'}`}>
+                                    <BookOpen size={12} className="text-cyan-500" /> {exam.examName}
+                                </div>
+                            ) : null)}
                         </div>
                     </div>
                 </div>
@@ -293,7 +305,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
                     <InfoField label="Registered Course" value={studentData?.course?.courseName} icon={BookOpen} isDark={isDarkMode} isFullWidth isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Academic Session" value={studentData?.academicSession} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
-                    <InfoField label="Level / Class" value={studentData?.class?.name} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                    <InfoField label="Level / Class" value={derivedClass} icon={Award} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Delivery Mode" value={studentData?.course?.mode} icon={Activity} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Assigned Batch" value={batches.map(b => b.batchName).join(', ')} icon={Users} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                     <InfoField label="Exam Tag" value={tagLoading ? 'Syncing...' : examTagName} icon={Tag} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
