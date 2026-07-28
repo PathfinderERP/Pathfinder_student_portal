@@ -8,10 +8,6 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
     const { token, getApiUrl } = useAuth();
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     
-    // Initialize state from cache if available
-    const [examTagName, setExamTagName] = useState(cache?.name || '—');
-    const [tagLoading, setTagLoading] = useState(!cache?.loaded);
-
     const details = studentData?.student?.studentsDetails?.[0] || {};
     const guardians = studentData?.student?.guardians || [];
     const examSchema = studentData?.student?.examSchema || [];
@@ -21,6 +17,11 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
     const examTagId = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw._id || examTagRaw.id) : examTagRaw;
     const preResolvedTagName = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw.name || examTagRaw.tagName) : null;
     
+    // Initialize state from cache only if the ID matches
+    const isCacheValid = cache?.loaded && cache?.id === examTagId;
+    const [examTagName, setExamTagName] = useState(isCacheValid ? cache.name : '—');
+    const [tagLoading, setTagLoading] = useState(!isCacheValid);
+
     let derivedClass = studentData?.class?.name;
     if (!derivedClass) {
         const fallback = examSchema.find(ex => ex.class && ex.class !== 'ALL CLASS');
@@ -32,13 +33,13 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
             // Use pre-resolved name if present
             if (preResolvedTagName) {
                 setExamTagName(preResolvedTagName);
-                if (setCache) setCache({ name: preResolvedTagName, loaded: true });
+                if (setCache) setCache({ id: examTagId, name: preResolvedTagName, loaded: true });
                 setTagLoading(false);
                 return;
             }
 
-            // Use cached name if available and loaded
-            if (cache?.loaded && cache?.name) {
+            // Use cached name if available and the ID matches the current one
+            if (cache?.loaded && cache?.name && cache?.id === examTagId) {
                 setExamTagName(cache.name);
                 setTagLoading(false);
                 return;
@@ -58,7 +59,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
                 if (response.data && (response.data.name || response.data.tagName)) {
                     const resolvedName = response.data.name || response.data.tagName;
                     setExamTagName(resolvedName);
-                    if (setCache) setCache({ name: resolvedName, loaded: true });
+                    if (setCache) setCache({ id: examTagId, name: resolvedName, loaded: true });
                 }
             } catch (err) {
                 console.error("Error fetching exam tag:", err);
@@ -69,7 +70,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
         };
 
         fetchExamTag();
-    }, [examTagId, preResolvedTagName, token, getApiUrl, cache?.loaded, cache?.name, setCache]);
+    }, [examTagId, preResolvedTagName, token, getApiUrl, cache?.loaded, cache?.name, cache?.id, setCache]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
