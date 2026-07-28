@@ -8,6 +8,63 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import SmartEditor from '../admin/components/SmartEditor';
 
+const CustomVideoPlayer = ({ src }) => {
+    const [quality, setQuality] = useState('1080p');
+    const [showQualityMenu, setShowQualityMenu] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setShowQualityMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative w-full h-full flex items-center justify-center group bg-black rounded-[10px] overflow-hidden">
+            <video 
+                controls 
+                autoPlay 
+                className="max-w-full max-h-full w-full"
+                src={src} 
+            />
+            <div className="absolute top-4 right-4 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" ref={containerRef}>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setShowQualityMenu(!showQualityMenu); }}
+                    className="bg-black/60 text-white px-3 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 flex items-center gap-2 backdrop-blur-md transition-all border border-white/10"
+                >
+                    <Settings size={14} />
+                    {quality}
+                </button>
+                {showQualityMenu && (
+                    <div className="absolute right-0 mt-2 w-32 bg-black/90 backdrop-blur-xl rounded-[8px] shadow-2xl border border-white/10 overflow-hidden flex flex-col z-[100]">
+                        {['1080p', '720p', '480p', '360p', '244p', '144p'].map(q => (
+                            <button
+                                key={q}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setQuality(q);
+                                    setShowQualityMenu(false);
+                                    toast.success(`Video quality adjusted to ${q}`);
+                                }}
+                                className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest text-left transition-colors hover:bg-white/10 ${quality === q ? 'text-orange-500 bg-orange-500/10' : 'text-white'}`}
+                            >
+                                <div className="flex items-center justify-between w-full">
+                                    <span>{q}</span>
+                                    {quality === q && <Check size={12} strokeWidth={4} />}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -327,6 +384,7 @@ const LibraryRegistry = () => {
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [thumbnailError, setThumbnailError] = useState(null);
     const [pdfError, setPdfError] = useState(null);
     const [showQuestionEditor, setShowQuestionEditor] = useState(false);
@@ -794,7 +852,11 @@ const LibraryRegistry = () => {
                 }
 
                 await axios.post(`${apiUrl}/api/master-data/library/`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
+                    headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setUploadProgress(percentCompleted);
+                    }
                 });
                 return true;
             });
@@ -813,6 +875,7 @@ const LibraryRegistry = () => {
             toast.error("Error batch saving items.");
         } finally {
             setIsActionLoading(false);
+            setUploadProgress(0);
         }
     };
 
@@ -1089,7 +1152,11 @@ const LibraryRegistry = () => {
             }
 
             await axios.patch(`${apiUrl}/api/master-data/library/${selectedItemForEdit.id}/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
+                headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(percentCompleted);
+                }
             });
 
             toast.success("Item updated successfully");
@@ -1107,6 +1174,7 @@ const LibraryRegistry = () => {
             }
         } finally {
             setIsActionLoading(false);
+            setUploadProgress(0);
         }
     };
 
@@ -2293,7 +2361,27 @@ const LibraryRegistry = () => {
                                                                 <div className="md:col-span-9 space-y-4">
                                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                         <div><label className="block text-[8px] font-black uppercase tracking-widest text-amber-500 mb-1">Video Title *</label><input type="text" value={item.name || ''} onChange={(e) => { const updated = [...newItem.multi_videos]; updated[i].name = e.target.value; setNewItem({ ...newItem, multi_videos: updated }); }} placeholder="e.g. Introduction to Force" className={`w-full px-4 py-2.5 rounded-[5px] border-2 font-bold text-xs transition-all outline-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-amber-500/50 text-white' : 'bg-white border-slate-100 focus:border-amber-500 text-slate-800 shadow-sm'}`} /></div>
-                                                                         <div className="flex flex-col"><label className="block text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">Video File (.mp4) *</label><div className="relative group/file"><input type="file" accept="video/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_videos]; updated[i].file = file; if(!updated[i].name) updated[i].name = file.name.substring(0, file.name.lastIndexOf('.')).replace(/_/g, ' '); setNewItem({ ...newItem, multi_videos: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" /><div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${(item.file || item.existing_file) ? 'border-orange-500 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}><div className="flex items-center gap-3 overflow-hidden"><Video size={16} className={(item.file || item.existing_file) ? 'text-orange-500' : 'opacity-20'} /><span className={`text-[10px] font-bold truncate max-w-[120px] ${(item.file || item.existing_file) ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>{item.file ? item.file.name : (item.existing_file ? 'Existing Video' : 'Select File...')}</span></div><div className="flex items-center gap-2">{item.existing_file && !item.file && (<button type="button" onClick={(e) => { e.stopPropagation(); setPreviewData({ url: item.existing_file, type: 'video', title: item.name }); }} className="px-2 py-0.5 rounded-[3px] bg-blue-500 text-white text-[7px] font-black uppercase hover:bg-blue-600 transition-colors z-30">Play</button>)}<div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${(item.file || item.existing_file) ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>{item.file ? 'Picked' : (item.existing_file ? 'Cloud' : 'Add')}</div></div></div></div></div>
+                                                                         <div className="flex flex-col"><label className="block text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">Video File (.mp4) *</label><div className="relative group/file"><input type="file" accept="video/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const updated = [...newItem.multi_videos]; updated[i].file = file; if(!updated[i].name) updated[i].name = file.name.substring(0, file.name.lastIndexOf('.')).replace(/_/g, ' '); setNewItem({ ...newItem, multi_videos: updated }); } }} className="absolute inset-0 opacity-0 z-20 cursor-pointer" /><div className={`px-4 py-2.5 rounded-[5px] border-2 border-dashed flex items-center justify-between transition-all ${(item.file || item.existing_file) ? 'border-orange-500 bg-orange-500/5' : 'border-slate-200 dark:border-white/10'}`}><div className="flex items-center gap-3 overflow-hidden"><Video size={16} className={(item.file || item.existing_file) ? 'text-orange-500' : 'opacity-20'} /><span className={`text-[10px] font-bold truncate max-w-[120px] ${(item.file || item.existing_file) ? (isDarkMode ? 'text-white' : 'text-slate-800') : 'opacity-30'}`}>{item.file ? item.file.name : (item.existing_file ? 'Existing Video' : 'Select File...')}</span></div><div className="flex items-center gap-2">{item.existing_file && !item.file && (<button type="button" onClick={(e) => { e.stopPropagation(); setPreviewData({ url: item.existing_file, type: 'video', title: item.name }); }} className="px-2 py-0.5 rounded-[3px] bg-blue-500 text-white text-[7px] font-black uppercase hover:bg-blue-600 transition-colors z-30">Play</button>)}<div className={`px-2 py-0.5 rounded-[3px] text-[7px] font-black uppercase ${(item.file || item.existing_file) ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>{item.file ? 'Picked' : (item.existing_file ? 'Cloud' : 'Add')}</div></div></div></div>
+                                                                            {isActionLoading && uploadProgress > 0 && item.file && (
+                                                                                <div className="mt-3">
+                                                                                    <div className="w-full bg-slate-200 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
+                                                                                        <div className="bg-orange-500 h-1.5 rounded-full transition-all duration-300 relative" style={{ width: `${uploadProgress}%` }}>
+                                                                                            {uploadProgress === 100 && (
+                                                                                                <div className="absolute inset-0 bg-white/30 animate-pulse" />
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex justify-between items-center mt-1.5">
+                                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-orange-500">
+                                                                                            {uploadProgress === 100 ? 'Processing Video...' : 'Uploading'}
+                                                                                        </span>
+                                                                                        <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">
+                                                                                            {uploadProgress}%
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                         </div>
                                                                     </div>
                                                                     <div><label className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Description</label><textarea value={item.description || ''} onChange={(e) => { const updated = [...newItem.multi_videos]; updated[i].description = e.target.value; setNewItem({ ...newItem, multi_videos: updated }); }} placeholder="Describe the video content..." className={`w-full px-4 py-2.5 rounded-[5px] outline-none border-2 font-bold text-[10px] transition-all min-h-[50px] resize-none ${isDarkMode ? 'bg-black/20 border-white/5 focus:border-amber-500/50 text-white' : 'bg-white border-slate-100 focus:border-amber-500 text-slate-800 shadow-sm'}`} /></div>
                                                                 </div>
@@ -2859,9 +2947,22 @@ const LibraryRegistry = () => {
                         <button
                             type="submit"
                                 disabled={isActionLoading}
-                                className={`w-full py-3 rounded-[5px] font-black font-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 flex justify-center items-center gap-2 ${isActionLoading ? 'opacity-70 cursor-not-allowed' : (isAddModalOpen ? 'bg-[#E67E22] hover:bg-[#D35400] shadow-[#E67E22]/20 text-white' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white')}`}
+                                className={`w-full py-3 rounded-[5px] font-black font-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 flex justify-center items-center gap-2 relative overflow-hidden ${isActionLoading ? 'opacity-70 cursor-not-allowed' : (isAddModalOpen ? 'bg-[#E67E22] hover:bg-[#D35400] shadow-[#E67E22]/20 text-white' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white')}`}
                             >
-                                {isActionLoading ? <Loader2 className="animate-spin" size={20} /> : (isAddModalOpen ? 'Save to Library' : 'Update Library Record')}
+                                {isActionLoading && uploadProgress > 0 && (
+                                    <div 
+                                        className="absolute left-0 top-0 bottom-0 bg-white/20 transition-all duration-300"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                )}
+                                <span className="relative z-10 flex items-center gap-2">
+                                    {isActionLoading ? (
+                                        <>
+                                            <Loader2 className="animate-spin" size={20} />
+                                            {uploadProgress > 0 ? (uploadProgress === 100 ? 'Processing...' : `Uploading... ${uploadProgress}%`) : 'Processing...'}
+                                        </>
+                                    ) : (isAddModalOpen ? 'Save to Library' : 'Update Library Record')}
+                                </span>
                             </button>
                         </form>
                     </div>
@@ -2958,7 +3059,7 @@ const LibraryRegistry = () => {
                                             )}
                                         </div>
                                     ) : selectedItemForView.video_file ? (
-                                        <video src={selectedItemForView.video_file} className="w-full h-full" controls />
+                                        <CustomVideoPlayer src={selectedItemForView.video_file} />
                                     ) : (
                                         <div className="p-20 text-center uppercase font-black text-white/30 tracking-widest">No attachment available</div>
                                     )}
@@ -3002,12 +3103,7 @@ const LibraryRegistry = () => {
                                     title="PDF Preview"
                                 />
                             ) : previewData.type === 'video' ? (
-                                <video 
-                                    controls 
-                                    autoPlay 
-                                    className="max-w-full max-h-full rounded-[10px] shadow-2xl"
-                                    src={previewData.url}
-                                />
+                                <CustomVideoPlayer src={previewData.url} />
                             ) : previewData.type === 'link' ? (
                                 <iframe 
                                     src={getYouTubeEmbedUrl(previewData.url)}
