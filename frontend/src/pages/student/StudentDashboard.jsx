@@ -110,6 +110,7 @@ const StudentDashboard = () => {
     const [studyMaterialsCache, setStudyMaterialsCache] = useState({ data: [], loaded: false });
     const [examsCache, setExamsCache] = useState({ data: [], loaded: false });
     const [scholarlabCache, setScholarlabCache] = useState({ data: [], loaded: false });
+    const [examTagCache, setExamTagCache] = useState({ name: null, loaded: false });
 
     // Flag to prevent multiple auto-sync attempts in one session
     const hasAutoSynced = useRef(false);
@@ -150,12 +151,16 @@ const StudentDashboard = () => {
             return null;
         }
 
-        // Only show loader if we don't have data yet OR forced (and not manually silenced)
-        if ((!studentData || forceRefresh) && !silentBackground) {
-            setLoading(true);
-        } else if (silentBackground) {
-            setSilentLoading(true);
-        }
+        // Only show full loader if we have NO data at all (first load)
+        // For refreshes when we already have data, always use silent mode
+        setStudentData(prev => {
+            if (!prev && !silentBackground) {
+                setLoading(true);
+            } else {
+                setSilentLoading(true);
+            }
+            return prev; // don't change studentData here, just use it for the check
+        });
 
         setError(null);
         try {
@@ -177,34 +182,65 @@ const StudentDashboard = () => {
                 await refreshUser();
             }
 
+            // Handle 202 "syncing" responses — backend started background sync
+            // but doesn't have real data yet. Don't overwrite existing studentData.
+            if (response.status === 202 || response.data?.status === 'syncing') {
+                console.log("[StudentDashboard] Backend is syncing in background. Will retry shortly.");
+                // Auto-retry after a delay to pick up freshly synced data
+                setTimeout(() => fetchStudentData(false, true), 4000);
+                return null; // Don't return syncing skeleton as valid data
+            }
+
             if (response.data) {
-                // Prevent overwriting rich data with offline fallback
+                // Guard: Only update if the response actually contains student data structure
+                const hasStudentStructure = response.data.student && response.data.student.studentsDetails;
+
                 setStudentData(prevData => {
                     const isNewDataOffline = response.data.is_offline;
                     const hasExistingData = prevData && !prevData.is_offline;
 
+                    // Don't overwrite rich data with offline fallback (unless forced)
                     if (hasExistingData && isNewDataOffline && !forceRefresh) {
                         console.warn("Skipping update: Prevented overwriting valid data with offline fallback");
                         return prevData;
                     }
+
+                    // Don't overwrite valid data with a response that lacks student structure
+                    if (prevData && prevData.student?.studentsDetails?.length > 0 && !hasStudentStructure) {
+                        console.warn("Skipping update: Response missing student data structure");
+                        return prevData;
+                    }
+
                     return response.data;
                 });
             }
+
+            // When forceRefresh was used, the backend starts a background ERP sync
+            // but returns stale cached data immediately. Schedule a silent re-fetch
+            // after 5s so we pick up the freshly synced data (e.g. admin updates).
+            if (forceRefresh) {
+                console.log("[StudentDashboard] Force refresh done. Will re-fetch in 5s to pick up background sync.");
+                setTimeout(() => fetchStudentData(false, true), 5000);
+            }
+
             return response.data;
         } catch (err) {
             console.error("Error fetching student data:", err);
-            // Only set visible error if we don't have data
-            if (!studentData) {
-                if (err.response?.status === 404) {
-                    setError("Your student record could not be found. Please contact support.");
-                } else if (err.response?.status === 503) {
-                    setError("Unable to connect to Student Records System. Please try again later.");
-                } else if (err.response?.status === 401) {
-                    setError("Session expired. Please log in again.");
-                } else {
-                    setError(err.response?.data?.error || "Failed to load student profile.");
+            // Only set visible error if we don't have data at all
+            setStudentData(prev => {
+                if (!prev) {
+                    if (err.response?.status === 404) {
+                        setError("Your student record could not be found. Please contact support.");
+                    } else if (err.response?.status === 503) {
+                        setError("Unable to connect to Student Records System. Please try again later.");
+                    } else if (err.response?.status === 401) {
+                        setError("Session expired. Please log in again.");
+                    } else {
+                        setError(err.response?.data?.error || "Failed to load student profile.");
+                    }
                 }
-            }
+                return prev; // preserve existing data on error
+            });
             return null;
         } finally {
             setLoading(false);
@@ -484,7 +520,7 @@ const StudentDashboard = () => {
             case 'Dashboard':
                 return <DashboardHome isDarkMode={isDarkMode} student={basicInfo} rollNo={rollNo} className={classNameValue} onSync={fetchStudentData} studentData={studentData} silentLoading={silentLoading} onTabChange={setActiveTab} dashboardStats={statsData} exams={examsCache.data} />;
             case 'My Profile':
-                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} silentLoading={silentLoading || loading} />;
+                return <MyProfile isDarkMode={isDarkMode} studentData={studentData} onRefresh={fetchStudentData} silentLoading={silentLoading || loading} cache={examTagCache} setCache={setExamTagCache} />;
             case 'Classes':
                 return <Classes isDarkMode={isDarkMode} cache={classesCache} setCache={setClassesCache} studentBatch={studentBatch} />;
             case 'Attendance':
@@ -761,7 +797,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
                     </div>
                     {!silentLoading && (
                         <button
-                            onClick={() => onSync(true)}
+                            onClick={() => onSync(true, true)}
                             className="flex items-center gap-2 px-5 py-2 bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] hover:bg-blue-600 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/20"
                         >
                             <RefreshCw size={14} className={isActuallySyncing ? 'animate-spin' : ''} />
@@ -828,7 +864,7 @@ const DashboardHome = ({ isDarkMode, student, rollNo, className, onSync, student
 
                         <div className="flex flex-wrap items-center gap-4 mt-8">
                             <button
-                                onClick={() => onSync(true)}
+                                onClick={() => onSync(true, true)}
                                 className="flex items-center gap-2 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-[5px] border border-white/10 backdrop-blur-md transition-all active:scale-95 group shadow-lg"
                             >
                                 <RefreshCw size={14} className={`group-hover:rotate-180 transition-transform duration-500 ${silentLoading ? 'animate-spin' : ''}`} />

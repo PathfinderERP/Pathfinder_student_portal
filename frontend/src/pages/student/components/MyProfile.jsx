@@ -4,11 +4,13 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
 
-const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
+const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, setCache }) => {
     const { token, getApiUrl } = useAuth();
     const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const [examTagName, setExamTagName] = useState('—');
-    const [tagLoading, setTagLoading] = useState(false);
+    
+    // Initialize state from cache if available
+    const [examTagName, setExamTagName] = useState(cache?.name || '—');
+    const [tagLoading, setTagLoading] = useState(!cache?.loaded);
 
     const details = studentData?.student?.studentsDetails?.[0] || {};
     const guardians = studentData?.student?.guardians || [];
@@ -27,12 +29,25 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
 
     useEffect(() => {
         const fetchExamTag = async () => {
+            // Use pre-resolved name if present
             if (preResolvedTagName) {
                 setExamTagName(preResolvedTagName);
+                if (setCache) setCache({ name: preResolvedTagName, loaded: true });
+                setTagLoading(false);
                 return;
             }
 
-            if (!examTagId || typeof examTagId !== 'string' || examTagId.length < 5 || !token) return;
+            // Use cached name if available and loaded
+            if (cache?.loaded && cache?.name) {
+                setExamTagName(cache.name);
+                setTagLoading(false);
+                return;
+            }
+
+            if (!examTagId || typeof examTagId !== 'string' || examTagId.length < 5 || !token) {
+                 setTagLoading(false);
+                 return;
+            }
 
             setTagLoading(true);
             try {
@@ -41,7 +56,9 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (response.data && (response.data.name || response.data.tagName)) {
-                    setExamTagName(response.data.name || response.data.tagName);
+                    const resolvedName = response.data.name || response.data.tagName;
+                    setExamTagName(resolvedName);
+                    if (setCache) setCache({ name: resolvedName, loaded: true });
                 }
             } catch (err) {
                 console.error("Error fetching exam tag:", err);
@@ -52,11 +69,12 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading }) => {
         };
 
         fetchExamTag();
-    }, [examTagId, preResolvedTagName, token, getApiUrl]);
+    }, [examTagId, preResolvedTagName, token, getApiUrl, cache?.loaded, cache?.name, setCache]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
-        if (onRefresh) await onRefresh(true);
+        // Pass silentBackground=true so profile data stays visible during refresh
+        if (onRefresh) await onRefresh(true, true);
         setTimeout(() => setIsRefreshing(false), 1000);
     };
 
