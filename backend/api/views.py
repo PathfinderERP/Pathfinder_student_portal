@@ -2115,6 +2115,7 @@ def get_admin_teacher_activity_detail(request, username):
             'start_time': format_dt(f.start_time),
             'end_time': format_dt(f.end_time),
             'average_score': f.average_score,
+            'responses': f.responses,
             'student_name': f.student.username if f.student else 'Unknown',
             'student_class': str(f.student.class_level) if f.student and f.student.class_level else 'N/A',
             'student_center': str(f.student.centre_name) if f.student and f.student.centre_name else 'N/A',

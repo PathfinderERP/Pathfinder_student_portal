@@ -6,6 +6,19 @@ import {
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 
+const FEEDBACK_QUESTIONS = [
+    "Explains concepts clearly and uses real-world examples to improve understanding.",
+    "Maintains excellent classroom discipline and encourages student participation.",
+    "Always well-prepared and delivers structured, easy-to-follow lessons.",
+    "Provides timely feedback and supports students beyond classroom hours.",
+    "Demonstrates strong subject knowledge and effective teaching methodologies.",
+    "Creates a positive learning environment that motivates students to perform better.",
+    "Uses interactive teaching methods and digital tools effectively.",
+    "Regularly tracks student progress and addresses learning gaps proactively.",
+    "Encourages critical thinking and problem-solving skills among students.",
+    "Shows professionalism, punctuality, and dedication towards student success."
+];
+
 const parseDate = (str) => {
     if (!str) return null;
     let formatted = str;
@@ -28,9 +41,14 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
     
     // Feedback Group State
     const [expandedFeedbacks, setExpandedFeedbacks] = useState({});
+    const [expandedStudentFeedbacks, setExpandedStudentFeedbacks] = useState({});
 
     const toggleFeedback = (key) => {
         setExpandedFeedbacks(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+    
+    const toggleStudentFeedback = (key) => {
+        setExpandedStudentFeedbacks(prev => ({ ...prev, [key]: !prev[key] }));
     };
     
     // Doubt Modal State
@@ -250,22 +268,46 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                                     </td>
                                 </tr>
                                 {isExpanded && group.students.map((r, i) => (
-                                    <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-slate-50 bg-slate-50/50'}`}>
-                                        <td className="py-2 px-4 pl-12 font-mono text-[10px] opacity-60" colSpan="2">Student:</td>
-                                        <td className="py-2 px-4 font-bold text-[11px]">
-                                            {r.student_name || 'N/A'}
-                                            <div className="font-normal text-[9px] opacity-70 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                {r.student_class && <span>Class: {r.student_class}</span>}
-                                                {r.student_center && <span>• Center: {r.student_center}</span>}
-                                                {r.student_exam_tag && <span>• Exam: {r.student_exam_tag}</span>}
-                                            </div>
-                                        </td>
-                                        <td colSpan="2" className="py-2 px-4 text-center">
-                                            <span className="font-bold text-[11px] flex items-center justify-center gap-1">
-                                                {r.average_score} <Star size={10} className="text-amber-400 fill-amber-400 opacity-80" />
-                                            </span>
-                                        </td>
-                                    </tr>
+                                    <React.Fragment key={r.id || i}>
+                                        <tr 
+                                            onClick={() => toggleStudentFeedback(r.id)}
+                                            className={`border-b cursor-pointer transition-colors ${isDarkMode ? 'border-white/5 bg-black/20 hover:bg-white/[0.04]' : 'border-slate-50 bg-slate-50/50 hover:bg-slate-100'}`}
+                                        >
+                                            <td className="py-2 px-4 pl-12 font-mono text-[10px] opacity-60" colSpan="2">Student:</td>
+                                            <td className="py-2 px-4 font-bold text-[11px]">
+                                                {r.student_name || 'N/A'}
+                                                <div className="font-normal text-[9px] opacity-70 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                    {r.student_class && <span>Class: {r.student_class}</span>}
+                                                    {r.student_center && <span>• Center: {r.student_center}</span>}
+                                                    {r.student_exam_tag && <span>• Exam: {r.student_exam_tag}</span>}
+                                                </div>
+                                            </td>
+                                            <td colSpan="2" className="py-2 px-4 text-center">
+                                                <span className="font-bold text-[11px] flex items-center justify-center gap-1">
+                                                    {r.average_score} <Star size={10} className="text-amber-400 fill-amber-400 opacity-80" />
+                                                </span>
+                                            </td>
+                                            <td className="py-2 px-4 text-right">
+                                                <button className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
+                                                    {expandedStudentFeedbacks[r.id] ? <ChevronLeft size={14} className="-rotate-90 transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {expandedStudentFeedbacks[r.id] && r.responses && Object.keys(r.responses).length > 0 && (
+                                            <tr className={`border-b ${isDarkMode ? 'border-white/5 bg-black/40' : 'border-slate-50 bg-slate-100/50'}`}>
+                                                <td colSpan="6" className="py-4 px-8 md:px-16">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                                                        {Object.entries(r.responses).map(([qIdx, ans]) => (
+                                                            <div key={qIdx} className={`flex justify-between items-start gap-4 text-[10px] pb-2 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-200'} last:border-0`}>
+                                                                <span className="opacity-80 leading-relaxed font-medium">Q{parseInt(qIdx) + 1}: {FEEDBACK_QUESTIONS[qIdx] || 'Feedback Question'}</span>
+                                                                <span className={`font-black shrink-0 px-2 py-0.5 rounded-[3px] ${ans === 'EXCELLENT' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-600') : ans === 'GOOD' ? (isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-100 text-blue-600') : ans === 'AVERAGE' ? (isDarkMode ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-100 text-orange-600') : (isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600')}`}>{ans}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))}
                             </React.Fragment>
                         );
