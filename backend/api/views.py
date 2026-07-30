@@ -1464,20 +1464,179 @@ def get_admin_student_activity_detail(request, admission_number):
             return response.Response([], status=200)
         try:
             from tests.models import TestSubmission
+            from .db_utils import get_db
+            from bson import ObjectId
+            import json as _json
+
+            db = get_db()
+
             submissions = TestSubmission.objects.filter(student=student).select_related('test').order_by('-submitted_at')[:50]
             data = []
             for sub in submissions:
                 total_marks = getattr(sub.test, 'total_marks', None) if sub.test else None
+                percentage = round((sub.score / total_marks * 100), 1) if total_marks and total_marks > 0 else None
+
+                # Fetch responses from MongoDB
+                # Key findings from diagnose_mongo.py:
+                #   test_id    -> stored as int (NOT ObjectId)
+                #   student_id -> stored as ObjectId (student.pk is already ObjectId here)
+                #   responses  -> stored as JSON STRING, not dict
+                #   resp keys  -> raw 24-char hex strings e.g. "69bfd154..."
+                subject_stats = []
+                try:
+                    if sub.test and db is not None:
+                        # test_id is int, student_id is ObjectId
+                        try:
+                            sid_oid = ObjectId(str(student.pk))
+                        except Exception:
+                            sid_oid = student.pk
+                            
+                        sub_docs = list(db['tests_testsubmission'].find({'test_id': sub.test.pk, 'student_id': sid_oid}))
+                        if not sub_docs:
+                            sub_docs = list(db['tests_testsubmission'].find({'test_id': sub.test.pk, 'student_id': student.pk}))
+
+                        sub_doc = None
+                        max_resp_len = -1
+                        best_raw_res = {}
+                        
+                        for doc in sub_docs:
+                            raw = doc.get('responses', {})
+                            if isinstance(raw, str):
+                                try:
+                                    raw = _json.loads(raw)
+                                except Exception:
+                                    raw = {}
+                            if isinstance(raw, dict):
+                                r_len = len(raw)
+                                if r_len > max_resp_len:
+                                    max_resp_len = r_len
+                                    sub_doc = doc
+                                    best_raw_res = raw
+
+                        raw_res = best_raw_res
+                        responses_data = raw_res if isinstance(raw_res, dict) else {}
+
+
+                        sections = list(
+                            sub.test.sections.prefetch_related('questions').order_by('priority')
+                        )
+                        for sec in sections:
+                            correct = incorrect = unattempted = 0
+                            positive = negative = 0.0
+
+                            qs = list(sec.questions.all())
+                            sec_total_max = len(qs) * float(sec.correct_marks or 0)
+
+                            for q in qs:
+                                # q.pk is an ObjectId — get its 24-char hex string
+                                try:
+                                    qid = q.pk.binary.hex() if hasattr(q.pk, 'binary') else str(q.pk)
+                                    # bson ObjectId: str() gives "ObjectId('hex')" — extract hex only
+                                    if qid.startswith('ObjectId('):
+                                        qid = qid[10:-2]  # strip ObjectId('...')
+                                except Exception:
+                                    qid = str(q.pk)
+
+                                res_obj = responses_data.get(qid)
+                                if res_obj is None:
+                                    # fallback: plain str(q.pk) without ObjectId wrapper
+                                    res_obj = responses_data.get(str(q.pk))
+                                ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
+
+                                if ans in (None, '', [], {}):
+                                    unattempted += 1
+                                else:
+                                    qtype = q.question_type or 'SINGLE_CHOICE'
+                                    opts = q.question_options or []
+                                    correct_opts = [str(opt['id']) for opt in opts if opt.get('isCorrect')]
+                                    
+                                    if qtype == 'SINGLE_CHOICE':
+                                        ans_str = str(ans).strip().lower()
+                                        is_correct = False
+                                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                                        for oi, opt in enumerate(opts):
+                                            opt_id = str(opt.get('id', ''))
+                                            opt_label = keys[oi] if oi < len(keys) else None
+                                            # Match by ID, by numeric index, or by letter label
+                                            if ans_str == opt_id.lower() or ans_str == str(oi + 1) or (opt_label and ans_str == opt_label):
+                                                if opt.get('isCorrect'):
+                                                    is_correct = True
+                                                break
+                                                
+                                        if is_correct:
+                                            correct += 1
+                                            positive += float(sec.correct_marks or 0)
+                                        else:
+                                            incorrect += 1
+                                            negative += float(sec.negative_marks or 0)
+                                            
+                                    elif qtype == 'MULTI_CHOICE':
+                                        raw_selected = ans if isinstance(ans, list) else [ans]
+                                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                                        normalized_selected = set()
+                                        for item in raw_selected:
+                                            item_str = str(item).strip().lower()
+                                            matched = False
+                                            for oi, opt in enumerate(opts):
+                                                opt_id = str(opt.get('id', ''))
+                                                opt_label = keys[oi] if oi < len(keys) else None
+                                                if item_str == opt_id.lower() or item_str == str(oi + 1) or (opt_label and item_str == opt_label):
+                                                    normalized_selected.add(opt_id)
+                                                    matched = True
+                                                    break
+                                            if not matched:
+                                                normalized_selected.add(item_str)
+                                                
+                                        if normalized_selected == set(correct_opts):
+                                            correct += 1
+                                            positive += float(sec.correct_marks or 0)
+                                        else:
+                                            incorrect += 1
+                                            negative += float(sec.negative_marks or 0)
+                                    else:
+                                        try:
+                                            af = float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None
+                                            at = float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None
+                                            user_val = float(str(ans).strip())
+                                            if (af is not None and at is not None and af <= user_val <= at) or \
+                                               (af is None and at is not None and user_val == at):
+                                                correct += 1
+                                                positive += float(sec.correct_marks or 0)
+                                            else:
+                                                incorrect += 1
+                                        except Exception:
+                                            incorrect += 1
+
+                            net = positive - negative
+                            sec_pct = round((net / sec_total_max * 100), 1) if sec_total_max > 0 else 0.0
+                            label = 'strong' if sec_pct >= 60 else ('average' if sec_pct >= 35 else 'weak')
+                            subject_stats.append({
+                                'name': sec.name,
+                                'correct': correct,
+                                'incorrect': incorrect,
+                                'unattempted': unattempted,
+                                'total': len(qs),
+                                'net_marks': round(net, 2),
+                                'total_max': round(sec_total_max, 2),
+                                'percentage': sec_pct,
+                                'label': label,
+                            })
+                except Exception as sec_err:
+                    print(f"[DETAIL:tests] Section stats error for test {getattr(sub, 'test_id', '?')}: {sec_err}")
+                    subject_stats = []
+
+
                 data.append({
                     'id': sub.test.pk if sub.test else None,
                     'test_id': sub.test.pk if sub.test else None,
                     'test_name': sub.test.name if sub.test else 'Unknown',
                     'score': sub.score,
                     'total_marks': total_marks,
-                    'percentage': round((sub.score / total_marks * 100), 1) if total_marks and total_marks > 0 else None,
+                    'percentage': percentage,
                     'is_finalized': sub.is_finalized,
                     'submitted_at': sub.submitted_at.isoformat() if sub.submitted_at else None,
                     'time_spent': sub.time_spent,
+                    'subject_stats': subject_stats,
                 })
             return response.Response(data, status=200)
         except Exception as e:
@@ -1485,6 +1644,7 @@ def get_admin_student_activity_detail(request, admission_number):
             return response.Response([], status=200)
 
     elif detail_type == 'attendance':
+
         erp_id = request.query_params.get('erp_id')
         if not erp_id:
             return response.Response([], status=200)

@@ -19,6 +19,167 @@ const parseDate = (str) => {
     return new Date(formatted);
 };
 
+// ── Subject Analysis Panel ────────────────────────────────────────────────────
+const SubjectAnalysisPanel = ({ stats, dark }) => {
+    if (!stats || stats.length === 0) return null;
+    const strong = stats.filter(s => s.label === 'strong');
+    const weak   = stats.filter(s => s.label === 'weak');
+    return (
+        <div className={`px-4 pb-4 pt-2 ${dark ? 'bg-white/[0.015]' : 'bg-slate-50/70'}`}>
+            <div className="space-y-2.5">
+                {stats.map((s, idx) => {
+                    const pct = Math.max(0, Math.min(100, s.percentage || 0));
+                    const barColor = s.label === 'strong'
+                        ? 'from-emerald-500 to-green-400'
+                        : s.label === 'average'
+                        ? 'from-amber-500 to-yellow-400'
+                        : 'from-red-500 to-rose-400';
+                    const textColor = s.label === 'strong'
+                        ? 'text-emerald-500'
+                        : s.label === 'average'
+                        ? 'text-amber-500'
+                        : 'text-red-500';
+                    const badgeBg = s.label === 'strong'
+                        ? (dark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+                        : s.label === 'average'
+                        ? (dark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')
+                        : (dark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600');
+                    return (
+                        <div key={idx}>
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-black uppercase tracking-wide ${dark ? 'text-slate-200' : 'text-slate-700'}`}>
+                                        {s.name}
+                                    </span>
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase ${badgeBg}`}>
+                                        {s.label}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-[9px] font-medium ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        <span className="text-emerald-500">{s.correct}✓</span>
+                                        {' '}
+                                        <span className="text-red-500">{s.incorrect}✗</span>
+                                        {' '}
+                                        <span className={dark ? 'text-slate-500' : 'text-slate-400'}>{s.unattempted}–</span>
+                                        {' / '}{s.total}
+                                    </span>
+                                    <span className={`text-[11px] font-black min-w-[38px] text-right ${textColor}`}>
+                                        {pct}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div className={`w-full rounded-full h-1.5 ${dark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                                <div
+                                    className={`h-1.5 rounded-full bg-gradient-to-r ${barColor} transition-all duration-500`}
+                                    style={{ width: `${pct}%` }}
+                                />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {(strong.length > 0 || weak.length > 0) && (
+                <div className="flex flex-wrap gap-2 mt-3 pt-2.5 border-t border-white/5">
+                    {strong.length > 0 && (
+                        <div className="flex items-center gap-1">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${dark ? 'text-slate-500' : 'text-slate-400'}`}>💪 Strong:</span>
+                            {strong.map((s, i) => (
+                                <span key={i} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${dark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                                    {s.name}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    {weak.length > 0 && (
+                        <div className="flex items-center gap-1">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${dark ? 'text-slate-500' : 'text-slate-400'}`}>⚠️ Weak:</span>
+                            {weak.map((s, i) => (
+                                <span key={i} className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${dark ? 'bg-red-500/15 text-red-400' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                                    {s.name}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── Single Test Row with expand/collapse for subject analysis ─────────────────
+const TestRow = ({ r, isDark, onReport, fmtDateFn, admNo }) => {
+    const [expanded, setExpanded] = React.useState(false);
+    const hasSubjects = r.subject_stats && r.subject_stats.length > 0;
+    const strongSubjects = hasSubjects ? r.subject_stats.filter(s => s.label === 'strong') : [];
+    const averageSubjects= hasSubjects ? r.subject_stats.filter(s => s.label === 'average'): [];
+    const weakSubjects   = hasSubjects ? r.subject_stats.filter(s => s.label === 'weak')   : [];
+    return (
+        <React.Fragment>
+            <tr className={`border-b ${isDark ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'} transition-colors`}>
+                <td className="py-3 px-4">
+                    <div className="font-medium max-w-xs truncate">{r.test_name}</div>
+                    {hasSubjects && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {strongSubjects.map((s, si) => (
+                                <span key={si} className={`px-1.5 py-px rounded text-[8px] font-black uppercase ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                                    💪 {s.name}
+                                </span>
+                            ))}
+                            {averageSubjects.map((s, si) => (
+                                <span key={si} className={`px-1.5 py-px rounded text-[8px] font-black uppercase ${isDark ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>
+                                    👌 {s.name}
+                                </span>
+                            ))}
+                            {weakSubjects.map((s, si) => (
+                                <span key={si} className={`px-1.5 py-px rounded text-[8px] font-black uppercase ${isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
+                                    ⚠️ {s.name}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </td>
+                <td className="py-3 px-4 text-center font-bold">{r.score}{r.total_marks ? `/${r.total_marks}` : ''}</td>
+                <td className="py-3 px-4 text-center">{r.percentage != null ? <span className={`font-bold ${r.percentage >= 60 ? 'text-emerald-500' : r.percentage >= 40 ? 'text-orange-500' : 'text-red-500'}`}>{r.percentage}%</span> : '—'}</td>
+                <td className="py-3 px-4">{r.submitted_at ? fmtDateFn(r.submitted_at) : 'N/A'}</td>
+                <td className="py-3 px-4 text-center">
+                    {hasSubjects ? (
+                        <button
+                            onClick={() => setExpanded(v => !v)}
+                            className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all ${
+                                expanded
+                                    ? (isDark ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-800')
+                                    : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
+                            }`}
+                        >
+                            {expanded ? '▲ Hide' : '▼ View'}
+                        </button>
+                    ) : (
+                        <span className={`text-[9px] ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>—</span>
+                    )}
+                </td>
+                <td className="py-3 px-4 text-center">
+                    {r.id && (
+                        <button
+                            onClick={() => onReport({ id: r.id, enrollment: admNo })}
+                            className="bg-[#4871D9] hover:bg-[#3D60B8] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-blue-500/10"
+                        >
+                            Report
+                        </button>
+                    )}
+                </td>
+            </tr>
+            {expanded && hasSubjects && (
+                <tr className={`border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                    <td colSpan={6} className="p-0">
+                        <SubjectAnalysisPanel stats={r.subject_stats} dark={isDark} />
+                    </td>
+                </tr>
+            )}
+        </React.Fragment>
+    );
+};
+
 const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMode, onBack }) => {
     if (!student || !activity) return null;
 
@@ -193,35 +354,86 @@ const StudentDetailPage = ({ student, activity, admissionNumber, erpId, isDarkMo
             );
         }
 
-        if (activeDetail === 'tests') return (
-            <table className="w-full text-xs">
-                <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
-                    <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Test Name</th>
-                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Score</th>
-                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">%</th>
-                    <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Submitted</th>
-                    <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Action</th>
-                </tr></thead>
-                <tbody>{detailData.map((r, i) => (
-                    <tr key={i} className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50'}`}>
-                        <td className="py-3 px-4 font-medium max-w-xs truncate">{r.test_name}</td>
-                        <td className="py-3 px-4 text-center font-bold">{r.score}{r.total_marks ? `/${r.total_marks}` : ''}</td>
-                        <td className="py-3 px-4 text-center">{r.percentage != null ? <span className={`font-bold ${r.percentage >= 60 ? 'text-emerald-500' : r.percentage >= 40 ? 'text-orange-500' : 'text-red-500'}`}>{r.percentage}%</span> : '—'}</td>
-                        <td className="py-3 px-4">{r.submitted_at ? fmtDate(r.submitted_at) : 'N/A'}</td>
-                        <td className="py-3 px-4 text-center">
-                            {r.id && (
-                                <button
-                                    onClick={() => setSelectedReport({ id: r.id, enrollment: admissionNumber })}
-                                    className="bg-[#4871D9] hover:bg-[#3D60B8] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-[4px] transition-all active:scale-95 shadow-lg shadow-blue-500/10"
-                                >
-                                    Report
-                                </button>
+        if (activeDetail === 'tests') {
+            const overallSubjects = {};
+            detailData.forEach(test => {
+                if (test.subject_stats) {
+                    test.subject_stats.forEach(stat => {
+                        if (!overallSubjects[stat.name]) {
+                            overallSubjects[stat.name] = { name: stat.name, net_marks: 0, total_max: 0 };
+                        }
+                        overallSubjects[stat.name].net_marks += stat.net_marks || 0;
+                        overallSubjects[stat.name].total_max += stat.total_max || 0;
+                    });
+                }
+            });
+            const aggregated = Object.values(overallSubjects).map(s => {
+                const pct = s.total_max > 0 ? (s.net_marks / s.total_max) * 100 : 0;
+                let label = 'weak';
+                if (pct >= 60) label = 'strong';
+                else if (pct >= 35) label = 'average';
+                return { ...s, pct, label };
+            });
+            
+            const overallStrong = aggregated.filter(s => s.label === 'strong');
+            const overallAverage = aggregated.filter(s => s.label === 'average');
+            const overallWeak = aggregated.filter(s => s.label === 'weak');
+
+            return (
+            <div className="flex flex-col space-y-4">
+                {aggregated.length > 0 && (
+                    <div className={`p-4 rounded-[5px] border flex flex-col md:flex-row gap-4 items-center justify-between ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Overall Subject Analysis
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            {overallStrong.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-emerald-500/50' : 'text-emerald-600/50'}`}>Strong</span>
+                                    {overallStrong.map(s => <span key={s.name} className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>💪 {s.name}</span>)}
+                                </div>
                             )}
-                        </td>
-                    </tr>
-                ))}</tbody>
-            </table>
+                            {overallAverage.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-orange-500/50' : 'text-orange-600/50'}`}>Average</span>
+                                    {overallAverage.map(s => <span key={s.name} className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${isDarkMode ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>👌 {s.name}</span>)}
+                                </div>
+                            )}
+                            {overallWeak.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-red-500/50' : 'text-red-600/50'}`}>Weak</span>
+                                    {overallWeak.map(s => <span key={s.name} className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>⚠️ {s.name}</span>)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+                <table className="w-full text-xs">
+                    <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Test Name</th>
+                        <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Score</th>
+                        <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">%</th>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Submitted</th>
+                        <th className="py-3 px-4 text-center font-bold uppercase tracking-wider w-20">Subjects</th>
+                        <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Action</th>
+                    </tr></thead>
+                    <tbody>
+                        {detailData.map((r, i) => (
+                            <TestRow
+                                key={i}
+                                r={r}
+                                isDark={isDarkMode}
+                                onReport={setSelectedReport}
+                                fmtDateFn={fmtDate}
+                                admNo={admissionNumber}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         );
+    }
+
 
         if (activeDetail === 'attendance') {
             const detailData = cachedData[activeDetail] || [];
