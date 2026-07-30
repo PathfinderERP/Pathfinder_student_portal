@@ -1201,6 +1201,7 @@ def generate_chapter_test(request):
 
         prompt = f"""
         Generate exactly 20 multiple-choice questions for a student test.
+        Focus on generating questions similar to those asked in the last 6 years of major board or competitive exams for this topic.
         Subject: {subject_name}
         Chapter: {chapter_name}
         Toughness Level: {toughness}

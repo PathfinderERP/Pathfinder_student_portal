@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import Select from 'react-select';
 import { useAuth } from '../../../context/AuthContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 
@@ -35,13 +36,13 @@ const ChapterTest = ({ isDarkMode }) => {
         });
     }, [chapters, selectedSubject]);
 
-    const handleSubjectChange = (e) => {
-        setSelectedSubject(e.target.value);
+    const handleSubjectChange = (selectedOption) => {
+        setSelectedSubject(selectedOption ? selectedOption.value : '');
         setSelectedChapter('');
     };
 
-    const handleChapterChange = (e) => {
-        setSelectedChapter(e.target.value);
+    const handleChapterChange = (selectedOption) => {
+        setSelectedChapter(selectedOption ? selectedOption.value : '');
     };
     
     const handleExport = () => {
@@ -177,61 +178,180 @@ const ChapterTest = ({ isDarkMode }) => {
                     {/* Subject Selection */}
                     <div className="space-y-2">
                         <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Select Subject</label>
-                        <select
-                            value={selectedSubject}
+                        <Select
+                            value={selectedSubject ? { value: selectedSubject, label: subjects.find(s => String(s.id) === String(selectedSubject))?.name || subjects.find(s => String(s.id) === String(selectedSubject))?.title } : null}
                             onChange={handleSubjectChange}
-                            className={`w-full p-3 rounded-[5px] border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
-                                isDarkMode 
-                                ? 'bg-[#151A23] border-white/10 text-white focus:border-orange-500/50' 
-                                : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-orange-500'
-                            }`}
-                        >
-                            <option value="">-- Choose Subject --</option>
-                            {subjects.map(s => (
-                                <option key={s.id} value={s.id}>{s.name || s.title}</option>
-                            ))}
-                        </select>
+                            options={subjects.map(s => ({ value: s.id, label: s.name || s.title }))}
+                            placeholder="-- Search Subject --"
+                            isClearable
+                            classNamePrefix="react-select"
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    backgroundColor: isDarkMode ? '#151A23' : '#f8fafc',
+                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                    padding: '2px',
+                                    fontSize: '0.875rem',
+                                    boxShadow: 'none',
+                                    '&:hover': {
+                                        borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                    }
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: isDarkMode ? '#151A23' : '#ffffff',
+                                    border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                    fontSize: '0.875rem'
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isSelected
+                                        ? '#f97316'
+                                        : state.isFocused
+                                            ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                            : 'transparent',
+                                    color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                    '&:active': {
+                                        backgroundColor: '#f97316'
+                                    }
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? '#ffffff' : '#1e293b'
+                                }),
+                                input: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? '#ffffff' : '#1e293b'
+                                }),
+                                placeholder: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                })
+                            }}
+                        />
                     </div>
 
                     {/* Chapter Selection */}
                     <div className="space-y-2">
                         <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Select Chapter</label>
-                        <select
-                            value={selectedChapter}
+                        <Select
+                            value={selectedChapter ? { value: selectedChapter, label: filteredChapters.find(c => String(c.id) === String(selectedChapter))?.name || filteredChapters.find(c => String(c.id) === String(selectedChapter))?.title } : null}
                             onChange={handleChapterChange}
-                            disabled={!selectedSubject}
-                            className={`w-full p-3 rounded-[5px] border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
-                                isDarkMode 
-                                ? 'bg-[#151A23] border-white/10 text-white focus:border-orange-500/50 disabled:opacity-50 disabled:cursor-not-allowed' 
-                                : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed'
-                            }`}
-                        >
-                            <option value="">-- Choose Chapter --</option>
-                            {filteredChapters.map(c => (
-                                <option key={c.id} value={c.id}>{c.name || c.title}</option>
-                            ))}
-                        </select>
+                            options={filteredChapters.map(c => ({ value: c.id, label: c.name || c.title }))}
+                            isDisabled={!selectedSubject}
+                            placeholder="-- Search Chapter --"
+                            isClearable
+                            classNamePrefix="react-select"
+                            styles={{
+                                control: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: isDarkMode ? '#151A23' : '#f8fafc',
+                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                    padding: '2px',
+                                    fontSize: '0.875rem',
+                                    boxShadow: 'none',
+                                    opacity: state.isDisabled ? 0.5 : 1,
+                                    '&:hover': {
+                                        borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                    }
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: isDarkMode ? '#151A23' : '#ffffff',
+                                    border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                    fontSize: '0.875rem',
+                                    zIndex: 50
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isSelected
+                                        ? '#f97316'
+                                        : state.isFocused
+                                            ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                            : 'transparent',
+                                    color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                    '&:active': {
+                                        backgroundColor: '#f97316'
+                                    }
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? '#ffffff' : '#1e293b'
+                                }),
+                                input: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? '#ffffff' : '#1e293b'
+                                }),
+                                placeholder: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                })
+                            }}
+                        />
                     </div>
 
                     {/* Toughness Selection */}
                     <div className="space-y-2">
                         <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Select Toughness</label>
-                        <select
-                            value={selectedToughness}
-                            onChange={(e) => setSelectedToughness(e.target.value)}
-                            disabled={!selectedChapter}
-                            className={`w-full p-3 rounded-[5px] border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50 ${
-                                isDarkMode 
-                                ? 'bg-[#151A23] border-white/10 text-white focus:border-orange-500/50 disabled:opacity-50 disabled:cursor-not-allowed' 
-                                : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed'
-                            }`}
-                        >
-                            <option value="">-- Choose Toughness --</option>
-                            <option value="EASY">Easy</option>
-                            <option value="MEDIUM">Medium</option>
-                            <option value="HARD">Hard</option>
-                            <option value="EXTREME_HARD">Extreme Hard</option>
-                        </select>
+                        <Select
+                            value={selectedToughness ? { value: selectedToughness, label: selectedToughness === 'EASY' ? 'Easy' : selectedToughness === 'MEDIUM' ? 'Medium' : selectedToughness === 'HARD' ? 'Hard' : 'Extreme Hard' } : null}
+                            onChange={(selectedOption) => setSelectedToughness(selectedOption ? selectedOption.value : '')}
+                            options={[
+                                { value: 'EASY', label: 'Easy' },
+                                { value: 'MEDIUM', label: 'Medium' },
+                                { value: 'HARD', label: 'Hard' },
+                                { value: 'EXTREME_HARD', label: 'Extreme Hard' }
+                            ]}
+                            isDisabled={!selectedChapter}
+                            placeholder="-- Search Toughness --"
+                            isClearable
+                            classNamePrefix="react-select"
+                            styles={{
+                                control: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: isDarkMode ? '#151A23' : '#f8fafc',
+                                    borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+                                    padding: '2px',
+                                    fontSize: '0.875rem',
+                                    boxShadow: 'none',
+                                    opacity: state.isDisabled ? 0.5 : 1,
+                                    '&:hover': {
+                                        borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1'
+                                    }
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: isDarkMode ? '#151A23' : '#ffffff',
+                                    border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+                                    fontSize: '0.875rem',
+                                    zIndex: 50
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isSelected
+                                        ? '#f97316'
+                                        : state.isFocused
+                                            ? (isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9')
+                                            : 'transparent',
+                                    color: state.isSelected ? '#ffffff' : (isDarkMode ? '#e2e8f0' : '#1e293b'),
+                                    '&:active': {
+                                        backgroundColor: '#f97316'
+                                    }
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? '#ffffff' : '#1e293b'
+                                }),
+                                input: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? '#ffffff' : '#1e293b'
+                                }),
+                                placeholder: (base) => ({
+                                    ...base,
+                                    color: isDarkMode ? 'rgba(255,255,255,0.4)' : '#94a3b8'
+                                })
+                            }}
+                        />
                     </div>
                 </div>
 
