@@ -487,22 +487,48 @@ def _sync_user_to_erp(user, admission_data):
 
         # Target Exam (Exam Tag)
         details = details_list[0] if details_list else {}
-        exam_tag_raw = details.get('examTag') or admission_data.get('examTag')
+        
+        # Priority 1: sessionExamCourse
+        session_exam_course = student_obj.get('sessionExamCourse', [])
+        exam_tag_raw = None
+        if isinstance(session_exam_course, list) and len(session_exam_course) > 0:
+            exam_tag_raw = session_exam_course[0].get('examTag')
+            
+        # Priority 2: examSchema
+        if not exam_tag_raw:
+            exam_schema = student_obj.get('examSchema', [])
+            if isinstance(exam_schema, list) and len(exam_schema) > 0:
+                exam_tag_raw = exam_schema[0].get('examName')
+                
+        # Priority 3: Fallback to root examTag
+        if not exam_tag_raw:
+            exam_tag_raw = details.get('examTag') or admission_data.get('examTag')
+
         erp_tag_id = None
         erp_tag_name = None
         if isinstance(exam_tag_raw, dict):
             erp_tag_id = exam_tag_raw.get('_id') or exam_tag_raw.get('id')
             erp_tag_name = exam_tag_raw.get('name') or exam_tag_raw.get('tagName')
         else:
-            erp_tag_id = exam_tag_raw
+            # If it's a string, check if it looks like an ObjectId or just a name
+            if isinstance(exam_tag_raw, str) and len(exam_tag_raw) == 24 and all(c in '0123456789abcdefABCDEF' for c in exam_tag_raw):
+                erp_tag_id = exam_tag_raw
+            else:
+                erp_tag_name = exam_tag_raw
+                erp_tag_id = exam_tag_raw # Still keep as ID fallback for compatibility
             
         if erp_tag_id or erp_tag_name:
             tag_obj = None
-            if erp_tag_id: tag_obj = TargetExam.objects.filter(erp_id=erp_tag_id).first()
-            if not tag_obj and erp_tag_name: tag_obj = TargetExam.objects.filter(name__iexact=erp_tag_name).first()
+            if erp_tag_name: tag_obj = TargetExam.objects.filter(name__iexact=erp_tag_name).first()
+            if not tag_obj and erp_tag_id: tag_obj = TargetExam.objects.filter(erp_id=erp_tag_id).first()
             
-            if tag_obj and user.target_exam_id != tag_obj.id:
-                user.target_exam = tag_obj; has_changed = True
+            # Update user.target_exam whether we found a tag_obj or it is None
+            if tag_obj:
+                if user.target_exam_id != tag_obj.id:
+                    user.target_exam = tag_obj; has_changed = True
+            else:
+                if user.target_exam_id is not None:
+                    user.target_exam = None; has_changed = True
 
         # Always store the raw exam tag name string as a reliable fallback
         # (used by AI guardrails even if the FK lookup above fails)

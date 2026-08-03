@@ -13,14 +13,30 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
     const examSchema = studentData?.student?.examSchema || [];
     const batches = studentData?.student?.batches || [];
     const sections = studentData?.sectionAllotment || {};
-    const examTagRaw = details.examTag || studentData?.examTag || studentData?.student?.examTag;
-    const examTagId = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw._id || examTagRaw.id) : examTagRaw;
-    const preResolvedTagName = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw.name || examTagRaw.tagName) : null;
     
+    // Extract Exam Tag with priority logic matching the backend
+    let examTagRaw = null;
+    const sessionExamCourse = studentData?.student?.sessionExamCourse || [];
+    if (sessionExamCourse.length > 0 && sessionExamCourse[0].examTag) {
+        examTagRaw = sessionExamCourse[0].examTag;
+    } else if (examSchema.length > 0 && examSchema[0].examName) {
+        examTagRaw = examSchema[0].examName;
+    } else {
+        examTagRaw = details.examTag || studentData?.examTag || studentData?.student?.examTag;
+    }
+
+    let examTagId = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw._id || examTagRaw.id) : examTagRaw;
+    let preResolvedTagName = (examTagRaw && typeof examTagRaw === 'object') ? (examTagRaw.name || examTagRaw.tagName) : null;
+    
+    // If examTagId is a string but not a MongoDB ObjectId, it is likely already the resolved name.
+    if (typeof examTagId === 'string' && !/^[0-9a-fA-F]{24}$/.test(examTagId)) {
+        preResolvedTagName = examTagId;
+    }
+
     // Initialize state from cache only if the ID matches
     const isCacheValid = cache?.loaded && cache?.id === examTagId;
     const [examTagName, setExamTagName] = useState(isCacheValid ? cache.name : '—');
-    const [tagLoading, setTagLoading] = useState(!isCacheValid);
+    const [tagLoading, setTagLoading] = useState(!isCacheValid && !preResolvedTagName);
 
     let derivedClass = studentData?.class?.name;
     if (!derivedClass) {
