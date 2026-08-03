@@ -27,6 +27,9 @@ const CustomVideoPlayer = ({ src }) => {
         <div className="relative w-full h-full flex items-center justify-center group bg-black rounded-[10px] overflow-hidden">
             <video 
                 controls 
+                controlsList="nodownload"
+                disablePictureInPicture
+                onContextMenu={(e) => e.preventDefault()}
                 autoPlay 
                 className="max-w-full max-h-full w-full"
                 src={src} 

@@ -390,9 +390,16 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                             <img src={selectedItem.thumbnail} alt={selectedItem.name} className="w-full h-full object-contain p-2" />
                                         ) : (selectedItem.video_link && getYouTubeThumbnail(selectedItem.video_link)) ? (
                                             <img src={getYouTubeThumbnail(selectedItem.video_link)} alt={selectedItem.name} className="w-full h-full object-contain" />
+                                        ) : selectedItem.video_file ? (
+                                            <div className="relative w-full h-full flex items-center justify-center bg-black">
+                                                <video src={`${selectedItem.video_file}#t=0.1`} preload="metadata" className="w-full h-full object-contain absolute inset-0" muted playsInline />
+                                                <div className="relative z-10 w-full h-full flex items-center justify-center bg-black/40">
+                                                    <PlayCircle size={100} strokeWidth={1} className="text-white shadow-2xl" />
+                                                </div>
+                                            </div>
                                         ) : (
                                             <div className={`w-full h-full flex flex-col items-center justify-center ${isDarkMode ? 'text-white/20' : 'text-slate-300'}`}>
-                                                {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={100} strokeWidth={1} /> : <FileText size={100} strokeWidth={1} />}
+                                                {selectedItem.video_link ? <PlayCircle size={100} strokeWidth={1} /> : <FileText size={100} strokeWidth={1} />}
                                             </div>
                                         )}
                                     </div>
@@ -467,6 +474,9 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                             src={selectedItem.video_file}
                                             className="max-w-full max-h-full"
                                             controls
+                                            controlsList="nodownload"
+                                            disablePictureInPicture
+                                            onContextMenu={(e) => e.preventDefault()}
                                             autoPlay
                                             onPause={(e) => logVideoActivity('pause', selectedItem.id, selectedItem.name, Math.floor(e.target.currentTime))}
                                             onEnded={(e) => logVideoActivity('complete', selectedItem.id, selectedItem.name, Math.floor(e.target.currentTime))}
@@ -657,9 +667,11 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                                     <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" />
                                                                 ) : (item.video_link && getYouTubeThumbnail(item.video_link)) ? (
                                                                     <img src={getYouTubeThumbnail(item.video_link)} alt={item.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" />
+                                                                ) : item.video_file ? (
+                                                                    <video src={`${item.video_file}#t=0.1`} preload="metadata" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" muted playsInline />
                                                                 ) : (
                                                                     <div className={`w-20 h-20 rounded-[15px] flex items-center justify-center bg-gradient-to-br ${getSubjectGradient(item.subject_name)} shadow-2xl`}>
-                                                                        {(item.video_link || item.video_file) ? <PlayCircle size={36} className="text-white" /> : <FileText size={36} className="text-white" />}
+                                                                        {item.video_link ? <PlayCircle size={36} className="text-white" /> : <FileText size={36} className="text-white" />}
                                                                     </div>
                                                                 )}
                                                                 
