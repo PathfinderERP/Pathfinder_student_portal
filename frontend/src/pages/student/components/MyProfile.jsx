@@ -221,7 +221,7 @@ const MyProfile = ({ isDarkMode, studentData, onRefresh, silentLoading, cache, s
                         <InfoField label="Primary Email" value={details.studentEmail} icon={Mail} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="orange" />
                         <InfoField label="Mobile Connectivity" value={details.mobileNum ? `+91 ${details.mobileNum}` : null} icon={Phone} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="orange" />
                         <InfoField label="WhatsApp Contact" value={details.whatsappNumber ? `+91 ${details.whatsappNumber}` : null} icon={Phone} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
-                        <InfoField label="Birth Celebration" value={details.dateOfBirth} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
+                        <InfoField label="Birth Celebration" value={details.dateOfBirth ? new Date(details.dateOfBirth).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null} icon={Calendar} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                         <InfoField label="Academic Institution" value={details.schoolName || details.school} icon={BookOpen} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                         <InfoField label="Operational Centre" value={details.centre || details.centreName} icon={MapPin} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />
                         <InfoField label="Region / State" value={details.state} icon={MapPin} isDark={isDarkMode} isSyncing={isActuallyRefreshing} accent="indigo" />

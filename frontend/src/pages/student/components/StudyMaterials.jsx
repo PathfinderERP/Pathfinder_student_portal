@@ -28,7 +28,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
     // Filter materials by Session, Class, and Section
     // (In a real app, these would come from Auth/Student context)
-    const studentSession = user?.academic_session || ''; 
+    const studentSession = user?.academic_session || '';
     const studentSection = user?.section || '';
 
     // Sync with sidebar navigation
@@ -50,7 +50,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
     const getYouTubeVideoId = (url) => {
         if (!url) return null;
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/ ;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
         const match = url.match(regExp);
         return (match && match[2].length === 11) ? match[2] : null;
     };
@@ -119,7 +119,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 ytPlayerRef.current = null;
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [viewPage, selectedItem?.video_link]);
 
     const getYouTubeThumbnail = (url) => {
@@ -207,7 +207,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
         // Flatten granular resources into individual cards
         materials.forEach(baseItem => {
             let hasGranular = false;
-            
+
             if (baseItem.pdfs?.length > 0) {
                 hasGranular = true;
                 baseItem.pdfs.forEach((p, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-p-${i}`, name: p.title || baseItem.name, description: p.description || baseItem.description, pdf_file: p.file, thumbnail: p.thumbnail || baseItem.thumbnail, video_link: null, video_file: null, dpp_file: null, resource_type: 'PDF' }));
@@ -220,7 +220,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 hasGranular = true;
                 baseItem.dpps.forEach((d, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-d-${i}`, name: d.title || baseItem.name, description: d.description || baseItem.description, dpp_file: d.file, thumbnail: d.thumbnail || baseItem.thumbnail, pdf_file: null, video_link: null, video_file: null, resource_type: 'DPP' }));
             }
-            
+
             if (!hasGranular) {
                 flattenedMaterials.push(baseItem);
             }
@@ -229,13 +229,13 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
         flattenedMaterials.forEach(item => {
             const normalize = (val) => String(val || '').toLowerCase().trim().replace(/class\s*/g, '');
             const normAssigned = assignedClass ? normalize(assignedClass) : '';
-            
+
             // Apply student context filtering (Normalization for fuzzy matching)
             if (assignedClass) {
-                const classNames = item.class_level_names?.length > 0 
-                    ? item.class_level_names 
+                const classNames = item.class_level_names?.length > 0
+                    ? item.class_level_names
                     : (item.class_name ? [item.class_name] : []);
-                
+
                 if (classNames.length > 0) {
                     const hasClassMatch = classNames.some(c => normalize(c).includes(normAssigned) || normAssigned.includes(normalize(c)));
                     if (!hasClassMatch) return;
@@ -301,9 +301,9 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
             if (!hierarchy[subName]) hierarchy[subName] = { name: subName, chapters: {} };
             if (!hierarchy[subName].chapters[chapName]) hierarchy[subName].chapters[chapName] = { name: chapName, topics: {} };
             if (!hierarchy[subName].chapters[chapName].topics[topName]) {
-                hierarchy[subName].chapters[chapName].topics[topName] = { 
-                    name: topName, 
-                    materials: [] 
+                hierarchy[subName].chapters[chapName].topics[topName] = {
+                    name: topName,
+                    materials: []
                 };
             }
 
@@ -348,18 +348,18 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
         <>
             {/* View Modal - Positioned absolutely at top level */}
             {selectedItem && (
-                <div className={`fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6 md:p-10 animate-in fade-in duration-300`}>
+                <div className={`fixed inset-0 z-[99999] flex items-start justify-center p-4 sm:p-6 md:p-10 pt-[100px] sm:pt-[120px] pb-10 animate-in fade-in duration-300`}>
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-xl" onClick={() => setSelectedItem(null)} />
-                    <div className={`relative w-full max-w-6xl transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'h-full rounded-none m-0' : 'h-[85vh] rounded-[5px]'}`}>
+                    <div className={`relative w-full max-w-6xl transition-all duration-300 overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col ${isFullScreen ? 'h-full rounded-none m-0' : 'h-[80vh] rounded-[5px]'}`}>
                         <div className={`flex items-center justify-between px-6 py-4 border-b relative z-20 ${isDarkMode ? 'bg-[#10141D] border-white/10 text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
                             <div className="flex items-center gap-4">
-                                 <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-xl bg-gradient-to-br ${getSubjectGradient(selectedItem.subject_name)}`}>
-                                     {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} /> : <FileText size={24} />}
-                                 </div>
-                                 <div className="space-y-0.5">
-                                     <h4 className="text-xl font-black uppercase tracking-tight leading-tight truncate max-w-[200px] sm:max-w-md">{selectedItem.name}</h4>
-                                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">{selectedItem.subject_name} • {(selectedItem.video_link || selectedItem.video_file) ? 'Video Player' : 'Document Reader'}</p>
-                                 </div>
+                                <div className={`w-12 h-12 rounded-[5px] flex items-center justify-center text-white shadow-xl bg-gradient-to-br ${getSubjectGradient(selectedItem.subject_name)}`}>
+                                    {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} /> : <FileText size={24} />}
+                                </div>
+                                <div className="space-y-0.5">
+                                    <h4 className="text-xl font-black uppercase tracking-tight leading-tight truncate max-w-[200px] sm:max-w-md">{selectedItem.name}</h4>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-500">{selectedItem.subject_name} • {(selectedItem.video_link || selectedItem.video_file) ? 'Video Player' : 'Document Reader'}</p>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -418,22 +418,22 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                             {selectedItem.description || 'No detailed description available for this learning resource.'}
                                         </p>
 
-                                                <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
-                                                    {(selectedItem.pdf_file || selectedItem.dpp_file || selectedItem.video_link || selectedItem.video_file) && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setViewPage(2);
-                                                                if (selectedItem.video_link || selectedItem.video_file) {
-                                                                    logVideoActivity('play', selectedItem.id, selectedItem.name);
-                                                                }
-                                                            }}
-                                                            className="group/btn px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-4"
-                                                        >
-                                                            {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} strokeWidth={2.5} className="group-hover/btn:animate-pulse" /> : <Eye size={24} strokeWidth={2.5} />}
-                                                            <span>{(selectedItem.video_link || selectedItem.video_file) ? 'Launch Video Player' : 'Open Document Reader'}</span>
-                                                        </button>
-                                                    )}
-                                                </div>
+                                        <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
+                                            {(selectedItem.pdf_file || selectedItem.dpp_file || selectedItem.video_link || selectedItem.video_file) && (
+                                                <button
+                                                    onClick={() => {
+                                                        setViewPage(2);
+                                                        if (selectedItem.video_link || selectedItem.video_file) {
+                                                            logVideoActivity('play', selectedItem.id, selectedItem.name);
+                                                        }
+                                                    }}
+                                                    className="group/btn px-10 py-5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-widest shadow-2xl shadow-orange-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-4"
+                                                >
+                                                    {(selectedItem.video_link || selectedItem.video_file) ? <PlayCircle size={24} strokeWidth={2.5} className="group-hover/btn:animate-pulse" /> : <Eye size={24} strokeWidth={2.5} />}
+                                                    <span>{(selectedItem.video_link || selectedItem.video_file) ? 'Launch Video Player' : 'Open Document Reader'}</span>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
@@ -494,13 +494,13 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
             <div className="flex flex-col gap-10 animate-fade-in-up">
                 {/* 1. HERO HEADER */}
                 <div className={`relative overflow-hidden rounded-[20px] border shadow-2xl transition-all duration-700 p-8 sm:p-12
-                    ${isDarkMode 
-                        ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40' 
+                    ${isDarkMode
+                        ? 'bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e293b] border-white/5 shadow-black/40'
                         : 'bg-gradient-to-br from-[#0B1120] via-[#10192D] to-[#1E293B] border-slate-200 shadow-slate-900/10'}`}>
-                    
+
                     <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-orange-500/5 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
                     <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-                    
+
                     <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="h-0.5 w-12 bg-orange-500 rounded-full"></div>
@@ -512,7 +512,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                             </span>
                         </h1>
                         <p className="text-sm sm:text-base md:text-lg font-medium text-white/70 max-w-xl leading-relaxed">
-                            Your comprehensive curriculum, organized by Subject, Chapter, and Topic. <br/> 
+                            Your comprehensive curriculum, organized by Subject, Chapter, and Topic. <br />
                             <span className="text-orange-400 font-bold">Class: {assignedClass || 'Enrolled'}</span>
                         </p>
                     </div>
@@ -523,7 +523,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                     <div className="flex items-center justify-between px-2">
                         <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Academic Subjects</h3>
                         <div className="flex items-center gap-4">
-                             <div className="relative group w-[250px] hidden md:block">
+                            <div className="relative group w-[250px] hidden md:block">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={14} />
                                 <input
                                     type="text"
@@ -552,10 +552,10 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     setActiveTopic(null);
                                 }}
                                 className={`flex items-center gap-5 px-8 py-5 rounded-[20px] transition-all duration-300 relative border-2 flex-shrink-0
-                                    ${activeSubject === subName 
-                                        ? 'bg-orange-500 border-orange-500 text-white shadow-[0_20px_40px_-10px_rgba(249,115,22,0.4)] scale-105 z-10' 
-                                        : isDarkMode 
-                                            ? 'bg-[#10141D] border-white/5 text-slate-400 hover:border-white/20' 
+                                    ${activeSubject === subName
+                                        ? 'bg-orange-500 border-orange-500 text-white shadow-[0_20px_40px_-10px_rgba(249,115,22,0.4)] scale-105 z-10'
+                                        : isDarkMode
+                                            ? 'bg-[#10141D] border-white/5 text-slate-400 hover:border-white/20'
                                             : 'bg-white border-slate-50 text-slate-600 hover:border-orange-500/20 shadow-sm'}`}
                             >
                                 <div className={`p-2.5 rounded-[12px] ${activeSubject === subName ? 'bg-white/20' : 'bg-orange-500/10 text-orange-500 shadow-inner'}`}>
@@ -599,7 +599,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                         </div>
                     ) : (
                         <div key="loaded-content" className="space-y-12 animate-in fade-in duration-700 outline-none" style={{ outline: 'none' }}>
-                             {/* Chapter Row */}
+                            {/* Chapter Row */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-4">
                                     <div className="h-0.5 w-8 bg-blue-600 rounded-full"></div>
@@ -614,8 +614,8 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                 setActiveTopic(null);
                                             }}
                                             className={`px-6 py-4 rounded-[15px] transition-all duration-300 border-2 active:scale-95
-                                                ${activeChapter === chapName 
-                                                    ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20 scale-105' 
+                                                ${activeChapter === chapName
+                                                    ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20 scale-105'
                                                     : isDarkMode ? 'bg-[#10141D] border-white/5 text-slate-400 hover:border-blue-500/30' : 'bg-white border-slate-100 text-slate-600 hover:border-blue-500/30 shadow-sm'}`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -638,7 +638,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     {Object.keys(activeChapterData?.topics || {}).sort().reverse().map(topName => {
                                         const topicItems = activeChapterData?.topics?.[topName]?.materials || [];
                                         if (topicItems.length === 0) return null;
-                                        
+
                                         // Reverse the items so they display in opposite sequence
                                         const displayItems = [...topicItems].reverse();
 
@@ -674,10 +674,10 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                                         {item.video_link ? <PlayCircle size={36} className="text-white" /> : <FileText size={36} className="text-white" />}
                                                                     </div>
                                                                 )}
-                                                                
+
                                                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-md">
                                                                     <div className="flex flex-col items-center gap-3">
-                                                                         <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/50 backdrop-blur-xl flex items-center justify-center text-white transform scale-50 group-hover:scale-100 transition-transform duration-500">
+                                                                        <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/50 backdrop-blur-xl flex items-center justify-center text-white transform scale-50 group-hover:scale-100 transition-transform duration-500">
                                                                             <Eye size={30} strokeWidth={2.5} />
                                                                         </div>
                                                                         <span className="text-[10px] font-black uppercase tracking-tighter text-white">Open Reader</span>
