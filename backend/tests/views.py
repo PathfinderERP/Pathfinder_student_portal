@@ -532,7 +532,17 @@ class TestViewSet(viewsets.ModelViewSet):
             # 2. Academic filter: resolve target_exam and session via pre-computed PK lists.
             academic_test_ids = None  # None means "no academic restriction"
             if user.class_level:
-                qs_academic = Test.objects.filter(class_level=user.class_level)
+                # Match tests where either:
+                #   (a) the single FK class_level matches, OR
+                #   (b) the M2M class_levels field contains the student's class level.
+                # Admins use the M2M class_levels to tag multiple levels on one test
+                # (e.g. both "12" and "REPEATER"), but the old filter only checked (a).
+                class_levels_m2m_ids = list(
+                    Test.objects.filter(class_levels=user.class_level).values_list('pk', flat=True)
+                )
+                qs_academic = Test.objects.filter(
+                    Q(class_level=user.class_level) | Q(pk__in=class_levels_m2m_ids)
+                )
             else:
                 # If the student has no class, only show tests that have NO class restriction
                 qs_academic = Test.objects.filter(class_level__isnull=True)
