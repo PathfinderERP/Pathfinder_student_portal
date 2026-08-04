@@ -157,3 +157,44 @@ html.dark {
     background-color: #10141d !important;
     color: #ffffff !important;
 }
+
+/* ── Question Bank HTML content renderer ─────────────────────────────────── */
+/* Used in ChapterTest to render question/option/solution HTML from the DB    */
+.html-content {
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+.html-content img {
+    display: inline-block;
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    vertical-align: middle;
+    border-radius: 4px;
+    background: white;
+}
+
+.html-content p {
+    margin: 0;
+}
+
+.html-content table {
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 0.875rem;
+}
+
+.html-content td,
+.html-content th {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 4px 8px;
+}
+
+/* Keep inline wrappers (like flex divs from editor) from overflowing */
+.html-content [style*="display: flex"],
+.html-content [style*="display:flex"] {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}

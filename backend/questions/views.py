@@ -30,6 +30,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
             'topic': 'topic__id',
             'class_level': 'class_level',
             'exam_type': 'exam_type__id',
+            'exam_type_name': 'exam_type__name__iexact',
             'target_exam': 'target_exam__id',
             'test_name': 'test_name__id',
             'chapter': 'chapter__id',
@@ -45,6 +46,11 @@ class QuestionViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(is_wrong=val.lower() == 'true')
                 else:
                     queryset = queryset.filter(**{field: val})
+
+        # Difficulty level filter (direct CharField, not a FK)
+        difficulty = self.request.query_params.get('difficulty_level')
+        if difficulty:
+            queryset = queryset.filter(difficulty_level=difficulty)
 
         return queryset.order_by('-created_at')
 
@@ -69,8 +75,52 @@ class QuestionViewSet(viewsets.ModelViewSet):
         # Fallback to default behavior (which might raise 404)
         return super().get_object()
 
+    @action(detail=False, methods=['get'], url_path='chapters-with-questions')
+    def chapters_with_questions(self, request):
+        """
+        Returns distinct chapter IDs that have at least one question.
+        Accepts optional ?subject=<id> to scope results to a subject.
+        Response: [{"id": <chapter_id>, "name": <chapter_name>}, ...]
+
+        NOTE: We materialize chapter_ids into a Python list before the second
+        query to avoid Djongo's inability to handle IN (SELECT ...) subqueries.
+        """
+        from master_data.models import Chapter
+
+        qs = Question.objects.filter(chapter__isnull=False)
+
+        subject_id = request.query_params.get('subject')
+        class_level = request.query_params.get('class_level')
+        target_exam = request.query_params.get('target_exam')
+        exam_type_name = request.query_params.get('exam_type_name')
+
+        if subject_id:
+            qs = qs.filter(subject__id=subject_id)
+        if class_level:
+            qs = qs.filter(class_level=class_level)
+        if target_exam:
+            qs = qs.filter(target_exam__id=target_exam)
+        if exam_type_name:
+            qs = qs.filter(exam_type__name__iexact=exam_type_name)
+
+        # ── Step 1: pull IDs into Python memory (avoids Djongo subquery bug) ──
+        chapter_ids = list(qs.values_list('chapter_id', flat=True).distinct())
+
+        if not chapter_ids:
+            return Response([])
+
+        # ── Step 2: fetch Chapter objects using the plain list ─────────────────
+        chapters = (
+            Chapter.objects
+            .filter(pk__in=chapter_ids)
+            .values('id', 'name')
+            .order_by('name')
+        )
+        return Response(list(chapters))
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
+
         from django.core.cache import cache
         force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
         cache_key = "dashboard_question_stats_v1"
