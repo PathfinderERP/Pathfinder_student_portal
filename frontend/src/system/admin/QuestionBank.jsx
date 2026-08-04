@@ -31,6 +31,39 @@ const MathPreview = ({ tex, isDarkMode }) => {
     return <div ref={containerRef} className={`min-h-[60px] flex items-center justify-center p-4 rounded-[5px] border ${isDarkMode ? 'bg-black/20 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />;
 };
 
+const processLatexToHtml = (text) => {
+    if (!text) return '';
+    
+    // The AI was instructed to double-escape backslashes (e.g. \\frac, \\n) 
+    // to preserve valid JSON. We need to un-escape them before rendering!
+    // Replace literal '\\n' with a real newline character or <br>
+    let processed = text.replace(/\\\\n/g, '<br>').replace(/\\n/g, '<br>');
+    
+    // Un-escape all double backslashes to single backslashes for LaTeX
+    processed = processed.replace(/\\\\/g, '\\');
+
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match, math) => {
+        // Escape quotes to not break the HTML attribute
+        const escapedMath = math.replace(/"/g, '&quot;');
+        return `<span data-latex="${escapedMath}" data-display-mode="true"></span>`;
+    });
+    processed = processed.replace(/\$([\s\S]*?)\$/g, (match, math) => {
+        const escapedMath = math.replace(/"/g, '&quot;');
+        return `<span data-latex="${escapedMath}"></span>`;
+    });
+    
+    // Parse Markdown bold and italic
+    processed = processed.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+    processed = processed.replace(/\*([\s\S]*?)\*/g, '<em>$1</em>');
+    
+    // Parse LaTeX text formatting (outside math mode)
+    processed = processed.replace(/\\textit\{([\s\S]*?)\}/g, '<em>$1</em>');
+    processed = processed.replace(/\\textbf\{([\s\S]*?)\}/g, '<strong>$1</strong>');
+    
+    // Convert any remaining newlines to breaks
+    return processed.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+};
+
 const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [], totalAllowed = 0, currentCount = 0 }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
@@ -278,6 +311,76 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         isIndependentSelection: false,
         questions: [createNewQuestion()]
     });
+
+    const [isExtractingAI, setIsExtractingAI] = useState(false);
+    const aiFileInputRef = useRef(null);
+
+    const handleAIExtract = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const config = getAuthConfig();
+        if (!config) return;
+
+        setIsExtractingAI(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(`${apiUrl}/api/questions/extract-ai/`, formData, {
+                headers: {
+                    ...config.headers,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            if (res.data.status === 'success' && res.data.data.length > 0) {
+                const extractedQuestions = res.data.data;
+                const checkCorrect = (ans, label, index) => {
+                    if (!ans) return false;
+                    const a = String(ans).toUpperCase();
+                    return a === label || a === String(index) || a.includes(`OPTION ${label}`) || a.includes(`OPTION ${index}`);
+                };
+                
+                const newQuestions = extractedQuestions.map(q => {
+                    const defaultOptions = [
+                        { id: 1, content: processLatexToHtml(q.options?.[0] || ''), isCorrect: checkCorrect(q.correctAnswer, 'A', 1) },
+                        { id: 2, content: processLatexToHtml(q.options?.[1] || ''), isCorrect: checkCorrect(q.correctAnswer, 'B', 2) },
+                        { id: 3, content: processLatexToHtml(q.options?.[2] || ''), isCorrect: checkCorrect(q.correctAnswer, 'C', 3) },
+                        { id: 4, content: processLatexToHtml(q.options?.[3] || ''), isCorrect: checkCorrect(q.correctAnswer, 'D', 4) }
+                    ];
+
+                    return {
+                        ...createNewQuestion(),
+                        question: processLatexToHtml(q.question || ''),
+                        options: defaultOptions,
+                        solution: processLatexToHtml(q.solution || ''),
+                        image_1: q.diagramUrl || '',
+                    };
+                });
+
+                setForm(prev => {
+                    const firstQ = prev.questions[0];
+                    const isHtmlEmpty = !firstQ.question || firstQ.question === '<p><br></p>' || firstQ.question === '<p></p>' || firstQ.question.trim() === '';
+                    
+                    if (prev.questions.length === 1 && isHtmlEmpty && !firstQ.image_1) {
+                        return { ...prev, questions: newQuestions };
+                    }
+                    return { ...prev, questions: [...prev.questions, ...newQuestions] };
+                });
+                alert(`Successfully extracted ${extractedQuestions.length} question(s).`);
+            } else {
+                alert(res.data.message || 'No questions found.');
+            }
+        } catch (err) {
+            console.error("AI Extraction failed", err);
+            alert("Failed to extract questions from file.");
+        } finally {
+            setIsExtractingAI(false);
+            if (aiFileInputRef.current) aiFileInputRef.current.value = '';
+        }
+    };
 
     const resetForm = () => {
         setFormKey(prev => prev + 1);
@@ -2158,6 +2261,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             title="Load Saved Draft"
                             className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
                             <HardDrive size={20} />
+                        </button>
+                        <input
+                            type="file"
+                            ref={aiFileInputRef}
+                            className="hidden"
+                            accept="image/*,.pdf"
+                            onChange={handleAIExtract}
+                        />
+                        <button
+                            onClick={() => aiFileInputRef.current?.click()}
+                            disabled={isExtractingAI}
+                            className="px-6 py-4 bg-indigo-500 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-500/20 active:scale-95 flex items-center gap-3 hover:bg-indigo-600 transition-colors disabled:opacity-50">
+                            {isExtractingAI ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                            {isExtractingAI ? 'Extracting...' : 'Extract with AI'}
                         </button>
                         <button
                             onClick={handleSaveProgress}

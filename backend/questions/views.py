@@ -10,7 +10,16 @@ from master_data.models import ClassLevel, Subject, Topic, ExamType, TargetExam
 from bson import ObjectId
 import csv
 import io
+import os
+import json
+import uuid
 from datetime import timedelta
+import fitz  # PyMuPDF
+import PIL.Image
+import google.generativeai as genai
+from django.core.files.base import ContentFile
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class QuestionPagination(pagination.PageNumberPagination):
     page_size = 20
@@ -84,6 +93,46 @@ class QuestionViewSet(viewsets.ModelViewSet):
 
         NOTE: We materialize chapter_ids into a Python list before the second
         query to avoid Djongo's inability to handle IN (SELECT ...) subqueries.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         """
         from master_data.models import Chapter
 
@@ -165,7 +214,153 @@ class QuestionViewSet(viewsets.ModelViewSet):
         question = self.get_object()
         question.is_wrong = not question.is_wrong
         question.save(update_fields=['is_wrong'])
-        return Response({'status': 'marked as wrong', 'is_wrong': question.is_wrong})
+        return Response({
+            'status': 'marked as wrong',
+            'is_wrong': question.is_wrong
+        })
+
+class ExtractAIView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            file_obj = request.FILES.get('file')
+            if not file_obj:
+                return Response({"status": "error", "message": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                return Response({"status": "error", "message": "GEMINI_API_KEY not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(
+                'gemini-2.5-flash',
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    temperature=0.4
+                )
+            )
+
+            file_bytes = file_obj.read()
+            images_to_process = []
+            filename = file_obj.name.lower() if file_obj.name else ''
+
+            try:
+                if filename.endswith('.pdf') or file_obj.content_type == 'application/pdf':
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    for page_num in range(len(doc)):
+                        page = doc.load_page(page_num)
+                        pix = page.get_pixmap(dpi=150)
+                        img_bytes = pix.tobytes("png")
+                        images_to_process.append(PIL.Image.open(io.BytesIO(img_bytes)))
+                    doc.close()
+                else:
+                    images_to_process.append(PIL.Image.open(io.BytesIO(file_bytes)))
+            except Exception as e:
+                return Response({"status": "error", "message": f"Failed to parse file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            all_questions = []
+            raw_texts = []
+
+            prompt = """
+            You are an AI assistant parsing exam questions.
+            Look at the uploaded image. It may contain one or MORE multiple-choice questions.
+            Extract EVERY question text, its options, and its correct answer if visible.
+            
+            CRITICAL: Keep the solution concise and to the point. DO NOT repeat the final answer or sentences multiple times.
+            
+            CRITICAL: For ANY mathematical equations, formulas, fractions, subscripts, superscripts, or special symbols, you MUST format them using standard LaTeX mathematical notation wrapped in $ for inline math (e.g., $x^2 + y^2 = r^2$) or $$ for block math.
+            BECAUSE you are returning JSON, you MUST double-escape all backslashes in your LaTeX so the JSON is valid. For example, you must output "\\\\frac{n-1}{a_1a_{n+1}}" instead of "\\frac{n-1}{a_1a_{n+1}}". Do NOT output raw text like (n-1)/(a1an+1).
+            
+            If there is a detailed solution, a step-by-step explanation, OR ANY short reference text (e.g. "NCERT XII Page No 7") provided for the question after the answer, extract ALL of it into the "solution" field, ensuring ALL mathematical steps are properly formatted in LaTeX with double-escaped backslashes.
+            
+            If a question contains a diagram, chart, or icon, you must provide its bounding box coordinates in the format [ymin, xmin, ymax, xmax].
+            The coordinates MUST be integers between 0 and 1000, representing the relative position in the image.
+            If there is no diagram for a question, set "diagramBox" to null.
+            
+            Return ONLY a valid JSON ARRAY of objects in this exact structure without markdown formatting or code blocks:
+            [
+              {
+                "question": "Question text here with $math$...",
+                "options": ["$Option A$", "Option B", "Option C", "Option D"],
+                "correctAnswer": "A",
+                "solution": "Detailed step-by-step explanation with $$math$$ here...",
+                "diagramBox": [200, 100, 400, 300]
+              },
+              ...
+            ]
+            """
+
+            for idx, image in enumerate(images_to_process):
+                image_width, image_height = image.size
+                try:
+                    response = model.generate_content([prompt, image])
+                    raw_text = response.text.strip()
+                    raw_texts.append(f"--- PAGE {idx + 1} ---\n{raw_text}")
+                    
+                    if raw_text.startswith("```json"):
+                        raw_text = raw_text.replace("```json", "", 1).replace("```", "")
+                    elif raw_text.startswith("```"):
+                        raw_text = raw_text.replace("```", "", 1).replace("```", "")
+                        
+                    import re
+                    # Add missing comma between string values and the next key
+                    raw_text = re.sub(r'("\s*)\n\s*(?="[a-zA-Z0-9_]+"\s*:)', r'\1,\n', raw_text)
+                    # Add missing comma between null/numbers/booleans and the next key
+                    raw_text = re.sub(r'(null|true|false|\d+)\s*\n\s*(?="[a-zA-Z0-9_]+"\s*:)', r'\1,\n', raw_text)
+                    # Add missing comma between closing brackets and the next key
+                    raw_text = re.sub(r'([\]}])\s*\n\s*(?="[a-zA-Z0-9_]+"\s*:)', r'\1,\n', raw_text)
+                    # Add missing comma between objects in array
+                    raw_text = re.sub(r'}\s*\n\s*\{', '},\n{', raw_text)
+                    
+                    questions = json.loads(raw_text.strip())
+                    
+                    for q in questions:
+                        box = q.get("diagramBox")
+                        if box and isinstance(box, list) and len(box) == 4:
+                            ymin, xmin, ymax, xmax = box
+                            left = (xmin / 1000.0) * image_width
+                            top = (ymin / 1000.0) * image_height
+                            right = (xmax / 1000.0) * image_width
+                            bottom = (ymax / 1000.0) * image_height
+                            
+                            padding = 40
+                            left = max(0, left - padding)
+                            top = max(0, top - padding)
+                            right = min(image_width, right + padding)
+                            bottom = min(image_height, bottom + padding)
+                            
+                            cropped_img = image.crop((left, top, right, bottom))
+                            img_io = io.BytesIO()
+                            cropped_img.save(img_io, format='PNG')
+                            img_io.seek(0)
+                            
+                            unique_filename = f"diagram_{uuid.uuid4().hex[:8]}.png"
+                            q_image = QuestionImage.objects.create(image=ContentFile(img_io.read(), name=unique_filename))
+                            
+                            # Use build_absolute_uri to provide full path to frontend
+                            q["diagramUrl"] = request.build_absolute_uri(q_image.image.url)
+                        
+                        if "diagramBox" in q:
+                            del q["diagramBox"]
+
+                    all_questions.extend(questions)
+                    
+                except Exception as e:
+                    import traceback
+                    tb = traceback.format_exc()
+                    with open("extract_error.log", "w") as f:
+                        f.write(f"Error on page {idx+1}:\n{str(e)}\n\n{tb}\n\nRAW TEXT:\n{raw_text}")
+                    return Response({"status": "error", "message": f"Error on page {idx + 1}: {str(e)}", "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            return Response({"status": "success", "data": all_questions})
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            with open("extract_error.log", "w") as f:
+                f.write(f"Outer Exception:\n{str(e)}\n\n{tb}")
+            return Response({"status": "error", "message": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='bulk-delete')
     def bulk_delete(self, request):

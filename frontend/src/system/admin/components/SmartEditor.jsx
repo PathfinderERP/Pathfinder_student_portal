@@ -18,12 +18,13 @@ import {
 } from 'lucide-react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import { MathExtension } from './MathExtension';
 
 const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkMode = false, readOnly = false }) => {
   const [showMathModal, setShowMathModal] = useState(false);
   const [mathValue, setMathValue] = useState('');
 
-  const editor = useEditor({
+    const editor = useEditor({
     extensions: [
       StarterKit,
       Underline,
@@ -34,6 +35,7 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
       Placeholder.configure({ placeholder }),
       Image.configure({ inline: true, allowBase64: true }),
       ImageResize,
+      MathExtension,
     ],
     content: value,
     editable: !readOnly,
@@ -96,9 +98,7 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
 
   const insertMath = () => {
     if (mathValue) {
-      const rendered = katex.renderToString(mathValue, { throwOnError: false });
-      // We wrap it in a span with a special class for later processing if needed
-      editor.chain().focus().insertContent(`<span class="math-tex">${rendered}</span>&nbsp;`).run();
+      editor.chain().focus().insertContent(`<span data-latex="${mathValue}" data-display-mode="true"></span>&nbsp;`).run();
       setMathValue('');
       setShowMathModal(false);
     }
