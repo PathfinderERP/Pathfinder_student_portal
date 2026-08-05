@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import MathRenderer from '../../../components/MathRenderer';
 
 const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
     const { getApiUrl, token } = useAuth();
@@ -230,7 +231,7 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
 
                                 {/* Question Text */}
                                 <div className="px-5 py-4">
-                                    <div className={`text-[13px] leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`} dangerouslySetInnerHTML={{ __html: q.content }} />
+                                    <MathRenderer html={q.content} className={`text-[13px] leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`} />
                                 </div>
 
                                 {/* Options */}
@@ -266,7 +267,7 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
                                             <div key={opt.id || oi} className={`flex items-center justify-between px-4 py-3 rounded-[6px] border text-[12px] transition-all ${optStyle}`}>
                                                 <span className={`${isDarkMode ? 'text-slate-300' : 'text-slate-600'} flex items-start gap-2`}>
                                                     <span className="font-black mt-0.5">{optLabel}.</span>
-                                                    <div dangerouslySetInnerHTML={{ __html: opt.content || opt.text }} />
+                                                    <MathRenderer html={opt.content || opt.text} />
                                                 </span>
                                                 {isYours && isCorrectOpt && <CheckCircle size={16} className="text-emerald-500 shrink-0 ml-4" />}
                                                 {isYours && !isCorrectOpt && <XCircle size={16} className="text-red-500 shrink-0 ml-4" />}
@@ -287,7 +288,7 @@ const ReviewMistakes = ({ test, isDarkMode, onBack }) => {
                                 {/* Solution */}
                                 <div className={`px-5 py-4 border-t text-[12px] leading-relaxed ${isDarkMode ? 'border-white/[0.06] text-slate-400 bg-blue-500/5' : 'border-slate-100 text-slate-500 bg-blue-50/50'}`}>
                                     <p className={`text-[10px] font-black uppercase tracking-widest mb-2 text-[#4871D9]`}>Solution</p>
-                                    <div dangerouslySetInnerHTML={{ __html: q.solution || '<p>No solution provided</p>' }} />
+                                    <MathRenderer html={q.solution || '<p>No solution provided</p>'} />
                                 </div>
 
                                 {/* Student Reflection */}

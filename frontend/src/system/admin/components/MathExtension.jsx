@@ -34,10 +34,13 @@ export const MathExtension = Node.create({
 
   addAttributes() {
     return {
-      latex: { default: '' },
+      latex: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-latex') || '',
+      },
       displayMode: { 
-          default: false,
-          parseHTML: element => element.getAttribute('data-display-mode') === 'true'
+        default: false,
+        parseHTML: element => element.getAttribute('data-display-mode') === 'true'
       }
     };
   },
@@ -54,10 +57,11 @@ export const MathExtension = Node.create({
     ];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
+    // Use node.attrs directly so the correct attribute values are serialized
     return ['span', mergeAttributes(HTMLAttributes, { 
-        'data-latex': HTMLAttributes.latex,
-        'data-display-mode': HTMLAttributes.displayMode ? 'true' : 'false'
+        'data-latex': node.attrs.latex,
+        'data-display-mode': node.attrs.displayMode ? 'true' : 'false'
     }), ''];
   },
 

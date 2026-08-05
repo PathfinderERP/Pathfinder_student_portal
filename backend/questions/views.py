@@ -219,6 +219,200 @@ class QuestionViewSet(viewsets.ModelViewSet):
             'is_wrong': question.is_wrong
         })
 
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "No IDs provided"}, status=400)
+        
+        object_ids = []
+        for id_str in ids:
+            if ObjectId.is_valid(id_str):
+                object_ids.append(ObjectId(id_str))
+            else:
+                try:
+                    object_ids.append(int(id_str))
+                except: pass
+        
+        deleted_count, _ = Question.objects.filter(pk__in=object_ids).delete()
+        self._clear_global_caches()
+        return Response({"message": f"Successfully deleted {deleted_count} questions"})
+
+    @action(detail=False, methods=['post'], url_path='bulk-update')
+    def bulk_update(self, request):
+        ids = request.data.get('ids', [])
+        updates = request.data.get('updates', {})
+        
+        if not ids or not updates:
+            return Response({"error": "No IDs or updates provided"}, status=400)
+            
+        object_ids = []
+        for id_str in ids:
+            if ObjectId.is_valid(id_str):
+                object_ids.append(ObjectId(id_str))
+            else:
+                try:
+                    object_ids.append(int(id_str))
+                except: pass
+        
+        allowed_fields = ['difficulty_level', 'subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name', 'is_wrong', 'solve_time']
+        clean_updates = {k: v for k, v in updates.items() if k in allowed_fields and v != ''}
+        
+        if not clean_updates:
+            return Response({"error": "No valid fields to update"}, status=400)
+
+        try:
+            final_updates = {}
+            for k, v in clean_updates.items():
+                if k in ['subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name']:
+                    final_updates[f"{k}_id"] = ObjectId(v) if ObjectId.is_valid(v) else v
+                elif k == 'is_wrong':
+                    final_updates[k] = v.lower() == 'true' if isinstance(v, str) else bool(v)
+                elif k == 'solve_time':
+                    try:
+                        final_updates[k] = int(v)
+                    except ValueError:
+                        final_updates[k] = v
+                else:
+                    final_updates[k] = v
+                    
+            updated_count = Question.objects.filter(pk__in=object_ids).update(**final_updates)
+            self._clear_global_caches()
+            return Response({"message": f"Successfully updated {updated_count} questions"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+    @action(detail=False, methods=['post'], url_path='bulk-upload')
+    def bulk_upload(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            decoded_file = file_obj.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.reader(io_string)
+            headers = next(reader) # skip headers
+            
+            created_count = 0
+            errors = []
+            
+            for row_idx, row in enumerate(reader, start=2):
+                try:
+                    if not row or len(row) < 18:
+                        if any(row):
+                            errors.append(f"Row {row_idx}: Incomplete data (expected at least 18 columns)")
+                        continue
+                        
+                    class_name = row[1].strip()
+                    subject_name = row[2].strip()
+                    topic_name = row[3].strip()
+                    exam_type_name = row[4].strip()
+                    target_exam_name = row[5].strip()
+                    q_type = row[6].strip()
+                    level = row[7].strip()
+                    has_calc = row[8].strip().lower() == 'yes'
+                    is_numeric = row[9].strip().lower() == 'yes'
+                    question_text = row[10].strip()
+                    image_url_1 = row[11].strip() if len(row) > 11 else ""
+                    image_url_2 = row[12].strip() if len(row) > 12 else ""
+                    
+                    ans1 = row[13].strip()
+                    ans2 = row[14].strip()
+                    ans3 = row[15].strip()
+                    ans4 = row[16].strip()
+                    correct_ans = row[17].strip()
+                    
+                    if not subject_name or not topic_name or not q_type or not question_text:
+                        errors.append(f"Row {row_idx}: Missing required fields (Subject, Topic, Type, or Question)")
+                        continue
+
+                    class_level = ClassLevel.objects.filter(name__iexact=class_name).first() if class_name else None
+                    subject = Subject.objects.filter(name__iexact=subject_name).first() if subject_name else None
+                    topic = Topic.objects.filter(name__iexact=topic_name).first() if topic_name else None
+                    exam_type = ExamType.objects.filter(name__iexact=exam_type_name).first() if exam_type_name else None
+                    target_exam = TargetExam.objects.filter(name__iexact=target_exam_name).first() if target_exam_name else None
+                    
+                    options = []
+                    if q_type in ['SINGLE_CHOICE', 'MULTI_CHOICE']:
+                        ans_list = [ans1, ans2, ans3, ans4]
+                        for i, ans in enumerate(ans_list, 1):
+                            if ans:
+                                label = chr(64 + i)
+                                is_correct = False
+                                if q_type == 'SINGLE_CHOICE':
+                                    is_correct = (correct_ans.upper() == label)
+                                elif q_type == 'MULTI_CHOICE':
+                                    is_correct = label in correct_ans.upper()
+                                
+                                options.append({
+                                    "id": i,
+                                    "content": ans,
+                                    "isCorrect": is_correct
+                                })
+                    
+                    q_obj = Question(
+                        class_level=class_level,
+                        subject=subject,
+                        topic=topic,
+                        exam_type=exam_type,
+                        target_exam=target_exam,
+                        question_type=q_type,
+                        difficulty_level=level if level else '1',
+                        content=question_text,
+                        image_1=image_url_1,
+                        image_2=image_url_2,
+                        question_options=options,
+                        has_calculator=has_calc,
+                        use_numeric_options=is_numeric
+                    )
+                    
+                    if q_type in ['NUMERICAL', 'INTEGER_TYPE'] and correct_ans:
+                        try:
+                            if '-' in correct_ans:
+                                start, end = correct_ans.split('-')
+                                q_obj.answer_from = float(start)
+                                q_obj.answer_to = float(end)
+                            else:
+                                val = float(correct_ans)
+                                q_obj.answer_from = val
+                                q_obj.answer_to = val
+                        except ValueError:
+                            pass
+                            
+                    q_obj.save()
+                    created_count += 1
+                    
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: {str(e)}")
+            
+            self._clear_global_caches()
+            return Response({
+                "message": f"Successfully imported {created_count} questions",
+                "errors": errors
+            }, status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _clear_global_caches(self):
+        from django.core.cache import cache
+        from django.utils import timezone
+        cache.delete("dashboard_question_stats_v1")
+        cache.delete("dashboard_section_stats_v1")
+        cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
+
+    def perform_create(self, serializer):
+        serializer.save()
+        self._clear_global_caches()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._clear_global_caches()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        self._clear_global_caches()
+
 class ExtractAIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
@@ -362,217 +556,6 @@ class ExtractAIView(APIView):
                 f.write(f"Outer Exception:\n{str(e)}\n\n{tb}")
             return Response({"status": "error", "message": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(detail=False, methods=['post'], url_path='bulk-delete')
-    def bulk_delete(self, request):
-        ids = request.data.get('ids', [])
-        if not ids:
-            return Response({"error": "No IDs provided"}, status=400)
-        
-        # Convert IDs to ObjectIs
-        object_ids = []
-        for id_str in ids:
-            if ObjectId.is_valid(id_str):
-                object_ids.append(ObjectId(id_str))
-            else:
-                try:
-                    # Handle integer IDs if any
-                    object_ids.append(int(id_str))
-                except: pass
-        
-        deleted_count, _ = Question.objects.filter(pk__in=object_ids).delete()
-        return Response({"message": f"Successfully deleted {deleted_count} questions"})
-
-    @action(detail=False, methods=['post'], url_path='bulk-update')
-    def bulk_update(self, request):
-        ids = request.data.get('ids', [])
-        updates = request.data.get('updates', {})
-        
-        if not ids or not updates:
-            return Response({"error": "No IDs or updates provided"}, status=400)
-            
-        object_ids = []
-        for id_str in ids:
-            if ObjectId.is_valid(id_str):
-                object_ids.append(ObjectId(id_str))
-            else:
-                try:
-                    object_ids.append(int(id_str))
-                except: pass
-        
-        allowed_fields = ['difficulty_level', 'subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name', 'is_wrong', 'solve_time']
-        clean_updates = {k: v for k, v in updates.items() if k in allowed_fields and v != ''}
-        
-        if not clean_updates:
-            return Response({"error": "No valid fields to update"}, status=400)
-
-        # For foreign keys, passing ID directly works in Djongo usually if using field_id
-        # or we can resolve objects. To be safe with bulk update, we use individual saves if update() fails or is risky
-        # However, update() is much faster.
-        
-        try:
-            # Prepare update dict with _id for ForeignKeys
-            final_updates = {}
-            for k, v in clean_updates.items():
-                if k in ['subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name']:
-                    final_updates[f"{k}_id"] = ObjectId(v) if ObjectId.is_valid(v) else v
-                elif k == 'is_wrong':
-                    final_updates[k] = v.lower() == 'true' if isinstance(v, str) else bool(v)
-                elif k == 'solve_time':
-                    try:
-                        final_updates[k] = int(v)
-                    except ValueError:
-                        final_updates[k] = v
-                else:
-                    final_updates[k] = v
-                    
-            updated_count = Question.objects.filter(pk__in=object_ids).update(**final_updates)
-            from django.core.cache import cache
-            cache.delete("dashboard_question_stats_v1")
-            return Response({"message": f"Successfully updated {updated_count} questions"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-
-    @action(detail=False, methods=['post'], url_path='bulk-upload')
-    def bulk_upload(self, request):
-        from django.core.cache import cache
-        file_obj = request.FILES.get('file')
-        if not file_obj:
-            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            decoded_file = file_obj.read().decode('utf-8')
-            io_string = io.StringIO(decoded_file)
-            reader = csv.reader(io_string)
-            headers = next(reader) # skip headers
-            
-            created_count = 0
-            errors = []
-            
-            for row_idx, row in enumerate(reader, start=2): # start=2 because 1 is header
-                try:
-                    # Expected CSV Format based on frontend template:
-                    # SL NO (*), Class, Subject (*), Topic (*), Exam Type, Target Exam,
-                    # Question Type (*), Level (*), Calculator(yes/no), Numeric(yes/no),
-                    # Question (*), Question Image (1st) (*), Question Image (2nd),
-                    # Answer 1 (*), Answer 2 (*), Answer 3 (*), Answer 4 (*), Correct Answer (*)
-                    
-                    if not row or len(row) < 18:
-                        if any(row): # only error if row is not completely empty
-                            errors.append(f"Row {row_idx}: Incomplete data (expected at least 18 columns)")
-                        continue
-                        
-                    # Extract values
-                    class_name = row[1].strip()
-                    subject_name = row[2].strip()
-                    topic_name = row[3].strip()
-                    exam_type_name = row[4].strip()
-                    target_exam_name = row[5].strip()
-                    q_type = row[6].strip()
-                    level = row[7].strip()
-                    has_calc = row[8].strip().lower() == 'yes'
-                    is_numeric = row[9].strip().lower() == 'yes'
-                    question_text = row[10].strip()
-                    image_url_1 = row[11].strip() if len(row) > 11 else ""
-                    image_url_2 = row[12].strip() if len(row) > 12 else ""
-                    
-                    ans1 = row[13].strip()
-                    ans2 = row[14].strip()
-                    ans3 = row[15].strip()
-                    ans4 = row[16].strip()
-                    correct_ans = row[17].strip()
-                    
-                    if not subject_name or not topic_name or not q_type or not question_text:
-                        errors.append(f"Row {row_idx}: Missing required fields (Subject, Topic, Type, or Question)")
-                        continue
-
-                    # Resolve foreign keys
-                    class_level = ClassLevel.objects.filter(name__iexact=class_name).first() if class_name else None
-                    subject = Subject.objects.filter(name__iexact=subject_name).first() if subject_name else None
-                    topic = Topic.objects.filter(name__iexact=topic_name).first() if topic_name else None
-                    exam_type = ExamType.objects.filter(name__iexact=exam_type_name).first() if exam_type_name else None
-                    target_exam = TargetExam.objects.filter(name__iexact=target_exam_name).first() if target_exam_name else None
-                    
-                    # Options structure
-                    options = []
-                    if q_type in ['SINGLE_CHOICE', 'MULTI_CHOICE']:
-                        ans_list = [ans1, ans2, ans3, ans4]
-                        for i, ans in enumerate(ans_list, 1):
-                            if ans:
-                                label = chr(64 + i) # A, B, C, D
-                                is_correct = False
-                                if q_type == 'SINGLE_CHOICE':
-                                    is_correct = (correct_ans.upper() == label)
-                                elif q_type == 'MULTI_CHOICE':
-                                    is_correct = label in correct_ans.upper()
-                                
-                                options.append({
-                                    "id": i,
-                                    "content": ans,
-                                    "isCorrect": is_correct
-                                })
-                    
-                    # Create Question
-                    q_obj = Question(
-                        class_level=class_level,
-                        subject=subject,
-                        topic=topic,
-                        exam_type=exam_type,
-                        target_exam=target_exam,
-                        question_type=q_type,
-                        difficulty_level=level if level else '1',
-                        content=question_text,
-                        image_1=image_url_1,
-                        image_2=image_url_2,
-                        question_options=options,
-                        has_calculator=has_calc,
-                        use_numeric_options=is_numeric
-                    )
-                    
-                    if q_type in ['NUMERICAL', 'INTEGER_TYPE'] and correct_ans:
-                        try:
-                            if '-' in correct_ans:
-                                start, end = correct_ans.split('-')
-                                q_obj.answer_from = float(start)
-                                q_obj.answer_to = float(end)
-                            else:
-                                val = float(correct_ans)
-                                q_obj.answer_from = val
-                                q_obj.answer_to = val
-                        except ValueError:
-                            pass
-                            
-                    q_obj.save()
-                    created_count += 1
-                    
-                except Exception as e:
-                    errors.append(f"Row {row_idx}: {str(e)}")
-            
-            return Response({
-                "message": f"Successfully imported {created_count} questions",
-                "errors": errors
-            }, status=status.HTTP_201_CREATED if created_count > 0 else status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": f"Failed to process file: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def _clear_global_caches(self):
-        from django.core.cache import cache
-        from django.utils import timezone
-        cache.delete("dashboard_question_stats_v1")
-        cache.delete("dashboard_section_stats_v1")
-        # Bump version to refresh list_master_sections and others
-        cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
-
-    def perform_create(self, serializer):
-        serializer.save()
-        self._clear_global_caches()
-
-    def perform_update(self, serializer):
-        serializer.save()
-        self._clear_global_caches()
-
-    def perform_destroy(self, instance):
-        instance.delete()
-        self._clear_global_caches()
 
 @method_decorator(csrf_exempt, name='dispatch')
 class QuestionImageViewSet(viewsets.ModelViewSet):

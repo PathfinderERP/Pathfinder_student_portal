@@ -14,6 +14,7 @@ import {
     Moon,
     Lock
 } from 'lucide-react';
+import MathRenderer from '../../../components/MathRenderer';
 
 const ExamEngine = () => {
     const { id: testId } = useParams();
@@ -949,7 +950,7 @@ const ExamEngine = () => {
                                 className={`prose max-w-none w-full pr-3 overflow-y-auto custom-scrollbar max-h-[160px] sm:max-h-[240px] md:max-h-[350px] lg:max-h-[480px] ${isDarkMode ? 'prose-invert text-slate-300' : ''}`}
                             >
                                 {currentQuestion.content && (
-                                    <div dangerouslySetInnerHTML={{ __html: currentQuestion.content }} />
+                                    <MathRenderer html={currentQuestion.content} />
                                 )}
                                 
                                 {currentQuestion.question_img && (
@@ -1005,7 +1006,7 @@ const ExamEngine = () => {
                                                 <div className="flex flex-col gap-2 w-full">
                                                     <div className="flex items-center gap-2 sm:gap-3">
                                                         <span className={`font-black text-xs sm:text-sm ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}>({label})</span>
-                                                        <div className={`prose-sm text-xs sm:text-sm ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`} dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                        <MathRenderer html={opt.content} className={`prose-sm text-xs sm:text-sm ${isDarkMode ? 'text-slate-200' : 'text-gray-800'}`} />
                                                     </div>
                                                 </div>
                                             </label>

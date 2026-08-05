@@ -4,6 +4,7 @@ import axios from 'axios';
 import Select from 'react-select';
 import { useAuth } from '../../../context/AuthContext';
 import { useMasterData } from '../../../context/MasterDataContext';
+import MathRenderer from '../../../components/MathRenderer';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DIFFICULTY_OPTIONS = [
@@ -463,9 +464,9 @@ const ChapterTest = ({ isDarkMode }) => {
                             {/* Question text */}
                             <div className={`text-base font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-slate-900'} flex items-start`}>
                                 <span className="text-orange-500 mr-2 shrink-0 text-lg">Q{index + 1}.</span>
-                                <div
+                                <MathRenderer
+                                    html={q.question}
                                     className="html-content max-w-none flex-1"
-                                    dangerouslySetInnerHTML={{ __html: q.question }}
                                 />
                             </div>
 
@@ -507,9 +508,9 @@ const ChapterTest = ({ isDarkMode }) => {
                                         >
                                             <div className={`${isDarkMode ? 'text-slate-300' : 'text-slate-700'} font-medium flex items-start gap-3`}>
                                                 <span className="font-bold text-slate-500 shrink-0">{optionLetter}.</span>
-                                                <div
+                                                <MathRenderer
+                                                    html={opt}
                                                     className="html-content flex-1"
-                                                    dangerouslySetInnerHTML={{ __html: opt }}
                                                 />
                                             </div>
                                             {showCorrect && <CheckCircle2 className="text-green-500 shrink-0 ml-3" size={20} />}
@@ -528,9 +529,9 @@ const ChapterTest = ({ isDarkMode }) => {
                                             <strong className={`${isDarkMode ? 'text-slate-200' : 'text-slate-900'} block mb-1 uppercase tracking-wider text-xs`}>
                                                 Explanation
                                             </strong>
-                                            <div
+                                            <MathRenderer
+                                                html={q.explanation}
                                                 className="html-content"
-                                                dangerouslySetInnerHTML={{ __html: q.explanation }}
                                             />
                                         </div>
                                     </div>
