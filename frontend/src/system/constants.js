@@ -12,7 +12,8 @@ export const permissionTabs = [
             { id: 'merge_test_result', label: 'Merge Test Result' },
             { id: 'test_result', label: 'Test Result' },
             { id: 'psychometric_responses', label: 'Psychometric Test' },
-            { id: 'student_reviews', label: 'Student Reviews' }
+            { id: 'student_reviews', label: 'Student Reviews' },
+            { id: 'chapter_test_results', label: 'Chapter Test Results' }
         ]
     },
     { id: 'question_bank', label: 'Question Bank' },

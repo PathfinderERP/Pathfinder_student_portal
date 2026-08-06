@@ -35,6 +35,7 @@ import MergeTestResult from './admin/tests/MergeTestResult';
 import TestResult from './admin/tests/TestResult';
 import StudentReviews from './admin/tests/StudentReviews';
 import PsychometricResponses from './admin/tests/PsychometricResponses';
+import ChapterTestResultsAdmin from './admin/tests/ChapterTestResultsAdmin';
 import QuestionBank from './admin/QuestionBank';
 
 // Package Components
@@ -396,7 +397,8 @@ const SystemDashboard = () => {
                 { id: 'merge_test_result', label: 'Merge Test Result', active: activeTab === 'Merge Test Result', onClick: () => setActiveTab('Merge Test Result') },
                 { id: 'test_result', label: 'Test Result', active: activeTab === 'Test Result', onClick: () => setActiveTab('Test Result') },
                 { id: 'psychometric_responses', label: 'Psychometric Test', active: activeTab === 'Psychometric Test', onClick: () => setActiveTab('Psychometric Test') },
-                { id: 'student_reviews', label: 'Student Reviews', active: activeTab === 'Student Reviews', onClick: () => setActiveTab('Student Reviews') }
+                { id: 'student_reviews', label: 'Student Reviews', active: activeTab === 'Student Reviews', onClick: () => setActiveTab('Student Reviews') },
+                { id: 'chapter_test_results', label: 'Chapter Test Results', active: activeTab === 'Chapter Test Results', onClick: () => setActiveTab('Chapter Test Results') }
             ].filter(sub => hasPermission('test_mgmt', sub.id))
         },
         { id: 'question_bank', icon: Database, label: 'Question Bank', active: activeTab === 'Question Bank', onClick: () => setActiveTab('Question Bank') },
@@ -620,6 +622,8 @@ const SystemDashboard = () => {
                 return <TestResult isOMR={false} />;
             case 'OMR Test Result':
                 return <TestResult isOMR={true} />;
+            case 'Chapter Test Results':
+                return <ChapterTestResultsAdmin isDarkMode={isDarkMode} />;
             case 'Student Reviews':
                 return <StudentReviews isOMR={false} />;
             case 'OMR Student Reviews':

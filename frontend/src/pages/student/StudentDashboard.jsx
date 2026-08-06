@@ -28,6 +28,7 @@ import NoticeBoard from './components/NoticeBoard';
 import Scholarlab from './components/Scholarlab';
 import SocialFeed from './components/SocialFeed';
 import ChapterTest from './components/ChapterTest';
+import ChapterTestResults from './components/ChapterTestResults';
 import { useActivityTracker } from '../../services/useActivityTracker';
 
 import PortalLayout from '../../components/common/PortalLayout';
@@ -433,7 +434,14 @@ const StudentDashboard = () => {
         
         const classStr = classNameValue.toLowerCase();
         if ((classStr.includes('11') || classStr.includes('12') || classStr.includes('repeater')) && import.meta.env.DEV) {
-            items.splice(6, 0, { name: 'Chapter Test', icon: FileText });
+            items.splice(6, 0, {
+                name: 'Chapter Tests',
+                icon: FileText,
+                subItems: [
+                    { name: 'Take Test', icon: FileText },
+                    { name: 'Chapter Results', icon: Target }
+                ]
+            });
         }
         
         return items;
@@ -527,8 +535,12 @@ const StudentDashboard = () => {
                 return <Attendance isDarkMode={isDarkMode} cache={attendanceCache} setCache={setAttendanceCache} />;
             case 'Exams':
                 return <Exams isDarkMode={isDarkMode} onRefresh={fetchStudentData} cache={examsCache} setCache={setExamsCache} />;
-            case 'Chapter Test':
+            case 'Take Test':
                 return <ChapterTest isDarkMode={isDarkMode} />;
+            case 'Chapter Tests':
+                return <ChapterTest isDarkMode={isDarkMode} />;
+            case 'Chapter Results':
+                return <ChapterTestResults isDarkMode={isDarkMode} />;
             case 'Results':
                 return <Results isDarkMode={isDarkMode} />;
             case 'Performance':

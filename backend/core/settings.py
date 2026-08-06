@@ -142,6 +142,7 @@ INSTALLED_APPS = [
     'tests',
     'questions',
     'packages',
+    'chapter_tests',
 ]
 
 MIDDLEWARE = [

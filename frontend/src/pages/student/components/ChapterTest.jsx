@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BookOpen, Activity, Play, CheckCircle2, XCircle, AlertCircle, Download, Database } from 'lucide-react';
+import { BookOpen, Activity, Play, CheckCircle2, XCircle, AlertCircle, Download, Database, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from 'axios';
 import Select from 'react-select';
 import { useAuth } from '../../../context/AuthContext';
@@ -112,6 +112,16 @@ const ChapterTest = ({ isDarkMode }) => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const [totalAvailable, setTotalAvailable] = useState(0);
+    const [startTime, setStartTime] = useState(null);
+    const [isSubmittingToBackend, setIsSubmittingToBackend] = useState(false);
+    const [expandedExplanations, setExpandedExplanations] = useState({});
+
+    const toggleExplanation = (questionId) => {
+        setExpandedExplanations(prev => ({
+            ...prev,
+            [questionId]: !prev[questionId]
+        }));
+    };
 
     useEffect(() => {
         fetchMasterData();
@@ -200,6 +210,7 @@ const ChapterTest = ({ isDarkMode }) => {
         setIsFetching(true);
         setQuestions([]);
         setAnswers({});
+        setExpandedExplanations({});
         setIsSubmitted(false);
         setScore(0);
         setNoQuestionsFound(false);
@@ -247,6 +258,7 @@ const ChapterTest = ({ isDarkMode }) => {
             }
 
             setQuestions(shuffled);
+            setStartTime(Date.now());
         } catch (error) {
             console.error('Failed to fetch questions:', error);
             alert('Failed to load questions. Please try again.');
@@ -261,13 +273,45 @@ const ChapterTest = ({ isDarkMode }) => {
         setAnswers((prev) => ({ ...prev, [questionId]: option }));
     };
 
-    const handleSubmitTest = () => {
+    const handleSubmitTest = async () => {
+        if (isSubmittingToBackend) return;
+        
         let currentScore = 0;
         questions.forEach((q) => {
             if (answers[q.id] === q.correctAnswer) currentScore++;
         });
+        
         setScore(currentScore);
         setIsSubmitted(true);
+        setIsSubmittingToBackend(true);
+
+        const timeTaken = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+
+        try {
+            const subjectObj = subjects.find((s) => String(s.id) === String(selectedSubject));
+            const subjectName = subjectObj ? subjectObj.name || subjectObj.title : selectedSubject;
+
+            const chapterObj = filteredChapters.find((c) => String(c.id) === String(selectedChapter));
+            const chapterName = chapterObj ? chapterObj.name || chapterObj.title : selectedChapter;
+
+            await axios.post(`${getApiUrl()}/api/chapter-tests/results/`, {
+                subject_name: subjectName,
+                chapter_name: chapterName,
+                difficulty: selectedDifficulty?.label || 'All Levels',
+                score: currentScore,
+                total_questions: questions.length,
+                time_taken_seconds: timeTaken,
+                responses: answers,
+                question_data: questions
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+        } catch (error) {
+            console.error('Failed to save chapter test result:', error);
+            // Even if save fails, we show the result locally
+        } finally {
+            setIsSubmittingToBackend(false);
+        }
     };
 
     // ── Export ─────────────────────────────────────────────────────────────────
@@ -522,19 +566,35 @@ const ChapterTest = ({ isDarkMode }) => {
 
                             {/* Explanation (after submit) */}
                             {isSubmitted && q.explanation && (
-                                <div className={`mt-6 p-4 rounded-[5px] text-sm border-l-4 border-orange-500 ${isDarkMode ? 'bg-[#151A23] text-slate-400' : 'bg-orange-50 text-slate-700'}`}>
-                                    <div className="flex items-start gap-3">
-                                        <AlertCircle className="text-orange-500 shrink-0 mt-0.5" size={18} />
-                                        <div>
-                                            <strong className={`${isDarkMode ? 'text-slate-200' : 'text-slate-900'} block mb-1 uppercase tracking-wider text-xs`}>
-                                                Explanation
-                                            </strong>
-                                            <MathRenderer
-                                                html={q.explanation}
-                                                className="html-content"
-                                            />
+                                <div className="mt-4">
+                                    <button 
+                                        onClick={() => toggleExplanation(q.id)}
+                                        className={`flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-[5px] transition-colors ${
+                                            isDarkMode 
+                                                ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' 
+                                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                        }`}
+                                    >
+                                        {expandedExplanations[q.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                        {expandedExplanations[q.id] ? 'Hide Explanation' : 'View Explanation'}
+                                    </button>
+                                    
+                                    {expandedExplanations[q.id] && (
+                                        <div className={`mt-3 p-4 rounded-[5px] text-sm border-l-4 border-orange-500 ${isDarkMode ? 'bg-[#151A23] text-slate-400' : 'bg-orange-50 text-slate-700'}`}>
+                                            <div className="flex items-start gap-3">
+                                                <AlertCircle className="text-orange-500 shrink-0 mt-0.5" size={18} />
+                                                <div>
+                                                    <strong className={`${isDarkMode ? 'text-slate-200' : 'text-slate-900'} block mb-1 uppercase tracking-wider text-xs`}>
+                                                        Explanation
+                                                    </strong>
+                                                    <MathRenderer
+                                                        html={q.explanation}
+                                                        className="html-content"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             )}
                         </div>
