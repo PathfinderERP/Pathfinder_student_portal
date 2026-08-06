@@ -433,7 +433,7 @@ const StudentDashboard = () => {
         ];
         
         const classStr = classNameValue.toLowerCase();
-        if ((classStr.includes('11') || classStr.includes('12') || classStr.includes('repeater')) && import.meta.env.DEV) {
+        if (classStr.includes('11') || classStr.includes('12') || classStr.includes('repeater')) {
             items.splice(6, 0, {
                 name: 'Chapter Tests',
                 icon: FileText,
