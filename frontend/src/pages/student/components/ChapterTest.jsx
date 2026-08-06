@@ -112,6 +112,8 @@ const ChapterTest = ({ isDarkMode }) => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const [totalAvailable, setTotalAvailable] = useState(0);
+    // Test Settings
+    const [testSettings, setTestSettings] = useState({ positive_marks: 1.0, negative_marks: 0.0 });
     const [startTime, setStartTime] = useState(null);
     const [isSubmittingToBackend, setIsSubmittingToBackend] = useState(false);
     const [expandedExplanations, setExpandedExplanations] = useState({});
@@ -128,6 +130,26 @@ const ChapterTest = ({ isDarkMode }) => {
     }, [fetchMasterData]);
 
     // ── Fetch chapters that have questions whenever subject changes ────────────
+    useEffect(() => {
+        if (!subjects.length || !chapters.length) {
+            fetchMasterData(['subjects', 'chapters']);
+        }
+        
+        // Fetch test settings
+        const fetchSettings = async () => {
+            try {
+                const config = { headers: { Authorization: `Bearer ${token}` } };
+                const res = await axios.get(`${getApiUrl()}/api/master-data/chapter-test-settings/`, config);
+                if (res.data && res.data.length > 0) {
+                    setTestSettings(res.data[0]);
+                }
+            } catch (err) {
+                console.error("Failed to fetch test settings", err);
+            }
+        };
+        fetchSettings();
+    }, [subjects.length, chapters.length, fetchMasterData, token, getApiUrl]);
+
     useEffect(() => {
         if (!selectedSubject) {
             setAvailableChapterIds(null);
@@ -278,7 +300,13 @@ const ChapterTest = ({ isDarkMode }) => {
         
         let currentScore = 0;
         questions.forEach((q) => {
-            if (answers[q.id] === q.correctAnswer) currentScore++;
+            if (answers[q.id]) {
+                if (answers[q.id] === q.correctAnswer) {
+                    currentScore += testSettings.positive_marks;
+                } else {
+                    currentScore -= testSettings.negative_marks;
+                }
+            }
         });
         
         setScore(currentScore);
@@ -512,6 +540,10 @@ const ChapterTest = ({ isDarkMode }) => {
                                     html={q.question}
                                     className="html-content max-w-none flex-1"
                                 />
+                                <div className="shrink-0 ml-4 flex items-center gap-1.5 text-xs font-black font-mono">
+                                    <span className="text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-[3px] border border-emerald-500/20">+{testSettings.positive_marks}</span>
+                                    <span className="text-red-500 bg-red-500/10 px-2 py-0.5 rounded-[3px] border border-red-500/20">-{testSettings.negative_marks}</span>
+                                </div>
                             </div>
 
                             {/* Question images */}

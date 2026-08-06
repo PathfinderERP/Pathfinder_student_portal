@@ -724,3 +724,14 @@ class MistakeReason(models.Model):
 
     def __str__(self):
         return self.name
+
+class ChapterTestSetting(models.Model):
+    positive_marks = models.FloatField(default=1.0)
+    negative_marks = models.FloatField(default=0.0)
+
+    class Meta:
+        verbose_name = 'Chapter Test Setting'
+        verbose_name_plural = 'Chapter Test Settings'
+
+    def __str__(self):
+        return f'Chapter Test Marks: +{self.positive_marks}, -{self.negative_marks}'

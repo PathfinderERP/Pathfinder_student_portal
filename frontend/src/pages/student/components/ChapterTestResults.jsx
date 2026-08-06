@@ -19,6 +19,18 @@ const QuestionReviewItem = ({ q, index, isDarkMode, userAnswer }) => {
                         <MathRenderer html={q.question} />
                     </div>
                     
+                    {/* Question images */}
+                    {q.image_1 && (
+                        <div className="mb-6 flex justify-center">
+                            <img src={q.image_1} alt="Question visual" className="max-h-64 rounded-[5px] object-contain border border-slate-200 dark:border-slate-800 bg-white" />
+                        </div>
+                    )}
+                    {q.image_2 && (
+                        <div className="mb-6 flex justify-center">
+                            <img src={q.image_2} alt="Question visual 2" className="max-h-64 rounded-[5px] object-contain border border-slate-200 dark:border-slate-800 bg-white" />
+                        </div>
+                    )}
+
                     <div className="grid gap-3">
                         {q.options.map((opt, i) => {
                             const isSelected = opt === userAnswer;

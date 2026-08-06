@@ -5,7 +5,7 @@ class ChapterTestResult(models.Model):
     subject_name = models.CharField(max_length=255)
     chapter_name = models.CharField(max_length=255)
     difficulty = models.CharField(max_length=100, blank=True, null=True)
-    score = models.IntegerField(default=0)
+    score = models.FloatField(default=0.0)
     total_questions = models.IntegerField(default=0)
     time_taken_seconds = models.IntegerField(default=0)
     responses = models.JSONField(default=dict, help_text="Detailed responses per question")

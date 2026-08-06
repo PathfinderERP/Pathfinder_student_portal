@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import SmartEditor from './components/SmartEditor';
 import SectionRegistry from '../sections/SectionRegistry';
+import ChapterTestSettings from './components/ChapterTestSettings';
 
 const SearchableSelect = ({ 
     options = [], 
@@ -176,6 +177,7 @@ const subTabs = [
     { id: 'Psychometric Traits', icon: Target, label: 'Psychometric Traits', endpoint: 'psychometric-traits' },
     { id: 'Psychometric Questions', icon: BookOpen, label: 'Psychometric Questions', endpoint: 'psychometric-questions' },
     { id: 'Mistake Reason', icon: AlertTriangle, label: 'Mistake Reason', endpoint: 'mistake-reasons' },
+    { id: 'Chapter Test Settings', icon: Target, label: 'Chapter Test Settings', endpoint: 'chapter-test-settings' },
 ];
 
 const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigate }) => {
@@ -1305,6 +1307,10 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const renderContent = () => {
         if (activeSubTab === 'Section Management') {
             return <SectionRegistry />;
+        }
+
+        if (activeSubTab === 'Chapter Test Settings') {
+            return <ChapterTestSettings />;
         }
 
         if (activeSubTab === 'Image') {

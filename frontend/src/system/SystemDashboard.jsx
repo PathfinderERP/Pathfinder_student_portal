@@ -486,6 +486,7 @@ const SystemDashboard = () => {
                         { label: 'Psychometric Traits', active: activeTab === 'Admin Master Data' && masterSubTab === 'Psychometric Traits', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Psychometric Traits'); } },
                         { label: 'Psychometric Questions', active: activeTab === 'Admin Master Data' && masterSubTab === 'Psychometric Questions', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Psychometric Questions'); } },
                         { label: 'Mistake Reason', active: activeTab === 'Admin Master Data' && masterSubTab === 'Mistake Reason', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Mistake Reason'); } },
+                        { label: 'Chapter Test Settings', active: activeTab === 'Admin Master Data' && masterSubTab === 'Chapter Test Settings', onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Chapter Test Settings'); } },
                     ]
                 },
                 { id: 'settings', label: 'Settings', active: activeTab === 'Settings', onClick: () => setActiveTab('Settings') },
