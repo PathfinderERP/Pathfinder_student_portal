@@ -7,14 +7,14 @@ import { useMasterData } from '../../../context/MasterDataContext';
 import MathRenderer from '../../../components/MathRenderer';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const DIFFICULTY_OPTIONS = [
-    { value: '', label: 'All Levels' },
-    { value: 'very_easy', label: 'Very Easy' },
-    { value: 'easy', label: 'Easy' },
-    { value: 'moderate', label: 'Moderate' },
-    { value: 'hard', label: 'Hard' },
-    { value: 'very_hard', label: 'Very Hard' },
-];
+// const DIFFICULTY_OPTIONS = [
+//     { value: '', label: 'All Levels' },
+//     { value: 'very_easy', label: 'Very Easy' },
+//     { value: 'easy', label: 'Easy' },
+//     { value: 'moderate', label: 'Moderate' },
+//     { value: 'hard', label: 'Hard' },
+//     { value: 'very_hard', label: 'Very Hard' },
+// ];
 
 const MAX_QUESTIONS = 20;
 
@@ -98,7 +98,7 @@ const ChapterTest = ({ isDarkMode }) => {
 
     const [selectedSubject, setSelectedSubject] = useState('');
     const [selectedChapter, setSelectedChapter] = useState('');
-    const [selectedDifficulty, setSelectedDifficulty] = useState(null); // null = not selected yet
+    // const [selectedDifficulty, setSelectedDifficulty] = useState(null); // null = not selected yet
 
     // Chapters that have at least one question in the question bank
     const [availableChapterIds, setAvailableChapterIds] = useState(null); // null = not fetched yet
@@ -200,21 +200,21 @@ const ChapterTest = ({ isDarkMode }) => {
     const handleSubjectChange = (opt) => {
         setSelectedSubject(opt ? opt.value : '');
         setSelectedChapter('');
-        setSelectedDifficulty(null);
+        // setSelectedDifficulty(null);
         setAvailableChapterIds(null);
         resetTestState();
     };
 
     const handleChapterChange = (opt) => {
         setSelectedChapter(opt ? opt.value : '');
-        setSelectedDifficulty(null);
+        // setSelectedDifficulty(null);
         resetTestState();
     };
 
-    const handleDifficultyChange = (opt) => {
-        setSelectedDifficulty(opt);
-        resetTestState();
-    };
+    // const handleDifficultyChange = (opt) => {
+    //     setSelectedDifficulty(opt);
+    //     resetTestState();
+    // };
 
     const resetTestState = () => {
         setQuestions([]);
@@ -227,7 +227,8 @@ const ChapterTest = ({ isDarkMode }) => {
 
     // ── Generate (fetch from question bank) ────────────────────────────────────
     const handleGenerateTest = useCallback(async () => {
-        if (!selectedChapter || selectedDifficulty === null) return;
+        // if (!selectedChapter || selectedDifficulty === null) return;
+        if (!selectedChapter) return;
 
         setIsFetching(true);
         setQuestions([]);
@@ -244,9 +245,9 @@ const ChapterTest = ({ isDarkMode }) => {
             const params = new URLSearchParams();
             params.set('chapter', selectedChapter);
             params.set('exam_type_name', 'CHAPTER TEST'); // Specifically fetch chapter test questions
-            if (selectedDifficulty.value) {
-                params.set('difficulty_level', selectedDifficulty.value);
-            }
+            // if (selectedDifficulty?.value) {
+            //     params.set('difficulty_level', selectedDifficulty.value);
+            // }
             if (user?.class_level) params.set('class_level', user.class_level);
             if (user?.target_exam) params.set('target_exam', user.target_exam);
 
@@ -287,7 +288,8 @@ const ChapterTest = ({ isDarkMode }) => {
         } finally {
             setIsFetching(false);
         }
-    }, [selectedChapter, selectedDifficulty, getApiUrl, token, user?.class_level, user?.target_exam]);
+    // }, [selectedChapter, selectedDifficulty, getApiUrl, token, user?.class_level, user?.target_exam]);
+    }, [selectedChapter, getApiUrl, token, user?.class_level, user?.target_exam]);
 
     // ── Answer / Submit ────────────────────────────────────────────────────────
     const handleAnswerSelect = (questionId, option) => {
@@ -325,7 +327,8 @@ const ChapterTest = ({ isDarkMode }) => {
             await axios.post(`${getApiUrl()}/api/chapter-tests/results/`, {
                 subject_name: subjectName,
                 chapter_name: chapterName,
-                difficulty: selectedDifficulty?.label || 'All Levels',
+                // difficulty: selectedDifficulty?.label || 'All Levels',
+                difficulty: 'All Levels',
                 score: currentScore,
                 total_questions: questions.length,
                 time_taken_seconds: timeTaken,
@@ -352,7 +355,8 @@ const ChapterTest = ({ isDarkMode }) => {
         const chapterObj = filteredChapters.find((c) => String(c.id) === String(selectedChapter));
         const chapterName = chapterObj ? chapterObj.name || chapterObj.title : selectedChapter;
 
-        const diffLabel = selectedDifficulty?.label || 'All Levels';
+        // const diffLabel = selectedDifficulty?.label || 'All Levels';
+        const diffLabel = 'All Levels';
 
         let content = `# Chapter Test: ${subjectName} - ${chapterName}\n`;
         content += `Difficulty: ${diffLabel}\n\n`;
@@ -379,7 +383,8 @@ const ChapterTest = ({ isDarkMode }) => {
     };
 
     // ── Computed flags ─────────────────────────────────────────────────────────
-    const canGenerate = selectedChapter && selectedDifficulty !== null && !isFetching;
+    // const canGenerate = selectedChapter && selectedDifficulty !== null && !isFetching;
+    const canGenerate = selectedChapter && !isFetching;
 
     // ─── Loading skeleton ──────────────────────────────────────────────────────
     if (isLoading) {
@@ -408,7 +413,8 @@ const ChapterTest = ({ isDarkMode }) => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6"> */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Subject */}
                     <div className="space-y-2">
                         <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Select Subject</label>
@@ -448,7 +454,7 @@ const ChapterTest = ({ isDarkMode }) => {
                         />
                     </div>
 
-                    {/* Difficulty Level */}
+                    {/* Difficulty Level 
                     <div className="space-y-2">
                         <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Difficulty Level</label>
                         <Select
@@ -462,6 +468,7 @@ const ChapterTest = ({ isDarkMode }) => {
                             styles={buildSelectStyles(isDarkMode)}
                         />
                     </div>
+                    */}
                 </div>
 
                 <div className="mt-8 flex justify-end">

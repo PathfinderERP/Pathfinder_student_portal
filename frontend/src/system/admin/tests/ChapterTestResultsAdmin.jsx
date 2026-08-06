@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
-import { Search, Loader2, Eye, ChevronDown, ChevronUp, ChevronRight, Filter } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronDown, ChevronUp, ChevronRight, Filter, Clock, FileText, Target } from 'lucide-react';
 import MathRenderer from '../../../components/MathRenderer';
 
 const QuestionReviewItem = ({ q, index, isDarkMode, userAnswer }) => {
@@ -93,6 +93,7 @@ export default function ChapterTestResultsAdmin({ isDarkMode }) {
     // Filters for Student Detailed View
     const [selectedSubject, setSelectedSubject] = useState('');
     const [selectedChapter, setSelectedChapter] = useState('');
+    const [expandedGroups, setExpandedGroups] = useState({});
     
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -189,6 +190,29 @@ export default function ChapterTestResultsAdmin({ isDarkMode }) {
     const uniqueSubjects = selectedStudent ? [...new Set(selectedStudent.tests.map(t => t.subject_name))].filter(Boolean) : [];
     const uniqueChapters = selectedStudent ? [...new Set(selectedStudent.tests.map(t => t.chapter_name))].filter(Boolean) : [];
 
+    const studentStats = useMemo(() => {
+        if (!selectedStudent || !selectedStudent.tests || selectedStudent.tests.length === 0) {
+            return { totalTests: 0, avgScore: 0, totalTime: 0 };
+        }
+        
+        const tests = selectedStudent.tests;
+        let totalPercentage = 0;
+        let totalTime = 0;
+        
+        tests.forEach(r => {
+            if (r.total_questions > 0) {
+                totalPercentage += (r.score / r.total_questions) * 100;
+            }
+            totalTime += (r.time_taken_seconds || 0);
+        });
+        
+        return {
+            totalTests: tests.length,
+            avgScore: Math.round(totalPercentage / tests.length),
+            totalTime
+        };
+    }, [selectedStudent]);
+
     const filteredStudentTests = selectedStudent?.tests.filter(r => {
         const matchSearch = r.subject_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             r.chapter_name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -197,6 +221,30 @@ export default function ChapterTestResultsAdmin({ isDarkMode }) {
         
         return matchSearch && matchSubject && matchChapter;
     }) || [];
+
+    const groupedStudentTests = useMemo(() => {
+        const groups = {};
+        filteredStudentTests.forEach(test => {
+            const key = `${test.subject_name}_${test.chapter_name}`;
+            if (!groups[key]) {
+                groups[key] = {
+                    subject_name: test.subject_name,
+                    chapter_name: test.chapter_name,
+                    attempts: []
+                };
+            }
+            groups[key].attempts.push(test);
+        });
+        
+        return Object.values(groups).map(g => {
+            g.attempts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            return g;
+        }).sort((a, b) => new Date(b.attempts[0].created_at) - new Date(a.attempts[0].created_at));
+    }, [filteredStudentTests]);
+
+    const toggleGroup = (key) => {
+        setExpandedGroups(prev => ({...prev, [key]: !prev[key]}));
+    };
 
     if (selectedResult) {
         return (
@@ -286,6 +334,45 @@ export default function ChapterTestResultsAdmin({ isDarkMode }) {
                     </button>
                     <div className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         {selectedStudent.studentName}'s Tests
+                    </div>
+                </div>
+            )}
+
+            {selectedStudent && selectedStudent.tests.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Total Tests Card */}
+                    <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'} shadow-sm flex items-center gap-4`}>
+                        <div className={`p-4 rounded-full ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                            <FileText size={24} />
+                        </div>
+                        <div>
+                            <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Tests</div>
+                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{studentStats.totalTests}</div>
+                        </div>
+                    </div>
+
+                    {/* Average Score Card */}
+                    <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'} shadow-sm flex items-center gap-4`}>
+                        <div className={`p-4 rounded-full ${isDarkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'}`}>
+                            <Target size={24} />
+                        </div>
+                        <div>
+                            <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Average Score</div>
+                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{studentStats.avgScore}%</div>
+                        </div>
+                    </div>
+
+                    {/* Total Time Card */}
+                    <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-slate-800/50 border-white/5' : 'bg-white border-slate-200'} shadow-sm flex items-center gap-4`}>
+                        <div className={`p-4 rounded-full ${isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600'}`}>
+                            <Clock size={24} />
+                        </div>
+                        <div>
+                            <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Time Spent</div>
+                            <div className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                {Math.floor(studentStats.totalTime / 3600)}h {Math.floor((studentStats.totalTime % 3600) / 60)}m
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -512,42 +599,78 @@ export default function ChapterTestResultsAdmin({ isDarkMode }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredStudentTests.map((result) => (
-                                        <tr key={result.id} className={`border-b last:border-b-0 ${isDarkMode ? 'border-white/5 hover:bg-slate-800/50' : 'border-slate-100 hover:bg-slate-50'}`}>
-                                            <td className="px-6 py-4">
-                                                <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{result.subject_name}</div>
-                                                <div className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{result.chapter_name}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`font-bold px-2 py-1 rounded-[4px] ${
-                                                    result.score / result.total_questions >= 0.7 
-                                                        ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
-                                                        : result.score / result.total_questions >= 0.4 
-                                                            ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' 
-                                                            : 'bg-red-500/20 text-red-600 dark:text-red-400'
-                                                }`}>
-                                                    {result.score}/{result.total_questions}
-                                                </span>
-                                            </td>
-                                            <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                {Math.floor(result.time_taken_seconds / 60)}m {result.time_taken_seconds % 60}s
-                                            </td>
-                                            <td className={`px-6 py-4 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                {new Date(result.created_at).toLocaleDateString()}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedResult(result);
-                                                    }}
-                                                    className={`p-2 rounded-[5px] transition-colors ${isDarkMode ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                                    {groupedStudentTests.map((group) => {
+                                        const key = `${group.subject_name}_${group.chapter_name}`;
+                                        const isExpanded = expandedGroups[key];
+                                        const latestAttempt = group.attempts[0];
+                                        const totalTimeSeconds = group.attempts.reduce((sum, result) => sum + (result.time_taken_seconds || 0), 0);
+                                        
+                                        return (
+                                            <React.Fragment key={key}>
+                                                <tr 
+                                                    onClick={() => toggleGroup(key)}
+                                                    className={`border-b cursor-pointer transition-colors ${isDarkMode ? 'border-white/5 hover:bg-slate-800/80 bg-slate-900/20' : 'border-slate-100 hover:bg-slate-50 bg-slate-50/50'}`}
                                                 >
-                                                    <Eye size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                    <td className="px-6 py-4">
+                                                        <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{group.subject_name}</div>
+                                                        <div className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{group.chapter_name}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`text-xs font-bold px-2 py-1 rounded-[4px] ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                                            {group.attempts.length} Attempt{group.attempts.length > 1 ? 's' : ''}
+                                                        </span>
+                                                    </td>
+                                                    <td className={`px-6 py-4 font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Clock size={14} />
+                                                            <span>{Math.floor(totalTimeSeconds / 60)}m {totalTimeSeconds % 60}s</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className={`px-6 py-4 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                        {new Date(latestAttempt.created_at).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {isExpanded ? <ChevronUp size={16} className={isDarkMode ? 'text-slate-600' : 'text-slate-400'} /> : <ChevronDown size={16} className={isDarkMode ? 'text-slate-600' : 'text-slate-400'} />}
+                                                    </td>
+                                                </tr>
+                                                {isExpanded && group.attempts.map((result, idx) => (
+                                                    <tr key={result.id} className={`border-b last:border-b-0 ${isDarkMode ? 'border-white/5 bg-slate-800/30 hover:bg-slate-800/50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
+                                                        <td className="px-6 py-4 pl-12">
+                                                            <div className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Attempt {group.attempts.length - idx}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`font-bold px-2 py-1 rounded-[4px] ${
+                                                                result.score / result.total_questions >= 0.7 
+                                                                    ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
+                                                                    : result.score / result.total_questions >= 0.4 
+                                                                        ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' 
+                                                                        : 'bg-red-500/20 text-red-600 dark:text-red-400'
+                                                            }`}>
+                                                                {result.score}/{result.total_questions}
+                                                            </span>
+                                                        </td>
+                                                        <td className={`px-6 py-4 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                            {Math.floor(result.time_taken_seconds / 60)}m {result.time_taken_seconds % 60}s
+                                                        </td>
+                                                        <td className={`px-6 py-4 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                            {new Date(result.created_at).toLocaleString()}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedResult(result);
+                                                                }}
+                                                                className={`p-2 rounded-[5px] transition-colors ${isDarkMode ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                                                            >
+                                                                <Eye size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
