@@ -326,6 +326,7 @@ class ClassFeedbackSerializer(serializers.ModelSerializer):
             'id', 'student', 'student_name', 'student_username',
             'student_batch', 'student_center', 'student_exam_tag',
             'teacher_id', 'teacher_name', 'subject', 'date_of_class',
+            'start_time', 'end_time', 'entry_time', 'exit_time', 'chapter_name', 'topics',
             'responses', 'average_score', 'centre_code', 'created_at'
         ]
         read_only_fields = ['student', 'average_score', 'created_at']

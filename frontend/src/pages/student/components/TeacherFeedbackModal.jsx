@@ -45,6 +45,12 @@ const TeacherFeedbackModal = ({ isOpen, onClose, classRecord, isDarkMode, onSubm
                 date_of_class: (classRecord?.date || classRecord?.classScheduleId?.date) 
                     ? new Date(classRecord?.date || classRecord?.classScheduleId?.date).toISOString().split('T')[0] 
                     : new Date().toISOString().split('T')[0],
+                start_time: classRecord?.startTime || classRecord?.start_time || null,
+                end_time: classRecord?.endTime || classRecord?.end_time || null,
+                entry_time: classRecord?.actualStartTime || classRecord?.entry_time || null,
+                exit_time: classRecord?.actualEndTime || classRecord?.exit_time || null,
+                chapter_name: classRecord?.chapterName || classRecord?.chapter_name || '',
+                topics: classRecord?.topics || [],
                 responses: responses,
                 centre_code: classRecord?.centre_code || ''
             };

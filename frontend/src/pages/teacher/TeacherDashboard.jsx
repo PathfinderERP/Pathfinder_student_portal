@@ -21,8 +21,6 @@ import TeacherPerformance from './components/TeacherPerformance';
 import TeacherProfile from './components/TeacherProfile';
 import TeacherNotifications from './components/TeacherNotifications';
 import TeacherSettings from './components/TeacherSettings';
-import TeacherFeedbackView from './components/TeacherFeedbackView';
-
 const TeacherDashboard = () => {
     const { user, logout, token, getApiUrl } = useAuth();
     const { isDarkMode } = useTheme();
@@ -93,22 +91,17 @@ const TeacherDashboard = () => {
             onClick: () => setActiveTab('Overview')
         },
         {
+            label: 'My Classes',
+            icon: Calendar,
+            active: activeTab === 'My Classes',
+            onClick: () => setActiveTab('My Classes')
+        },
+        {
             label: 'Doubt Portal',
             icon: ClipboardList,
             active: activeTab === 'Doubt Portal',
             onClick: () => setActiveTab('Doubt Portal'),
             badge: unsolvedCount > 0 ? unsolvedCount : null
-        },
-        {
-            label: 'Class Feedback',
-            icon: Star,
-            active: activeTab === 'Class Feedback',
-            onClick: () => {
-                setActiveTab('Class Feedback');
-                localStorage.setItem('last_seen_feedback_time', new Date().toISOString());
-                setUnseenFeedbackCount(0);
-            },
-            badge: unseenFeedbackCount > 0 ? unseenFeedbackCount : null
         }
     ];
 
@@ -134,8 +127,6 @@ const TeacherDashboard = () => {
                 return <TeacherProfile user={user} />;
             case 'Notifications':
                 return <TeacherNotifications />;
-            case 'Class Feedback':
-                return <TeacherFeedbackView />;
             case 'Settings':
                 return <TeacherSettings />;
             default:

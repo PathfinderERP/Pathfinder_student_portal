@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 
@@ -213,12 +213,20 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                         date_of_class: curr.date_of_class,
                         start_time: curr.start_time,
                         end_time: curr.end_time,
+                        entry_time: curr.entry_time,
+                        exit_time: curr.exit_time,
                         subject: curr.subject,
+                        chapter_name: curr.chapter_name,
+                        topics: curr.topics,
                         students: [],
                         total_score: 0
                     };
                 }
                 acc[key].students.push(curr);
+                if (!acc[key].entry_time && curr.entry_time) acc[key].entry_time = curr.entry_time;
+                if (!acc[key].exit_time && curr.exit_time) acc[key].exit_time = curr.exit_time;
+                if (!acc[key].chapter_name || acc[key].chapter_name === 'N/A') acc[key].chapter_name = curr.chapter_name;
+                if ((!acc[key].topics || acc[key].topics.length === 0) && curr.topics) acc[key].topics = curr.topics;
                 acc[key].total_score += parseFloat(curr.average_score) || 0;
                 return acc;
             }, {});
@@ -229,12 +237,21 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                 avg_score: (val.total_score / val.students.length).toFixed(1)
             }));
 
+            const cleanActualTime = (t) => {
+                if (!t || t === '--:--') return null;
+                if (t.includes(',')) {
+                    return t.split(',')[1]?.trim() || t;
+                }
+                return t;
+            };
+
             return (
                 <table className="w-full text-xs">
                     <thead><tr className={`${isDarkMode ? 'text-slate-400 border-white/10' : 'text-slate-500 border-slate-200'} border-b`}>
                         <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Date of Class</th>
-                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Time</th>
-                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Subject</th>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Class Time</th>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Entry / Exit</th>
+                        <th className="py-3 px-4 text-left font-bold uppercase tracking-wider">Subject & Details</th>
                         <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Feedbacks</th>
                         <th className="py-3 px-4 text-center font-bold uppercase tracking-wider">Avg Class Score</th>
                         <th className="py-3 px-4"></th>
@@ -245,6 +262,11 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                         
                         const formatTime = (t) => t ? t.substring(0, 5) : '?';
                         const timeStr = group.start_time || group.end_time ? `${formatTime(group.start_time)} - ${formatTime(group.end_time)}` : '-';
+                        const topicsStr = Array.isArray(group.topics) ? group.topics.join(', ') : (group.topics || '');
+
+                        const entryDisplay = cleanActualTime(group.entry_time);
+                        const exitDisplay = cleanActualTime(group.exit_time);
+                        const entryExitStr = (entryDisplay || exitDisplay) ? `${entryDisplay || '--:--'} - ${exitDisplay || '--:--'}` : '--:-- - --:--';
 
                         return (
                             <React.Fragment key={group.key}>
@@ -254,7 +276,22 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                                 >
                                     <td className="py-3 px-4 font-mono">{parsed ? parsed.toLocaleDateString('en-IN') : 'N/A'}</td>
                                     <td className="py-3 px-4 font-mono text-[11px] opacity-80">{timeStr}</td>
-                                    <td className="py-3 px-4 font-bold">{group.subject || 'N/A'}</td>
+                                    <td className="py-3 px-4 font-mono text-[11px] opacity-80 text-emerald-500 font-semibold">{entryExitStr}</td>
+                                    <td className="py-3 px-4">
+                                        <div className="font-bold">{group.subject || 'N/A'}</div>
+                                        {((group.chapter_name && group.chapter_name !== 'N/A') || topicsStr) && (
+                                            <div className="text-[10px] opacity-80 mt-1 space-y-0.5">
+                                                {group.chapter_name && group.chapter_name !== 'N/A' && (
+                                                    <div className="text-amber-500 font-semibold">Ch: {group.chapter_name}</div>
+                                                )}
+                                                {topicsStr && (
+                                                    <div className="text-slate-400 truncate max-w-[220px]" title={topicsStr}>
+                                                        Topic: {topicsStr}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </td>
                                     <td className="py-3 px-4 text-center font-bold text-orange-500">{group.students.length}</td>
                                     <td className="py-3 px-4 text-center">
                                         <span className="font-bold flex items-center justify-center gap-1">
@@ -273,7 +310,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                                             onClick={() => toggleStudentFeedback(r.id)}
                                             className={`border-b cursor-pointer transition-colors ${isDarkMode ? 'border-white/5 bg-black/20 hover:bg-white/[0.04]' : 'border-slate-50 bg-slate-50/50 hover:bg-slate-100'}`}
                                         >
-                                            <td className="py-2 px-4 pl-12 font-mono text-[10px] opacity-60" colSpan="2">Student:</td>
+                                            <td className="py-2 px-4 pl-12 font-mono text-[10px] opacity-60" colSpan="3">Student:</td>
                                             <td className="py-2 px-4 font-bold text-[11px]">
                                                 {r.student_name || 'N/A'}
                                                 <div className="font-normal text-[9px] opacity-70 mt-0.5 flex items-center gap-1.5 flex-wrap">
@@ -295,7 +332,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                                         </tr>
                                         {expandedStudentFeedbacks[r.id] && r.responses && Object.keys(r.responses).length > 0 && (
                                             <tr className={`border-b ${isDarkMode ? 'border-white/5 bg-black/40' : 'border-slate-50 bg-slate-100/50'}`}>
-                                                <td colSpan="6" className="py-4 px-8 md:px-16">
+                                                <td colSpan="7" className="py-4 px-8 md:px-16">
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                                                         {Object.entries(r.responses).map(([qIdx, ans]) => (
                                                             <div key={qIdx} className={`flex justify-between items-start gap-4 text-[10px] pb-2 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-200'} last:border-0`}>
@@ -385,6 +422,14 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
 
                 <StatCard icon={Star} color="text-amber-500" value={activity.classRating || "0.0"} label="Class Rating" detailKey="feedback" />
                 
+                <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <LogIn className={`w-8 h-8 mx-auto mb-3 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
+                    <div className={`text-2xl font-black ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : ''}`}>
+                        {activity.avgEntryDiff || '-'}
+                    </div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Avg Entry Time</div>
+                </div>
+
                 <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                     <Clock className="w-8 h-8 mx-auto mb-3 text-slate-500" />
                     <div className="text-sm font-black leading-tight">{activity.lastActive ? fmtDate(activity.lastActive) : 'Never'}</div>

@@ -15,7 +15,7 @@ from .erp_views import (
     get_student_classes, get_ongoing_classes, get_upcoming_classes, get_previous_classes,
     get_student_portal_profile, get_student_portal_report,
     get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag,
-    sync_teachers_from_erp, get_admin_student_attendance
+    sync_teachers_from_erp, get_admin_student_attendance, get_teacher_classes
 )
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
 from .gemini_views import generate_ai_study_plan, get_college_intelligence, search_college_ai, extract_marksheet_data, get_student_ai_insights, student_ai_insights_chat, generate_chapter_test
@@ -61,6 +61,7 @@ urlpatterns = [
     path('student-portal/classes/previous/<str:studentId>', get_previous_classes),
     path('student-portal/profile/<str:studentId>', get_student_portal_profile),
     path('student-portal/report/<str:studentId>', get_student_portal_report),
+    path('teacher-portal/classes/', get_teacher_classes, name='teacher-classes'),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
     path('admin/student-activity-summary/<str:admission_number>/', get_admin_student_activity_summary, name='admin-student-activity-summary'),
     path('admin/student-activity-detail/<str:admission_number>/', get_admin_student_activity_detail, name='admin-student-activity-detail'),

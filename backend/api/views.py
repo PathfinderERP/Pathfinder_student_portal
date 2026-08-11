@@ -2196,6 +2196,34 @@ def get_admin_teacher_activity_summary(request, username):
     total_feedbacks = len(feedbacks)
     class_rating = sum(f['average_score'] for f in feedbacks) / total_feedbacks if total_feedbacks > 0 else 0.0
 
+    # Calculate Avg Entry Time Diff (Late/Early)
+    avg_entry_diff_str = "-"
+    feedback_times = ClassFeedback.objects.filter(teacher_id_q).values_list('start_time', 'entry_time')
+    
+    if feedback_times:
+        from dateutil.parser import parse
+        diffs = []
+        for s_time, entry_str in feedback_times:
+            if not s_time or not entry_str or entry_str == '--:--':
+                continue
+            try:
+                t_part = entry_str.split(',')[1].strip() if ',' in entry_str else entry_str.strip()
+                e_time = parse(t_part).time()
+                s_mins = s_time.hour * 60 + s_time.minute
+                e_mins = e_time.hour * 60 + e_time.minute + e_time.second / 60.0
+                diffs.append(e_mins - s_mins)
+            except Exception:
+                pass
+        
+        if diffs:
+            avg_diff = sum(diffs) / len(diffs)
+            if avg_diff > 0.5:
+                avg_entry_diff_str = f"{round(avg_diff, 1)}m Late"
+            elif avg_diff < -0.5:
+                avg_entry_diff_str = f"{round(abs(avg_diff), 1)}m Early"
+            else:
+                avg_entry_diff_str = "On Time"
+
     return response.Response({
         'loginCount': login_count,
         'lastActive': last_active,
@@ -2203,7 +2231,8 @@ def get_admin_teacher_activity_summary(request, username):
         'totalDoubts': total_doubts,
         'avgDoubtTime': avg_doubt_time_str,
         'classRating': round(class_rating, 1),
-        'totalFeedbacks': total_feedbacks
+        'totalFeedbacks': total_feedbacks,
+        'avgEntryDiff': avg_entry_diff_str
     }, status=200)
 
 
@@ -2274,6 +2303,10 @@ def get_admin_teacher_activity_detail(request, username):
             'date_of_class': format_dt(f.date_of_class),
             'start_time': format_dt(f.start_time),
             'end_time': format_dt(f.end_time),
+            'entry_time': f.entry_time or None,
+            'exit_time': f.exit_time or None,
+            'chapter_name': f.chapter_name or 'N/A',
+            'topics': f.topics or [],
             'average_score': f.average_score,
             'responses': f.responses,
             'student_name': f.student.username if f.student else 'Unknown',

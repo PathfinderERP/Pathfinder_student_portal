@@ -1408,3 +1408,28 @@ def get_admin_student_attendance(request, admission_number):
             
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_teacher_classes(request):
+    try:
+        erp_url = os.getenv('ERP_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+        admin_token = _get_erp_admin_token()
+        if admin_token:
+            teacher_email = request.user.email or request.user.username
+            resp = requests.get(
+                f"{erp_url}/api/teacher-portal/classes?email={teacher_email}",
+                headers={"Authorization": f"Bearer {admin_token}"},
+                timeout=15
+            )
+            
+            if resp.status_code == 200:
+                return Response(resp.json(), status=200)
+    except Exception as e:
+        debug_log(f"[TEACHER-CLASSES] Error fetching from ERP: {e}")
+        
+    data = {
+        "upcoming": [],
+        "previous": []
+    }
+    return Response(data, status=200)
