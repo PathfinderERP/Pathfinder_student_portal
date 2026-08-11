@@ -47,7 +47,7 @@ const getTimePendingColor = (assignDate, isDarkMode) => {
 
 const AssignDoubt = () => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, user } = useAuth();
     const [activeTab, setActiveTab] = useState('Unassigned');
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -394,11 +394,16 @@ const AssignDoubt = () => {
         }
     };
 
-    const handleRejectDoubt = async (doubtId) => {
+    const handleRejectDoubt = async (doubt) => {
+        const doubtId = typeof doubt === 'object' ? doubt.id : doubt;
+        const currentTeacher = typeof doubt === 'object' ? doubt.teacherName : null;
+        const rejectorName = currentTeacher || (user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Admin');
+
         try {
             const apiUrl = getApiUrl();
             await axios.patch(`${apiUrl}/api/doubts/${doubtId}/`, {
-                status: 'Rejected'
+                status: 'Rejected',
+                teacher_name: rejectorName
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -723,6 +728,7 @@ const AssignDoubt = () => {
                                         <th className="py-4 px-2 text-center">Centre</th>
                                         <th className="py-4 px-2 text-center">Exam Tag</th>
                                         <th className="py-4 px-2 text-center">Subject</th>
+                                        <th className="py-4 px-2 text-center">Rejected By</th>
                                         <th className="py-4 px-2 text-center">Show Doubt</th>
                                         <th className="py-4 px-2 text-center">Action</th>
                                     </>
@@ -927,6 +933,11 @@ const AssignDoubt = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
+                                                        {doubt.teacherName || 'Admin'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-2 text-center">
                                                     <button
                                                         onClick={() => handleShowDoubtClick(doubt)}
                                                         className="px-4 py-3 rounded-[5px] bg-blue-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
@@ -1010,7 +1021,7 @@ const AssignDoubt = () => {
                                                 </td>
                                                 <td className="py-4 px-2 text-center">
                                                     <button
-                                                        onClick={() => handleRejectDoubt(doubt.id)}
+                                                        onClick={() => handleRejectDoubt(doubt)}
                                                         className="px-4 py-3 rounded-[5px] bg-red-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
                                                         <X size={14} strokeWidth={3} />
                                                         <span>Reject</span>
@@ -1022,7 +1033,7 @@ const AssignDoubt = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={activeTab === 'Assign' ? 6 : activeTab === 'Solve' ? 7 : activeTab === 'Rejected' ? 5 : 10} className="py-20 text-center">
+                                    <td colSpan={activeTab === 'Assign' ? 6 : activeTab === 'Solve' ? 7 : activeTab === 'Rejected' ? 9 : 10} className="py-20 text-center">
                                         <div className="flex flex-col items-center justify-center gap-4 opacity-50">
                                             <AlertCircle size={48} className={isDarkMode ? 'text-slate-700' : 'text-slate-300'} />
                                             <p className="font-bold text-lg">No doubts found</p>

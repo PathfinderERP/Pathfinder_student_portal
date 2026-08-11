@@ -431,7 +431,6 @@ const SystemDashboard = () => {
             badge: unassignedDoubtCount > 0 ? unassignedDoubtCount : null,
             subItems: [
                 { id: 'assign_doubt', label: 'Assign Doubt', active: activeTab === 'Assign Doubt', onClick: () => setActiveTab('Assign Doubt') },
-                { id: 'solve_doubt', label: 'Solve Doubt', active: activeTab === 'Solve Doubt', onClick: () => setActiveTab('Solve Doubt') },
             ].filter(sub => hasPermission('doubt_mgmt', sub.id))
         },
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
