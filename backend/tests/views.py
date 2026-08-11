@@ -1164,9 +1164,9 @@ class TestViewSet(viewsets.ModelViewSet):
         force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
         
         if not centre_code:
-            return Response({'detail': 'centre_code is required'}, status=status.HTTP_400_BAD_REQUEST)
+            centre_code = 'all'
 
-        # 1. Fetch ALL relevant allotments and estable priority (Must match 'centres' action)
+        # 1. Fetch ALL relevant allotments and establish priority (Must match 'centres' action)
         all_allotments = list(test.centre_allotments.all().select_related('centre'))
         allotted_centre_ids = [str(a.centre_id) for a in all_allotments]
         
@@ -1201,7 +1201,7 @@ class TestViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 print(f"PyMongo error in submissions: {e}")
 
-        # Identitfy Extra Centres (same as centres action)
+        # Identify Extra Centres (same as centres action)
         extra_centres = []
         if all_subs_list:
             sub_c_codes = {d['c_code'] for d in all_subs_list if d['c_code']}
@@ -1215,7 +1215,8 @@ class TestViewSet(viewsets.ModelViewSet):
         
         # 3. Establish the requested target for filtering
         target_c_obj = None
-        if centre_code != 'N/A':
+        is_all_centres = centre_code.lower() == 'all'
+        if not is_all_centres and centre_code != 'N/A':
             target_c_obj = next((c for c in all_target_centres if str(c.code).lower() == centre_code.lower()), None)
             if not target_c_obj:
                 target_c_obj = Centre.objects.filter(code__iexact=centre_code).first()
@@ -1225,23 +1226,25 @@ class TestViewSet(viewsets.ModelViewSet):
         final_list = []
         
         # Tracking student submissions (for data enrichment)
-        # We also need a fast map for finalized status etc.
         sub_map = {str(s['pk']): s['doc'] for s in all_subs_list}
-
-        # PERFORMANCE FIX: Removed ERP index completely.
 
         # Step A: Assigned Submitted Students
         for sub in all_subs_list:
             assigned_c_pk = None
+            assigned_c_obj = None
             for c in all_target_centres:
                 if sub['c_code'] == str(c.code).lower().strip() or sub['c_name'] == str(c.name).lower().strip():
                     assigned_c_pk = str(c.pk)
+                    assigned_c_obj = c
                     break
             
             captured = False
-            if assigned_c_pk:
+            if is_all_centres:
+                captured = True
+            elif assigned_c_pk:
                 if target_c_obj and assigned_c_pk == str(target_c_obj.pk): captured = True
-            elif centre_code == 'N/A': captured = True
+            elif centre_code == 'N/A':
+                captured = True
             
             if captured:
                 u_obj = users_map.get(str(sub['pk']))
@@ -1249,30 +1252,31 @@ class TestViewSet(viewsets.ModelViewSet):
                 global_seen_uids.add(sub['uid'])
                 if sub['adm']: global_seen_uids.add(sub['adm'].upper().strip())
                 if sub['email']: global_seen_uids.add(sub['email'].lower().strip())
-                final_list.append((u_obj, False))
-
-        # PERFORMANCE FIX: Removed Step B (Local Students) and Step C (ERP Students).
-        # We now only return students who actually started or submitted the test.
+                final_list.append((u_obj, False, assigned_c_obj))
 
         # 5. Format and Enrich Final Response
         data = []
         for item in final_list:
-            s, is_mis = item if isinstance(item, tuple) else (item, False)
+            s = item[0] if isinstance(item, tuple) else item
+            c_info = item[2] if (isinstance(item, tuple) and len(item) > 2) else None
             if not s: continue
             
             uid_str = str(s['_id']) if s.get('_id') else None
             sub = sub_map.get(uid_str) if uid_str else None
             
-            # PERFORMANCE FIX: Removed ERP enrichment completely to prevent latency spikes.
-            # Using local student data which we already have in the database.
             enroll = str(s.get('admission_number') or 'ID MISSING').upper().strip()
             section = str(s.get('exam_section', '') or s.get('study_section', '') or '—').upper().strip()
             
+            c_name = c_info.name if c_info else (s.get('centre_name') or 'N/A')
+            c_code = c_info.code if c_info else (s.get('centre_code') or 'N/A')
+
             data.append({
                 'id': str(sub['_id']) if sub else None,
                 'student_id': uid_str,
                 'student_name': (f"{s.get('first_name', '')} {s.get('last_name', '')}".strip() or s.get('username', '')).upper(),
                 'username': s.get('username'), 'email': s.get('email'), 'enroll_number': enroll, 'section': section,
+                'centre_name': c_name,
+                'centre_code': c_code,
                 'score': sub.get('score') if sub else None,
                 'submission_type': sub.get('submission_type') if sub else None,
                 'time_spent': sub.get('time_spent', 0) if sub else 0,

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X, AlertTriangle, Edit3, CheckSquare } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X, AlertTriangle, Edit3, CheckSquare, Download, FileSpreadsheet } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const TestResponses = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
@@ -33,6 +34,97 @@ const TestResponses = ({ isOMR = false }) => {
     const [isDeletingFailed, setIsDeletingFailed] = useState(false);
     const [isRetrying, setIsRetrying] = useState(false);
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
+
+    // Export Modal & Data state
+    const [exportModal, setExportModal] = useState({ isOpen: false, preselectedCentreCode: 'all' });
+    const [exportCentreFilter, setExportCentreFilter] = useState('all');
+    const [exportStatusFilter, setExportStatusFilter] = useState('all');
+    const [isPreparingExport, setIsPreparingExport] = useState(false);
+
+    const handleOpenExportModal = (centreCode = 'all') => {
+        setExportCentreFilter(centreCode);
+        setExportModal({ isOpen: true, preselectedCentreCode: centreCode });
+    };
+
+    const handlePerformExport = async () => {
+        if (!selectedTest?.id) return;
+        setIsPreparingExport(true);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(`${apiUrl}/api/tests/${selectedTest.id}/submissions/?centre_code=${exportCentreFilter}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            let rawData = res.data.data || [];
+
+            // Filter by Status
+            if (exportStatusFilter === 'attempted') {
+                rawData = rawData.filter(s => (s.status || '').toLowerCase() !== 'available');
+            } else if (exportStatusFilter === 'in_progress') {
+                rawData = rawData.filter(s => (s.status || '').toLowerCase() === 'in progress');
+            } else if (exportStatusFilter === 'not_attempted') {
+                rawData = rawData.filter(s => (s.status || '').toLowerCase() === 'available');
+            }
+
+            if (rawData.length === 0) {
+                toast.error('No student records found matching the selected filter.');
+                setIsPreparingExport(false);
+                return;
+            }
+
+            // Generate Excel (.xlsx) file
+            const wb = XLSX.utils.book_new();
+
+            const formatRow = (s, index) => ({
+                'S.No': index + 1,
+                'Centre Name': s.centre_name || 'N/A',
+                'Centre Code': s.centre_code || 'N/A',
+                'Student Name': s.student_name,
+                'Enrollment Number': s.enroll_number,
+                'Username': s.username,
+                'Email': s.email || 'N/A',
+                'Section': s.section,
+                'Status': s.status,
+                'Score': s.score !== null && s.score !== undefined ? s.score : 'N/A',
+                'Submitted At': s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'N/A'
+            });
+
+            // Sheet 1: All Data
+            const allRows = rawData.map((s, idx) => formatRow(s, idx));
+            const wsAll = XLSX.utils.json_to_sheet(allRows);
+            XLSX.utils.book_append_sheet(wb, wsAll, 'All Student Data');
+
+            // Group by Centre for Centre-wise Sheets
+            const centreMap = {};
+            rawData.forEach(s => {
+                const cKey = s.centre_name || 'Other';
+                if (!centreMap[cKey]) centreMap[cKey] = [];
+                centreMap[cKey].push(s);
+            });
+
+            Object.keys(centreMap).forEach(cName => {
+                const cStudents = centreMap[cName];
+                const cRows = cStudents.map((s, idx) => formatRow(s, idx));
+                const safeSheetName = cName.replace(/[\/?*\[\]]/g, '_').substring(0, 31) || 'Centre';
+                const wsCentre = XLSX.utils.json_to_sheet(cRows);
+                try {
+                    XLSX.utils.book_append_sheet(wb, wsCentre, safeSheetName);
+                } catch (err) {
+                    const altName = safeSheetName.substring(0, 25) + '_' + Math.floor(Math.random() * 100);
+                    XLSX.utils.book_append_sheet(wb, wsCentre, altName);
+                }
+            });
+
+            const fileName = `${(selectedTest.name || 'Test').replace(/\s+/g, '_')}_Responses.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            toast.success('Excel workbook exported successfully!');
+            setExportModal({ isOpen: false, preselectedCentreCode: 'all' });
+        } catch (err) {
+            console.error('Export error:', err);
+            toast.error('Failed to export data');
+        } finally {
+            setIsPreparingExport(false);
+        }
+    };
 
     const fetchTests = async (forceRefresh = false, silent = false) => {
         const fetchKey = 'test-list';
@@ -838,12 +930,21 @@ const TestResponses = ({ isOMR = false }) => {
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => handleViewCentres(selectedTest)}
-                                className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
-                            >
-                                <RefreshCw size={20} className={isCentresLoading ? 'animate-spin' : ''} />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => handleOpenExportModal('all')}
+                                    className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 rounded-[5px] transition-all shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer"
+                                >
+                                    <Download size={14} />
+                                    EXPORT RESPONSES
+                                </button>
+                                <button
+                                    onClick={() => handleViewCentres(selectedTest)}
+                                    className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500'}`}
+                                >
+                                    <RefreshCw size={20} className={isCentresLoading ? 'animate-spin' : ''} />
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -890,6 +991,14 @@ const TestResponses = ({ isOMR = false }) => {
 
                                             <td className="py-5 px-6 text-right">
                                                 <div className="flex items-center justify-end gap-3">
+                                                    <button
+                                                        onClick={() => handleOpenExportModal(centre.centre_details?.code)}
+                                                        title="Export this centre data"
+                                                        className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-1.5 active:scale-95 cursor-pointer ${isDarkMode ? 'bg-white/5 border-white/10 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500/30' : 'bg-white border-slate-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300'}`}
+                                                    >
+                                                        <Download size={12} />
+                                                        Export
+                                                    </button>
                                                     <button
                                                         onClick={() => handleViewSubmissions(centre)}
                                                         className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95"
@@ -1401,6 +1510,90 @@ const TestResponses = ({ isOMR = false }) => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Export Options Modal */}
+            {exportModal.isOpen && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6 backdrop-blur-xl bg-black/60 animate-in fade-in zoom-in duration-300">
+                    <div className={`w-full max-w-lg rounded-[8px] shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-[#0F131A] border-white/10 text-white shadow-black/80' : 'bg-white border-slate-200 text-slate-800 shadow-slate-300/50'}`}>
+                        {/* Modal Header */}
+                        <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-100 bg-slate-50'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                    <FileSpreadsheet size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black uppercase tracking-tight">EXPORT CENTRE RESPONSES</h2>
+                                    <p className="text-xs font-bold opacity-50">Test: {selectedTest?.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setExportModal({ isOpen: false, preselectedCentreCode: 'all' })}
+                                className={`p-2 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-5">
+                            {/* 1. Target Centre Scope */}
+                            <div>
+                                <label className="text-[11px] font-black uppercase tracking-widest opacity-60 block mb-2">
+                                    1. Target Centre Scope
+                                </label>
+                                <select
+                                    value={exportCentreFilter}
+                                    onChange={(e) => setExportCentreFilter(e.target.value)}
+                                    className={`w-full px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all ${isDarkMode ? 'bg-[#10141D] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                                >
+                                    <option value="all">All Centres ({centres.length} centres)</option>
+                                    {centres.map(c => (
+                                        <option key={c.id || c.centre_details?.code} value={c.centre_details?.code}>
+                                            {c.centre_details?.name} ({c.centre_details?.code}) — {c.submission_count || 0} Attempted
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* 2. Student Status Filter */}
+                            <div>
+                                <label className="text-[11px] font-black uppercase tracking-widest opacity-60 block mb-2">
+                                    2. Student Status Filter
+                                </label>
+                                <select
+                                    value={exportStatusFilter}
+                                    onChange={(e) => setExportStatusFilter(e.target.value)}
+                                    className={`w-full px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all ${isDarkMode ? 'bg-[#10141D] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                                >
+                                    <option value="all">All Students (Attempted & Not Attempted)</option>
+                                    <option value="attempted">Attempted / Submitted Only</option>
+                                    <option value="in_progress">In Progress Only</option>
+                                    <option value="not_attempted">Not Attempted / Missed Only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className={`p-6 border-t flex justify-end gap-3 ${isDarkMode ? 'border-white/10 bg-white/5' : 'border-slate-100 bg-slate-50'}`}>
+                            <button
+                                onClick={() => setExportModal({ isOpen: false, preselectedCentreCode: 'all' })}
+                                disabled={isPreparingExport}
+                                className={`px-5 py-2.5 rounded-[5px] text-[10px] font-black uppercase tracking-widest border transition-all ${isDarkMode ? 'border-white/10 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handlePerformExport}
+                                disabled={isPreparingExport}
+                                className={`px-6 py-2.5 rounded-[5px] font-black text-[10px] uppercase tracking-widest text-white shadow-lg flex items-center gap-2 transition-all active:scale-95 cursor-pointer bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30 ${isPreparingExport ? 'opacity-70 pointer-events-none' : ''}`}
+                            >
+                                {isPreparingExport ? <RefreshCw size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />}
+                                {isPreparingExport ? 'Exporting Excel...' : 'Export Excel File (.xlsx)'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
