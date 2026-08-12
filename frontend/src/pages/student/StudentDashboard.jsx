@@ -29,6 +29,7 @@ import Scholarlab from './components/Scholarlab';
 import SocialFeed from './components/SocialFeed';
 import ChapterTest from './components/ChapterTest';
 import ChapterTestResults from './components/ChapterTestResults';
+import ReportCard from './components/ReportCard';
 import { useActivityTracker } from '../../services/useActivityTracker';
 
 import PortalLayout from '../../components/common/PortalLayout';
@@ -86,7 +87,7 @@ const StudentDashboard = () => {
             // Mapping check to ensure valid tab
             const validTabs = [
                 'Dashboard', 'My Profile', 'Classes', 'Attendance',
-                'Exams', 'Results', 'Performance', 'SWOT Analysis', 'Grievances', 'Doubts',
+                'Exams', 'Results', 'Performance', 'Report Card', 'SWOT Analysis', 'Grievances', 'Doubts',
                 'Study Materials', 'Study Planner', 'Notice Board'
             ];
             if (validTabs.includes(tab)) {
@@ -413,6 +414,7 @@ const StudentDashboard = () => {
             { name: 'Exams', icon: FileText },
             { name: 'Results', icon: Trophy },
             { name: 'Performance', icon: TrendingUp },
+            { name: 'Report Card', icon: GraduationCap },
             { name: 'SWOT Analysis', icon: Target },
             { name: 'Grievances', icon: AlertCircle },
             { name: 'Doubts', icon: HelpCircle },
@@ -545,6 +547,8 @@ const StudentDashboard = () => {
                 return <Results isDarkMode={isDarkMode} />;
             case 'Performance':
                 return <Performance isDarkMode={isDarkMode} />;
+            case 'Report Card':
+                return <ReportCard isDarkMode={isDarkMode} studentData={studentData} />;
             case 'Grievances':
                 return <Grievances isDarkMode={isDarkMode} />;
             case 'Doubts':
