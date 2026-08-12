@@ -205,7 +205,7 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
         const gradedAtt = attendance.filter(r => (r.attendanceStatus || r.status) === 'Present' || (r.attendanceStatus || r.status) === 'Absent');
         const presentCount = gradedAtt.filter(r => (r.attendanceStatus || r.status) === 'Present').length;
         const totalClasses = gradedAtt.length;
-        const attendanceRate = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 100;
+        const attendanceRate = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 0;
 
         // Subject Breakdown Aggregation
         const subjectMap = {};

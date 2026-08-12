@@ -1572,9 +1572,10 @@ class TestViewSet(viewsets.ModelViewSet):
                     ]
                     db['tests_omrfailedrecord'].insert_many(records_to_insert)
 
-            # Invalidate admin list cache so failed_omr_count is fresh on next fetch
+            # Invalidate admin list cache and my_results cache so results are fresh
             from django.core.cache import cache
             cache.delete('admin_test_list')
+            invalidate_my_results_cache()
             self.__class__._local_cache = {}
 
             failed_records_out = []
@@ -4183,13 +4184,108 @@ class TestViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 print(f"Error calculating sections for {test.name}: {e}")
 
+            calc_marks = sum(s['marks'] for s in section_stats) if section_stats else 0.0
+            user_marks = u_data['score'] if (u_data['score'] != 0 or not section_stats) else round(calc_marks, 2)
+            total_marks = test.total_marks if (test.total_marks and test.total_marks > 0) else (sum(s['total'] for s in section_stats) or 100)
+
+            # Accurate rank & percentile calculation among all finalized submissions for this test
+            try:
+                try: t_id_obj = ObjectId(test.pk)
+                except: t_id_obj = test.pk
+
+                all_test_subs = list(db['tests_testsubmission'].find(
+                    {'test_id': t_id_obj, 'is_finalized': True},
+                    {'student_id': 1, 'score': 1, 'responses': 1, 'time_spent': 1, 'submitted_at': 1, '_id': 1}
+                ))
+
+                # Check if any submissions in Mongo need score calculation (e.g. uncalculated OMR sheets)
+                uncalculated_docs = [d for d in all_test_subs if d.get('score') is None or float(d.get('score') or 0) == 0]
+                if uncalculated_docs and 'sections' in locals():
+                    # Batch score uncalculated documents once and update MongoDB
+                    for un_doc in uncalculated_docs:
+                        d_responses = un_doc.get('responses') or {}
+                        if isinstance(d_responses, str):
+                            import json
+                            try: d_responses = json.loads(d_responses)
+                            except: d_responses = {}
+                        if not isinstance(d_responses, dict):
+                            d_responses = {}
+
+                        d_score = 0.0
+                        for sec in sections:
+                            for q in sec.questions.all():
+                                c_marks = float(sec.correct_marks or 0)
+                                n_marks = float(sec.negative_marks or 0)
+                                qid = str(q.pk)
+                                r_item = d_responses.get(qid)
+                                if r_item is None:
+                                    try: r_item = d_responses.get(int(qid))
+                                    except: pass
+                                if r_item is not None:
+                                    ans = r_item.get('answer') if isinstance(r_item, dict) else r_item
+                                    if ans is not None:
+                                        is_corr = False
+                                        qtype = q.question_type or 'SINGLE_CHOICE'
+                                        if qtype == 'SINGLE_CHOICE':
+                                            ans_str = str(ans).strip().lower()
+                                            keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                                            for oi, opt in enumerate(q.question_options or []):
+                                                opt_id = str(opt.get('id', ''))
+                                                opt_label = keys[oi] if oi < len(keys) else None
+                                                if ans_str == opt_id or (opt_label and ans_str == opt_label):
+                                                    if opt.get('isCorrect'): is_corr = True
+                                                    break
+                                            if is_corr: d_score += c_marks
+                                            else: d_score -= n_marks
+                                        elif qtype in ('NUMERICAL', 'INTEGER_TYPE'):
+                                            try:
+                                                val = float(ans)
+                                                if float(q.answer_from) <= val <= float(q.answer_to): d_score += c_marks
+                                                else: d_score -= n_marks
+                                            except: d_score -= n_marks
+                        
+                        computed_sc = round(d_score, 2)
+                        un_doc['score'] = computed_sc
+                        try:
+                            db['tests_testsubmission'].update_one({'_id': un_doc['_id']}, {'$set': {'score': computed_sc}})
+                        except Exception: pass
+
+                # Build finalized sorted score table for exact rank matching
+                all_scores_list = []
+                for sub_item in all_test_subs:
+                    sc = float(sub_item.get('score') or 0)
+                    all_scores_list.append({
+                        'sid': str(sub_item.get('student_id')),
+                        'score': sc,
+                        'time_spent': int(sub_item.get('time_spent', 0)),
+                        'sub_id': str(sub_item['_id'])
+                    })
+
+                all_scores_list.sort(key=lambda d: (-d['score'], d['time_spent']))
+                
+                exact_rank = 1
+                for i, doc_item in enumerate(all_scores_list):
+                    if doc_item['sid'] == str(user.pk):
+                        exact_rank = i + 1
+                        break
+                rank = exact_rank
+
+                total_students = len(all_scores_list)
+                if total_students > 1:
+                    students_below = sum(1 for d in all_scores_list if d['score'] < user_marks)
+                    percentile = round((students_below / total_students) * 100, 2)
+                else:
+                    percentile = 100.0
+            except Exception as rank_err:
+                print(f"Rank calculation error for {test.name}: {rank_err}")
+
             results.append({
                 'id': tid,
                 'name': test.name,
                 'code': test.code,
                 'date': date_str,
-                'marks': round(u_data['score'], 2),
-                'total': test.total_marks if (test.total_marks and test.total_marks > 0) else (sum(s['total'] for s in section_stats) or 100),
+                'marks': user_marks,
+                'total': total_marks,
                 'rank': rank,
                 'percentile': percentile,
                 'section_stats': section_stats,
