@@ -17,6 +17,78 @@ const FEEDBACK_QUESTIONS = [
     "Is approachable and willing to clarify doubts outside of regular class time."
 ];
 
+const formatTimeDisplay = (timeVal) => {
+    if (!timeVal || timeVal === '--:--') return null;
+    let str = String(timeVal).trim();
+    if (!str || str === '--:--') return null;
+
+    if (str.includes(',')) {
+        str = str.split(',')[1]?.trim() || str;
+    }
+    if (str.includes('T')) {
+        try {
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            }
+        } catch (e) {}
+    }
+    return str;
+};
+
+const getMinuteFromMidnight = (timeStr) => {
+    if (!timeStr || timeStr === '--:--') return null;
+    let str = String(timeStr).trim();
+    if (!str || str === '--:--') return null;
+
+    if (str.includes(',')) {
+        str = str.split(',')[1]?.trim() || str;
+    }
+
+    if (str.includes('T')) {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            return d.getHours() * 60 + d.getMinutes();
+        }
+    }
+
+    const match12 = str.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)/i);
+    if (match12) {
+        let hrs = parseInt(match12[1], 10);
+        const mins = parseInt(match12[2], 10);
+        const ampm = match12[3].toUpperCase();
+        if (ampm === 'PM' && hrs < 12) hrs += 12;
+        if (ampm === 'AM' && hrs === 12) hrs = 0;
+        return hrs * 60 + mins;
+    }
+
+    const match24 = str.match(/^(\d{1,2}):(\d{2})/);
+    if (match24) {
+        const hrs = parseInt(match24[1], 10);
+        const mins = parseInt(match24[2], 10);
+        return hrs * 60 + mins;
+    }
+
+    return null;
+};
+
+const calculatePunctuality = (entryTimeStr, startTimeStr) => {
+    const entryMin = getMinuteFromMidnight(entryTimeStr);
+    const startMin = getMinuteFromMidnight(startTimeStr);
+
+    if (entryMin === null || startMin === null) return null;
+
+    const diff = entryMin - startMin; // positive = late, negative = early
+
+    if (diff > 1) {
+        return { label: `${Math.round(diff)}m Late`, status: 'late' };
+    } else if (diff < -1) {
+        return { label: `${Math.round(Math.abs(diff))}m Early`, status: 'early' };
+    } else {
+        return { label: 'On Time', status: 'ontime' };
+    }
+};
+
 const TeacherClasses = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
@@ -79,8 +151,8 @@ const TeacherClasses = () => {
                         subject: f.subject,
                         date: f.date_of_class,
                         batch: 'Multiple',
-                        entryTime: '--:--',
-                        exitTime: '--:--',
+                        entryTime: f.entry_time || f.start_time || '--:--',
+                        exitTime: f.exit_time || f.end_time || '--:--',
                         synthetic: true
                     });
                     prevKeys.add(key);
@@ -117,8 +189,16 @@ const TeacherClasses = () => {
                     subject: f.subject,
                     date_of_class: f.date_of_class,
                     feedbacks: [],
-                    average_score: 0
+                    average_score: 0,
+                    entry_time: f.entry_time || f.start_time || null,
+                    exit_time: f.exit_time || f.end_time || null
                 };
+            }
+            if (!groups[key].entry_time && (f.entry_time || f.start_time)) {
+                groups[key].entry_time = f.entry_time || f.start_time;
+            }
+            if (!groups[key].exit_time && (f.exit_time || f.end_time)) {
+                groups[key].exit_time = f.exit_time || f.end_time;
             }
             groups[key].feedbacks.push(f);
         });
@@ -421,6 +501,46 @@ const TeacherClasses = () => {
                                 const key = `${cls.subject}-${dateStr}`;
                                 const classFeedback = groupedFeedbacks[key];
 
+                                const rawEntry = (cls.entryTime && cls.entryTime !== '--:--') ? cls.entryTime :
+                                                 (cls.entry_time && cls.entry_time !== '--:--') ? cls.entry_time :
+                                                 (cls.actualStartTime && cls.actualStartTime !== '--:--') ? cls.actualStartTime :
+                                                 (cls.in_time && cls.in_time !== '--:--') ? cls.in_time :
+                                                 (cls.start_time && cls.start_time !== '--:--') ? cls.start_time :
+                                                 (cls.entry && cls.entry !== '--:--') ? cls.entry :
+                                                 classFeedback?.entry_time ||
+                                                 classFeedback?.feedbacks?.find(f => f.entry_time || f.start_time)?.entry_time ||
+                                                 classFeedback?.feedbacks?.find(f => f.entry_time || f.start_time)?.start_time;
+
+                                const rawExit = (cls.exitTime && cls.exitTime !== '--:--') ? cls.exitTime :
+                                                (cls.exit_time && cls.exit_time !== '--:--') ? cls.exit_time :
+                                                (cls.actualEndTime && cls.actualEndTime !== '--:--') ? cls.actualEndTime :
+                                                (cls.out_time && cls.out_time !== '--:--') ? cls.out_time :
+                                                (cls.end_time && cls.end_time !== '--:--') ? cls.end_time :
+                                                (cls.exit && cls.exit !== '--:--') ? cls.exit :
+                                                classFeedback?.exit_time ||
+                                                classFeedback?.feedbacks?.find(f => f.exit_time || f.end_time)?.exit_time ||
+                                                classFeedback?.feedbacks?.find(f => f.exit_time || f.end_time)?.end_time;
+
+                                const entryDisplay = formatTimeDisplay(rawEntry) || '--:--';
+                                const exitDisplay = formatTimeDisplay(rawExit) || '--:--';
+
+                                const rawStart = cls.startTime || cls.start_time || cls.scheduledStartTime || classFeedback?.start_time || classFeedback?.feedbacks?.find(f => f.start_time)?.start_time;
+                                const rawEnd = cls.endTime || cls.end_time || cls.scheduledEndTime || classFeedback?.end_time || classFeedback?.feedbacks?.find(f => f.end_time)?.end_time;
+
+                                let allottedDisplay = null;
+                                const startFormatted = formatTimeDisplay(rawStart);
+                                const endFormatted = formatTimeDisplay(rawEnd);
+
+                                if (startFormatted && endFormatted) {
+                                    allottedDisplay = `${startFormatted} - ${endFormatted}`;
+                                } else if (startFormatted) {
+                                    allottedDisplay = startFormatted;
+                                } else if (cls.time || cls.classTime || cls.scheduled_time) {
+                                    allottedDisplay = cls.time || cls.classTime || cls.scheduled_time;
+                                }
+
+                                const punctuality = calculatePunctuality(rawEntry, rawStart);
+
                                 return (
                                 <div key={cls.id || key} className={`rounded-xl border p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${isDarkMode ? 'bg-[#10141d]/80 border-gray-800 hover:border-gray-700' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
                                     <div className="flex items-center gap-4">
@@ -428,14 +548,31 @@ const TeacherClasses = () => {
                                             <Calendar size={24} />
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1">
                                                 <h3 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{cls.subject}</h3>
                                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                                                     {cls.batch}
                                                 </span>
+                                                {punctuality && (
+                                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                                        punctuality.status === 'late'
+                                                            ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-amber-100 text-amber-700 border border-amber-200')
+                                                            : punctuality.status === 'early'
+                                                                ? (isDarkMode ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-blue-100 text-blue-700 border border-blue-200')
+                                                                : (isDarkMode ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-700 border border-emerald-200')
+                                                    }`}>
+                                                        {punctuality.label}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                {new Date(cls.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                            <p className={`text-sm font-medium flex flex-wrap items-center gap-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                <span>{new Date(cls.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                                                {allottedDisplay && (
+                                                    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-slate-800/80 text-cyan-400' : 'bg-cyan-50 text-cyan-700 border border-cyan-100'}`}>
+                                                        <Clock size={12} />
+                                                        Allotted: {allottedDisplay}
+                                                    </span>
+                                                )}
                                             </p>
                                         </div>
                                     </div>
@@ -445,7 +582,7 @@ const TeacherClasses = () => {
                                             <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Entry</span>
                                             <div className={`flex items-center gap-1.5 text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>
                                                 <LogIn size={14} className="text-emerald-500" />
-                                                {cls.entryTime}
+                                                {entryDisplay}
                                             </div>
                                         </div>
                                         <div className={`w-px ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
@@ -453,7 +590,7 @@ const TeacherClasses = () => {
                                             <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Exit</span>
                                             <div className={`flex items-center gap-1.5 text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>
                                                 <LogOut size={14} className="text-rose-500" />
-                                                {cls.exitTime}
+                                                {exitDisplay}
                                             </div>
                                         </div>
                                     </div>

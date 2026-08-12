@@ -2078,7 +2078,11 @@ class ClassFeedbackViewSet(viewsets.ModelViewSet):
             return self.queryset
         elif user.user_type in ['teacher', 'faculty']:
             # Teachers only see feedback assigned to them
-            return self.queryset.filter(Q(teacher_id=str(user.pk)) | Q(teacher_name__icontains=user.first_name))
+            full_name = f"{user.first_name} {user.last_name}".strip()
+            q = Q(teacher_id=str(user.pk)) | Q(teacher_id=user.email) | Q(teacher_id=user.username)
+            if full_name:
+                q |= Q(teacher_name__iexact=full_name)
+            return self.queryset.filter(q)
         else:
             # Students can see their own feedback
             return self.queryset.filter(student=user)
