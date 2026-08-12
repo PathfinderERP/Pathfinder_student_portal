@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Calendar, Clock, LogIn, LogOut, MessageSquare, ChevronRight, BookOpen, AlertTriangle, Star, Search, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, LogIn, LogOut, MessageSquare, ChevronRight, BookOpen, AlertTriangle, Star, Search, RefreshCw, Users, Layers, Tag } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
@@ -95,6 +95,7 @@ const TeacherClasses = () => {
     
     // Main UI State
     const [activeTab, setActiveTab] = useState('upcoming');
+    const [assignmentSearch, setAssignmentSearch] = useState('');
     const [selectedFeedback, setSelectedFeedback] = useState(null);
     
     // Data State
@@ -140,17 +141,39 @@ const TeacherClasses = () => {
             // Merge feedbacks into previous classes to ensure no feedback is orphaned
             let prev = classesData.previous || [];
             const prevKeys = new Set(prev.map(c => `${c.subject}-${new Date(c.date).toLocaleDateString()}`));
+
+            // Group feedbacks by subject+date so we can collect real batch names
+            const feedbacksByKey = {};
+            feedbacksData.forEach(f => {
+                const dateStr = f.date_of_class ? new Date(f.date_of_class).toLocaleDateString() : 'Unknown Date';
+                const key = `${f.subject}-${dateStr}`;
+                if (!feedbacksByKey[key]) feedbacksByKey[key] = [];
+                feedbacksByKey[key].push(f);
+            });
             
             feedbacksData.forEach(f => {
                 const dateStr = f.date_of_class ? new Date(f.date_of_class).toLocaleDateString() : 'Unknown Date';
                 const key = `${f.subject}-${dateStr}`;
                 if (!prevKeys.has(key)) {
+                    // Collect unique real batch names from feedback student_batch values
+                    const batchesForClass = [
+                        ...new Set(
+                            (feedbacksByKey[key] || [])
+                                .map(fb => fb.student_batch)
+                                .filter(Boolean)
+                        )
+                    ];
+                    const batchLabel = batchesForClass.length > 0
+                        ? batchesForClass.join(', ')
+                        : 'Unknown';
+
                     // Class doesn't exist in ERP data, add it synthetically
                     prev.push({
                         id: `synthetic-${key}`,
                         subject: f.subject,
                         date: f.date_of_class,
-                        batch: 'Multiple',
+                        batch: batchLabel,
+                        _batches: batchesForClass,   // keep array for Assignment Map
                         entryTime: f.entry_time || f.start_time || '--:--',
                         exitTime: f.exit_time || f.end_time || '--:--',
                         synthetic: true
@@ -432,7 +455,7 @@ const TeacherClasses = () => {
             </div>
 
             {/* Custom Tabs */}
-            <div className={`flex items-center gap-1 p-1 rounded-xl w-full max-w-[280px] ${isDarkMode ? 'bg-[#1e293b]' : 'bg-slate-100'}`}>
+            <div className={`flex items-center gap-1 p-1 rounded-xl w-full max-w-[480px] ${isDarkMode ? 'bg-[#1e293b]' : 'bg-slate-100'}`}>
                 <button
                     onClick={() => setActiveTab('upcoming')}
                     className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
@@ -441,7 +464,7 @@ const TeacherClasses = () => {
                             : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800')
                     }`}
                 >
-                    Upcoming Classes
+                    Upcoming
                 </button>
                 <button
                     onClick={() => setActiveTab('previous')}
@@ -451,13 +474,31 @@ const TeacherClasses = () => {
                             : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800')
                     }`}
                 >
-                    Previous Classes
+                    Previous
+                </button>
+                <button
+                    onClick={() => setActiveTab('assignments')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                        activeTab === 'assignments'
+                            ? (isDarkMode ? 'bg-cyan-500/20 text-cyan-400 shadow-sm' : 'bg-white text-cyan-700 shadow-sm')
+                            : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800')
+                    }`}
+                >
+                    Class-Batch Map
                 </button>
             </div>
 
             {/* Tab Content */}
             <div className="mt-6">
-                {activeTab === 'upcoming' ? (
+                {activeTab === 'assignments' ? (
+                    <ClassBatchAssignments
+                        upcomingClasses={upcomingClasses}
+                        previousClasses={previousClasses}
+                        isDarkMode={isDarkMode}
+                        search={assignmentSearch}
+                        onSearchChange={setAssignmentSearch}
+                    />
+                ) : activeTab === 'upcoming' ? (
                     upcomingClasses.length === 0 ? (
                         <div className={`p-8 text-center rounded-xl border ${isDarkMode ? 'bg-[#10141d]/50 border-gray-800 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                             No upcoming classes scheduled.
@@ -633,6 +674,209 @@ const TeacherClasses = () => {
                     )
                 )}
             </div>
+        </div>
+    );
+};
+
+// ─── Class-Batch Assignment Component ─────────────────────────────────────────
+const ClassBatchAssignments = ({ upcomingClasses, previousClasses, isDarkMode, search, onSearchChange }) => {
+    // Build a map: subject → { batches: Set, schedule: [], totalClasses: number }
+    const assignments = useMemo(() => {
+        const map = {};
+
+        const processClass = (cls, type) => {
+            const subject = cls.subject || 'Unknown Subject';
+
+            if (!map[subject]) {
+                map[subject] = {
+                    subject,
+                    batches: new Set(),
+                    upcoming: [],
+                    previous: [],
+                };
+            }
+
+            // Prefer the _batches array (from synthetic classes with real data),
+            // otherwise split the batch string, but ignore the legacy "Multiple" placeholder.
+            const batchArr = Array.isArray(cls._batches) && cls._batches.length > 0
+                ? cls._batches
+                : (cls.batch && cls.batch !== 'Multiple')
+                    ? cls.batch.split(',').map(b => b.trim()).filter(Boolean)
+                    : [];
+
+            batchArr.forEach(b => map[subject].batches.add(b));
+
+            if (type === 'upcoming') {
+                map[subject].upcoming.push(cls);
+            } else {
+                map[subject].previous.push(cls);
+            }
+        };
+
+        upcomingClasses.forEach(c => processClass(c, 'upcoming'));
+        previousClasses.forEach(c => processClass(c, 'previous'));
+
+        return Object.values(map).sort((a, b) => a.subject.localeCompare(b.subject));
+    }, [upcomingClasses, previousClasses]);
+
+    const filtered = useMemo(() =>
+        assignments.filter(a =>
+            a.subject.toLowerCase().includes(search.toLowerCase()) ||
+            [...a.batches].some(b => b.toLowerCase().includes(search.toLowerCase()))
+        ),
+        [assignments, search]
+    );
+
+    const batchColors = [
+        { bg: isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-700' },
+        { bg: isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+        { bg: isDarkMode ? 'bg-violet-500/10 border-violet-500/20 text-violet-400' : 'bg-violet-50 border-violet-200 text-violet-700' },
+        { bg: isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+        { bg: isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700' },
+        { bg: isDarkMode ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-700' },
+    ];
+
+    return (
+        <div className="space-y-6">
+            {/* Header + Search */}
+            <div className={`rounded-2xl border p-5 flex flex-col md:flex-row md:items-center gap-4 ${
+                isDarkMode ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-500/5 border-cyan-500/20' : 'bg-gradient-to-r from-cyan-50 to-indigo-50 border-cyan-200'
+            }`}>
+                <div className="flex items-center gap-3 flex-1">
+                    <div className={`p-3 rounded-xl ${ isDarkMode ? 'bg-cyan-500/15 text-cyan-400' : 'bg-cyan-100 text-cyan-600' }`}>
+                        <Layers size={22} />
+                    </div>
+                    <div>
+                        <h2 className={`text-lg font-black ${ isDarkMode ? 'text-white' : 'text-slate-900' }`}>Class-Batch Assignment Map</h2>
+                        <p className={`text-sm ${ isDarkMode ? 'text-slate-400' : 'text-slate-500' }`}>
+                            {filtered.length} subject{filtered.length !== 1 ? 's' : ''} across {new Set(assignments.flatMap(a => [...a.batches])).size} batch{new Set(assignments.flatMap(a => [...a.batches])).size !== 1 ? 'es' : ''}
+                        </p>
+                    </div>
+                </div>
+                <div className="relative w-full md:w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Search subject or batch..."
+                        value={search}
+                        onChange={e => onSearchChange(e.target.value)}
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                            isDarkMode ? 'bg-[#1e293b] border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-slate-800'
+                        }`}
+                    />
+                </div>
+            </div>
+
+            {filtered.length === 0 ? (
+                <div className={`p-12 text-center rounded-xl border ${
+                    isDarkMode ? 'bg-[#10141d]/50 border-gray-800 text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                    <Layers size={40} className="mx-auto mb-3 opacity-30" />
+                    <p className="font-bold">No matching assignments found.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filtered.map((item, idx) => {
+                        const totalClasses = item.upcoming.length + item.previous.length;
+                        const batches = [...item.batches];
+
+                        return (
+                            <div
+                                key={item.subject}
+                                className={`rounded-2xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                                    isDarkMode
+                                        ? 'bg-[#10141d]/80 border-gray-800 hover:border-cyan-500/30 hover:shadow-cyan-500/5'
+                                        : 'bg-white border-slate-200 hover:border-cyan-200 hover:shadow-cyan-500/10'
+                                }`}
+                            >
+                                {/* Colored top accent */}
+                                <div className={`h-1 w-full ${
+                                    idx % 6 === 0 ? 'bg-gradient-to-r from-cyan-500 to-indigo-500' :
+                                    idx % 6 === 1 ? 'bg-gradient-to-r from-violet-500 to-purple-500' :
+                                    idx % 6 === 2 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' :
+                                    idx % 6 === 3 ? 'bg-gradient-to-r from-amber-500 to-orange-500' :
+                                    idx % 6 === 4 ? 'bg-gradient-to-r from-rose-500 to-pink-500' :
+                                                   'bg-gradient-to-r from-blue-500 to-cyan-500'
+                                }`} />
+
+                                <div className="p-5">
+                                    {/* Subject header */}
+                                    <div className="flex items-start justify-between gap-2 mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${
+                                                isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
+                                            }`}>
+                                                <BookOpen size={18} />
+                                            </div>
+                                            <h3 className={`text-base font-black ${ isDarkMode ? 'text-white' : 'text-slate-900' }`}>
+                                                {item.subject}
+                                            </h3>
+                                        </div>
+                                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest ${
+                                            isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {totalClasses} class{totalClasses !== 1 ? 'es' : ''}
+                                        </span>
+                                    </div>
+
+                                    {/* Batches */}
+                                    <div className="mb-4">
+                                        <div className={`flex items-center gap-1.5 mb-2`}>
+                                            <Tag size={11} className={isDarkMode ? 'text-slate-500' : 'text-slate-400'} />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${ isDarkMode ? 'text-slate-500' : 'text-slate-400' }`}>
+                                                Assigned Batches
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {batches.length === 0 ? (
+                                                <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                                                    isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
+                                                }`}>
+                                                    <Users size={10} />
+                                                    Batch data from ERP
+                                                </span>
+                                            ) : batches.map((batch, bi) => (
+                                                <span
+                                                    key={batch}
+                                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
+                                                        batchColors[bi % batchColors.length].bg
+                                                    }`}
+                                                >
+                                                    <Users size={10} />
+                                                    {batch}
+                                                </span>
+
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Stats row */}
+                                    <div className={`flex items-center gap-3 pt-3 border-t ${ isDarkMode ? 'border-gray-800' : 'border-slate-100' }`}>
+                                        {item.upcoming.length > 0 && (
+                                            <div className={`flex items-center gap-1.5 text-xs font-bold ${ isDarkMode ? 'text-emerald-400' : 'text-emerald-600' }`}>
+                                                <Clock size={12} />
+                                                <span>{item.upcoming.length} upcoming</span>
+                                            </div>
+                                        )}
+                                        {item.previous.length > 0 && (
+                                            <div className={`flex items-center gap-1.5 text-xs font-bold ${ isDarkMode ? 'text-slate-400' : 'text-slate-500' }`}>
+                                                <Calendar size={12} />
+                                                <span>{item.previous.length} past</span>
+                                            </div>
+                                        )}
+                                        {/* Next upcoming date */}
+                                        {item.upcoming.length > 0 && item.upcoming[0].date && (
+                                            <span className={`ml-auto text-[10px] font-bold ${ isDarkMode ? 'text-cyan-400' : 'text-cyan-600' }`}>
+                                                Next: {new Date(item.upcoming[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

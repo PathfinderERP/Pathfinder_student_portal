@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     LayoutDashboard, Users, Calendar, BookOpen,
     Bell, Settings, LogOut, CheckCircle, Clock,
@@ -30,7 +30,7 @@ const TeacherDashboard = () => {
     const [unsolvedCount, setUnsolvedCount] = useState(0);
     const [unseenFeedbackCount, setUnseenFeedbackCount] = useState(0);
 
-    const fetchUnsolvedCount = async () => {
+    const fetchUnsolvedCount = useCallback(async () => {
         try {
             const tokenVal = token || localStorage.getItem('auth_token');
             if (!tokenVal) return;
@@ -43,9 +43,9 @@ const TeacherDashboard = () => {
         } catch (err) {
             console.error(err);
         }
-    };
+    }, [token, getApiUrl]);
 
-    const fetchFeedbackCount = async () => {
+    const fetchFeedbackCount = useCallback(async () => {
         try {
             const tokenVal = token || localStorage.getItem('auth_token');
             if (!tokenVal) return;
@@ -64,7 +64,7 @@ const TeacherDashboard = () => {
         } catch (err) {
             console.error(err);
         }
-    };
+    }, [token, getApiUrl]);
 
     useEffect(() => {
         setTimeout(() => setIsLoading(false), 800);
@@ -75,15 +75,15 @@ const TeacherDashboard = () => {
             fetchFeedbackCount();
         }, 15000);
         return () => clearInterval(interval);
-    }, [token, getApiUrl]);
+    }, [fetchUnsolvedCount, fetchFeedbackCount]);
 
     // Refresh count when activeTab changes (e.g. teacher resolves a doubt)
     useEffect(() => {
         fetchUnsolvedCount();
         fetchFeedbackCount();
-    }, [activeTab]);
+    }, [activeTab, fetchUnsolvedCount, fetchFeedbackCount]);
 
-    const sidebarItems = [
+    const sidebarItems = React.useMemo(() => [
         {
             label: 'Overview',
             icon: LayoutDashboard,
@@ -103,44 +103,18 @@ const TeacherDashboard = () => {
             onClick: () => setActiveTab('Doubt Portal'),
             badge: unsolvedCount > 0 ? unsolvedCount : null
         }
-    ];
+    ], [activeTab, unsolvedCount]);
 
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'Overview':
-                return <TeacherOverview user={user} />;
-            case 'My Classes':
-                return <TeacherClasses />;
-            case 'Curriculum':
-                return <TeacherCurriculum />;
-            case 'Study Materials':
-                return <TeacherStudyMaterials />;
-            case 'Doubt Portal':
-                return <SolveDoubt />;
-            case 'Student Registry':
-                return <TeacherStudents />;
-            case 'Attendance':
-                return <TeacherAttendance />;
-            case 'Performance':
-                return <TeacherPerformance />;
-            case 'Profile':
-                return <TeacherProfile user={user} />;
-            case 'Notifications':
-                return <TeacherNotifications />;
-            case 'Settings':
-                return <TeacherSettings />;
-            default:
-                return (
-                    <div className={`flex flex-col items-center justify-center py-20 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                        <div className={`w-20 h-20 rounded-[5px] flex items-center justify-center mb-6 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>
-                            <Clock size={40} />
-                        </div>
-                        <h2 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Coming Soon</h2>
-                        <p className="text-slate-500 text-sm mt-2 font-black uppercase tracking-[0.2em]">Module: {activeTab}</p>
-                    </div>
-                );
-        }
-    };
+    const [visitedTabs, setVisitedTabs] = useState(new Set(['Overview']));
+
+    useEffect(() => {
+        setVisitedTabs(prev => {
+            if (prev.has(activeTab)) return prev;
+            const next = new Set(prev);
+            next.add(activeTab);
+            return next;
+        });
+    }, [activeTab]);
 
     if (isLoading) {
         return (
@@ -151,6 +125,12 @@ const TeacherDashboard = () => {
         );
     }
 
+    const knownTabs = [
+        'Overview', 'My Classes', 'Curriculum', 'Study Materials',
+        'Doubt Portal', 'Student Registry', 'Attendance', 'Performance',
+        'Profile', 'Notifications', 'Settings'
+    ];
+
     return (
         <PortalLayout
             sidebarItems={sidebarItems}
@@ -158,8 +138,71 @@ const TeacherDashboard = () => {
             subtitle={`Academic Portal • ${user?.role_label || 'User'} Console`}
             accentColor="cyan"
         >
-            <div className="animate-in fade-in duration-500">
-                {renderContent()}
+            <div className="animate-in fade-in duration-300">
+                {visitedTabs.has('Overview') && (
+                    <div className={activeTab === 'Overview' ? 'block' : 'hidden'}>
+                        <TeacherOverview user={user} />
+                    </div>
+                )}
+                {visitedTabs.has('My Classes') && (
+                    <div className={activeTab === 'My Classes' ? 'block' : 'hidden'}>
+                        <TeacherClasses />
+                    </div>
+                )}
+                {visitedTabs.has('Curriculum') && (
+                    <div className={activeTab === 'Curriculum' ? 'block' : 'hidden'}>
+                        <TeacherCurriculum />
+                    </div>
+                )}
+                {visitedTabs.has('Study Materials') && (
+                    <div className={activeTab === 'Study Materials' ? 'block' : 'hidden'}>
+                        <TeacherStudyMaterials />
+                    </div>
+                )}
+                {visitedTabs.has('Doubt Portal') && (
+                    <div className={activeTab === 'Doubt Portal' ? 'block' : 'hidden'}>
+                        <SolveDoubt />
+                    </div>
+                )}
+                {visitedTabs.has('Student Registry') && (
+                    <div className={activeTab === 'Student Registry' ? 'block' : 'hidden'}>
+                        <TeacherStudents />
+                    </div>
+                )}
+                {visitedTabs.has('Attendance') && (
+                    <div className={activeTab === 'Attendance' ? 'block' : 'hidden'}>
+                        <TeacherAttendance />
+                    </div>
+                )}
+                {visitedTabs.has('Performance') && (
+                    <div className={activeTab === 'Performance' ? 'block' : 'hidden'}>
+                        <TeacherPerformance />
+                    </div>
+                )}
+                {visitedTabs.has('Profile') && (
+                    <div className={activeTab === 'Profile' ? 'block' : 'hidden'}>
+                        <TeacherProfile user={user} />
+                    </div>
+                )}
+                {visitedTabs.has('Notifications') && (
+                    <div className={activeTab === 'Notifications' ? 'block' : 'hidden'}>
+                        <TeacherNotifications />
+                    </div>
+                )}
+                {visitedTabs.has('Settings') && (
+                    <div className={activeTab === 'Settings' ? 'block' : 'hidden'}>
+                        <TeacherSettings />
+                    </div>
+                )}
+                {!knownTabs.includes(activeTab) && (
+                    <div className={`flex flex-col items-center justify-center py-20 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className={`w-20 h-20 rounded-[5px] flex items-center justify-center mb-6 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>
+                            <Clock size={40} />
+                        </div>
+                        <h2 className={`text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Coming Soon</h2>
+                        <p className="text-slate-500 text-sm mt-2 font-black uppercase tracking-[0.2em]">Module: {activeTab}</p>
+                    </div>
+                )}
             </div>
         </PortalLayout>
     );
