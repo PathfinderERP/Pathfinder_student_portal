@@ -1,6 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Eye, CheckCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, User, Upload, FileText, Mic, Image, Send } from 'lucide-react';
+import { 
+    Search, Eye, CheckCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, User, 
+    Upload, FileText, Mic, Image, Send, LayoutGrid, List, Filter, Clock, CheckCircle2, 
+    Zap, HelpCircle, Sparkles, MessageSquare, Tag, Building2, BookOpen, Layers, ArrowRight
+} from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -22,55 +26,67 @@ const formatDuration = (start, end) => {
 };
 
 const getTimePendingColor = (assignDate, isDarkMode) => {
-    if (!assignDate) return isDarkMode ? 'text-slate-400 bg-white/5' : 'text-slate-600 bg-slate-100';
+    if (!assignDate) return isDarkMode ? 'text-slate-400 bg-white/5 border-white/10' : 'text-slate-600 bg-slate-100 border-slate-200';
     
     const diffHours = (new Date() - assignDate) / (1000 * 60 * 60);
     
-    if (diffHours < 6) return isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-500/10';
-    if (diffHours < 12) return isDarkMode ? 'text-yellow-400 bg-yellow-500/10' : 'text-yellow-600 bg-yellow-500/10';
-    if (diffHours < 24) return isDarkMode ? 'text-orange-400 bg-orange-500/10' : 'text-orange-600 bg-orange-500/10';
-    return isDarkMode ? 'text-red-400 bg-red-500/10' : 'text-red-600 bg-red-500/10';
+    if (diffHours < 6) return isDarkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    if (diffHours < 12) return isDarkMode ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-amber-700 bg-amber-50 border-amber-200';
+    if (diffHours < 24) return isDarkMode ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' : 'text-orange-700 bg-orange-50 border-orange-200';
+    return isDarkMode ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' : 'text-rose-700 bg-rose-50 border-rose-200';
 };
 
-const SolveDoubt = () => {
+const getSubjectBadgeColor = (subject) => {
+    const s = String(subject || '').toLowerCase();
+    if (s.includes('phy')) return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+    if (s.includes('che')) return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+    if (s.includes('math')) return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    if (s.includes('bio') || s.includes('bot') || s.includes('zoo')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+};
+
+const SolveDoubt = ({ accentColor }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token, user } = useAuth();
     const isTeacherRole = user?.role === 'teacher' || user?.user_type === 'teacher';
+    const isCyanTheme = accentColor === 'cyan' || isTeacherRole;
+    
     const [activeTab, setActiveTab] = useState('Unsolve');
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTeacherId, setSelectedTeacherId] = useState('ALL');
     const [teachers, setTeachers] = useState([]);
 
-    // Mock Doubts State
     const [doubts, setDoubts] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchDoubts = async () => {
+        setLoading(true);
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/doubts/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            // Map the data to the format expected by the table
+            
             const parseUTC = (str) => {
                 if (!str) return null;
                 return str.endsWith('Z') || str.includes('+') ? new Date(str) : new Date(str + 'Z');
             };
 
-            const mappedDoubts = response.data.map(d => ({
+            const mappedDoubts = (response.data || []).map(d => ({
                 id: d.id,
-                student: d.student_name,
+                student: d.student_name || 'Student',
                 studentId: d.student_id,
-                subject: d.subject,
-                chapter: d.chapter,
-                topic: d.topic,
+                subject: d.subject || 'General',
+                chapter: d.chapter || 'General',
+                topic: d.topic || '',
                 centre: d.centre_name || d.centre || 'N/A',
                 studentClass: d.student_class || d.class_name || d.class || 'N/A',
                 examTag: d.exam_tag || d.exam || 'N/A',
-                title: d.title,
+                title: d.title || 'Student Query',
                 date: d.created_at ? parseUTC(d.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
                 status: d.status,
-                description: d.description,
+                description: d.description || '',
                 image: d.image,
                 image2: d.image2,
                 image3: d.image3,
@@ -101,11 +117,10 @@ const SolveDoubt = () => {
         fetchDoubts();
     }, []);
 
-    // Show Doubt Modal State
+    // Modal States
     const [isShowDoubtModalOpen, setIsShowDoubtModalOpen] = useState(false);
     const [selectedDoubtForView, setSelectedDoubtForView] = useState(null);
 
-    // Solve Reply Modal State
     const [isSolveModalOpen, setIsSolveModalOpen] = useState(false);
     const [selectedDoubtForSolve, setSelectedDoubtForSolve] = useState(null);
     const [replyText, setReplyText] = useState('');
@@ -114,7 +129,6 @@ const SolveDoubt = () => {
     const [replyVoice, setReplyVoice] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Fetch ERP teachers for the dropdown
     useEffect(() => {
         if (isTeacherRole && user) {
             const tId = String(user.id || user.pk || user._id || '');
@@ -131,7 +145,7 @@ const SolveDoubt = () => {
                 const response = await axios.get(`${apiUrl}/api/admin/erp-teachers/`, {
                     headers: { 'Authorization': `Bearer ${activeToken}` }
                 });
-                setTeachers(response.data);
+                setTeachers(response.data || []);
             } catch (error) {
                 console.error("Failed to fetch ERP teachers:", error);
             }
@@ -144,16 +158,32 @@ const SolveDoubt = () => {
         : (selectedTeacherId === 'ALL' ? 'ALL TEACHERS' : (teachers.find(t => String(t.id) === String(selectedTeacherId))?.name || 'Select Teacher'));
 
     const tabs = [
-        { id: 'Unsolve', label: 'UNSOLVE DOUBTS' },
-        { id: 'Solve', label: 'SOLVE DOUBTS' }
+        { id: 'Unsolve', label: 'UNSOLVED DOUBTS' },
+        { id: 'Solve', label: 'RESOLVED DOUBTS' }
     ];
 
-    const filteredDoubts = doubts.filter(d =>
-        ((activeTab === 'Unsolve' && d.status === 'Assign') || (activeTab === 'Solve' && d.status === 'Resolved')) &&
-        (isTeacherRole || selectedTeacherId === 'ALL' || String(d.teacherId) === String(selectedTeacherId)) &&
-        (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            d.subject.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    // Filter Logic
+    const filteredDoubts = doubts.filter(d => {
+        const matchesTab = (activeTab === 'Unsolve' && (d.status === 'Assign' || d.status === 'Unassigned')) || 
+                           (activeTab === 'Solve' && d.status === 'Resolved');
+        const matchesTeacher = isTeacherRole || selectedTeacherId === 'ALL' || String(d.teacherId) === String(selectedTeacherId);
+        
+        const q = searchQuery.toLowerCase().trim();
+        const matchesSearch = !q || 
+            (d.student && d.student.toLowerCase().includes(q)) ||
+            (d.subject && d.subject.toLowerCase().includes(q)) ||
+            (d.title && d.title.toLowerCase().includes(q)) ||
+            (d.chapter && d.chapter.toLowerCase().includes(q)) ||
+            (d.centre && d.centre.toLowerCase().includes(q));
+
+        return matchesTab && matchesTeacher && matchesSearch;
+    });
+
+    // Analytics
+    const totalDoubtsCount = doubts.length;
+    const pendingCount = doubts.filter(d => d.status === 'Assign' || d.status === 'Unassigned').length;
+    const resolvedCount = doubts.filter(d => d.status === 'Resolved').length;
+    const resolutionRate = totalDoubtsCount > 0 ? Math.round((resolvedCount / totalDoubtsCount) * 100) : 0;
 
     const openSolveModal = (doubt) => {
         setSelectedDoubtForSolve(doubt);
@@ -200,514 +230,647 @@ const SolveDoubt = () => {
         setSelectedDoubtForView(null);
     };
 
+    const insertTemplateText = (tpl) => {
+        setReplyText(prev => prev ? `${prev}\n\n${tpl}` : tpl);
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 relative">
-            <div className={`p-8 rounded-[5px] border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
-                {/* Header & Teacher Selector */}
-                <div className="flex flex-col gap-8">
+            
+            {/* Top Analytics Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`p-6 rounded-2xl border shadow-xl backdrop-blur-xl transition-all duration-300 hover:translate-y-[-2px] ${
+                    isDarkMode ? 'bg-[#10141D]/90 border-white/10 shadow-black/40' : 'bg-white border-slate-200/80 shadow-slate-200/50'
+                }`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Total Assigned</span>
+                        <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                            <BookOpen size={18} />
+                        </div>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                        <h3 className="text-3xl font-black tracking-tight">{totalDoubtsCount}</h3>
+                        <span className="text-xs font-bold text-slate-400">queries</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-slate-400 mt-2">Overall total student doubts</p>
+                </div>
+
+                <div className={`p-6 rounded-2xl border shadow-xl backdrop-blur-xl transition-all duration-300 hover:translate-y-[-2px] ${
+                    isDarkMode ? 'bg-[#10141D]/90 border-white/10 shadow-black/40' : 'bg-white border-slate-200/80 shadow-slate-200/50'
+                }`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-amber-500">Action Needed</span>
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse">
+                            <Clock size={18} />
+                        </div>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                        <h3 className="text-3xl font-black tracking-tight text-amber-500">{pendingCount}</h3>
+                        <span className="text-xs font-bold text-amber-500/80">pending</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-slate-400 mt-2">Awaiting your resolution</p>
+                </div>
+
+                <div className={`p-6 rounded-2xl border shadow-xl backdrop-blur-xl transition-all duration-300 hover:translate-y-[-2px] ${
+                    isDarkMode ? 'bg-[#10141D]/90 border-white/10 shadow-black/40' : 'bg-white border-slate-200/80 shadow-slate-200/50'
+                }`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-emerald-500">Solved & Resolved</span>
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            <CheckCircle2 size={18} />
+                        </div>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                        <h3 className="text-3xl font-black tracking-tight text-emerald-500">{resolvedCount}</h3>
+                        <span className="text-xs font-bold text-emerald-500/80">completed</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-slate-400 mt-2">Successfully answered queries</p>
+                </div>
+
+                <div className={`p-6 rounded-2xl border shadow-xl backdrop-blur-xl transition-all duration-300 hover:translate-y-[-2px] ${
+                    isDarkMode ? 'bg-[#10141D]/90 border-white/10 shadow-black/40' : 'bg-white border-slate-200/80 shadow-slate-200/50'
+                }`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-purple-500">Resolution Rate</span>
+                        <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                            <Zap size={18} />
+                        </div>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                        <h3 className="text-3xl font-black tracking-tight text-purple-500">{resolutionRate}%</h3>
+                        <span className="text-xs font-bold text-slate-400">efficiency</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 mt-3 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${resolutionRate}%` }} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Container */}
+            <div className={`p-8 rounded-3xl border shadow-2xl transition-all ${isDarkMode ? 'bg-[#10141D] border-white/10' : 'bg-white border-slate-200 shadow-slate-200/40'}`}>
+                
+                {/* Header & Controls */}
+                <div className="flex flex-col gap-6">
+                    
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                         <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="px-3 py-1 bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-[5px] shadow-lg shadow-orange-500/20">
-                                    Faculty Portal
+                            <div className="flex items-center gap-3 mb-1.5">
+                                <span className={`px-3 py-1 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md ${isCyanTheme ? 'bg-cyan-500 shadow-cyan-500/20' : 'bg-orange-500 shadow-orange-500/20'}`}>
+                                    Faculty Hub
                                 </span>
-                                <h2 className="text-3xl font-black tracking-tight uppercase">
-                                    Solve <span className="text-orange-500">Doubts</span>
+                                <h2 className="text-2xl font-black tracking-tight uppercase">
+                                    Solve <span className={isCyanTheme ? 'text-cyan-500' : 'text-orange-500'}>Doubts</span>
                                 </h2>
                             </div>
-                            <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                View and resolve assigned student queries.
+                            <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Review, clarify, and resolve student doubts efficiently.
                             </p>
                         </div>
 
-                        {/* Teacher Selection UI */}
-                        {isTeacherRole ? (
-                            <div className="flex items-center gap-4 p-2 rounded-[5px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                                <div className="pr-4 pl-2 py-1">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Assigned Faculty</p>
-                                    <p className="text-sm font-black text-orange-500 uppercase tracking-tight">{selectedTeacherName}</p>
+                        {/* Teacher & Controls */}
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                            {isTeacherRole ? (
+                                <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                                    <User size={16} className={isCyanTheme ? 'text-cyan-500' : 'text-orange-500'} />
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Teacher</p>
+                                        <p className={`text-xs font-black uppercase ${isCyanTheme ? 'text-cyan-500' : 'text-orange-500'}`}>{selectedTeacherName}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-4 p-2 rounded-[5px] bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                                <div className="relative group min-w-[200px]">
-                                    <label className="absolute -top-7 left-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Teacher</label>
+                            ) : (
+                                <div className="relative min-w-[220px]">
                                     <select
                                         value={selectedTeacherId}
                                         onChange={(e) => setSelectedTeacherId(e.target.value)}
-                                        className={`w-full px-4 py-2.5 rounded-[5px] border-2 outline-none font-bold appearance-none transition-all ${isDarkMode
-                                            ? 'bg-slate-800 border-white/10 text-white focus:border-orange-500'
-                                            : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500'}`}
+                                        className={`w-full px-4 py-2.5 rounded-xl border outline-none font-bold text-xs appearance-none transition-all ${isDarkMode
+                                            ? `bg-slate-900 border-white/10 text-white ${isCyanTheme ? 'focus:border-cyan-500' : 'focus:border-orange-500'}`
+                                            : `bg-slate-50 border-slate-200 text-slate-800 ${isCyanTheme ? 'focus:border-cyan-500' : 'focus:border-orange-500'}`}`}
                                     >
                                         <option value="ALL">ALL TEACHERS</option>
                                         {teachers.map(t => (
                                             <option key={t.id} value={t.id}>{t.name}</option>
                                         ))}
-                                        {/* Fallback for mock if API fails */}
-                                        {teachers.length === 0 && <option value="1">Rohan Singh</option>}
                                     </select>
-                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
                                 </div>
-                                <div className="h-10 w-px bg-slate-200 dark:bg-white/10 mx-2" />
-                                <div className="pr-4">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Teacher Name</p>
-                                    <p className="text-sm font-black text-orange-500 uppercase tracking-tight">:{selectedTeacherName}</p>
-                                </div>
+                            )}
+
+                            {/* View Switcher */}
+                            <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-2 rounded-lg transition-all ${viewMode === 'grid' 
+                                        ? (isDarkMode ? 'bg-white/10 text-white shadow-md' : 'bg-white text-slate-900 shadow-md')
+                                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                                    title="Card Grid View"
+                                >
+                                    <LayoutGrid size={16} />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('table')}
+                                    className={`p-2 rounded-lg transition-all ${viewMode === 'table' 
+                                        ? (isDarkMode ? 'bg-white/10 text-white shadow-md' : 'bg-white text-slate-900 shadow-md')
+                                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                                    title="Table List View"
+                                >
+                                    <List size={16} />
+                                </button>
                             </div>
-                        )}
+
+                            <button
+                                onClick={fetchDoubts}
+                                className={`p-2.5 rounded-xl border transition-all ${isDarkMode 
+                                    ? 'bg-white/5 hover:bg-white/10 text-cyan-400 border-white/10' 
+                                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+                                title="Refresh Doubts"
+                            >
+                                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Navigation Tabs */}
-                    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-white/5 pb-1">
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`px-6 py-3 text-xs font-black uppercase tracking-widest rounded-[5px] transition-all relative
-                                    ${activeTab === tab.id
-                                        ? (isDarkMode ? 'text-orange-400 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-orange-500' : 'text-orange-600 after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-orange-600')
-                                        : (isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600')
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
+                        <div className="flex gap-2">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all relative ${
+                                        activeTab === tab.id
+                                            ? (isCyanTheme ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'bg-orange-500 text-white shadow-lg shadow-orange-500/25')
+                                            : (isDarkMode ? 'text-slate-400 hover:bg-white/5' : 'text-slate-600 hover:bg-slate-100')
                                     }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
+                                >
+                                    {tab.label}
+                                    <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded-full bg-white/20">
+                                        {tab.id === 'Unsolve' ? pendingCount : resolvedCount}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Search & Refresh */}
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                        <div className="relative group w-full md:w-96">
-                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={20} />
-                            <input
-                                type="text"
-                                placeholder="Search student or subject..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-14 pr-6 py-3 rounded-[5px] border-2 outline-none font-bold transition-all ${isDarkMode
-                                    ? 'bg-white/5 border-white/10 text-white focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
-                                    : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5'
-                                    }`}
-                            />
-                        </div>
-                        <button
-                            onClick={fetchDoubts}
-                            className={`p-3 rounded-[5px] transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-orange-400 border border-white/10' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100'}`}>
-                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-                        </button>
+                    {/* Search Input */}
+                    <div className="relative w-full">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search by student name, subject, topic, chapter, or question details..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className={`w-full pl-12 pr-10 py-3 rounded-xl border outline-none font-medium text-xs transition-all ${
+                                isDarkMode
+                                    ? 'bg-slate-900/80 border-white/10 text-white focus:border-cyan-500/50'
+                                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-500/50'
+                            }`}
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
-            </div>
 
-            {/* Table */}
-            <div className={`rounded-[5px] border shadow-2xl overflow-hidden transition-all ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-100 shadow-slate-200/40'}`}>
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[900px]">
-                        <thead>
-                            <tr className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-orange-50 text-orange-900/50'}`}>
-                                <th className="py-4 px-6 text-center">Doubt No.</th>
-                                <th className="py-4 px-6">Student Name</th>
-                                <th className="py-4 px-6">Class</th>
-                                <th className="py-4 px-6">Centre</th>
-                                <th className="py-4 px-6">Exam Tag</th>
-                                <th className="py-4 px-6">Subject</th>
-                                <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Status' : 'Solved Date'}</th>
-                                <th className="py-4 px-6 text-center">Assign Date</th>
-                                <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Time Pending' : 'Time Taken'}</th>
-                                <th className="py-4 px-6 text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {loading ? (
-                                Array(5).fill(0).map((_, i) => (
-                                    <tr key={i} className="animate-pulse">
-                                        <td className="py-4 px-6 text-center"><div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                        <td className="py-4 px-6">
-                                            <div className="flex flex-col gap-2">
-                                                <div className={`h-4 w-40 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                                <div className={`h-2.5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <div className={`h-5 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className={`h-4 w-20 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className={`h-4 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className={`h-4 w-16 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className="flex justify-center gap-2">
-                                                <div className={`h-9 w-9 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                                <div className={`h-9 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : filteredDoubts.length > 0 ? (
-                                filteredDoubts.map((doubt) => (
-                                    <tr key={doubt.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
-                                        <td className="py-4 px-6 text-center">
-                                            <span className={`text-sm font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                                {doubt.id}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
-                                                <span className={`text-[10px] font-black opacity-40 uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {doubt.studentId || 'N/A'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                                {doubt.studentClass}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                                {doubt.centre}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
-                                                {doubt.examTag}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            <span className={`px-3 py-1 rounded-[5px] text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                {/* Content Body */}
+                <div className="mt-8">
+                    {loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+                            {Array(6).fill(0).map((_, i) => (
+                                <div key={i} className={`h-64 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`} />
+                            ))}
+                        </div>
+                    ) : filteredDoubts.length === 0 ? (
+                        <div className="py-20 text-center flex flex-col items-center justify-center gap-4 opacity-40">
+                            <AlertCircle size={54} strokeWidth={1.5} />
+                            <div>
+                                <h3 className="text-lg font-bold">No Doubts Found</h3>
+                                <p className="text-xs font-medium">No {activeTab === 'Unsolve' ? 'unsolved' : 'resolved'} doubts match your criteria.</p>
+                            </div>
+                        </div>
+                    ) : viewMode === 'grid' ? (
+                        /* GRID CARDS VIEW */
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredDoubts.map(doubt => (
+                                <div 
+                                    key={doubt.id}
+                                    className={`group rounded-2xl border p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-2xl hover:translate-y-[-2px] ${
+                                        isDarkMode 
+                                            ? 'bg-slate-900/60 border-white/10 hover:border-cyan-500/40 shadow-black/40' 
+                                            : 'bg-white border-slate-200/80 hover:border-cyan-500/40 shadow-slate-200/50'
+                                    }`}
+                                >
+                                    <div>
+                                        {/* Card Top Badges */}
+                                        <div className="flex items-center justify-between mb-4 gap-2">
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${getSubjectBadgeColor(doubt.subject)}`}>
                                                 {doubt.subject}
                                             </span>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            {activeTab === 'Unsolve' ? (
-                                                <span className="text-xs font-black text-orange-500 uppercase tracking-widest">
-                                                    Pending
-                                                </span>
-                                            ) : (
-                                                <span className={`text-xs font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                                                    {doubt.solvedDate}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                {doubt.assignDate}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <span className={`text-xs font-black px-2.5 py-1 rounded-[5px] ${
+                                            
+                                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${
                                                 activeTab === 'Unsolve' 
                                                     ? getTimePendingColor(doubt.rawAssignDate, isDarkMode)
-                                                    : (isDarkMode ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-600 bg-emerald-50')
+                                                    : (isDarkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-700 bg-emerald-50 border-emerald-200')
                                             }`}>
-                                                {activeTab === 'Unsolve' ? formatDuration(doubt.rawAssignDate, new Date()) : formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}
+                                                {activeTab === 'Unsolve' 
+                                                    ? `⏱️ ${formatDuration(doubt.rawAssignDate, new Date())}`
+                                                    : `✓ Solved in ${formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}`}
                                             </span>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => handleShowDoubtClick(doubt)}
-                                                    className="p-2.5 rounded-[5px] bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-orange-500 hover:bg-orange-500/10 transition-all"
-                                                    title="View Doubt"
-                                                >
-                                                    <Eye size={18} />
-                                                </button>
-                                                {isTeacherRole && (
-                                                    activeTab === 'Unsolve' ? (
-                                                        <button
-                                                            onClick={() => openSolveModal(doubt)}
-                                                            className="px-4 py-2.5 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center gap-2"
-                                                        >
-                                                            <Send size={14} strokeWidth={3} />
-                                                            <span>Write Solution</span>
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => openSolveModal(doubt)}
-                                                            className="px-4 py-2.5 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center gap-2"
-                                                        >
-                                                            <Send size={14} strokeWidth={3} />
-                                                            <span>Edit Solution</span>
-                                                        </button>
-                                                    )
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={7} className="py-20 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-4 opacity-30">
-                                            <AlertCircle size={48} />
-                                            <p className="font-bold text-lg">No doubts found for this teacher</p>
                                         </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+
+                                        {/* Student Info */}
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-black flex items-center justify-center text-sm shadow-md">
+                                                {doubt.student.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-sm truncate tracking-tight uppercase">{doubt.student}</h4>
+                                                <div className="flex items-center gap-2 text-[10px] opacity-60 font-semibold">
+                                                    <span>{doubt.studentClass}</span>
+                                                    <span>•</span>
+                                                    <span className="truncate">{doubt.centre}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Question Title & Description */}
+                                        <div className="mb-4">
+                                            <h5 className="font-bold text-sm tracking-tight mb-1 text-slate-800 dark:text-slate-100 line-clamp-1">{doubt.title}</h5>
+                                            <p className="text-xs opacity-70 line-clamp-3 leading-relaxed font-medium italic">
+                                                "{doubt.description || 'No detailed description provided.'}"
+                                            </p>
+                                        </div>
+
+                                        {/* Attachments Indicators */}
+                                        <div className="flex flex-wrap items-center gap-2 mb-6 text-[10px] font-bold">
+                                            {(doubt.image || doubt.image2 || doubt.image3) && (
+                                                <span className="px-2 py-1 rounded-md bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 flex items-center gap-1">
+                                                    <Image size={12} /> Image attached
+                                                </span>
+                                            )}
+                                            {doubt.pdf && (
+                                                <span className="px-2 py-1 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 flex items-center gap-1">
+                                                    <FileText size={12} /> PDF
+                                                </span>
+                                            )}
+                                            {doubt.voice_note && (
+                                                <span className="px-2 py-1 rounded-md bg-purple-500/10 text-purple-500 border border-purple-500/20 flex items-center gap-1">
+                                                    <Mic size={12} /> Audio
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3">
+                                        <button
+                                            onClick={() => handleShowDoubtClick(doubt)}
+                                            className={`p-2.5 rounded-xl border transition-all ${
+                                                isDarkMode 
+                                                    ? 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10' 
+                                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                                            }`}
+                                            title="View Details"
+                                        >
+                                            <Eye size={16} />
+                                        </button>
+
+                                        {isTeacherRole && (
+                                            activeTab === 'Unsolve' ? (
+                                                <button
+                                                    onClick={() => openSolveModal(doubt)}
+                                                    className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Send size={14} />
+                                                    <span>Write Solution</span>
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => openSolveModal(doubt)}
+                                                    className={`flex-1 py-2.5 px-4 rounded-xl text-white font-black text-xs uppercase tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2 ${
+                                                        isCyanTheme ? 'bg-cyan-600 hover:bg-cyan-500 shadow-lg shadow-cyan-600/20' : 'bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-600/20'
+                                                    }`}
+                                                >
+                                                    <Send size={14} />
+                                                    <span>Edit Solution</span>
+                                                </button>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        /* TABLE LIST VIEW */
+                        <div className="overflow-x-auto custom-scrollbar rounded-2xl border border-slate-200 dark:border-white/10">
+                            <table className="w-full text-left border-collapse min-w-[900px]">
+                                <thead>
+                                    <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${
+                                        isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+                                    }`}>
+                                        <th className="py-4 px-6 text-center">Ref ID</th>
+                                        <th className="py-4 px-6">Student</th>
+                                        <th className="py-4 px-6">Subject & Chapter</th>
+                                        <th className="py-4 px-6">Centre</th>
+                                        <th className="py-4 px-6 text-center">Assign Date</th>
+                                        <th className="py-4 px-6 text-center">{activeTab === 'Unsolve' ? 'Pending Time' : 'Time Taken'}</th>
+                                        <th className="py-4 px-6 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                    {filteredDoubts.map(doubt => (
+                                        <tr key={doubt.id} className={`transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                                            <td className="py-4 px-6 text-center font-black text-xs text-slate-400">
+                                                #{doubt.id}
+                                            </td>
+                                            <td className="py-4 px-6">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm tracking-tight uppercase">{doubt.student}</span>
+                                                    <span className="text-[10px] opacity-50 font-semibold">{doubt.studentClass} • ID: {doubt.studentId || 'N/A'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-6">
+                                                <div className="flex flex-col">
+                                                    <span className={`text-xs font-black uppercase ${getSubjectBadgeColor(doubt.subject).split(' ')[1]}`}>{doubt.subject}</span>
+                                                    <span className="text-[11px] font-medium opacity-70 truncate max-w-[200px]">{doubt.chapter || 'General'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-6 text-xs font-bold opacity-80">
+                                                {doubt.centre}
+                                            </td>
+                                            <td className="py-4 px-6 text-center text-xs opacity-60 font-medium">
+                                                {doubt.assignDate || 'N/A'}
+                                            </td>
+                                            <td className="py-4 px-6 text-center">
+                                                <span className={`text-[11px] font-black px-2.5 py-1 rounded-lg border ${
+                                                    activeTab === 'Unsolve' 
+                                                        ? getTimePendingColor(doubt.rawAssignDate, isDarkMode)
+                                                        : (isDarkMode ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-emerald-700 bg-emerald-50 border-emerald-200')
+                                                }`}>
+                                                    {activeTab === 'Unsolve' ? formatDuration(doubt.rawAssignDate, new Date()) : formatDuration(doubt.rawAssignDate, doubt.rawSolvedDate)}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 px-6 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => handleShowDoubtClick(doubt)}
+                                                        className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-cyan-500/10 hover:text-cyan-500 transition-all"
+                                                        title="View Doubt"
+                                                    >
+                                                        <Eye size={16} />
+                                                    </button>
+                                                    {isTeacherRole && (
+                                                        <button
+                                                            onClick={() => openSolveModal(doubt)}
+                                                            className={`px-3 py-1.5 rounded-xl text-white font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 ${
+                                                                activeTab === 'Unsolve' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-cyan-600 hover:bg-cyan-500'
+                                                            }`}
+                                                        >
+                                                            <Send size={12} />
+                                                            <span>{activeTab === 'Unsolve' ? 'Solve' : 'Edit'}</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
-                {/* Footer status */}
-                <div className={`p-6 border-t flex items-center justify-between ${isDarkMode ? 'border-white/5 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
-                    <span className="text-xs font-bold opacity-50 uppercase tracking-widest">
-                        Total {activeTab === 'Unsolve' ? 'Pending' : 'Resolved'}: {filteredDoubts.length}
-                    </span>
-                    <div className="flex gap-2">
-                        <button className="p-2 rounded-lg hover:bg-black/5 opacity-30 cursor-not-allowed"><ChevronLeft size={16} /></button>
-                        <button className="p-2 rounded-lg hover:bg-black/5 opacity-30 cursor-not-allowed"><ChevronRight size={16} /></button>
-                    </div>
+                {/* Footer Count */}
+                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <span>Showing {filteredDoubts.length} of {doubts.length} doubts</span>
+                    <span>Role: {isTeacherRole ? 'Faculty' : 'Admin'} View</span>
                 </div>
             </div>
 
-            {/* Show Doubt Modal */}
+            {/* Show Doubt Details Modal */}
             {isShowDoubtModalOpen && selectedDoubtForView && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md overflow-y-auto py-12 animate-in fade-in duration-300">
-                    <div className="w-full max-w-3xl mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-8 py-6 bg-orange-600 text-white">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in duration-200">
+                    <div className={`w-full max-w-3xl rounded-3xl border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#0E131F] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+                        {/* Header */}
+                        <div className={`flex items-center justify-between px-8 py-5 text-white ${isCyanTheme ? 'bg-cyan-600' : 'bg-orange-600'}`}>
                             <div>
-                                <h3 className="text-xl font-black uppercase tracking-tight">Doubt Detail</h3>
-                                <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Ref ID: #{selectedDoubtForView.id}</p>
+                                <h3 className="text-lg font-black uppercase tracking-tight">Doubt Query #{selectedDoubtForView.id}</h3>
+                                <p className="text-xs font-bold opacity-80">{selectedDoubtForView.student} ({selectedDoubtForView.studentClass}) — {selectedDoubtForView.centre}</p>
                             </div>
-                            <button onClick={handleCloseModal} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                                <X size={24} strokeWidth={3} />
+                            <button onClick={handleCloseModal} className="p-2 hover:bg-white/20 rounded-full transition-all">
+                                <X size={20} strokeWidth={2.5} />
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className={`p-8 min-h-[300px] max-h-[80vh] overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#0d1119] text-slate-200' : 'bg-white text-slate-700'}`}>
-                            
-                            {/* Metadata Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                                <div className="space-y-1">
+                        {/* Body */}
+                        <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                            {/* Metadata */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-xs">
+                                <div>
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subject</p>
-                                    <p className="font-black text-xs uppercase text-orange-500">{selectedDoubtForView.subject}</p>
+                                    <p className="font-bold text-cyan-500 uppercase">{selectedDoubtForView.subject}</p>
                                 </div>
-                                <div className="space-y-1">
+                                <div>
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Chapter</p>
-                                    <p className="font-bold text-xs truncate">{selectedDoubtForView.chapter || 'General'}</p>
+                                    <p className="font-semibold truncate">{selectedDoubtForView.chapter || 'General'}</p>
                                 </div>
-                                <div className="space-y-1">
+                                <div>
                                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Topic</p>
-                                    <p className="font-bold text-xs truncate">{selectedDoubtForView.topic || 'General'}</p>
+                                    <p className="font-semibold truncate">{selectedDoubtForView.topic || 'General'}</p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Posted On</p>
-                                    <p className="font-bold text-[10px] opacity-60">{selectedDoubtForView.date}</p>
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Posted Date</p>
+                                    <p className="font-semibold opacity-80">{selectedDoubtForView.date}</p>
                                 </div>
                             </div>
 
-                            <div className="mb-8 p-5 rounded-[5px] border border-orange-500/10 bg-orange-500/5">
-                                <h4 className="text-sm font-black uppercase tracking-tight mb-3 text-orange-500">{selectedDoubtForView.title || 'Doubt Description'}</h4>
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium italic">
+                            {/* Query Box */}
+                            <div className={`p-6 rounded-2xl border ${isCyanTheme ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-orange-500/5 border-orange-500/20'}`}>
+                                <h4 className={`text-sm font-black uppercase tracking-tight mb-2 ${isCyanTheme ? 'text-cyan-500' : 'text-orange-500'}`}>
+                                    {selectedDoubtForView.title}
+                                </h4>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
                                     "{selectedDoubtForView.description}"
                                 </p>
                             </div>
 
-                            {/* Multimedia Attachments */}
-                            <div className="space-y-8">
-                                {/* Images Gallery */}
-                                {(selectedDoubtForView.image || selectedDoubtForView.image2 || selectedDoubtForView.image3) && (
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Image Attachments</p>
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                            {[selectedDoubtForView.image, selectedDoubtForView.image2, selectedDoubtForView.image3].map((img, i) => img && (
-                                                <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="group relative aspect-square rounded-[5px] overflow-hidden border border-white/10 hover:border-orange-500/50 transition-all shadow-lg">
-                                                    <img src={img} alt={`Attachment ${i+1}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Eye size={20} className="text-white" />
-                                                    </div>
-                                                </a>
-                                            ))}
-                                        </div>
+                            {/* Attachments Gallery */}
+                            {(selectedDoubtForView.image || selectedDoubtForView.image2 || selectedDoubtForView.image3) && (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Student Attached Images</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        {[selectedDoubtForView.image, selectedDoubtForView.image2, selectedDoubtForView.image3].map((img, i) => img && (
+                                            <a key={i} href={img} target="_blank" rel="noreferrer" className="group relative aspect-video rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                                                <img src={img} alt="Attachment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                    <Eye size={20} className="text-white" />
+                                                </div>
+                                            </a>
+                                        ))}
                                     </div>
-                                )}
-
-                                {/* PDF Attachment */}
-                                {selectedDoubtForView.pdf && (
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">PDF Attachment</p>
-                                        <a href={selectedDoubtForView.pdf} target="_blank" rel="noopener noreferrer" 
-                                            className="flex items-center gap-4 p-4 rounded-[5px] border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all group">
-                                            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black">PDF</div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold truncate">Study Material / Reference PDF</p>
-                                                <p className="text-[10px] opacity-50 font-medium">Click to open in new tab</p>
-                                            </div>
-                                            <Eye size={16} className="text-red-500 group-hover:translate-x-1 transition-transform" />
-                                        </a>
-                                    </div>
-                                )}
-
-                                {/* Voice Note */}
-                                {selectedDoubtForView.voice_note && (
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Voice Explanation</p>
-                                        <div className="p-4 rounded-[5px] border border-blue-500/20 bg-blue-500/5 space-y-3">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Audio Clip</span>
-                                            </div>
-                                            <audio controls className="w-full h-10 custom-audio-player">
-                                                <source src={selectedDoubtForView.voice_note} type="audio/mpeg" />
-                                                Your browser does not support the audio element.
-                                            </audio>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Student Identity Grid */}
-                            <div className={`mt-10 pt-6 border-t ${isDarkMode ? 'border-white/5' : 'border-slate-100'} grid grid-cols-2 gap-4`}>
-                                <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student</p>
-                                    <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.student}</p>
-                                    <p className={`text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ID: {selectedDoubtForView.studentId || 'N/A'}</p>
                                 </div>
-                                <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Subject</p>
-                                    <p className="font-bold text-sm tracking-tight">{selectedDoubtForView.subject}</p>
+                            )}
+
+                            {selectedDoubtForView.pdf && (
+                                <a href={selectedDoubtForView.pdf} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all font-bold text-xs">
+                                    <FileText size={18} />
+                                    <span>View Attached PDF Document</span>
+                                </a>
+                            )}
+
+                            {selectedDoubtForView.voice_note && (
+                                <div className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-2"><Mic size={14}/>Voice Explanation</p>
+                                    <audio controls className="w-full h-9">
+                                        <source src={selectedDoubtForView.voice_note} type="audio/mpeg" />
+                                    </audio>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Existing Solution if solved */}
+                            {selectedDoubtForView.status === 'Resolved' && selectedDoubtForView.teacherReply && (
+                                <div className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                                            <CheckCircle2 size={16} /> Teacher Solution Response
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-bold">{selectedDoubtForView.solvedDate}</span>
+                                    </div>
+                                    <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{selectedDoubtForView.teacherReply}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Solve Reply Modal */}
+            {/* Solve / Solution Composer Modal */}
             {isSolveModalOpen && selectedDoubtForSolve && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-md overflow-y-auto pt-24 pb-12">
-                    <div className="w-full max-w-4xl mx-4 rounded-[5px] shadow-2xl border border-white/10 overflow-hidden">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in duration-200">
+                    <div className={`w-full max-w-3xl rounded-3xl border shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#0E131F] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+                        
                         {/* Header */}
-                        <div className="flex items-center justify-between px-8 py-5 bg-emerald-600 text-white sticky top-0 z-10">
+                        <div className="flex items-center justify-between px-8 py-5 bg-emerald-600 text-white">
                             <div>
-                                <h3 className="text-lg font-black uppercase">Submit Solution</h3>
-                                <p className="text-[10px] opacity-70 uppercase tracking-widest">{selectedDoubtForSolve.subject} — {selectedDoubtForSolve.student}</p>
+                                <h3 className="text-lg font-black uppercase tracking-tight">Submit Doubt Solution</h3>
+                                <p className="text-xs font-bold opacity-80">{selectedDoubtForSolve.student} • {selectedDoubtForSolve.subject}</p>
                             </div>
-                            <button onClick={() => setIsSolveModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full"><X size={22} strokeWidth={3}/></button>
+                            <button onClick={() => setIsSolveModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-all">
+                                <X size={20} strokeWidth={2.5} />
+                            </button>
                         </div>
 
                         {/* Body */}
-                        <div className={`p-8 space-y-6 ${isDarkMode ? 'bg-[#0d1119] text-slate-200' : 'bg-white text-slate-700'}`}>
-
-                            {/* Original Doubt Summary */}
-                            <div className={`p-4 rounded-[5px] border text-sm ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Student's Question</p>
-                                <p className="font-bold text-orange-500">{selectedDoubtForSolve.title}</p>
-                                <p className="mt-1 opacity-70 text-xs">{selectedDoubtForSolve.description}</p>
-                                {/* Student's attached images */}
-                                {(selectedDoubtForSolve.image || selectedDoubtForSolve.image2 || selectedDoubtForSolve.image3) && (
-                                    <div className="flex gap-2 mt-3">
-                                        {[selectedDoubtForSolve.image, selectedDoubtForSolve.image2, selectedDoubtForSolve.image3].map((img, i) => img && (
-                                            <a key={i} href={img} target="_blank" rel="noreferrer" className="w-16 h-16 rounded overflow-hidden border border-white/10 flex-shrink-0">
-                                                <img src={img} alt="student attachment" className="w-full h-full object-cover" />
-                                            </a>
-                                        ))}
-                                    </div>
-                                )}
+                        <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                            
+                            {/* Question Summary */}
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-xs space-y-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student Question</span>
+                                <h5 className="font-bold text-cyan-500">{selectedDoubtForSolve.title}</h5>
+                                <p className="opacity-70 line-clamp-2">{selectedDoubtForSolve.description}</p>
                             </div>
 
-                             {/* Existing reply attachments preview */}
-                             {(selectedDoubtForSolve.replyImage || selectedDoubtForSolve.replyImage2 || selectedDoubtForSolve.replyImage3 || selectedDoubtForSolve.replyPdf || selectedDoubtForSolve.replyVoiceNote) && (
-                                 <div className={`p-4 rounded-[5px] border text-xs ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Current Solution Attachments</p>
-                                     <div className="flex flex-wrap gap-4 items-center">
-                                         {[selectedDoubtForSolve.replyImage, selectedDoubtForSolve.replyImage2, selectedDoubtForSolve.replyImage3].map((img, idx) => img && (
-                                             <a key={idx} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 rounded overflow-hidden border border-white/10 flex-shrink-0">
-                                                 <img src={img} alt={`Current Solution Image ${idx+1}`} className="w-full h-full object-cover" />
-                                             </a>
-                                         ))}
-                                         {selectedDoubtForSolve.replyPdf && (
-                                             <a href={selectedDoubtForSolve.replyPdf} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-[5px] border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-bold transition-all">
-                                                 Current PDF
-                                             </a>
-                                         )}
-                                         {selectedDoubtForSolve.replyVoiceNote && (
-                                             <a href={selectedDoubtForSolve.replyVoiceNote} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-[5px] border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-500 font-bold transition-all">
-                                                 Current Audio
-                                             </a>
-                                         )}
-                                     </div>
-                                     <p className="text-[9px] text-slate-500 mt-2 italic font-bold">Uploading new files below will overwrite the current files.</p>
-                                 </div>
-                             )}
+                            {/* Quick Solution Template Chips */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                    <Sparkles size={12} className="text-amber-400" /> Quick Response Templates
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    <button 
+                                        type="button"
+                                        onClick={() => insertTemplateText("📐 Key Formula:\n\nStep-by-step calculation:")}
+                                        className="px-3 py-1.5 rounded-lg border text-[11px] font-bold bg-white/5 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400 transition-all"
+                                    >
+                                        📐 Step-by-Step Formula
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => insertTemplateText("💡 Key Concept Clarification:\n\nRemember that:")}
+                                        className="px-3 py-1.5 rounded-lg border text-[11px] font-bold bg-white/5 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400 transition-all"
+                                    >
+                                        💡 Concept Clarification
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => insertTemplateText("📝 Solution Diagram / Image Attached below.")}
+                                        className="px-3 py-1.5 rounded-lg border text-[11px] font-bold bg-white/5 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400 transition-all"
+                                    >
+                                        📝 Diagram Reference
+                                    </button>
+                                </div>
+                            </div>
 
-                             {/* Text Reply */}
-                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Explanation *</label>
+                            {/* Solution Text Editor */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Detailed Solution Explanation *</label>
                                 <textarea
                                     rows={5}
                                     value={replyText}
                                     onChange={e => setReplyText(e.target.value)}
-                                    placeholder="Write your detailed solution here..."
-                                    className={`w-full px-4 py-3 rounded-[5px] border-2 outline-none font-medium text-sm resize-none transition-all ${isDarkMode
-                                        ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                        : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500'}`}
+                                    placeholder="Write your comprehensive solution explanation for the student..."
+                                    className={`w-full px-4 py-3 rounded-2xl border outline-none font-medium text-xs resize-none transition-all ${
+                                        isDarkMode
+                                            ? 'bg-slate-900 border-white/10 text-white focus:border-emerald-500'
+                                            : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500'
+                                    }`}
                                 />
                             </div>
 
-                            {/* Image Uploads */}
+                            {/* Image Attachments */}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Image size={14}/>Solution Images (max 3)</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                    <Image size={14}/> Solution Diagrams / Images (up to 3)
+                                </label>
                                 <div className="grid grid-cols-3 gap-3">
                                     {replyImages.map((file, i) => (
-                                        <label key={i} className={`relative aspect-square flex flex-col items-center justify-center gap-2 rounded-[5px] border-2 border-dashed cursor-pointer transition-all ${file ? 'border-emerald-500 bg-emerald-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
+                                        <label key={i} className={`relative aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
+                                            file ? 'border-emerald-500 bg-emerald-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')
+                                        }`}>
                                             <input type="file" accept="image/*" className="hidden" onChange={e => {
                                                 const updated = [...replyImages];
                                                 updated[i] = e.target.files[0] || null;
                                                 setReplyImages(updated);
                                             }}/>
                                             {file
-                                                ? <><img src={URL.createObjectURL(file)} alt="preview" className="absolute inset-0 w-full h-full object-cover rounded-[5px]"/><span className="absolute bottom-1 right-1 bg-emerald-500 text-white text-[9px] font-black rounded px-1">✓</span></>
-                                                : <><Upload size={20} className="opacity-30"/><span className="text-[9px] font-bold opacity-30">Image {i+1}</span></>}
+                                                ? <><img src={URL.createObjectURL(file)} alt="preview" className="absolute inset-0 w-full h-full object-cover rounded-2xl"/><span className="absolute bottom-1 right-1 bg-emerald-500 text-white text-[9px] font-black rounded px-1.5">✓</span></>
+                                                : <><Upload size={18} className="opacity-40"/><span className="text-[9px] font-bold opacity-40">Upload {i+1}</span></>}
                                         </label>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* PDF Upload */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14}/>PDF Solution</label>
-                                <label className={`flex items-center gap-4 p-4 rounded-[5px] border-2 border-dashed cursor-pointer transition-all ${replyPdf ? 'border-red-500 bg-red-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
-                                    <input type="file" accept=".pdf" className="hidden" onChange={e => setReplyPdf(e.target.files[0] || null)}/>
-                                    <div className="w-9 h-9 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs flex-shrink-0">PDF</div>
-                                    <span className="text-sm font-bold opacity-60">{replyPdf ? replyPdf.name : 'Attach a PDF document...'}</span>
-                                </label>
+                            {/* PDF & Audio Uploads */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14}/>Attach PDF Document</label>
+                                    <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${replyPdf ? 'border-red-500 bg-red-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
+                                        <input type="file" accept=".pdf" className="hidden" onChange={e => setReplyPdf(e.target.files[0] || null)}/>
+                                        <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs flex-shrink-0">PDF</div>
+                                        <span className="text-xs font-bold truncate opacity-70">{replyPdf ? replyPdf.name : 'Choose PDF file...'}</span>
+                                    </label>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Mic size={14}/>Attach Audio Explanation</label>
+                                    <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${replyVoice ? 'border-purple-500 bg-purple-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
+                                        <input type="file" accept="audio/*" className="hidden" onChange={e => setReplyVoice(e.target.files[0] || null)}/>
+                                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-500 flex-shrink-0"><Mic size={16}/></div>
+                                        <span className="text-xs font-bold truncate opacity-70">{replyVoice ? replyVoice.name : 'Choose audio file...'}</span>
+                                    </label>
+                                </div>
                             </div>
 
-                            {/* Voice Note Upload */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Mic size={14}/>Voice Note</label>
-                                <label className={`flex items-center gap-4 p-4 rounded-[5px] border-2 border-dashed cursor-pointer transition-all ${replyVoice ? 'border-blue-500 bg-blue-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
-                                    <input type="file" accept="audio/*" className="hidden" onChange={e => setReplyVoice(e.target.files[0] || null)}/>
-                                    <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500 flex-shrink-0"><Mic size={18}/></div>
-                                    <span className="text-sm font-bold opacity-60">{replyVoice ? replyVoice.name : 'Attach an audio explanation...'}</span>
-                                </label>
-                            </div>
-
-                            {/* Submit */}
+                            {/* Submit Button */}
                             <button
                                 onClick={handleSubmitSolution}
                                 disabled={submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice)}
-                                className={`w-full py-4 rounded-[5px] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
+                                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
                                     submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice)
-                                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                        : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xl shadow-emerald-600/20'}`}>
-                                {submitting ? <><RefreshCw size={16} className="animate-spin"/>Submitting...</> : <><Send size={16}/>Submit Solution</>}
+                                        ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'
+                                        : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-xl shadow-emerald-600/25'
+                                }`}
+                            >
+                                {submitting ? <><RefreshCw size={16} className="animate-spin"/>Submitting Solution...</> : <><Send size={16}/>Publish Solution</>}
                             </button>
                         </div>
                     </div>

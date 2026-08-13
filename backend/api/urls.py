@@ -13,12 +13,17 @@ from .views import (
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
     get_student_classes, get_ongoing_classes, get_upcoming_classes, get_previous_classes,
-    get_student_portal_profile, get_student_portal_report,
+    get_student_portal_profile, get_student_portal_report, get_teacher_portal_profile,
     get_all_centres_erp_data, get_all_teachers_erp_data, get_exam_tag,
     sync_teachers_from_erp, get_admin_student_attendance, get_teacher_classes
 )
 from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_simulation
 from .gemini_views import generate_ai_study_plan, get_college_intelligence, search_college_ai, extract_marksheet_data, get_student_ai_insights, student_ai_insights_chat, generate_chapter_test
+from .portal_requirements_views import (
+    teacher_attendance_view, batch_teacher_attendance_view, topper_rank_view,
+    mentorship_conversion_view, ptm_records_view, test_analysis_view,
+    referrals_collected_view, dc_stopped_view, teacher_training_view
+)
 
 router = DefaultRouter()
 router.register(r'files', FileViewSet)
@@ -61,6 +66,7 @@ urlpatterns = [
     path('student-portal/classes/previous/<str:studentId>', get_previous_classes),
     path('student-portal/profile/<str:studentId>', get_student_portal_profile),
     path('student-portal/report/<str:studentId>', get_student_portal_report),
+    path('teacher-portal/profile/', get_teacher_portal_profile, name='teacher-portal-profile'),
     path('teacher-portal/classes/', get_teacher_classes, name='teacher-classes'),
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
     path('admin/student-activity-summary/<str:admission_number>/', get_admin_student_activity_summary, name='admin-student-activity-summary'),
@@ -89,6 +95,16 @@ urlpatterns = [
     path('student/curriculum-progress/', get_student_curriculum_progress, name='curriculum-progress'),
     path('student/swot-analysis/', get_swot_analysis, name='swot-analysis'),
     path('examTag/<str:tagId>/', get_exam_tag, name='exam-tag'),
+    # Requirement & Progress Report endpoints
+    path('teacher-portal/attendance/', teacher_attendance_view, name='teacher-portal-attendance'),
+    path('teacher-portal/batch-attendance/', batch_teacher_attendance_view, name='teacher-portal-batch-attendance'),
+    path('rank-produce/', topper_rank_view, name='rank-produce'),
+    path('mentorship-conversion/', mentorship_conversion_view, name='mentorship-conversion'),
+    path('ptm-records/', ptm_records_view, name='ptm-records'),
+    path('test-analysis/', test_analysis_view, name='test-analysis'),
+    path('referrals/', referrals_collected_view, name='referrals-collected'),
+    path('dc-stopped/', dc_stopped_view, name='dc-stopped'),
+    path('teacher-training/', teacher_training_view, name='teacher-training'),
     path('admin/temp-cleanup/', include([
         path('grievances/', 
              __import__('api.views', fromlist=['temporary_cleanup_view']).temporary_cleanup_view),

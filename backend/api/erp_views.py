@@ -702,27 +702,21 @@ def get_all_centres_erp_data(request):
         print(f"[ERP ERROR] get_all_centres_erp_data: {e}")
         return Response([], status=200)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_all_teachers_erp_data(request):
+
+def _get_all_teachers_data_list(force_refresh=False):
     CACHE_KEY = 'erp_all_teachers_v6'
-    debug_log(f"--- Request at {request.path} ---")
     
-    # Serve from cache unless forced refresh requested
-    force_refresh = request.GET.get('refresh') in ['true', '1', 'True']
     if not force_refresh:
         cached = cache.get(CACHE_KEY)
-        if cached is not None:
-            debug_log(f"Serving {len(cached)} teachers from cache.")
-            return Response(cached, status=200)
+        if isinstance(cached, list) and len(cached) > 0:
+            return cached
 
     try:
         erp_url = _get_erp_url()
         erp_token = _get_erp_admin_token()
         
         if not erp_token:
-            debug_log("Admin token unavailable")
-            return Response([], status=200)
+            return []
 
         # 1. Fetch from Student Portal Teachers list
         teacher_list = []
@@ -732,7 +726,6 @@ def get_all_teachers_erp_data(request):
             if t_resp.status_code == 200:
                 data = t_resp.json()
                 teacher_list = data if isinstance(data, list) else (data.get('teachers') or data.get('data') or [])
-                debug_log(f"Fetched {len(teacher_list)} from student-portal/teachers")
         except Exception as e:
             debug_log(f"Error fetching teachers list: {e}")
 
@@ -748,150 +741,136 @@ def get_all_teachers_erp_data(request):
                     uid = (emp.get('user', {}) or {}).get('_id')
                     if uid:
                         emp_lookup[str(uid)] = emp
-                debug_log(f"Fetched {len(e_list)} from hr/employee, mapped {len(emp_lookup)} IDs")
         except Exception as e:
             debug_log(f"Error fetching employee list: {e}")
 
-        # Use whichever list we got, prioritizing teacher_list if both available
         raw_list = teacher_list if teacher_list else []
-        # If teacher_list is empty, maybe try e_list filtered by role?
-        # But for now, let's just stick to merging if teacher_list exists.
+        final_data = []
+        
+        def _safe_str(val):
+            if not val: return ""
+            if isinstance(val, dict):
+                return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
+            return str(val)
 
-        if len(raw_list) == 0 and teacher_list is None: # Fallback if first failed
-             # (This part is handled by the teacher_list check above)
-             pass
+        for item in raw_list:
+            try:
+                user_meta = item.get('user_meta') or item.get('user') or {}
+                if not isinstance(user_meta, dict): user_meta = {}
+                
+                academic = item.get('academicInfo', {}) or {}
+                emp_type = academic.get('employmentType', '')
+                
+                hr_data = emp_lookup.get(str(item.get('_id'))) or {}
+                emp_id_from_hr = hr_data.get('employeeId')
+                
+                emp_id = (
+                    emp_id_from_hr or
+                    item.get('employeeId') or 
+                    item.get('employee_id') or 
+                    item.get('id') or
+                    item.get('empId') or
+                    item.get('emp_id') or
+                    item.get('code') or
+                    item.get('staffId') or
+                    item.get('teacherId') or
+                    item.get('facultyId') or
+                    item.get('admissionNumber') or
+                    item.get('admission_number') or
+                    item.get('regNo') or
+                    item.get('username') or 
+                    item.get('userName') or 
+                    user_meta.get('username') or 
+                    user_meta.get('userName') or 
+                    user_meta.get('userId') or 
+                    academic.get('employeeId') or
+                    academic.get('employee_id') or
+                    academic.get('empId')
+                )
 
-        if len(raw_list) > 0:
-            final_data = []
-            
-            def _safe_str(val):
-                if not val: return ""
-                if isinstance(val, dict):
-                    return val.get('name') or val.get('centreName') or val.get('departmentName') or str(val)
-                return str(val)
-
-            for item in raw_list:
-                try:
-                    # Meta info extraction
-                    user_meta = item.get('user_meta') or item.get('user') or {}
-                    if not isinstance(user_meta, dict): user_meta = {}
-                    
-                    academic = item.get('academicInfo', {}) or {}
-                    gender = academic.get('gender', '')
-                    emp_type = academic.get('employmentType', '')
-                    
-                    # Merge HR data
-                    hr_data = emp_lookup.get(str(item.get('_id'))) or {}
-                    emp_id_from_hr = hr_data.get('employeeId')
-                    
-                    # Comprehensive ID search
-                    emp_id = (
-                        emp_id_from_hr or
-                        item.get('employeeId') or 
-                        item.get('employee_id') or 
-                        item.get('id') or
-                        item.get('empId') or
-                        item.get('emp_id') or
-                        item.get('code') or
-                        item.get('staffId') or
-                        item.get('teacherId') or
-                        item.get('facultyId') or
-                        item.get('admissionNumber') or
-                        item.get('admission_number') or
-                        item.get('regNo') or
-                        item.get('username') or 
-                        item.get('userName') or 
-                        user_meta.get('username') or 
-                        user_meta.get('userName') or 
-                        user_meta.get('userId') or 
-                        academic.get('employeeId') or
-                        academic.get('employee_id') or
-                        academic.get('empId')
-                    )
-
-                    # Scan for EMP pattern if still no ID
-                    if not emp_id:
-                        for k, v in item.items():
+                if not emp_id:
+                    for k, v in item.items():
+                        if isinstance(v, str) and v.strip().upper().startswith('EMP'):
+                            emp_id = v.strip(); break
+                    if not emp_id and isinstance(user_meta, dict):
+                        for k, v in user_meta.items():
                             if isinstance(v, str) and v.strip().upper().startswith('EMP'):
                                 emp_id = v.strip(); break
-                        if not emp_id and isinstance(user_meta, dict):
-                            for k, v in user_meta.items():
-                                if isinstance(v, str) and v.strip().upper().startswith('EMP'):
-                                    emp_id = v.strip(); break
 
-                    if not emp_id:
-                        emp_id = (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')
+                if not emp_id:
+                    emp_id = (str(item.get('_id'))[-6:].upper() if item.get('_id') else 'N/A')
 
-                    # Mapping other fields
-                    name = item.get('name') or item.get('teacherName') or user_meta.get('name') or 'Unknown'
-                    
-                    # HR data takes precedence for structural info
-                    hr_dept = hr_data.get('department')
-                    hr_dept_name = hr_dept.get('departmentName') if isinstance(hr_dept, dict) else hr_dept
-                    hr_desig = hr_data.get('designation')
-                    hr_desig_name = hr_desig.get('name') if isinstance(hr_desig, dict) else hr_desig
-                    
-                    subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or 'General')
-                    dept = _safe_str(hr_dept_name or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
-                    desig = _safe_str(hr_desig_name or user_meta.get('designation') or item.get('designation') or 'Faculty')
-                    
-                    raw_centres = item.get('centres') or user_meta.get('centres') or []
-                    if not raw_centres and item.get('primaryCentre'):
-                        raw_centres = [item.get('primaryCentre')]
-                    centres = [_safe_str(c) for c in raw_centres]
-                    
-                    t_type = _safe_str(item.get('typeOfEmployment') or item.get('teacherType') or user_meta.get('teacherType') or emp_type or 'Full-Time')
+                name = item.get('name') or item.get('teacherName') or user_meta.get('name') or 'Unknown'
+                
+                hr_dept = hr_data.get('department')
+                hr_dept_name = hr_dept.get('departmentName') if isinstance(hr_dept, dict) else hr_dept
+                hr_desig = hr_data.get('designation')
+                hr_desig_name = hr_desig.get('name') if isinstance(hr_desig, dict) else hr_desig
+                
+                subject = _safe_str(user_meta.get('subject') or item.get('subject') or user_meta.get('teacherDepartment') or item.get('department') or 'General')
+                dept = _safe_str(hr_dept_name or user_meta.get('teacherDepartment') or item.get('department') or item.get('teacherDepartment') or 'Academic')
+                desig = _safe_str(hr_desig_name or user_meta.get('designation') or item.get('designation') or 'Faculty')
+                
+                raw_centres = item.get('centres') or user_meta.get('centres') or []
+                if not raw_centres and item.get('primaryCentre'):
+                    raw_centres = [item.get('primaryCentre')]
+                centres = [_safe_str(c) for c in raw_centres]
+                
+                t_type = _safe_str(item.get('typeOfEmployment') or item.get('teacherType') or user_meta.get('teacherType') or emp_type or 'Full-Time')
 
-                    # Calculate active status
-                    is_active = True
-                    hr_status = hr_data.get('status')
-                    if hr_status and str(hr_status).lower() == 'inactive':
-                        is_active = False
-                    elif hr_data.get('deactivatedAt'):
-                        is_active = False
-                    elif isinstance(hr_data.get('user'), dict) and hr_data['user'].get('deactivatedAt'):
-                        is_active = False
-                    elif user_meta.get('deactivatedAt'):
-                        is_active = False
+                is_active = True
+                hr_status = hr_data.get('status')
+                if hr_status and str(hr_status).lower() == 'inactive':
+                    is_active = False
+                elif hr_data.get('deactivatedAt'):
+                    is_active = False
+                elif isinstance(hr_data.get('user'), dict) and hr_data['user'].get('deactivatedAt'):
+                    is_active = False
+                elif user_meta.get('deactivatedAt'):
+                    is_active = False
 
-                    final_data.append({
-                        'id': str(item.get('_id') or item.get('id') or ''),
-                        'name': _safe_str(name),
-                        'email': str(item.get('email') or user_meta.get('email') or '').strip().lower(),
-                        'phone': str(item.get('mobNum') or item.get('phoneNumber') or item.get('mobileNum') or ''),
-                        'subject': subject,
-                        'subject_name': subject,
-                        'code': str(emp_id),
-                        'qualification': t_type,
-                        'teacherType': t_type,
-                        'centres': centres,
-                        'teacherDepartment': dept,
-                        'isActive': is_active,
-                        'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
-                        'designation': desig,
-                        'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
-                        'isBoardHod': bool(item.get('isBoardHod') or user_meta.get('isBoardHod')),
-                        'isSubjectHod': bool(item.get('isSubjectHod') or user_meta.get('isSubjectHod')),
-                        'academicInfo': {
-                            'joiningDate': _safe_str(item.get('dateOfJoining') or academic.get('joiningDate')),
-                            'employmentType': _safe_str(item.get('typeOfEmployment') or academic.get('employmentType')),
-                            'gender': _safe_str(item.get('gender') or academic.get('gender'))
-                        }
-                    })
-                except Exception as e_item:
-                    debug_log(f"Error mapping item: {e_item}")
+                final_data.append({
+                    'id': str(item.get('_id') or item.get('id') or ''),
+                    'name': _safe_str(name),
+                    'email': str(item.get('email') or user_meta.get('email') or '').strip().lower(),
+                    'phone': str(item.get('mobNum') or item.get('phoneNumber') or item.get('mobileNum') or ''),
+                    'subject': subject,
+                    'subject_name': subject,
+                    'code': str(emp_id),
+                    'employee_id': str(emp_id),
+                    'qualification': t_type,
+                    'teacherType': t_type,
+                    'centres': centres,
+                    'teacherDepartment': dept,
+                    'isActive': is_active,
+                    'boardType': _safe_str(item.get('boardType') or user_meta.get('boardType') or 'NEET/JEE'),
+                    'designation': desig,
+                    'isDeptHod': bool(item.get('isDeptHod') or user_meta.get('isDeptHod')),
+                    'isBoardHod': bool(item.get('isBoardHod') or user_meta.get('isBoardHod')),
+                    'isSubjectHod': bool(item.get('isSubjectHod') or user_meta.get('isSubjectHod')),
+                    'academicInfo': {
+                        'joiningDate': _safe_str(item.get('dateOfJoining') or academic.get('joiningDate')),
+                        'employmentType': _safe_str(item.get('typeOfEmployment') or academic.get('employmentType')),
+                        'gender': _safe_str(item.get('gender') or academic.get('gender'))
+                    }
+                })
+            except Exception as e_item:
+                debug_log(f"Error mapping item: {e_item}")
 
-            debug_log(f"Successfully parsed {len(final_data)} teacher records")
-            # Cache for 24 hours
-            cache.set(CACHE_KEY, final_data, 86400)
-            return Response(final_data, status=200)
-
-        debug_log("All endpoints failed or no response")
-        return Response([], status=200)
+        cache.set(CACHE_KEY, final_data, 86400)
+        return final_data
 
     except Exception as e:
         debug_log(f"OUTER EXCEPTION: {e}")
-        return Response([], status=200)
+        return []
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_teachers_erp_data(request):
+    force_refresh = request.GET.get('refresh') in ['true', '1', 'True']
+    data = _get_all_teachers_data_list(force_refresh=force_refresh)
+    return Response(data, status=200)
 
 
 def _fetch_erp_student_id(user):
@@ -1433,3 +1412,121 @@ def get_teacher_classes(request):
         "previous": []
     }
     return Response(data, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_teacher_portal_profile(request):
+    """
+    Returns full ERP teacher profile for the currently logged-in teacher.
+    Matches by email, username, or employee_id against ERP teacher list.
+    """
+    user = request.user
+    user_email = (getattr(user, 'email', '') or getattr(user, 'username', '') or '').strip().lower()
+    emp_id = (getattr(user, 'employee_id', '') or '').strip().lower()
+    
+    all_teachers = []
+    try:
+        all_teachers = _get_all_teachers_data_list()
+    except Exception as e:
+        debug_log(f"[TEACHER-PROFILE] ERP fetch error: {e}")
+
+    matched = None
+    if all_teachers:
+        for t in all_teachers:
+            code = str(t.get('code') or t.get('employeeId') or t.get('employee_id') or '').strip().lower()
+            t_email = str(t.get('email') or (t.get('user', {}) or {}).get('email') or '').strip().lower()
+            if emp_id and code == emp_id:
+                matched = t; break
+            if user_email and t_email == user_email:
+                matched = t; break
+            if user.username and (code == user.username.lower() or t_email == user.username.lower()):
+                matched = t; break
+
+    raw_centres = []
+    if matched:
+        c_val = matched.get('centres') or (matched.get('user', {}) or {}).get('centres') or []
+        if isinstance(c_val, list):
+            for item in c_val:
+                if isinstance(item, dict):
+                    name = item.get('centreName') or item.get('name') or item.get('centre_name')
+                    if name: raw_centres.append(str(name).strip())
+                elif isinstance(item, str) and item.strip():
+                    raw_centres.append(item.strip())
+        elif isinstance(c_val, str) and c_val.strip():
+            raw_centres.append(c_val.strip())
+
+    if not raw_centres and getattr(user, 'centre_name', None):
+        raw_centres = [c.strip() for c in user.centre_name.split(',') if c.strip()]
+
+    def _clean_str(val):
+        if not val: return ''
+        if isinstance(val, list):
+            return ", ".join([str(x).strip("[]'\" ") for x in val if x])
+        val_str = str(val).strip()
+        if val_str.startswith('[') and val_str.endswith(']'):
+            try:
+                import ast
+                parsed = ast.literal_eval(val_str)
+                if isinstance(parsed, list):
+                    return ", ".join([str(x).strip("[]'\" ") for x in parsed if x])
+            except:
+                pass
+        return val_str.strip("[]'\" ")
+
+    dept_val = _clean_str(matched.get('teacherDepartment') if matched else getattr(user, 'teacherDepartment', None)) or 'ACADEMIC'
+    subj_val = _clean_str(matched.get('subject') if matched else getattr(user, 'department', None)) or 'PHYSICS'
+    desig_val = _clean_str(matched.get('designation') if matched else None) or 'TEACHER'
+    board_val = _clean_str(matched.get('boardType') if matched else None) or 'NEET/JEE'
+    type_val = _clean_str(matched.get('teacherType') or matched.get('qualification') if matched else None) or 'FULL TIME'
+
+    academic_info = matched.get('academicInfo', {}) if matched else {}
+    joining_date = academic_info.get('joiningDate') or '2026-01-10T00:00:00.000Z'
+    gender = academic_info.get('gender') or 'Male'
+
+    raw_batches = []
+    if matched:
+        b_val = matched.get('batches') or matched.get('assignedBatches') or matched.get('assigned_batch') or matched.get('batch')
+        if isinstance(b_val, list):
+            for item in b_val:
+                if isinstance(item, dict):
+                    bname = item.get('batchName') or item.get('name') or item.get('code')
+                    if bname: raw_batches.append(str(bname).strip())
+                elif isinstance(item, str) and item.strip():
+                    raw_batches.append(item.strip())
+        elif isinstance(b_val, str) and b_val.strip():
+            raw_batches = [b.strip() for b in b_val.split(',') if b.strip()]
+
+    if not raw_batches and getattr(user, 'assigned_batch', None):
+        raw_batches = [b.strip() for b in user.assigned_batch.split(',') if b.strip()]
+
+    profile = {
+        'id': str(user.pk),
+        'name': f"{user.first_name} {user.last_name}".strip() or (matched.get('name') if matched else user.username),
+        'first_name': user.first_name or (matched.get('name', '').split(' ')[0] if matched and matched.get('name') else 'Teacher'),
+        'last_name': user.last_name or (' '.join(matched.get('name', '').split(' ')[1:]) if matched and matched.get('name') else ''),
+        'email': user.email or user.username,
+        'phone': matched.get('mobNum') if matched else getattr(user, 'phone', ''),
+        'code': getattr(user, 'employee_id', '') or (matched.get('code') if matched else 'N/A'),
+        'employee_id': getattr(user, 'employee_id', '') or (matched.get('code') if matched else 'N/A'),
+        'teacherDepartment': dept_val.upper(),
+        'subject': subj_val.upper(),
+        'teacherType': type_val.upper(),
+        'boardType': board_val.upper(),
+        'designation': desig_val.upper(),
+        'isDeptHod': bool(matched.get('isDeptHod')) if matched else False,
+        'isBoardHod': bool(matched.get('isBoardHod')) if matched else False,
+        'isSubjectHod': bool(matched.get('isSubjectHod')) if matched else False,
+        'centres': raw_centres,
+        'centre_name': ", ".join(raw_centres) if raw_centres else (getattr(user, 'centre_name', '') or ''),
+        'batches': raw_batches,
+        'assigned_batch': ", ".join(raw_batches) if raw_batches else (getattr(user, 'assigned_batch', '') or ''),
+        'academicInfo': {
+            'joiningDate': joining_date,
+            'gender': gender,
+            'employmentType': type_val
+        }
+    }
+
+    return Response({"status": "success", "profile": profile}, status=status.HTTP_200_OK)
+

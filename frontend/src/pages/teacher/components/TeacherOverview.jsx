@@ -49,22 +49,29 @@ const getClassStatus = (cls) => {
     return 'TODAY';
 };
 
-const getTeacherCentre = (user, feedbacks = [], upcomingClasses = []) => {
+const getTeacherCentre = (user, feedbacks = [], upcomingClasses = [], teacherProfile = null) => {
+    const centresArr = (teacherProfile?.centres && Array.isArray(teacherProfile.centres) && teacherProfile.centres.length > 0)
+        ? teacherProfile.centres
+        : (user?.centres && Array.isArray(user.centres) && user.centres.length > 0)
+            ? user.centres
+            : null;
+
+    if (centresArr && centresArr.length > 0) {
+        const cleaned = centresArr.map(c => {
+            if (typeof c === 'string') return c.trim();
+            if (typeof c === 'object' && c !== null) return c.centreName || c.name || c.centre_name || c.code;
+            return '';
+        }).filter(Boolean);
+        if (cleaned.length > 0) return cleaned.join(', ');
+    }
+
+    if (teacherProfile?.centre_name) return teacherProfile.centre_name;
     if (user?.centre_name) return user.centre_name;
     if (user?.centreName) return user.centreName;
     if (typeof user?.centre === 'string' && user.centre) return user.centre;
     if (typeof user?.centre === 'object' && user?.centre) {
         const val = user.centre.centreName || user.centre.name || user.centre.centre_name;
         if (val) return val;
-    }
-
-    if (Array.isArray(user?.centres) && user.centres.length > 0) {
-        const first = user.centres[0];
-        if (typeof first === 'string' && first.trim()) return first;
-        if (typeof first === 'object' && first !== null) {
-            const val = first.centreName || first.name || first.centre_name || first.centreCode || first.code;
-            if (val) return val;
-        }
     }
 
     if (user?.centre_code) return user.centre_code;
@@ -89,6 +96,7 @@ const TeacherOverview = ({ user }) => {
     const [upcomingClasses, setUpcomingClasses] = useState([]);
     const [feedbacks, setFeedbacks] = useState([]);
     const [doubts, setDoubts] = useState([]);
+    const [teacherProfile, setTeacherProfile] = useState(null);
     const [activityStats, setActivityStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
@@ -107,10 +115,11 @@ const TeacherOverview = ({ user }) => {
         const apiUrl = getApiUrl();
         const h = { 'Authorization': `Bearer ${tokenVal}` };
         try {
-            const [cRes, fRes, dRes] = await Promise.allSettled([
+            const [cRes, fRes, dRes, pRes] = await Promise.allSettled([
                 fetch(`${apiUrl}/api/teacher-portal/classes/`, { headers: h }),
                 fetch(`${apiUrl}/api/class-feedback/`, { headers: h }),
                 fetch(`${apiUrl}/api/doubts/`, { headers: h }),
+                fetch(`${apiUrl}/api/teacher-portal/profile/`, { headers: h }),
             ]);
             if (cRes.status === 'fulfilled' && cRes.value.ok) {
                 const d = await cRes.value.json();
@@ -123,6 +132,10 @@ const TeacherOverview = ({ user }) => {
             if (dRes.status === 'fulfilled' && dRes.value.ok) {
                 const d = await dRes.value.json();
                 setDoubts(Array.isArray(d) ? d : []);
+            }
+            if (pRes.status === 'fulfilled' && pRes.value.ok) {
+                const d = await pRes.value.json();
+                if (d?.profile) setTeacherProfile(d.profile);
             }
             if (user?.username) {
                 const sRes = await fetch(`${apiUrl}/api/admin/teacher-activity-summary/${user.username}/`, { headers: h });
@@ -184,8 +197,8 @@ const TeacherOverview = ({ user }) => {
     }, [feedbacks]);
 
     const teacherCentre = useMemo(() => {
-        return getTeacherCentre(user, feedbacks, upcomingClasses);
-    }, [user, feedbacks, upcomingClasses]);
+        return getTeacherCentre(user, feedbacks, upcomingClasses, teacherProfile);
+    }, [user, feedbacks, upcomingClasses, teacherProfile]);
 
     const T = useMemo(() => ({
         card: isDarkMode ? 'bg-[#0F172A] border-slate-800' : 'bg-white border-slate-200',
@@ -403,13 +416,13 @@ const SchedItem = React.memo(({ time, dateLabel, subject, batch, status, T, isDa
     );
 });
 
-const PItem = React.memo(({ icon, l, v, T }) => (
-    <div className={`flex items-center justify-between gap-4 py-2 border-b ${T.border} last:border-0 font-mono`}>
-        <div className="flex items-center gap-2">
+const PItem = React.memo(({ icon, l, v, T, title }) => (
+    <div className={`flex items-center justify-between gap-4 py-2 border-b ${T.border} last:border-0 font-mono`} title={title || (typeof v === 'string' ? v : '')}>
+        <div className="flex items-center gap-2 shrink-0">
             <span className="text-cyan-500">{icon}</span>
             <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{l}</span>
         </div>
-        <span className={`text-xs font-bold ${T.text} truncate max-w-[150px] uppercase opacity-90`}>{v}</span>
+        <span className={`text-xs font-bold ${T.text} truncate max-w-[180px] uppercase opacity-90 text-right`}>{v}</span>
     </div>
 ));
 

@@ -1,26 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    LayoutDashboard, Users, Calendar, BookOpen,
+    LayoutDashboard, Users, Calendar,
     Bell, Settings, LogOut, CheckCircle, Clock,
-    FileText, User, ClipboardList, BookMarked, Star
+    FileText, User, ClipboardList, BookMarked, Star,
+    Trophy, ArrowRightLeft, UserCheck, BarChart2, Gift, UserX, GraduationCap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import PortalLayout from '../../components/common/PortalLayout';
 
-// Sub-components
+// Standard Sub-components
 import SolveDoubt from '../../system/doubt/SolveDoubt';
 import TeacherOverview from './components/TeacherOverview';
 import TeacherClasses from './components/TeacherClasses';
-import TeacherStudents from './components/TeacherStudents';
-import TeacherCurriculum from './components/TeacherCurriculum';
-import TeacherStudyMaterials from './components/TeacherStudyMaterials';
-import TeacherAttendance from './components/TeacherAttendance';
 import TeacherPerformance from './components/TeacherPerformance';
 import TeacherProfile from './components/TeacherProfile';
 import TeacherNotifications from './components/TeacherNotifications';
 import TeacherSettings from './components/TeacherSettings';
+
+// New Requirement & Progress Report Tabs
+import TopperRankTab from '../../components/tabs/TopperRankTab';
+import MentorshipConversionTab from '../../components/tabs/MentorshipConversionTab';
+import PTMHistoryTab from '../../components/tabs/PTMHistoryTab';
+import TestAnalysisTab from '../../components/tabs/TestAnalysisTab';
+import ReferralsCollectedTab from '../../components/tabs/ReferralsCollectedTab';
+import DCStoppedTab from '../../components/tabs/DCStoppedTab';
+import TeacherTrainingTab from '../../components/tabs/TeacherTrainingTab';
+
 const TeacherDashboard = () => {
     const { user, logout, token, getApiUrl } = useAuth();
     const { isDarkMode } = useTheme();
@@ -77,7 +84,6 @@ const TeacherDashboard = () => {
         return () => clearInterval(interval);
     }, [fetchUnsolvedCount, fetchFeedbackCount]);
 
-    // Refresh count when activeTab changes (e.g. teacher resolves a doubt)
     useEffect(() => {
         fetchUnsolvedCount();
         fetchFeedbackCount();
@@ -102,6 +108,72 @@ const TeacherDashboard = () => {
             active: activeTab === 'Doubt Portal',
             onClick: () => setActiveTab('Doubt Portal'),
             badge: unsolvedCount > 0 ? unsolvedCount : null
+        },
+        {
+            label: 'Topper Ranks',
+            icon: Trophy,
+            active: activeTab === 'Topper Ranks',
+            onClick: () => setActiveTab('Topper Ranks')
+        },
+        {
+            label: 'Mentorship & Conversion',
+            icon: ArrowRightLeft,
+            active: activeTab === 'Mentorship & Conversion',
+            onClick: () => setActiveTab('Mentorship & Conversion')
+        },
+        {
+            label: 'PTM History',
+            icon: Users,
+            active: activeTab === 'PTM History',
+            onClick: () => setActiveTab('PTM History')
+        },
+        {
+            label: 'Test Analysis',
+            icon: BarChart2,
+            active: activeTab === 'Test Analysis',
+            onClick: () => setActiveTab('Test Analysis')
+        },
+        {
+            label: 'Referrals Collected',
+            icon: Gift,
+            active: activeTab === 'Referrals Collected',
+            onClick: () => setActiveTab('Referrals Collected')
+        },
+        {
+            label: 'DC Stopped Students',
+            icon: UserX,
+            active: activeTab === 'DC Stopped Students',
+            onClick: () => setActiveTab('DC Stopped Students')
+        },
+        {
+            label: 'Teacher Training',
+            icon: GraduationCap,
+            active: activeTab === 'Teacher Training',
+            onClick: () => setActiveTab('Teacher Training')
+        },
+        {
+            label: 'Performance',
+            icon: Star,
+            active: activeTab === 'Performance',
+            onClick: () => setActiveTab('Performance')
+        },
+        {
+            label: 'Profile',
+            icon: User,
+            active: activeTab === 'Profile',
+            onClick: () => setActiveTab('Profile')
+        },
+        {
+            label: 'Notifications',
+            icon: Bell,
+            active: activeTab === 'Notifications',
+            onClick: () => setActiveTab('Notifications')
+        },
+        {
+            label: 'Settings',
+            icon: Settings,
+            active: activeTab === 'Settings',
+            onClick: () => setActiveTab('Settings')
         }
     ], [activeTab, unsolvedCount]);
 
@@ -126,9 +198,10 @@ const TeacherDashboard = () => {
     }
 
     const knownTabs = [
-        'Overview', 'My Classes', 'Curriculum', 'Study Materials',
-        'Doubt Portal', 'Student Registry', 'Attendance', 'Performance',
-        'Profile', 'Notifications', 'Settings'
+        'Overview', 'My Classes', 'Doubt Portal',
+        'Topper Ranks', 'Mentorship & Conversion',
+        'PTM History', 'Test Analysis', 'Referrals Collected', 'DC Stopped Students',
+        'Teacher Training', 'Performance', 'Profile', 'Notifications', 'Settings'
     ];
 
     return (
@@ -149,29 +222,44 @@ const TeacherDashboard = () => {
                         <TeacherClasses />
                     </div>
                 )}
-                {visitedTabs.has('Curriculum') && (
-                    <div className={activeTab === 'Curriculum' ? 'block' : 'hidden'}>
-                        <TeacherCurriculum />
-                    </div>
-                )}
-                {visitedTabs.has('Study Materials') && (
-                    <div className={activeTab === 'Study Materials' ? 'block' : 'hidden'}>
-                        <TeacherStudyMaterials />
-                    </div>
-                )}
                 {visitedTabs.has('Doubt Portal') && (
                     <div className={activeTab === 'Doubt Portal' ? 'block' : 'hidden'}>
-                        <SolveDoubt />
+                        <SolveDoubt accentColor="cyan" />
                     </div>
                 )}
-                {visitedTabs.has('Student Registry') && (
-                    <div className={activeTab === 'Student Registry' ? 'block' : 'hidden'}>
-                        <TeacherStudents />
+                {visitedTabs.has('Topper Ranks') && (
+                    <div className={activeTab === 'Topper Ranks' ? 'block' : 'hidden'}>
+                        <TopperRankTab />
                     </div>
                 )}
-                {visitedTabs.has('Attendance') && (
-                    <div className={activeTab === 'Attendance' ? 'block' : 'hidden'}>
-                        <TeacherAttendance />
+                {visitedTabs.has('Mentorship & Conversion') && (
+                    <div className={activeTab === 'Mentorship & Conversion' ? 'block' : 'hidden'}>
+                        <MentorshipConversionTab />
+                    </div>
+                )}
+                {visitedTabs.has('PTM History') && (
+                    <div className={activeTab === 'PTM History' ? 'block' : 'hidden'}>
+                        <PTMHistoryTab />
+                    </div>
+                )}
+                {visitedTabs.has('Test Analysis') && (
+                    <div className={activeTab === 'Test Analysis' ? 'block' : 'hidden'}>
+                        <TestAnalysisTab />
+                    </div>
+                )}
+                {visitedTabs.has('Referrals Collected') && (
+                    <div className={activeTab === 'Referrals Collected' ? 'block' : 'hidden'}>
+                        <ReferralsCollectedTab />
+                    </div>
+                )}
+                {visitedTabs.has('DC Stopped Students') && (
+                    <div className={activeTab === 'DC Stopped Students' ? 'block' : 'hidden'}>
+                        <DCStoppedTab />
+                    </div>
+                )}
+                {visitedTabs.has('Teacher Training') && (
+                    <div className={activeTab === 'Teacher Training' ? 'block' : 'hidden'}>
+                        <TeacherTrainingTab />
                     </div>
                 )}
                 {visitedTabs.has('Performance') && (

@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
     # Read-only human-readable labels derived from FK relationships
     class_level_name = serializers.SerializerMethodField()
     target_exam_name = serializers.SerializerMethodField()
+    centres = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -20,11 +21,29 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'employee_id', 'permissions',
             'is_active', 'date_joined', 'created_by_username',
             'exam_section', 'study_section', 'omr_code', 'rm_code',
-            'admission_number', 'centre_code', 'centre_name',
+            'admission_number', 'centre_code', 'centre_name', 'centres',
             'class_level', 'class_level_name',
             'target_exam', 'target_exam_name', 'exam_tag_name',
         ]
         read_only_fields = ['username', 'date_joined', 'created_by_username', 'admission_number']
+
+    def get_centres(self, obj):
+        """Return array of assigned centres for faculty/teachers."""
+        if obj.user_type in ['teacher', 'faculty']:
+            try:
+                from .erp_views import _get_all_teachers_data_list
+                cached_teachers = _get_all_teachers_data_list()
+                emp_id = (getattr(obj, 'employee_id', '') or '').strip().lower()
+                email = (getattr(obj, 'email', '') or getattr(obj, 'username', '') or '').strip().lower()
+                username = (getattr(obj, 'username', '') or '').strip().lower()
+                for t in cached_teachers:
+                    code = str(t.get('code') or t.get('employee_id') or t.get('employeeId') or '').strip().lower()
+                    t_email = str(t.get('email') or '').strip().lower()
+                    if (emp_id and code == emp_id) or (email and t_email == email) or (username and (code == username or t_email == username)):
+                        return t.get('centres') or []
+            except Exception:
+                pass
+        return []
 
     def get_class_level_name(self, obj):
         """Return the human-readable class name (e.g. 'Class 9', 'Class 11').
