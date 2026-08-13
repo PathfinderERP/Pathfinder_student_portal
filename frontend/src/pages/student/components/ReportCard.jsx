@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Award, Download, Printer, RefreshCw, GraduationCap, CheckCircle2, 
     XCircle, AlertCircle, FileText, Calendar, User, BookOpen, 
-    TrendingUp, ShieldCheck, Sparkles, BarChart2, ChevronRight, Target, Clock
+    TrendingUp, ShieldCheck, Sparkles, BarChart2, ChevronRight, Target, Clock, Info
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -738,6 +738,75 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                {/* Grading Scale & Evaluation Legend */}
+                <div className={`p-4 rounded-xl border print-card print-bg-light ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-orange-500 mb-3 flex items-center gap-2">
+                        <Info size={14} />
+                        Grading System & Evaluation Criteria
+                    </h4>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                        {/* Overall Grade Criteria */}
+                        <div className="space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block print-text-dark">
+                                Overall Grade Scale (Cumulative Average)
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                <div className="p-1.5 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 font-semibold text-[11px] flex justify-between items-center">
+                                    <span>A+ (≥ 90%)</span>
+                                    <span className="text-[9px] font-bold opacity-80">Outstanding</span>
+                                </div>
+                                <div className="p-1.5 rounded border border-blue-500/20 bg-blue-500/10 text-blue-500 font-semibold text-[11px] flex justify-between items-center">
+                                    <span>A (80 - 89%)</span>
+                                    <span className="text-[9px] font-bold opacity-80">Excellent</span>
+                                </div>
+                                <div className="p-1.5 rounded border border-cyan-500/20 bg-cyan-500/10 text-cyan-500 font-semibold text-[11px] flex justify-between items-center">
+                                    <span>B+ (70 - 79%)</span>
+                                    <span className="text-[9px] font-bold opacity-80">Very Good</span>
+                                </div>
+                                <div className="p-1.5 rounded border border-amber-500/20 bg-amber-500/10 text-amber-500 font-semibold text-[11px] flex justify-between items-center">
+                                    <span>B (60 - 69%)</span>
+                                    <span className="text-[9px] font-bold opacity-80">Good</span>
+                                </div>
+                                <div className="p-1.5 rounded border border-orange-500/20 bg-orange-500/10 text-orange-500 font-semibold text-[11px] flex justify-between items-center">
+                                    <span>C (50 - 59%)</span>
+                                    <span className="text-[9px] font-bold opacity-80">Average</span>
+                                </div>
+                                <div className="p-1.5 rounded border border-red-500/20 bg-red-500/10 text-red-500 font-semibold text-[11px] flex justify-between items-center">
+                                    <span>D (&lt; 50%)</span>
+                                    <span className="text-[9px] font-bold opacity-80">Needs Support</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Subject Grade Criteria */}
+                        <div className="space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block print-text-dark">
+                                Subject Grade Scale (Individual Subject Average)
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                <div className="p-1.5 rounded border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 font-semibold text-[11px]">
+                                    A+ : ≥ 85%
+                                </div>
+                                <div className="p-1.5 rounded border border-blue-500/20 bg-blue-500/5 text-blue-500 font-semibold text-[11px]">
+                                    A : 75% - 84%
+                                </div>
+                                <div className="p-1.5 rounded border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 font-semibold text-[11px]">
+                                    B+ : 65% - 74%
+                                </div>
+                                <div className="p-1.5 rounded border border-amber-500/20 bg-amber-500/5 text-amber-500 font-semibold text-[11px]">
+                                    B : 55% - 64%
+                                </div>
+                                <div className="p-1.5 rounded border border-orange-500/20 bg-orange-500/5 text-orange-500 font-semibold text-[11px]">
+                                    C : 45% - 54%
+                                </div>
+                                <div className="p-1.5 rounded border border-red-500/20 bg-red-500/5 text-red-500 font-semibold text-[11px]">
+                                    D : &lt; 45%
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
