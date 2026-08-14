@@ -5,7 +5,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle, Gift
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle, Gift, UserX
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
