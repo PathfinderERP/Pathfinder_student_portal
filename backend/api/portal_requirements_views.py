@@ -429,6 +429,8 @@ def topper_rank_view(request):
                     'center': st_center,
                     'total_marks': 0.0,
                     'max_marks': 0.0,
+                    'full_exam_total_marks': 0.0,
+                    'full_exam_max_marks': 0.0,
                     'subject_breakdown': defaultdict(float),
                     'test_count': 0
                 }
@@ -437,11 +439,15 @@ def topper_rank_view(request):
             if selected_test_id != 'all':
                 rec['total_marks'] = score
                 rec['max_marks']   = max_score
+                rec['full_exam_total_marks'] = round(raw_score, 1)
+                rec['full_exam_max_marks']   = round(max_m, 1)
                 rec['test_count']  = 1
                 rec['subject_breakdown'][subj_label] = score
             else:
                 rec['total_marks'] += score
                 rec['max_marks']   += max_score
+                rec['full_exam_total_marks'] += round(raw_score, 1)
+                rec['full_exam_max_marks']   += round(max_m, 1)
                 rec['test_count']  += 1
                 rec['subject_breakdown'][subj_label] += score
 
@@ -469,6 +475,8 @@ def topper_rank_view(request):
                 'center': st['center'],
                 'total_marks': round(st['total_marks'], 1),
                 'max_marks': round(st['max_marks'], 1),
+                'full_exam_total_marks': round(st.get('full_exam_total_marks', st['total_marks']), 1),
+                'full_exam_max_marks': round(st.get('full_exam_max_marks', st['max_marks']), 1),
                 'percentage': pct,
                 'subject_breakdown': breakdown,
                 'percentile': percentile,

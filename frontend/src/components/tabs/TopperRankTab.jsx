@@ -178,15 +178,15 @@ const TopperRankTab = () => {
             return;
         }
         
-        const headers = ["Rank", "Student Name", "Roll No", "Batch", "Center", "Marks Obtained", "Max Marks", "Percentage", "Percentile"];
+        const headers = ["Rank", "Student Name", "Roll No", "Batch", "Center", "Subject Marks", "Total Exam Marks", "Percentage", "Percentile"];
         const rows = filteredToppers.map(st => [
             st.rank,
             `"${(st.student_name || '').replace(/"/g, '""')}"`,
             `"${(st.roll_no || '').replace(/"/g, '""')}"`,
             `"${(st.batch || '').replace(/"/g, '""')}"`,
             `"${(st.center || '').replace(/"/g, '""')}"`,
-            st.total_marks,
-            st.max_marks,
+            `"${st.total_marks} / ${st.max_marks}"`,
+            `"${st.full_exam_total_marks !== undefined ? st.full_exam_total_marks : st.total_marks} / ${st.full_exam_max_marks !== undefined ? st.full_exam_max_marks : st.max_marks}"`,
             `${st.percentage}%`,
             st.percentile
         ]);
@@ -593,7 +593,8 @@ const TopperRankTab = () => {
                                 <th className="p-4">Rank</th>
                                 <th className="p-4">Student Name & Roll</th>
                                 <th className="p-4">Batch & Center</th>
-                                <th className="p-4">{selectedSubject !== 'All' ? `${selectedSubject} Marks` : 'Marks Obtained'}</th>
+                                <th className="p-4">{selectedSubject !== 'All' ? `${selectedSubject} Marks` : 'Subject Marks'}</th>
+                                <th className="p-4">Total Exam Marks</th>
                                 <th className="p-4">Percentage</th>
                                 <th className="p-4">Subject Breakdown</th>
                                 <th className="p-4">Percentile</th>
@@ -613,6 +614,9 @@ const TopperRankTab = () => {
                                     </td>
                                     <td className={`p-4 font-black text-sm ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                                         {st.total_marks} / {st.max_marks}
+                                    </td>
+                                    <td className={`p-4 font-black text-sm ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                        {st.full_exam_total_marks !== undefined ? st.full_exam_total_marks : st.total_marks} / {st.full_exam_max_marks !== undefined ? st.full_exam_max_marks : st.max_marks}
                                     </td>
                                     <td className={`p-4 font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{st.percentage}%</td>
                                     <td className="p-4">
