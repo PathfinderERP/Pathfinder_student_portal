@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
+import TopperRankTab from '../../components/tabs/TopperRankTab';
 
 const FEEDBACK_QUESTIONS = [
     "Explains concepts clearly and uses real-world examples to improve understanding.",
@@ -75,6 +76,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         if (activeDetail === type) { setActiveDetail(null); return; }
         setActiveDetail(type);
         
+        if (type === 'topper_ranks') return;
         if (cachedData[type]) return;
 
         setLoadingDetail(true);
@@ -117,6 +119,14 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
     }, []);
 
     const renderDetailTable = () => {
+        if (activeDetail === 'topper_ranks') {
+            return (
+                <div className="p-2 md:p-4">
+                    <TopperRankTab teacherUser={teacher} />
+                </div>
+            );
+        }
+
         const detailData = cachedData[activeDetail] || [];
         if (loadingDetail) return (
             <div className="flex items-center justify-center py-10 gap-3">
@@ -374,7 +384,12 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         </div>
     );
 
-    const detailTitles = { logins: 'Login History', doubts: 'Doubts Activity', feedback: 'Class Feedback' };
+    const detailTitles = { 
+        logins: 'Login History', 
+        doubts: 'Doubts Activity', 
+        feedback: 'Class Feedback',
+        topper_ranks: `Topper Ranks (Rank Produce) — ${name}`
+    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -421,7 +436,8 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                 </div>
 
                 <StatCard icon={Star} color="text-amber-500" value={activity.classRating || "0.0"} label="Class Rating" detailKey="feedback" />
-                
+                <StatCard icon={Trophy} color="text-amber-400" value="View" label="Topper Ranks" detailKey="topper_ranks" />
+
                 <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                     <LogIn className={`w-8 h-8 mx-auto mb-3 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
                     <div className={`text-2xl font-black ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : ''}`}>
@@ -443,7 +459,11 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                     <div className={`px-5 py-3 border-b flex items-center justify-between gap-3 ${isDarkMode ? 'border-white/10 bg-white/[0.03]' : 'border-slate-100 bg-slate-50'}`}>
                         <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{detailTitles[activeDetail]}</span>
                         <div className="flex items-center gap-3 ml-auto">
-                            {!loadingDetail && <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{(cachedData[activeDetail] || []).length} record{((cachedData[activeDetail] || []).length) !== 1 ? 's' : ''}</span>}
+                            {!loadingDetail && activeDetail !== 'topper_ranks' && (
+                                <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    {(cachedData[activeDetail] || []).length} record{((cachedData[activeDetail] || []).length) !== 1 ? 's' : ''}
+                                </span>
+                            )}
                             <button
                                 onClick={handleRefreshDetail}
                                 disabled={loadingDetail}

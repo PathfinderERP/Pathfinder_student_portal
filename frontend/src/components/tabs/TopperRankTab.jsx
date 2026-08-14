@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import axios from 'axios';
 
-const TopperRankTab = () => {
+const TopperRankTab = ({ teacherUser }) => {
     const { isDarkMode } = useTheme();
-    const { getApiUrl, token, user } = useAuth();
+    const { getApiUrl, token, user: authUser } = useAuth();
+    const user = teacherUser || authUser;
     
     let teacherCentresList = [];
     if (Array.isArray(user?.centres) && user.centres.length > 0) {
