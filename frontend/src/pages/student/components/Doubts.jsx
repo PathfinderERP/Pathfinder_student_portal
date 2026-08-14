@@ -670,7 +670,7 @@ const Doubts = ({ isDarkMode }) => {
                                                     <Clock size={10} />
                                                     {new Date(item.created_at).toLocaleDateString()}
                                                 </div>
-                                                {item.teacher_reply && (
+                                                {(item.teacher_reply || item.reply_image || item.reply_image2 || item.reply_image3 || item.reply_pdf || item.reply_voice_note || item.status === 'Resolved') && (
                                                     <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500">
                                                         <Check size={10} />
                                                         Replied
@@ -712,7 +712,7 @@ const Doubts = ({ isDarkMode }) => {
                                     </p>
 
                                     {/* Teacher Reply / Resolved Section */}
-                                    {item.teacher_reply ? (
+                                    {(item.teacher_reply || item.reply_image || item.reply_image2 || item.reply_image3 || item.reply_pdf || item.reply_voice_note || item.status === 'Resolved') ? (
                                         <div className={`mt-4 rounded-[5px] border overflow-hidden ${item.status === 'Resolved' ? 'border-emerald-500/30' : 'border-blue-500/20'}`}>
                                             {/* Reply Header */}
                                             <div className={`px-4 py-3 flex items-center gap-3 ${item.status === 'Resolved' ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
