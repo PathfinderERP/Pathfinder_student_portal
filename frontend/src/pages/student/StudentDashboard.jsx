@@ -5,7 +5,7 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle, Gift, UserX
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -30,15 +30,7 @@ import SocialFeed from './components/SocialFeed';
 import ChapterTest from './components/ChapterTest';
 import ChapterTestResults from './components/ChapterTestResults';
 import ReportCard from './components/ReportCard';
-import TeacherAttendanceTab from '../../components/tabs/TeacherAttendanceTab';
-import BatchTeacherAttendanceTab from '../../components/tabs/BatchTeacherAttendanceTab';
-import TopperRankTab from '../../components/tabs/TopperRankTab';
-import MentorshipConversionTab from '../../components/tabs/MentorshipConversionTab';
-import PTMHistoryTab from '../../components/tabs/PTMHistoryTab';
-import TestAnalysisTab from '../../components/tabs/TestAnalysisTab';
-import ReferralsCollectedTab from '../../components/tabs/ReferralsCollectedTab';
-import DCStoppedTab from '../../components/tabs/DCStoppedTab';
-import TeacherTrainingTab from '../../components/tabs/TeacherTrainingTab';
+
 import { useActivityTracker } from '../../services/useActivityTracker';
 
 import PortalLayout from '../../components/common/PortalLayout';
@@ -425,14 +417,7 @@ const StudentDashboard = () => {
             { name: 'Performance', icon: TrendingUp },
             { name: 'Report Card', icon: GraduationCap },
             { name: 'SWOT Analysis', icon: Target },
-            { name: 'Topper Ranks', icon: Trophy },
-            { name: 'Mentorship', icon: Users },
-            { name: 'PTM History', icon: Calendar },
-            { name: 'Test Analysis', icon: BarChart2 },
-            { name: 'Referrals', icon: Gift },
-            { name: 'Teacher Attendance', icon: Clock },
-            { name: 'DC Stopped Status', icon: UserX },
-            { name: 'Teacher Training', icon: GraduationCap },
+
             { name: 'Grievances', icon: AlertCircle },
             { name: 'Doubts', icon: HelpCircle },
             {
@@ -572,22 +557,7 @@ const StudentDashboard = () => {
                 return <Doubts isDarkMode={isDarkMode} />;
             case 'SWOT Analysis':
                 return <SWOTAnalysis isDarkMode={isDarkMode} />;
-            case 'Topper Ranks':
-                return <TopperRankTab />;
-            case 'Mentorship':
-                return <MentorshipConversionTab />;
-            case 'PTM History':
-                return <PTMHistoryTab />;
-            case 'Test Analysis':
-                return <TestAnalysisTab />;
-            case 'Referrals':
-                return <ReferralsCollectedTab />;
-            case 'Teacher Attendance':
-                return <BatchTeacherAttendanceTab />;
-            case 'DC Stopped Status':
-                return <DCStoppedTab />;
-            case 'Teacher Training':
-                return <TeacherTrainingTab />;
+
             case 'Video Content':
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;
             case 'Notes':
