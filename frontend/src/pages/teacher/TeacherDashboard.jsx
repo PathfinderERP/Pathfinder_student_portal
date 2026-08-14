@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     LayoutDashboard, Users, Calendar,
-    Bell, Settings, LogOut, CheckCircle, Clock,
+    Bell, LogOut, CheckCircle, Clock,
     FileText, User, ClipboardList, BookMarked, Star,
     Trophy, ArrowRightLeft, UserCheck, BarChart2, Gift, UserX, GraduationCap
 } from 'lucide-react';
@@ -17,7 +17,6 @@ import TeacherClasses from './components/TeacherClasses';
 import TeacherPerformance from './components/TeacherPerformance';
 import TeacherProfile from './components/TeacherProfile';
 import TeacherNotifications from './components/TeacherNotifications';
-import TeacherSettings from './components/TeacherSettings';
 
 // New Requirement & Progress Report Tabs
 import TopperRankTab from '../../components/tabs/TopperRankTab';
@@ -168,12 +167,6 @@ const TeacherDashboard = () => {
             icon: Bell,
             active: activeTab === 'Notifications',
             onClick: () => setActiveTab('Notifications')
-        },
-        {
-            label: 'Settings',
-            icon: Settings,
-            active: activeTab === 'Settings',
-            onClick: () => setActiveTab('Settings')
         }
     ], [activeTab, unsolvedCount]);
 
@@ -201,7 +194,7 @@ const TeacherDashboard = () => {
         'Overview', 'My Classes', 'Doubt Portal',
         'Topper Ranks', 'Mentorship & Conversion',
         'PTM History', 'Test Analysis', 'Referrals Collected', 'DC Stopped Students',
-        'Teacher Training', 'Performance', 'Profile', 'Notifications', 'Settings'
+        'Teacher Training', 'Performance', 'Profile', 'Notifications'
     ];
 
     return (
@@ -275,11 +268,6 @@ const TeacherDashboard = () => {
                 {visitedTabs.has('Notifications') && (
                     <div className={activeTab === 'Notifications' ? 'block' : 'hidden'}>
                         <TeacherNotifications />
-                    </div>
-                )}
-                {visitedTabs.has('Settings') && (
-                    <div className={activeTab === 'Settings' ? 'block' : 'hidden'}>
-                        <TeacherSettings />
                     </div>
                 )}
                 {!knownTabs.includes(activeTab) && (

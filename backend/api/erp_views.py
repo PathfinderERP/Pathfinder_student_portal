@@ -1422,8 +1422,9 @@ def get_teacher_portal_profile(request):
     Matches by email, username, or employee_id against ERP teacher list.
     """
     user = request.user
-    user_email = (getattr(user, 'email', '') or getattr(user, 'username', '') or '').strip().lower()
-    emp_id = (getattr(user, 'employee_id', '') or '').strip().lower()
+    param_email = (request.GET.get('email') or request.GET.get('username') or request.GET.get('code') or request.GET.get('erp_id') or '').strip().lower()
+    user_email = param_email or (getattr(user, 'email', '') or getattr(user, 'username', '') or '').strip().lower()
+    emp_id = (request.GET.get('code') or request.GET.get('employee_id') or getattr(user, 'employee_id', '') or '').strip().lower()
     
     all_teachers = []
     try:
@@ -1436,9 +1437,10 @@ def get_teacher_portal_profile(request):
         for t in all_teachers:
             code = str(t.get('code') or t.get('employeeId') or t.get('employee_id') or '').strip().lower()
             t_email = str(t.get('email') or (t.get('user', {}) or {}).get('email') or '').strip().lower()
-            if emp_id and code == emp_id:
+
+            if emp_id and (code == emp_id or t_email == emp_id):
                 matched = t; break
-            if user_email and t_email == user_email:
+            if user_email and (t_email == user_email or code == user_email):
                 matched = t; break
             if user.username and (code == user.username.lower() or t_email == user.username.lower()):
                 matched = t; break

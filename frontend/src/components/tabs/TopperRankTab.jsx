@@ -28,18 +28,25 @@ const TopperRankTab = ({ teacherUser }) => {
     }
 
     const [classMapBatches, setClassMapBatches] = useState([]);
+    const [fetchedSubject, setFetchedSubject] = useState('');
 
-    // Fetch teacher classes & class feedbacks on mount to extract exact Class-Batch Map
+    // Fetch teacher classes, feedbacks & profile to extract exact Class-Batch Map and Teacher Subject
     useEffect(() => {
-        const fetchClassMap = async () => {
+        const fetchTeacherData = async () => {
             try {
                 const tokenVal = token || localStorage.getItem('auth_token');
                 const apiUrl = getApiUrl();
                 const headers = tokenVal ? { Authorization: `Bearer ${tokenVal}` } : {};
                 
-                const [classesRes, feedbacksRes] = await Promise.allSettled([
+                const userEmail = user?.email || user?.username || user?.code || user?.employee_id;
+                const profileUrl = userEmail 
+                    ? `${apiUrl}/api/teacher-portal/profile/?email=${encodeURIComponent(userEmail)}&username=${encodeURIComponent(userEmail)}&code=${encodeURIComponent(userEmail)}`
+                    : `${apiUrl}/api/teacher-portal/profile/`;
+
+                const [classesRes, feedbacksRes, profileRes] = await Promise.allSettled([
                     axios.get(`${apiUrl}/api/teacher-portal/classes/`, { headers }),
-                    axios.get(`${apiUrl}/api/class-feedback/`, { headers })
+                    axios.get(`${apiUrl}/api/class-feedback/`, { headers }),
+                    axios.get(profileUrl, { headers })
                 ]);
                 
                 const bSet = new Set();
@@ -68,20 +75,29 @@ const TopperRankTab = ({ teacherUser }) => {
                 if (bSet.size > 0) {
                     setClassMapBatches(Array.from(bSet));
                 }
+
+                if (profileRes.status === 'fulfilled' && profileRes.value?.data) {
+                    const pData = profileRes.value.data;
+                    const profileObj = pData.profile || pData.teacher || pData;
+                    const subj = profileObj.subject || profileObj.subject_name || profileObj.subjects || pData.subject;
+                    if (subj) setFetchedSubject(subj);
+                }
             } catch (err) {
-                console.warn("[TopperRankTab] Could not fetch teacher classes/feedback for Class-Batch map:", err);
+                console.warn("[TopperRankTab] Could not fetch teacher details for profile/subject:", err);
             }
         };
-        fetchClassMap();
-    }, [getApiUrl, token]);
+        fetchTeacherData();
+    }, [getApiUrl, token, user?.email, user?.username]);
 
     const effectiveTeacherBatches = teacherBatchesList.length > 0 ? teacherBatchesList : classMapBatches;
     const teacherCenter = teacherCentresList.join(', ');
     const teacherBatch = effectiveTeacherBatches.join(', ');
 
     const formatSubj = (str) => {
-        if (!str) return 'Physics';
-        const clean = String(str).trim().toUpperCase();
+        if (!str) return '';
+        if (Array.isArray(str)) str = str[0];
+        const clean = String(str).replace(/[\[\]'"]/g, '').trim().toUpperCase();
+        if (!clean) return '';
         if (clean.includes('PHY')) return 'Physics';
         if (clean.includes('CHE')) return 'Chemistry';
         if (clean.includes('MATH')) return 'Mathematics';
@@ -89,8 +105,9 @@ const TopperRankTab = ({ teacherUser }) => {
         return clean.charAt(0) + clean.slice(1).toLowerCase();
     };
 
-    const rawTeacherSubj = user?.subject || user?.department || user?.exam_tag_name || '';
-    const teacherSubject = formatSubj(Array.isArray(rawTeacherSubj) ? rawTeacherSubj[0] : rawTeacherSubj);
+    const rawTeacherSubj = user?.subject || user?.subjects || user?.subject_name || user?.teacher_subject || fetchedSubject || user?.department || user?.teacherDepartment || user?.exam_tag_name || '';
+    const detectedSubject = formatSubj(rawTeacherSubj);
+    const teacherSubject = detectedSubject || 'Physics';
     const standardSubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
     const otherSubjects = standardSubjects.filter(s => s.toLowerCase() !== teacherSubject.toLowerCase());
 
@@ -108,6 +125,12 @@ const TopperRankTab = ({ teacherUser }) => {
 
     const [selectedSubject, setSelectedSubject] = useState(teacherSubject);
 
+    useEffect(() => {
+        if (teacherSubject) {
+            setSelectedSubject(teacherSubject);
+        }
+    }, [teacherSubject]);
+
     const [publishedExams, setPublishedExams] = useState([]);
     const [selectedTestId, setSelectedTestId] = useState('');
     const [selectedTestName, setSelectedTestName] = useState('');
@@ -119,6 +142,10 @@ const TopperRankTab = ({ teacherUser }) => {
             const apiUrl = getApiUrl();
             let queryUrl = `${apiUrl}/api/rank-produce/?basis=${rankingBasis}&scope=${scopeFilter}`;
             
+            const teacherIdent = user?.email || user?.username || user?.code || user?.employee_id;
+            if (teacherIdent) {
+                queryUrl += `&teacher_username=${encodeURIComponent(teacherIdent)}`;
+            }
             if (selectedTestId) {
                 queryUrl += `&test_id=${encodeURIComponent(selectedTestId)}`;
             }
