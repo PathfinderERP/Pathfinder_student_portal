@@ -22,7 +22,8 @@ from .gemini_views import generate_ai_study_plan, get_college_intelligence, sear
 from .portal_requirements_views import (
     teacher_attendance_view, batch_teacher_attendance_view, topper_rank_view,
     mentorship_conversion_view, ptm_records_view, test_analysis_view,
-    referrals_collected_view, dc_stopped_view, teacher_training_view
+    referrals_collected_view, dc_stopped_view, teacher_training_view,
+    upload_media_to_r2_view
 )
 
 router = DefaultRouter()
@@ -100,6 +101,7 @@ urlpatterns = [
     path('teacher-portal/batch-attendance/', batch_teacher_attendance_view, name='teacher-portal-batch-attendance'),
     path('rank-produce/', topper_rank_view, name='rank-produce'),
     path('mentorship-conversion/', mentorship_conversion_view, name='mentorship-conversion'),
+    path('upload-media/', upload_media_to_r2_view, name='upload-media'),
     path('ptm-records/', ptm_records_view, name='ptm-records'),
     path('test-analysis/', test_analysis_view, name='test-analysis'),
     path('referrals/', referrals_collected_view, name='referrals-collected'),

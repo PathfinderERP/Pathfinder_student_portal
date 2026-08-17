@@ -532,58 +532,89 @@ def topper_rank_view(request):
 @permission_classes([AllowAny])
 def mentorship_conversion_view(request):
     """
-    4. Mentorship & Conversion
-    Student-wise mentorship records, assigned mentor, follow-up tracking, conversion status.
+    4. Mentorship & Conversion Form & Submissions
+    Stores & retrieves teacher mentorship logs, mentor talks, student/parent conversations,
+    test analysis checklists, syllabus tracking, class selections, and action plans.
     """
+    try:
+        from api.db_utils import get_db
+        db = get_db()
+    except Exception:
+        db = None
+
     if request.method == 'GET':
-        records = [
-            {
-                "id": 1,
-                "student_name": "Rahul Karmakar",
-                "roll_no": "PF-2026-0412",
-                "assigned_mentor": "Dr. Rajesh Sharma",
-                "mentorship_date": "2026-08-10",
-                "remarks": "Reviewed Physics mechanics concepts. Student needs additional practice in Rotational Dynamics.",
-                "follow_up_date": "2026-08-20",
-                "conversion_type": "Course Extension",
-                "conversion_status": "Converted",
-                "lead_stage": "Enrolled - Crash Course + Test Series"
-            },
-            {
-                "id": 2,
-                "student_name": "Sneha Mukherjee",
-                "roll_no": "PF-2026-0520",
-                "assigned_mentor": "Anita Verma",
-                "mentorship_date": "2026-08-12",
-                "remarks": "Organic Chemistry revision guidance provided. Target score set to 160+.",
-                "follow_up_date": "2026-08-22",
-                "conversion_type": "Admission Lead",
-                "conversion_status": "In Progress",
-                "lead_stage": "Interested in 2-Year Integrated Program"
-            },
-            {
-                "id": 3,
-                "student_name": "Aman Sen",
-                "roll_no": "PF-2026-0610",
-                "assigned_mentor": "Siddharth Roy",
-                "mentorship_date": "2026-08-05",
-                "remarks": "Calculus problem-solving speed discussion. Weekly goal set.",
-                "follow_up_date": "2026-08-15",
-                "conversion_type": "Upgrade",
-                "conversion_status": "Pending",
-                "lead_stage": "Offered Super 30 Special Batch Upgrade"
-            }
-        ]
+        records = []
+        if db is not None:
+            try:
+                raw_records = list(db['api_mentorshipconversion'].find({}, {'_id': 0}).sort('created_at', -1))
+                if raw_records:
+                    records = [r for r in raw_records if not str(r.get('id', '')).startswith('mock-')]
+            except Exception as e:
+                print(f"[mentorship_conversion_view] Mongo error: {e}")
+
         return Response({"status": "success", "data": records}, status=status.HTTP_200_OK)
-    
+
     elif request.method == 'POST':
-        # Add new mentorship session
-        new_data = request.data
+        new_data = request.data.copy()
+        import time
+        new_data['id'] = f"mc-{int(time.time() * 1000)}"
+        if 'created_at' not in new_data:
+            from datetime import datetime
+            new_data['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if db is not None:
+            try:
+                db['api_mentorshipconversion'].insert_one(dict(new_data))
+                if '_id' in new_data:
+                    del new_data['_id']
+            except Exception as e:
+                print(f"[mentorship_conversion_view] Mongo insert error: {e}")
+
         return Response({
             "status": "success",
-            "message": "Mentorship record and conversion tracking added successfully",
+            "message": "Mentorship & Conversion form submitted successfully",
             "data": new_data
         }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def upload_media_to_r2_view(request):
+    """
+    Uploads media files (images, PDFs, documents) directly to Cloudflare R2 bucket.
+    Returns the Cloudflare R2 public URL of the uploaded file.
+    """
+    try:
+        if 'file' not in request.FILES:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = request.FILES['file']
+        folder = request.POST.get('folder', 'mentorship_docs')
+        
+        from django.core.files.storage import default_storage
+        import uuid
+        import os
+
+        ext = os.path.splitext(uploaded_file.name)[1]
+        filename = f"{folder}/{uuid.uuid4().hex}{ext}"
+
+        saved_path = default_storage.save(filename, uploaded_file)
+        
+        # Resolve public R2 URL or fallback storage URL
+        try:
+            file_url = default_storage.url(saved_path)
+        except Exception:
+            file_url = f"/media/{saved_path}"
+
+        return Response({
+            "status": "success",
+            "url": file_url,
+            "filename": uploaded_file.name,
+            "path": saved_path
+        }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        print(f"[upload_media_to_r2_view] Error: {e}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET', 'POST'])
