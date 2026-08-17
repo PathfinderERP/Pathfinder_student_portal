@@ -3,7 +3,8 @@ import {
     ArrowRightLeft, FileText, CheckCircle, Clock, Plus, Search,
     Send, RefreshCw, CheckSquare, Square, Radio, AlertCircle, Eye,
     Sparkles, UserCheck, Calendar, MapPin, BookOpen, MessageSquare,
-    ChevronDown, X, Building2, Trash2, Lock, Paperclip, UploadCloud, Download
+    ChevronDown, X, Building2, Trash2, Lock, Paperclip, UploadCloud, Download,
+    LayoutGrid, List
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -219,17 +220,18 @@ const SearchableDropdown = ({
     );
 };
 
-const MentorshipConversionTab = () => {
+const MentorshipConversionTab = ({ isAdminView = false, filterMentorName = '', filterTeacherEmail = '' }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token, user } = useAuth();
 
-    const [activeView, setActiveView] = useState('form'); // 'form' | 'history'
+    const [activeView, setActiveView] = useState(isAdminView ? 'history' : 'form'); // 'form' | 'history'
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [submissionsData, setSubmissionsData] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDetailModal, setSelectedDetailModal] = useState(null);
+    const [historyLayoutMode, setHistoryLayoutMode] = useState('card'); // 'card' | 'list'
 
     // Master Data Active Centres & Multi-select Dropdown States
     const [masterCentres, setMasterCentres] = useState([]);
@@ -591,7 +593,19 @@ const MentorshipConversionTab = () => {
     };
 
     // Filter out dummy mock records completely
-    const displaySubmissions = submissionsData.filter(item => item.id && !String(item.id).startsWith('mock-'));
+    let displaySubmissions = submissionsData.filter(item => item.id && !String(item.id).startsWith('mock-'));
+
+    if (filterMentorName || filterTeacherEmail) {
+        const mentorQ = (filterMentorName || '').toLowerCase();
+        const emailQ = (filterTeacherEmail || '').toLowerCase();
+        displaySubmissions = displaySubmissions.filter(item => {
+            const mName = (item.mentor_name || '').toLowerCase();
+            const mEmail = (item.email || '').toLowerCase();
+            const matchesName = mentorQ && (mName.includes(mentorQ) || mentorQ.includes(mName));
+            const matchesEmail = emailQ && (mEmail.includes(emailQ) || emailQ.includes(mEmail));
+            return matchesName || matchesEmail;
+        });
+    }
 
     const filteredSubmissions = displaySubmissions.filter(item =>
         (item.mentor_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -608,44 +622,51 @@ const MentorshipConversionTab = () => {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                             <ArrowRightLeft className="text-amber-500" size={24} />
-                            <h2 className="text-2xl font-black tracking-tight">Mentorship & Conversion Form</h2>
+                            <h2 className="text-2xl font-black tracking-tight">
+                                {isAdminView ? 'Mentorship & Conversion Submissions Log' : 'Mentorship & Conversion Form'}
+                            </h2>
                         </div>
                         <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Log teacher mentorship talks, student/parent interactions, test analysis verification, and conversion plans.
+                            {isAdminView
+                                ? 'View all recorded teacher mentorship observations, student academic conversations, test analysis reviews, and conversion plans.'
+                                : 'Log teacher mentorship talks, student/parent interactions, test analysis verification, and conversion plans.'
+                            }
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10">
-                        <button
-                            type="button"
-                            onClick={() => setActiveView('form')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                                activeView === 'form'
-                                    ? 'bg-amber-500 text-white shadow-md'
-                                    : 'text-slate-600 dark:text-slate-300 hover:text-amber-500'
-                            }`}
-                        >
-                            <FileText size={15} />
-                            <span>Mentorship Form</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveView('history')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                                activeView === 'history'
-                                    ? 'bg-amber-500 text-white shadow-md'
-                                    : 'text-slate-600 dark:text-slate-300 hover:text-amber-500'
-                            }`}
-                        >
-                            <Clock size={15} />
-                            <span>Submitted Log ({displaySubmissions.length})</span>
-                        </button>
-                    </div>
+                    {!isAdminView && (
+                        <div className="flex items-center gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('form')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    activeView === 'form'
+                                        ? 'bg-amber-500 text-white shadow-md'
+                                        : 'text-slate-600 dark:text-slate-300 hover:text-amber-500'
+                                }`}
+                            >
+                                <FileText size={15} />
+                                <span>Mentorship Form</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('history')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    activeView === 'history'
+                                        ? 'bg-amber-500 text-white shadow-md'
+                                        : 'text-slate-600 dark:text-slate-300 hover:text-amber-500'
+                                }`}
+                            >
+                                <Clock size={15} />
+                                <span>Submitted Log ({displaySubmissions.length})</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* FORM VIEW (Matching SS layout & style) */}
-            {activeView === 'form' && (
+            {/* FORM VIEW (Teacher Portal only, hidden in Admin Portal) */}
+            {activeView === 'form' && !isAdminView && (
                 <div className="w-full max-w-5xl mx-auto space-y-6 pt-3">
                     {/* Top Header Card (Google Forms style) */}
                     <div className={`rounded-2xl border-t-[10px] border-t-amber-500 border-x border-b ${isDarkMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-[#fffdfa] border-slate-200 text-slate-900'} p-6 shadow-lg space-y-3`}>
@@ -1074,22 +1095,56 @@ const MentorshipConversionTab = () => {
             )}
 
             {/* SUBMISSIONS HISTORY VIEW */}
-            {activeView === 'history' && (
+            {(activeView === 'history' || isAdminView) && (
                 <div className="space-y-6">
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                            type="text"
-                            placeholder="Search responses by mentor name, centre, email, or student stream..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-10 pr-4 py-3 rounded-xl border text-xs font-semibold outline-none ${
-                                isDarkMode
-                                    ? 'bg-slate-900/60 border-white/10 text-white placeholder:text-slate-500'
-                                    : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-amber-500'
-                            }`}
-                        />
+                    {/* Search & Layout Switcher Controls Bar */}
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <div className="relative flex-1 w-full">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search responses by mentor name, centre, email, or student stream..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`w-full pl-10 pr-4 py-3 rounded-xl border text-xs font-semibold outline-none ${
+                                    isDarkMode
+                                        ? 'bg-slate-900/60 border-white/10 text-white placeholder:text-slate-500'
+                                        : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-amber-500'
+                                }`}
+                            />
+                        </div>
+
+                        {/* Layout Toggle Buttons (Card View vs List View) */}
+                        <div className={`flex items-center gap-1 p-1 rounded-xl border ${
+                            isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+                        }`}>
+                            <button
+                                type="button"
+                                onClick={() => setHistoryLayoutMode('card')}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    historyLayoutMode === 'card'
+                                        ? 'bg-amber-500 text-white shadow-md'
+                                        : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                                title="Card View"
+                            >
+                                <LayoutGrid size={15} />
+                                <span>Card View</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setHistoryLayoutMode('list')}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                                    historyLayoutMode === 'list'
+                                        ? 'bg-amber-500 text-white shadow-md'
+                                        : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                                title="List View"
+                            >
+                                <List size={15} />
+                                <span>List View</span>
+                            </button>
+                        </div>
                     </div>
 
                     {loading ? (
@@ -1100,14 +1155,103 @@ const MentorshipConversionTab = () => {
                         <div className={`p-12 text-center rounded-2xl border ${isDarkMode ? 'bg-slate-900/40 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                             <FileText size={40} className="mx-auto mb-3 opacity-40" />
                             <p className="text-sm font-bold">No Mentorship & Conversion submissions recorded yet.</p>
-                            <button
-                                onClick={() => setActiveView('form')}
-                                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold"
-                            >
-                                <Plus size={14} /> Log First Session
-                            </button>
+                            {!isAdminView && (
+                                <button
+                                    onClick={() => setActiveView('form')}
+                                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-bold"
+                                >
+                                    <Plus size={14} /> Log First Session
+                                </button>
+                            )}
+                        </div>
+                    ) : historyLayoutMode === 'list' ? (
+                        /* TABULAR LIST VIEW */
+                        <div className={`overflow-x-auto rounded-2xl border ${
+                            isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'
+                        } shadow-lg`}>
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className={`border-b text-[11px] font-black uppercase tracking-wider ${
+                                        isDarkMode ? 'bg-slate-950/60 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+                                    }`}>
+                                        <th className="py-3.5 px-4">Date & Mentor</th>
+                                        <th className="py-3.5 px-4">Centre</th>
+                                        <th className="py-3.5 px-4">Weekly Mentor Talk</th>
+                                        <th className="py-3.5 px-4">Promising Students</th>
+                                        <th className="py-3.5 px-4 text-center">Conversation Made</th>
+                                        <th className="py-3.5 px-4 text-center">Uploaded Docs</th>
+                                        <th className="py-3.5 px-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                                    {filteredSubmissions.map((rec, idx) => {
+                                        const docCount = rec.test_analysis_docs ? Object.values(rec.test_analysis_docs).filter(d => d?.fileData).length : 0;
+                                        return (
+                                            <tr
+                                                key={rec.id || idx}
+                                                className={`transition-colors ${
+                                                    isDarkMode ? 'hover:bg-slate-800/40 text-slate-200' : 'hover:bg-slate-50/80 text-slate-800'
+                                                }`}
+                                            >
+                                                <td className="py-3.5 px-4">
+                                                    <div className="font-bold text-sm text-amber-500">{rec.mentor_name || 'Mentor'}</div>
+                                                    <div className="text-[11px] text-slate-400 font-mono">{rec.email || 'N/A'}</div>
+                                                    <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                                        <Calendar size={11} /> {rec.date || rec.created_at || 'N/A'}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3.5 px-4">
+                                                    <span className="inline-block px-2.5 py-1 rounded-md text-[10px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                        {rec.centre_name || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 px-4 max-w-[220px]">
+                                                    <div className="font-bold text-xs line-clamp-2">{rec.mentors_talk || 'N/A'}</div>
+                                                    {rec.basis_of_conversation && (
+                                                        <span className="text-[10px] text-slate-400 block mt-0.5 uppercase tracking-wider font-semibold truncate">
+                                                            Basis: {rec.basis_of_conversation}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5 px-4 max-w-[200px]">
+                                                    <div className="text-xs truncate" title={rec.promising_students}>
+                                                        {rec.promising_students || 'None'}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3.5 px-4 text-center">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                                        rec.conversation_made === 'YES'
+                                                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                                            : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                                                    }`}>
+                                                        {rec.conversation_made || 'NO'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3.5 px-4 text-center">
+                                                    {docCount > 0 ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                                                            <Paperclip size={11} /> {docCount} File{docCount > 1 ? 's' : ''}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-slate-400">None</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-3.5 px-4 text-right">
+                                                    <button
+                                                        onClick={() => setSelectedDetailModal(rec)}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-all"
+                                                    >
+                                                        <Eye size={13} /> View Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     ) : (
+                        /* CARD GRID VIEW */
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {filteredSubmissions.map((rec, idx) => (
                                 <div

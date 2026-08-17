@@ -4,8 +4,9 @@ import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
     MessageSquare, Image, CircleDot, Compass, Activity,
-    Contact, Home, LayoutGrid, PieChart, BookOpen, Star, Calendar
+    Contact, Home, LayoutGrid, PieChart, BookOpen, Star, Calendar, ArrowRightLeft
 } from 'lucide-react';
+import MentorshipConversionTab from '../components/tabs/MentorshipConversionTab';
 
 // Common
 import PortalLayout from '../components/common/PortalLayout';
@@ -436,6 +437,7 @@ const SystemDashboard = () => {
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
         { id: 'student_activity', icon: Activity, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
         { id: 'teacher_activity', icon: Activity, label: 'Teacher Activity', active: activeTab === 'Teacher Activity', onClick: () => setActiveTab('Teacher Activity') },
+        { id: 'mentorship_conversion', icon: ArrowRightLeft, label: 'Mentorship & Conversion', active: activeTab === 'Mentorship & Conversion', onClick: () => setActiveTab('Mentorship & Conversion') },
         { id: 'class_feedback', icon: Star, label: 'Class Feedback', active: activeTab === 'Class Feedback', onClick: () => setActiveTab('Class Feedback') },
         { id: 'student_attendance', icon: Calendar, label: 'Student Attendance', active: activeTab === 'Student Attendance', onClick: () => setActiveTab('Student Attendance') },
         {
@@ -650,6 +652,8 @@ const SystemDashboard = () => {
                 return <StudentActivity studentsData={erpStudents} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(true)} />;
             case 'Teacher Activity':
                 return <TeacherActivity teachersData={erpTeachers} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(false)} />;
+            case 'Mentorship & Conversion':
+                return <MentorshipConversionTab isAdminView={true} />;
             case 'Library':
                 return <LibraryRegistry />;
             case 'Solution To Dpp Rpp':

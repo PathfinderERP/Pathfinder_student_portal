@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 import TopperRankTab from '../../components/tabs/TopperRankTab';
+import MentorshipConversionTab from '../../components/tabs/MentorshipConversionTab';
 
 const FEEDBACK_QUESTIONS = [
     "Explains concepts clearly and uses real-world examples to improve understanding.",
@@ -123,6 +124,18 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             return (
                 <div className="p-2 md:p-4">
                     <TopperRankTab teacherUser={teacher} />
+                </div>
+            );
+        }
+
+        if (activeDetail === 'mentorship_conversion') {
+            return (
+                <div className="p-2 md:p-4">
+                    <MentorshipConversionTab 
+                        isAdminView={true} 
+                        filterMentorName={name} 
+                        filterTeacherEmail={email} 
+                    />
                 </div>
             );
         }
@@ -388,7 +401,8 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         logins: 'Login History', 
         doubts: 'Doubts Activity', 
         feedback: 'Class Feedback',
-        topper_ranks: `Topper Ranks (Rank Produce) — ${name}`
+        topper_ranks: `Topper Ranks (Rank Produce) — ${name}`,
+        mentorship_conversion: `Mentorship & Conversion Logs — ${name}`
     };
 
     return (
@@ -414,7 +428,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                 <StatCard icon={Activity} color="text-blue-500" value={activity.loginCount || 0} label="App Logins" detailKey="logins" />
                 <div
                     onClick={() => fetchDetail('doubts')}
@@ -437,6 +451,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
 
                 <StatCard icon={Star} color="text-amber-500" value={activity.classRating || "0.0"} label="Class Rating" detailKey="feedback" />
                 <StatCard icon={Trophy} color="text-amber-400" value="View" label="Topper Ranks" detailKey="topper_ranks" />
+                <StatCard icon={ArrowRightLeft} color="text-orange-500" value="View" label="Mentorship & Conversion" detailKey="mentorship_conversion" />
 
                 <div className={`p-6 rounded-[5px] border text-center ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                     <LogIn className={`w-8 h-8 mx-auto mb-3 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
