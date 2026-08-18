@@ -2075,11 +2075,27 @@ class ClassFeedbackViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.user_type in ['superadmin', 'admin', 'staff']:
-            return self.queryset
+            qs = self.queryset
+            teacher_id_param = self.request.query_params.get('teacher_id')
+            teacher_email_param = self.request.query_params.get('teacher_email') or self.request.query_params.get('email')
+            if teacher_id_param:
+                qs = qs.filter(Q(teacher_id=teacher_id_param) | Q(teacher_id__icontains=teacher_id_param))
+            if teacher_email_param:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                t_user = User.objects.filter(Q(email__iexact=teacher_email_param) | Q(username__iexact=teacher_email_param)).first()
+                q = Q(teacher_id__iexact=teacher_email_param) | Q(teacher_id__icontains=teacher_email_param)
+                if t_user:
+                    full_name = f"{t_user.first_name} {t_user.last_name}".strip()
+                    if full_name:
+                        q |= Q(teacher_name__iexact=full_name)
+                    q |= Q(teacher_id=str(t_user.pk))
+                qs = qs.filter(q)
+            return qs
         elif user.user_type in ['teacher', 'faculty']:
             # Teachers only see feedback assigned to them
             full_name = f"{user.first_name} {user.last_name}".strip()
-            q = Q(teacher_id=str(user.pk)) | Q(teacher_id=user.email) | Q(teacher_id=user.username)
+            q = Q(teacher_id=str(user.pk)) | Q(teacher_id__iexact=user.email) | Q(teacher_id__iexact=user.username)
             if full_name:
                 q |= Q(teacher_name__iexact=full_name)
             return self.queryset.filter(q)

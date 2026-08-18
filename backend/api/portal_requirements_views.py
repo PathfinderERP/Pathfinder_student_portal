@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from datetime import datetime, date, timedelta
+import json
 
 # Mock datasets and endpoints for Requirement & Progress Report modules
 
@@ -153,14 +154,15 @@ def topper_rank_view(request):
         if db is None:
             raise Exception("MongoDB connection unavailable")
 
-        # Failsafe: if center_filter or batch_filter is not supplied, look up assigned centres & Class-Batch Map for authenticated teacher
-        if request.user and request.user.is_authenticated:
+        # Failsafe: if center_filter or batch_filter is not supplied, look up assigned centres & Class-Batch Map for teacher
+        teacher_param = request.query_params.get('teacher_username', '').strip().lower()
+        if teacher_param or (request.user and request.user.is_authenticated):
             try:
-                emp_id = (getattr(request.user, 'employee_id', '') or request.user.username or '').strip().lower()
-                u_email = (getattr(request.user, 'email', '') or request.user.username or '').strip().lower()
+                emp_id = teacher_param or (getattr(request.user, 'employee_id', '') or request.user.username or '').strip().lower()
+                u_email = teacher_param or (getattr(request.user, 'email', '') or request.user.username or '').strip().lower()
                 from api.erp_views import _get_all_teachers_data_list
                 all_t = _get_all_teachers_data_list()
-                matched_t = next((t for t in all_t if str(t.get('code','')).strip().lower() == emp_id or str(t.get('employee_id','')).strip().lower() == emp_id or str(t.get('email','')).strip().lower() == u_email), None)
+                matched_t = next((t for t in all_t if str(t.get('code','')).strip().lower() == emp_id or str(t.get('employee_id','')).strip().lower() == emp_id or str(t.get('email','')).strip().lower() == u_email or str(t.get('username','')).strip().lower() == emp_id), None)
                 
                 if matched_t and not center_filter:
                     t_centres = matched_t.get('centres') or []
@@ -168,8 +170,9 @@ def topper_rank_view(request):
                         center_filter = ", ".join(t_centres)
 
                 if not batch_filter:
-                    t_name = matched_t.get('name') if matched_t else f"{getattr(request.user, 'first_name', '')} {getattr(request.user, 'last_name', '')}".strip()
+                    t_name = matched_t.get('name') if matched_t else (f"{getattr(request.user, 'first_name', '')} {getattr(request.user, 'last_name', '')}".strip() if not teacher_param else '')
                     t_id = str(matched_t.get('id','')) if matched_t else ''
+                    t_email = str(matched_t.get('email','')) if matched_t else (u_email if '@' in u_email else '')
                     query_conds = []
                     if t_id:
                         query_conds.append({'teacher_id': t_id})
@@ -182,15 +185,22 @@ def topper_rank_view(request):
                         query_conds.append({'teacher_name': {'$regex': t_name, '$options': 'i'}})
                     if emp_id:
                         query_conds.append({'teacher_name': {'$regex': emp_id, '$options': 'i'}})
+                        query_conds.append({'teacher_email': {'$regex': emp_id, '$options': 'i'}})
+                        query_conds.append({'teacher_username': {'$regex': emp_id, '$options': 'i'}})
+                    if t_email:
+                        query_conds.append({'teacher_email': {'$regex': t_email, '$options': 'i'}})
 
                     if query_conds:
-                        fbs = list(db['api_classfeedback'].find({'$or': query_conds}, {'student_id': 1, 'student_batch': 1}))
+                        fbs = list(db['api_classfeedback'].find({'$or': query_conds}, {'student_id': 1, 'student_batch': 1, 'batch': 1}))
                         t_batches = set()
                         sids = []
                         for fb in fbs:
-                            b = (fb.get('student_batch') or '').strip()
+                            b = (fb.get('student_batch') or fb.get('batch') or '').strip()
                             if b and b.lower() != 'multiple':
-                                t_batches.add(b)
+                                for sub_b in b.split(','):
+                                    sub_b = sub_b.strip()
+                                    if sub_b and sub_b.lower() != 'multiple':
+                                        t_batches.add(sub_b)
                             if fb.get('student_id'):
                                 sids.append(fb['student_id'])
                         
@@ -228,7 +238,7 @@ def topper_rank_view(request):
                 'test_id': {'$in': pub_test_int_ids},
                 '$or': [{'is_finalized': True}, {'is_finalized': 1}]
             }},
-            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, '_id': 0}}
+            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'responses': 1, '_id': 0}}
         ]
         submissions = list(db['tests_testsubmission'].aggregate(pipeline))
 
@@ -246,8 +256,10 @@ def topper_rank_view(request):
             for st in all_st_docs:
                 st_c = (st.get('centre_name') or '').strip().lower()
                 st_b = (st.get('assigned_batch') or '').strip().lower()
-                match_c = not allowed_centres_list or (bool(st_c) and any(ac in st_c or st_c in ac for ac in allowed_centres_list))
-                match_b = not allowed_batches_list or (bool(st_b) and any(ab in st_b or st_b in ab for ab in allowed_batches_list))
+                st_c_norm = " ".join(st_c.split())
+                st_b_norm = " ".join(st_b.split())
+                match_c = not allowed_centres_list or (bool(st_c) and any(" ".join(ac.split()) in st_c_norm or st_c_norm in " ".join(ac.split()) for ac in allowed_centres_list))
+                match_b = not allowed_batches_list or (bool(st_b) and any(" ".join(ab.split()) in st_b_norm or st_b_norm in " ".join(ab.split()) for ab in allowed_batches_list))
                 if match_c and match_b:
                     allowed_student_ids.add(st['_id'])
 
@@ -280,16 +292,11 @@ def topper_rank_view(request):
         # Determine selected exam & subject max marks
         subj_max_map = {}
         if test_id_param.isdigit():
-            target_tid = int(test_id_param)
-            match_exam = next((e for e in published_exams if e['id'] == target_tid), None)
-            if match_exam:
-                selected_test_id = target_tid
-            else:
-                selected_test_id = published_exams[0]['id']
+            selected_test_id = int(test_id_param)
         elif test_id_param.lower() == 'all':
             selected_test_id = 'all'
         else:
-            selected_test_id = published_exams[0]['id']
+            selected_test_id = published_exams[0]['id'] if published_exams else 'all'
 
         if selected_test_id != 'all':
             test_info = test_map.get(selected_test_id, {})
@@ -297,7 +304,54 @@ def topper_rank_view(request):
             selected_test_max_marks = float(test_info.get('total_marks') or 100)
             active_submissions = [s for s in submissions if s.get('test_id') == selected_test_id]
 
-            # Extract subject section max marks for selected test
+        # Extract subject section max marks & pre-fetch question docs for active test
+        test_sec_map = defaultdict(dict)
+        test_qdocs_map = defaultdict(dict)
+        pub_tids = None
+        target_tids = [selected_test_id] if selected_test_id != 'all' else pub_tids
+        try:
+            if selected_test_id != 'all':
+                target_tids.extend([int(selected_test_id), str(selected_test_id)])
+        except Exception:
+            pass
+        active_secs = list(db['sections_section'].find({'test_id': {'$in': target_tids}}))
+        for s in active_secs:
+            t_id = s.get('test_id')
+            if t_id is None: continue
+            s_name = (s.get('name') or '').strip().upper()
+            code = (s.get('subject_code') or '').strip().upper()
+            target_subj = 'Physics'
+            if 'PHY' in s_name or 'PHY' in code: target_subj = 'Physics'
+            elif 'CHE' in s_name or 'CHE' in code: target_subj = 'Chemistry'
+            elif 'MATH' in s_name or 'MATH' in code: target_subj = 'Mathematics'
+            elif 'BIO' in s_name or 'BOT' in s_name or 'ZOO' in s_name or 'BIO' in code: target_subj = 'Biology'
+            
+            c_mark = float(s.get('correct_marks') or 2.0)
+            q_order = []
+            raw_q = s.get('question_order')
+            if isinstance(raw_q, list):
+                q_order = raw_q
+            elif isinstance(raw_q, str):
+                try:
+                    q_order = json.loads(raw_q)
+                except Exception:
+                    q_order = []
+            
+            for qid in q_order:
+                qid_str = str(qid)
+                test_sec_map[t_id][qid_str] = (target_subj, c_mark)
+                test_sec_map[str(t_id)][qid_str] = (target_subj, c_mark)
+                if qid_str not in test_qdocs_map[t_id]:
+                    q_doc = None
+                    if ObjectId.is_valid(qid_str):
+                        q_doc = db['questions_question'].find_one({'_id': ObjectId(qid_str)})
+                    if not q_doc:
+                        q_doc = db['questions_question'].find_one({'_id': qid_str})
+                    if q_doc:
+                        test_qdocs_map[t_id][qid_str] = q_doc
+                        test_qdocs_map[str(t_id)][qid_str] = q_doc
+
+        if selected_test_id != 'all':
             secs = list(db['sections_section'].find({'test_id': selected_test_id}))
             for s in secs:
                 s_name = (s.get('name') or '').strip().upper()
@@ -382,16 +436,16 @@ def topper_rank_view(request):
             st_batch  = (st_doc.get('assigned_batch') or '').strip() or 'Unknown Batch'
 
             if center_filter:
-                allowed_centres = [c.strip().lower() for c in center_filter.split(',') if c.strip()]
+                allowed_centres = [" ".join(c.strip().lower().split()) for c in center_filter.split(',') if c.strip()]
                 if allowed_centres:
-                    st_c_lower = st_center.lower()
+                    st_c_lower = " ".join(st_center.lower().split())
                     if not any(ac in st_c_lower or st_c_lower in ac for ac in allowed_centres if ac):
                         continue
 
             if batch_filter:
-                allowed_batches = [b.strip().lower() for b in batch_filter.split(',') if b.strip()]
+                allowed_batches = [" ".join(b.strip().lower().split()) for b in batch_filter.split(',') if b.strip()]
                 if allowed_batches:
-                    st_b_lower = st_batch.lower()
+                    st_b_lower = " ".join(st_batch.lower().split())
                     if not any(ab in st_b_lower or st_b_lower in ab for ab in allowed_batches if ab):
                         continue
 
@@ -442,7 +496,72 @@ def topper_rank_view(request):
                 rec['full_exam_total_marks'] = round(raw_score, 1)
                 rec['full_exam_max_marks']   = round(max_m, 1)
                 rec['test_count']  = 1
-                rec['subject_breakdown'][subj_label] = score
+
+                real_bd = None
+                resp_raw = sub.get('responses')
+                if resp_raw:
+                    try:
+                        resp_dict = json.loads(resp_raw) if isinstance(resp_raw, str) else resp_raw
+                        if isinstance(resp_dict, dict) and resp_dict:
+                            sec_map_for_test = test_sec_map.get(tid, {}) or test_sec_map.get(str(tid), {})
+                            qdocs_for_test = test_qdocs_map.get(tid, {}) or test_qdocs_map.get(str(tid), {})
+                            real_bd = {}
+                            subj_m = {1: 'Physics', 5: 'Chemistry', 2: 'Mathematics', 13: 'Biology', 3: 'Botany', 12: 'Zoology'}
+
+                            for qid, uans in resp_dict.items():
+                                if not isinstance(uans, dict) or not uans.get('answer'): continue
+                                qid_str = str(qid)
+                                
+                                # Target subject and question mark value from section
+                                if qid_str in sec_map_for_test:
+                                    target_subj, mark_val = sec_map_for_test[qid_str]
+                                else:
+                                    q = qdocs_for_test.get(qid_str)
+                                    if not q: continue
+                                    target_subj = subj_m.get(q.get('subject_id'), 'Physics')
+                                    mark_val = 2.0 if max_m == 40 else (4.0 if max_m in [300, 720] else max_m / 20.0)
+
+                                q = qdocs_for_test.get(qid_str)
+                                is_right = False
+                                if q:
+                                    opts = json.loads(q.get('question_options') or '[]')
+                                    user_a = str(uans.get('answer')).strip().upper()
+                                    letters = ['A', 'B', 'C', 'D', 'E']
+                                    corr_idx = next((i for i, o in enumerate(opts) if o.get('isCorrect')), None)
+                                    if corr_idx is not None:
+                                        corr_letter = letters[corr_idx] if corr_idx < len(letters) else str(corr_idx + 1)
+                                        if user_a == str(corr_idx + 1) or user_a == corr_letter:
+                                            is_right = True
+                                    elif q.get('answer_from') is not None:
+                                        try:
+                                            val = float(user_a)
+                                            if float(q.get('answer_from')) <= val <= float(q.get('answer_to')):
+                                                is_right = True
+                                        except: pass
+                                else:
+                                    is_right = True
+
+                                if is_right:
+                                    real_bd[target_subj] = real_bd.get(target_subj, 0.0) + mark_val
+                    except Exception:
+                        real_bd = None
+
+                if real_bd is not None:
+                    # Initialize all subjects to 0, then overlay actual scores
+                    for subj_name in ['Physics', 'Chemistry', 'Mathematics', 'Biology']:
+                        rec['subject_breakdown'][subj_name] = 0.0
+                    for sname, sscore in real_bd.items():
+                        rec['subject_breakdown'][sname] = float(sscore)
+                    # Override the ratio-based subject score with the real one
+                    if active_subject != 'All':
+                        rec['total_marks'] = round(real_bd.get(active_subject, 0.0), 1)
+                else:
+                    subj_cap = max_m / 4.0 if max_m > 0 else 10.0
+                    per_subj = min(subj_cap, round(raw_score / 4.0, 1))
+                    rec['subject_breakdown']['Physics'] = per_subj
+                    rec['subject_breakdown']['Chemistry'] = per_subj
+                    rec['subject_breakdown']['Mathematics'] = per_subj
+                    rec['subject_breakdown']['Biology'] = per_subj
             else:
                 rec['total_marks'] += score
                 rec['max_marks']   += max_score
@@ -791,8 +910,8 @@ def ptm_students_list_view(request):
 @permission_classes([AllowAny])
 def test_analysis_view(request):
     """
-    6. Test Analysis (Student)
-    Marks/percentage, Subject-wise performance, Test-wise performance, Rank comparison, Performance improvement tracking.
+    6. Test Analysis (Student & Teacher)
+    Marks/percentage, Subject-wise performance, Test-wise performance, Percentage Level Distributions, Rank comparison.
     """
     analysis_data = {
         "overall_score": "590 / 720",
@@ -811,6 +930,202 @@ def test_analysis_view(request):
             {"test_name": "Unit Test 2 (Electrostatics & Physical)", "date": "2026-07-02", "score": 555, "percentage": 77.0, "rank": 21},
             {"test_name": "Major Test 1 (Half Syllabus)", "date": "2026-07-20", "score": 570, "percentage": 79.1, "rank": 18},
             {"test_name": "Grand Mock 1 (Full Syllabus)", "date": "2026-08-08", "score": 590, "percentage": 81.9, "rank": 14}
+        ],
+        "test_wise_analysis": [
+            {
+                "test_id": "test-101",
+                "test_name": "Grand Mock 1 (Full Syllabus)",
+                "date": "2026-08-08",
+                "total_students": 10,
+                "max_marks": 720,
+                "highest_score": 680,
+                "batch_avg_score": 485,
+                "percentage_bands": [
+                    {
+                        "range": "< 50%",
+                        "min_pct": 0,
+                        "max_pct": 50,
+                        "count": 5,
+                        "percentage": 50.0,
+                        "description": "50% of students (5 out of 10) scored less than 50%",
+                        "color": "rose",
+                        "students": [
+                            {"name": "SHRESTHA PAUL", "score": 310, "pct": 43.0, "adm": "PATH260012"},
+                            {"name": "ANKIT SAHA", "score": 340, "pct": 47.2, "adm": "PATH260045"},
+                            {"name": "ROHIT VERMA", "score": 280, "pct": 38.8, "adm": "PATH260089"},
+                            {"name": "SNEHA CHATTERJEE", "score": 350, "pct": 48.6, "adm": "PATH260102"},
+                            {"name": "SUBHAM ROY", "score": 325, "pct": 45.1, "adm": "PATH260114"}
+                        ]
+                    },
+                    {
+                        "range": "50% - 70%",
+                        "min_pct": 50,
+                        "max_pct": 70,
+                        "count": 3,
+                        "percentage": 30.0,
+                        "description": "30% of students (3 out of 10) scored between 50% and 70%",
+                        "color": "amber",
+                        "students": [
+                            {"name": "SPANDAN CHAKRABORTY", "score": 460, "pct": 63.8, "adm": "PATH260014"},
+                            {"name": "PRIYA DUTTA", "score": 410, "pct": 56.9, "adm": "PATH260055"},
+                            {"name": "AKASH MUKHERJEE", "score": 490, "pct": 68.0, "adm": "PATH260078"}
+                        ]
+                    },
+                    {
+                        "range": "70% - 90%",
+                        "min_pct": 70,
+                        "max_pct": 90,
+                        "count": 1,
+                        "percentage": 10.0,
+                        "description": "10% of students (1 out of 10) scored between 70% and 90%",
+                        "color": "cyan",
+                        "students": [
+                            {"name": "TANVI BANERJEE", "score": 590, "pct": 81.9, "adm": "PATH260088"}
+                        ]
+                    },
+                    {
+                        "range": "≥ 90%",
+                        "min_pct": 90,
+                        "max_pct": 100,
+                        "count": 1,
+                        "percentage": 10.0,
+                        "description": "10% of students (1 out of 10) scored 90% and above",
+                        "color": "emerald",
+                        "students": [
+                            {"name": "AARAV GANGULY", "score": 680, "pct": 94.4, "adm": "PATH260001"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "test_id": "test-102",
+                "test_name": "Major Test 1 (Half Syllabus)",
+                "date": "2026-07-20",
+                "total_students": 10,
+                "max_marks": 720,
+                "highest_score": 660,
+                "batch_avg_score": 465,
+                "percentage_bands": [
+                    {
+                        "range": "< 50%",
+                        "min_pct": 0,
+                        "max_pct": 50,
+                        "count": 4,
+                        "percentage": 40.0,
+                        "description": "40% of students (4 out of 10) scored less than 50%",
+                        "color": "rose",
+                        "students": [
+                            {"name": "ANKIT SAHA", "score": 320, "pct": 44.4, "adm": "PATH260045"},
+                            {"name": "ROHIT VERMA", "score": 290, "pct": 40.2, "adm": "PATH260089"},
+                            {"name": "SUBHAM ROY", "score": 330, "pct": 45.8, "adm": "PATH260114"},
+                            {"name": "SHRESTHA PAUL", "score": 345, "pct": 47.9, "adm": "PATH260012"}
+                        ]
+                    },
+                    {
+                        "range": "50% - 70%",
+                        "min_pct": 50,
+                        "max_pct": 70,
+                        "count": 4,
+                        "percentage": 40.0,
+                        "description": "40% of students (4 out of 10) scored between 50% and 70%",
+                        "color": "amber",
+                        "students": [
+                            {"name": "SNEHA CHATTERJEE", "score": 380, "pct": 52.7, "adm": "PATH260102"},
+                            {"name": "PRIYA DUTTA", "score": 420, "pct": 58.3, "adm": "PATH260055"},
+                            {"name": "SPANDAN CHAKRABORTY", "score": 475, "pct": 65.9, "adm": "PATH260014"},
+                            {"name": "AKASH MUKHERJEE", "score": 485, "pct": 67.3, "adm": "PATH260078"}
+                        ]
+                    },
+                    {
+                        "range": "70% - 90%",
+                        "min_pct": 70,
+                        "max_pct": 90,
+                        "count": 1,
+                        "percentage": 10.0,
+                        "description": "10% of students (1 out of 10) scored between 70% and 90%",
+                        "color": "cyan",
+                        "students": [
+                            {"name": "TANVI BANERJEE", "score": 570, "pct": 79.1, "adm": "PATH260088"}
+                        ]
+                    },
+                    {
+                        "range": "≥ 90%",
+                        "min_pct": 90,
+                        "max_pct": 100,
+                        "count": 1,
+                        "percentage": 10.0,
+                        "description": "10% of students (1 out of 10) scored 90% and above",
+                        "color": "emerald",
+                        "students": [
+                            {"name": "AARAV GANGULY", "score": 660, "pct": 91.6, "adm": "PATH260001"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "test_id": "test-103",
+                "test_name": "Unit Test 2 (Electrostatics & Physical)",
+                "date": "2026-07-02",
+                "total_students": 10,
+                "max_marks": 720,
+                "highest_score": 640,
+                "batch_avg_score": 440,
+                "percentage_bands": [
+                    {
+                        "range": "< 50%",
+                        "min_pct": 0,
+                        "max_pct": 50,
+                        "count": 6,
+                        "percentage": 60.0,
+                        "description": "60% of students (6 out of 10) scored less than 50%",
+                        "color": "rose",
+                        "students": [
+                            {"name": "SHRESTHA PAUL", "score": 300, "pct": 41.6, "adm": "PATH260012"},
+                            {"name": "ANKIT SAHA", "score": 310, "pct": 43.0, "adm": "PATH260045"},
+                            {"name": "ROHIT VERMA", "score": 270, "pct": 37.5, "adm": "PATH260089"},
+                            {"name": "SNEHA CHATTERJEE", "score": 330, "pct": 45.8, "adm": "PATH260102"},
+                            {"name": "SUBHAM ROY", "score": 300, "pct": 41.6, "adm": "PATH260114"},
+                            {"name": "PRIYA DUTTA", "score": 350, "pct": 48.6, "adm": "PATH260055"}
+                        ]
+                    },
+                    {
+                        "range": "50% - 70%",
+                        "min_pct": 50,
+                        "max_pct": 70,
+                        "count": 3,
+                        "percentage": 30.0,
+                        "description": "30% of students (3 out of 10) scored between 50% and 70%",
+                        "color": "amber",
+                        "students": [
+                            {"name": "SPANDAN CHAKRABORTY", "score": 450, "pct": 62.5, "adm": "PATH260014"},
+                            {"name": "AKASH MUKHERJEE", "score": 460, "pct": 63.8, "adm": "PATH260078"},
+                            {"name": "TANVI BANERJEE", "score": 490, "pct": 68.0, "adm": "PATH260088"}
+                        ]
+                    },
+                    {
+                        "range": "70% - 90%",
+                        "min_pct": 70,
+                        "max_pct": 90,
+                        "count": 1,
+                        "percentage": 10.0,
+                        "description": "10% of students (1 out of 10) scored between 70% and 90%",
+                        "color": "cyan",
+                        "students": [
+                            {"name": "AARAV GANGULY", "score": 555, "pct": 77.0, "adm": "PATH260001"}
+                        ]
+                    },
+                    {
+                        "range": "≥ 90%",
+                        "min_pct": 90,
+                        "max_pct": 100,
+                        "count": 0,
+                        "percentage": 0.0,
+                        "description": "0% of students (0 out of 10) scored 90% and above",
+                        "color": "emerald",
+                        "students": []
+                    }
+                ]
+            }
         ]
     }
     return Response({"status": "success", "data": analysis_data}, status=status.HTTP_200_OK)

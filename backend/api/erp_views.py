@@ -1392,10 +1392,11 @@ def get_admin_student_attendance(request, admission_number):
 @permission_classes([IsAuthenticated])
 def get_teacher_classes(request):
     try:
-        erp_url = os.getenv('ERP_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+        erp_url = os.getenv('ERP_API_URL', 'https://pfndrerp.in').rstrip('/')
         admin_token = _get_erp_admin_token()
         if admin_token:
-            teacher_email = request.user.email or request.user.username
+            param_email = request.GET.get('email') or request.GET.get('username') or request.GET.get('code')
+            teacher_email = param_email or request.user.email or request.user.username
             resp = requests.get(
                 f"{erp_url}/api/teacher-portal/classes?email={teacher_email}",
                 headers={"Authorization": f"Bearer {admin_token}"},

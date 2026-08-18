@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Award, Trophy, Medal, Star, TrendingUp, BarChart2, CheckCircle2, Search, Filter, Layers, Building2, BookOpen, Users, RefreshCw, Download } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Award, Trophy, Medal, Star, TrendingUp, BarChart2, CheckCircle2, Search, Filter, Layers, Building2, BookOpen, Users, RefreshCw, Download, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import axios from 'axios';
@@ -43,9 +43,17 @@ const TopperRankTab = ({ teacherUser }) => {
                     ? `${apiUrl}/api/teacher-portal/profile/?email=${encodeURIComponent(userEmail)}&username=${encodeURIComponent(userEmail)}&code=${encodeURIComponent(userEmail)}`
                     : `${apiUrl}/api/teacher-portal/profile/`;
 
+                const classesUrl = userEmail 
+                    ? `${apiUrl}/api/teacher-portal/classes/?email=${encodeURIComponent(userEmail)}`
+                    : `${apiUrl}/api/teacher-portal/classes/`;
+                    
+                const feedbackUrl = userEmail
+                    ? `${apiUrl}/api/class-feedback/?email=${encodeURIComponent(userEmail)}`
+                    : `${apiUrl}/api/class-feedback/`;
+
                 const [classesRes, feedbacksRes, profileRes] = await Promise.allSettled([
-                    axios.get(`${apiUrl}/api/teacher-portal/classes/`, { headers }),
-                    axios.get(`${apiUrl}/api/class-feedback/`, { headers }),
+                    axios.get(classesUrl, { headers }),
+                    axios.get(feedbackUrl, { headers }),
                     axios.get(profileUrl, { headers })
                 ]);
                 
@@ -63,8 +71,9 @@ const TopperRankTab = ({ teacherUser }) => {
                     });
                 }
 
-                if (feedbacksRes.status === 'fulfilled' && Array.isArray(feedbacksRes.value?.data)) {
-                    feedbacksRes.value.data.forEach(f => {
+                const fData = Array.isArray(feedbacksRes.value?.data) ? feedbacksRes.value.data : (feedbacksRes.value?.data?.results || []);
+                if (feedbacksRes.status === 'fulfilled' && fData.length > 0) {
+                    fData.forEach(f => {
                         const bName = f.student_batch || f.assigned_batch || f.batch;
                         if (bName && typeof bName === 'string' && bName.trim() && bName.trim() !== 'Multiple') {
                             bSet.add(bName.trim());
@@ -81,6 +90,20 @@ const TopperRankTab = ({ teacherUser }) => {
                     const profileObj = pData.profile || pData.teacher || pData;
                     const subj = profileObj.subject || profileObj.subject_name || profileObj.subjects || pData.subject;
                     if (subj) setFetchedSubject(subj);
+                    
+                    const pBatches = profileObj.batches || profileObj.assigned_batch || profileObj.batch || [];
+                    if (Array.isArray(pBatches)) {
+                        pBatches.forEach(b => {
+                            const bName = typeof b === 'object' ? b.batchName || b.name || b.code : b;
+                            if (bName && typeof bName === 'string' && bName.trim() && bName.trim() !== 'Multiple') {
+                                bSet.add(bName.trim());
+                            }
+                        });
+                    } else if (typeof pBatches === 'string') {
+                        pBatches.split(',').forEach(b => {
+                            if (b.trim() && b.trim() !== 'Multiple') bSet.add(b.trim());
+                        });
+                    }
                 }
             } catch (err) {
                 console.warn("[TopperRankTab] Could not fetch teacher details for profile/subject:", err);
@@ -89,7 +112,7 @@ const TopperRankTab = ({ teacherUser }) => {
         fetchTeacherData();
     }, [getApiUrl, token, user?.email, user?.username]);
 
-    const effectiveTeacherBatches = teacherBatchesList.length > 0 ? teacherBatchesList : classMapBatches;
+    const effectiveTeacherBatches = classMapBatches.length > 0 ? classMapBatches : teacherBatchesList;
     const teacherCenter = teacherCentresList.join(', ');
     const teacherBatch = effectiveTeacherBatches.join(', ');
 
@@ -135,6 +158,34 @@ const TopperRankTab = ({ teacherUser }) => {
     const [selectedTestId, setSelectedTestId] = useState('');
     const [selectedTestName, setSelectedTestName] = useState('');
     const [selectedTestMaxMarks, setSelectedTestMaxMarks] = useState(0);
+
+    // Searchable exam dropdown state
+    const [examDropdownOpen, setExamDropdownOpen] = useState(false);
+    const [examSearchQuery, setExamSearchQuery] = useState('');
+    const examDropdownRef = useRef(null);
+    const examSearchInputRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (examDropdownRef.current && !examDropdownRef.current.contains(e.target)) {
+                setExamDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (examDropdownOpen && examSearchInputRef.current) {
+            examSearchInputRef.current.focus();
+        }
+    }, [examDropdownOpen]);
+
+    const filteredExams = useMemo(() => {
+        if (!examSearchQuery.trim()) return publishedExams;
+        const q = examSearchQuery.toLowerCase();
+        return publishedExams.filter(ex => (ex.name || '').toLowerCase().includes(q));
+    }, [publishedExams, examSearchQuery]);
 
     const fetchToppers = async () => {
         setLoading(true);
@@ -276,7 +327,7 @@ const TopperRankTab = ({ teacherUser }) => {
     return (
         <div className="space-y-6">
             {/* Header Banner */}
-            <div className={`p-5 md:p-6 rounded-2xl border ${isDarkMode ? 'bg-slate-900/60 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'} shadow-xl backdrop-blur-xl transition-all space-y-4`}>
+            <div className={`p-5 md:p-6 rounded-2xl border overflow-visible relative z-[50] ${isDarkMode ? 'bg-slate-900/60 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'} shadow-xl backdrop-blur-xl transition-all space-y-4`}>
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -363,27 +414,92 @@ const TopperRankTab = ({ teacherUser }) => {
 
                 {/* Exam & Subject-Wise Selector Row */}
                 {publishedExams.length > 0 && (
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3 border-t border-white/10">
-                        <div className="flex items-center gap-1.5 flex-1 min-w-[260px]">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3 border-t border-white/10 relative z-[100]">
+                        <div className="flex items-center gap-1.5 flex-1 min-w-[260px]" ref={examDropdownRef}>
                             <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>
                                 <Layers size={14} /> EXAM:
                             </span>
-                            <select
-                                value={selectedTestId}
-                                onChange={(e) => setSelectedTestId(e.target.value)}
-                                className={`w-full px-3 py-2 rounded-xl text-xs font-bold border outline-none cursor-pointer transition-all ${
-                                    isDarkMode 
-                                        ? 'bg-slate-950 border-amber-500/40 text-amber-300 focus:border-amber-400 shadow-md' 
-                                        : 'bg-white border-amber-300 text-amber-900 focus:border-amber-500 shadow-sm'
-                                }`}
-                            >
-                                {publishedExams.map(ex => (
-                                    <option key={ex.id} value={ex.id}>
-                                        {ex.name} (Max Marks: {ex.total_marks} • {ex.submissions_count} Students)
-                                    </option>
-                                ))}
-                                <option value="all">⚡ All Exams Combined (Overall Aggregate)</option>
-                            </select>
+                            <div className="relative w-full">
+                                {/* Selected value button */}
+                                <button
+                                    type="button"
+                                    onClick={() => { setExamDropdownOpen(!examDropdownOpen); setExamSearchQuery(''); }}
+                                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold border outline-none cursor-pointer transition-all text-left flex items-center justify-between gap-2 ${
+                                        isDarkMode 
+                                            ? 'bg-slate-950 border-amber-500/40 text-amber-300 hover:border-amber-400 shadow-md' 
+                                            : 'bg-white border-amber-300 text-amber-900 hover:border-amber-500 shadow-sm'
+                                    }`}
+                                >
+                                    <span className="truncate">
+                                        {(() => {
+                                            if (selectedTestId === 'all') return '⚡ All Exams Combined (Overall Aggregate)';
+                                            const found = publishedExams.find(ex => String(ex.id) === String(selectedTestId));
+                                            return found ? `${found.name} (Max Marks: ${found.total_marks} • ${found.submissions_count} Students)` : 'Select Exam...';
+                                        })()}
+                                    </span>
+                                    <ChevronDown size={14} className={`shrink-0 transition-transform ${examDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {/* Dropdown panel */}
+                                {examDropdownOpen && (
+                                    <div className={`absolute z-[9999] top-full left-0 w-full mt-1 rounded-xl border shadow-2xl overflow-hidden ${
+                                        isDarkMode ? 'bg-slate-900 border-amber-500/30' : 'bg-white border-amber-200'
+                                    }`} style={{ minWidth: '320px' }}>
+                                        {/* Search input */}
+                                        <div className={`p-2 border-b ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                            <div className="relative">
+                                                <Search size={13} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                                                <input
+                                                    ref={examSearchInputRef}
+                                                    type="text"
+                                                    placeholder="Search exams..."
+                                                    value={examSearchQuery}
+                                                    onChange={(e) => setExamSearchQuery(e.target.value)}
+                                                    className={`w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-medium border outline-none transition-all ${
+                                                        isDarkMode 
+                                                            ? 'bg-slate-950 border-white/10 text-white placeholder-slate-500 focus:border-amber-500/50'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-amber-400'
+                                                    }`}
+                                                />
+                                            </div>
+                                        </div>
+                                        {/* Options list */}
+                                        <div className="max-h-[280px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                                            {filteredExams.map((ex) => (
+                                                <button
+                                                    key={ex.id}
+                                                    type="button"
+                                                    onClick={() => { setSelectedTestId(String(ex.id)); setExamDropdownOpen(false); setExamSearchQuery(''); }}
+                                                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
+                                                        String(ex.id) === String(selectedTestId)
+                                                            ? (isDarkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-100 text-amber-900')
+                                                            : (isDarkMode ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50')
+                                                    }`}
+                                                >
+                                                    {ex.name} <span className="opacity-60">(Max Marks: {ex.total_marks} • {ex.submissions_count} Students)</span>
+                                                </button>
+                                            ))}
+                                            {/* All Exams option */}
+                                            <button
+                                                type="button"
+                                                onClick={() => { setSelectedTestId('all'); setExamDropdownOpen(false); setExamSearchQuery(''); }}
+                                                className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors border-t ${
+                                                    selectedTestId === 'all'
+                                                        ? (isDarkMode ? 'bg-amber-500/20 text-amber-300 border-white/10' : 'bg-amber-100 text-amber-900 border-slate-200')
+                                                        : (isDarkMode ? 'text-slate-300 hover:bg-white/5 border-white/10' : 'text-slate-700 hover:bg-slate-50 border-slate-200')
+                                                }`}
+                                            >
+                                                ⚡ All Exams Combined <span className="opacity-60">(Overall Aggregate)</span>
+                                            </button>
+                                            {filteredExams.length === 0 && (
+                                                <div className={`px-3 py-4 text-center text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                    No exams matching "{examSearchQuery}"
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -640,7 +756,7 @@ const TopperRankTab = ({ teacherUser }) => {
                                         <p className={`font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{st.batch}</p>
                                         <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{st.center}</p>
                                     </td>
-                                    <td className={`p-4 font-black text-sm ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                    <td className={`p-4 font-black text-sm ${st.total_marks === 0 ? (isDarkMode ? 'text-rose-400' : 'text-rose-600') : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')}`}>
                                         {st.total_marks} / {st.max_marks}
                                     </td>
                                     <td className={`p-4 font-black text-sm ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
@@ -650,7 +766,7 @@ const TopperRankTab = ({ teacherUser }) => {
                                     <td className="p-4">
                                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                                             {Object.entries(st.subject_breakdown).map(([sub, score]) => (
-                                                <span key={sub} className={`px-2 py-0.5 rounded border font-mono ${isDarkMode ? 'bg-slate-800 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                                                <span key={sub} className={`px-2 py-0.5 rounded border font-mono font-bold ${score === 0 ? (isDarkMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-600') : (isDarkMode ? 'bg-slate-800 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700')}`}>
                                                     {sub.slice(0, 3)}: {score}
                                                 </span>
                                             ))}

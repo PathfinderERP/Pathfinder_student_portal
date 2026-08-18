@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 import TopperRankTab from '../../components/tabs/TopperRankTab';
 import MentorshipConversionTab from '../../components/tabs/MentorshipConversionTab';
 import PTMHistoryTab from '../../components/tabs/PTMHistoryTab';
+import TestAnalysisTab from '../../components/tabs/TestAnalysisTab';
 
 const FEEDBACK_QUESTIONS = [
     "Explains concepts clearly and uses real-world examples to improve understanding.",
@@ -125,6 +126,14 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             return (
                 <div className="p-2 md:p-4">
                     <TopperRankTab teacherUser={teacher} />
+                </div>
+            );
+        }
+
+        if (activeDetail === 'test_analysis') {
+            return (
+                <div className="p-2 md:p-4">
+                    <TestAnalysisTab teacherUser={teacher} />
                 </div>
             );
         }
@@ -394,7 +403,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
     const StatCard = ({ icon: Icon, color, value, label, detailKey }) => (
         <div
             onClick={() => fetchDetail(detailKey)}
-            className={`p-3.5 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group flex flex-col justify-between items-center min-h-[110px]
+            className={`p-3.5 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start
                 ${activeDetail === detailKey
                     ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-400 bg-orange-50')
                     : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-md')
@@ -414,6 +423,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         doubts: 'Doubts Activity', 
         feedback: 'Class Feedback',
         topper_ranks: `Topper Ranks (Rank Produce) — ${name}`,
+        test_analysis: `Test Analysis — ${name}`,
         mentorship_conversion: `Mentorship & Conversion Logs — ${name}`,
         ptm_records: `Parent-Teacher Meeting (PTM) Records — ${name}`
     };
@@ -441,11 +451,11 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+            <div className="flex overflow-x-auto gap-2.5 pb-4 snap-x hide-scrollbar">
                 <StatCard icon={Activity} color="text-blue-500" value={activity.loginCount || 0} label="App Logins" detailKey="logins" />
                 <div
                     onClick={() => fetchDetail('doubts')}
-                    className={`p-3.5 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group flex flex-col justify-between items-center min-h-[110px]
+                    className={`p-3.5 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start
                         ${activeDetail === 'doubts'
                             ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-400 bg-orange-50')
                             : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-md')
@@ -464,10 +474,11 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
 
                 <StatCard icon={Star} color="text-amber-500" value={activity.classRating || "0.0"} label="Class Rating" detailKey="feedback" />
                 <StatCard icon={Trophy} color="text-amber-400" value="View" label="Topper Ranks" detailKey="topper_ranks" />
+                <StatCard icon={BarChart2} color="text-cyan-500" value="View" label="Test Analysis" detailKey="test_analysis" />
                 <StatCard icon={ArrowRightLeft} color="text-orange-500" value="View" label="Mentorship & Conversion" detailKey="mentorship_conversion" />
-                <StatCard icon={Users} color="text-cyan-500" value="View" label="PTM Records" detailKey="ptm_records" />
+                <StatCard icon={Users} color="text-indigo-500" value="View" label="PTM Records" detailKey="ptm_records" />
 
-                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                     <LogIn className={`w-5 h-5 mx-auto mb-1 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
                     <div className={`text-base font-black truncate max-w-full ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : ''}`}>
                         {activity.avgEntryDiff || '-'}
@@ -475,7 +486,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                     <div className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-0.5 leading-tight">Avg Entry Time</div>
                 </div>
 
-                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
                     <Clock className="w-5 h-5 mx-auto mb-1 text-slate-500" />
                     <div className="text-xs font-black leading-tight">{activity.lastActive ? fmtDate(activity.lastActive) : 'Never'}</div>
                     <div className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-0.5 leading-tight">Last Active</div>
