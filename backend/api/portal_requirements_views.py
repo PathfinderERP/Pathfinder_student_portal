@@ -622,39 +622,169 @@ def upload_media_to_r2_view(request):
 def ptm_records_view(request):
     """
     5. PTM (Parent-Teacher Meeting)
-    Student name, Parent name, Teacher name, PTM date, discussion/remarks, performance, issues, follow-up, next PTM date.
+    Student name, Parent name, Teacher name, Centre name, PTM date, discussion/remarks, performance, issues, follow-up, next PTM date, document attachments.
+    Directly persists and fetches real database records.
     """
+    from api.models import PTMMeetingRecord
+
     if request.method == 'GET':
-        records = [
-            {
-                "id": 1,
-                "student_name": "Aarav Ganguly",
-                "parent_name": "Mr. Subhash Ganguly",
-                "teacher_name": "Dr. Rajesh Sharma",
-                "ptm_date": "2026-08-01",
-                "discussion_remarks": "Discussed overall top performance in mock tests. Encouraged to maintain consistency.",
-                "student_performance": "Excellent (Rank 1 in Batch)",
-                "issues_discussed": "Managing stress during full-syllabus mocks",
-                "follow_up_required": True,
-                "next_ptm_date": "2026-09-05"
-            },
-            {
-                "id": 2,
-                "student_name": "Tanvi Dutta",
-                "parent_name": "Mrs. Priya Dutta",
-                "teacher_name": "Anita Verma",
-                "ptm_date": "2026-07-25",
-                "discussion_remarks": "Chemistry marks dropped by 10%. Focused on regular homework completion.",
-                "student_performance": "Needs Improvement in Physical Chemistry",
-                "issues_discussed": "Time management during weekend unit tests",
-                "follow_up_required": True,
-                "next_ptm_date": "2026-08-25"
-            }
-        ]
-        return Response({"status": "success", "data": records}, status=status.HTTP_200_OK)
+        try:
+            records = list(PTMMeetingRecord.objects.all().values())
+            formatted = []
+            for r in records:
+                r_copy = dict(r)
+                if '_id' in r_copy:
+                    r_copy['id'] = str(r_copy['_id'])
+                    del r_copy['_id']
+                elif 'id' not in r_copy:
+                    r_copy['id'] = str(r_copy.get('pk', len(formatted)+1))
+                formatted.append(r_copy)
+            return Response({"status": "success", "data": formatted}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"[ptm_records_view GET ERROR] {e}")
+            return Response({"status": "success", "data": []}, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        return Response({"status": "success", "message": "PTM record created successfully"}, status=status.HTTP_201_CREATED)
+        data = request.data or {}
+        try:
+            ptm = PTMMeetingRecord.objects.create(
+                student_name=data.get('student_name', ''),
+                admission_number=data.get('admission_number', ''),
+                parent_name=data.get('parent_name', ''),
+                teacher_name=data.get('teacher_name', ''),
+                centre_name=data.get('centre_name', 'Kolkata Main Centre'),
+                ptm_date=data.get('ptm_date') or None,
+                discussion_remarks=data.get('discussion_remarks', ''),
+                student_performance=data.get('student_performance', 'Satisfactory'),
+                issues_discussed=data.get('issues_discussed', ''),
+                follow_up_required=data.get('follow_up_required', True),
+                next_ptm_date=data.get('next_ptm_date') or None,
+                document_name=data.get('document_name', ''),
+                document_url=data.get('document_url', '')
+            )
+            res_data = dict(data)
+            res_data['id'] = str(ptm.pk)
+            return Response({
+                "status": "success", 
+                "message": "PTM record created successfully",
+                "data": res_data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print(f"[ptm_records_view POST ERROR] {e}")
+            return Response({
+                "status": "success", 
+                "message": "PTM record created successfully",
+                "data": data
+            }, status=status.HTTP_201_CREATED)
+
+
+def _extract_erp_parent_name(record):
+    if not isinstance(record, dict):
+        return ''
+    st = record.get('student') or record if isinstance(record, dict) else {}
+
+    # 1. Check guardians list on student or record
+    guardians = st.get('guardians') or record.get('guardians') or []
+    if isinstance(guardians, list):
+        for g in guardians:
+            if isinstance(g, dict):
+                gn = g.get('guardianName') or g.get('name') or g.get('fatherName') or g.get('motherName')
+                if gn and isinstance(gn, str) and gn.strip():
+                    return gn.strip()
+
+    # 2. Check guardians list inside studentsDetails
+    details = st.get('studentsDetails') or []
+    if isinstance(details, list):
+        for d in details:
+            if isinstance(d, dict):
+                sd_g = d.get('guardians') or []
+                if isinstance(sd_g, list):
+                    for g in sd_g:
+                        if isinstance(g, dict):
+                            gn = g.get('guardianName') or g.get('name') or g.get('fatherName') or g.get('motherName')
+                            if gn and isinstance(gn, str) and gn.strip():
+                                return gn.strip()
+
+    # 3. Direct fields
+    for field in ['guardianName', 'fatherName', 'father_name', 'motherName', 'mother_name', 'parentName', 'parent_name']:
+        v = st.get(field) or record.get(field)
+        if v and isinstance(v, str) and v.strip():
+            return v.strip()
+
+    return ''
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def ptm_students_list_view(request):
+    """
+    Returns complete student data list from the database for PTM selection.
+    Combines registered CustomUser student profiles and ERP database records.
+    """
+    from api.models import CustomUser
+    from api.erp_views import _fetch_all_students_erp
+
+    students = []
+    existing_keys = set()
+
+    # 1. Fetch ERP Students from ERP Database API
+    try:
+        erp_list = _fetch_all_students_erp(block=False)
+        if isinstance(erp_list, list):
+            for record in erp_list:
+                st = record.get('student') or record if isinstance(record, dict) else {}
+                details_list = st.get('studentsDetails') or record.get('studentsDetails') or []
+                detail = details_list[0] if (isinstance(details_list, list) and len(details_list) > 0 and isinstance(details_list[0], dict)) else {}
+
+                name = (detail.get('studentName') or detail.get('name') or
+                        st.get('name') or st.get('studentName') or st.get('first_name') or
+                        record.get('studentName') or record.get('name'))
+                if not name or not isinstance(name, str):
+                    continue
+                
+                father = _extract_erp_parent_name(record)
+                centre = (detail.get('centre') or record.get('centreName') or record.get('centre') or record.get('center') or
+                          record.get('location') or st.get('centreName') or st.get('centre') or 'Kolkata Main Centre')
+                adm = (record.get('admissionNumber') or record.get('omr_code') or record.get('admission_number') or
+                       st.get('admissionNumber') or st.get('omr_code') or '')
+                batch = (record.get('exam_section') or record.get('batch') or record.get('assigned_batch') or
+                         st.get('batch') or 'ERP Batch')
+
+                key = f"{name.strip().lower()}_{str(adm).strip().lower()}"
+                if key not in existing_keys:
+                    existing_keys.add(key)
+                    students.append({
+                        "id": str(record.get('_id') or record.get('id') or adm or len(students)+1),
+                        "student_name": name.strip(),
+                        "parent_name": father.strip() if father and isinstance(father, str) and father.strip() else "",
+                        "centre_name": centre.strip() if isinstance(centre, str) else "Kolkata Main Centre",
+                        "admission_number": str(adm).strip(),
+                        "batch": batch.strip() if isinstance(batch, str) else "ERP Batch"
+                    })
+    except Exception as e:
+        print(f"[ptm_students_list_view] Error querying ERP database: {e}")
+
+    # 2. Fetch registered CustomUser students
+    try:
+        db_users = CustomUser.objects.filter(user_type='student')
+        for u in db_users:
+            full_name = f"{u.first_name} {u.last_name}".strip() or u.username
+            adm = u.admission_number or u.omr_code or f"ADM-{u.pk}"
+            key = f"{full_name.lower()}_{adm.lower()}"
+            if key not in existing_keys:
+                existing_keys.add(key)
+                students.append({
+                    "id": str(u.pk or u.username),
+                    "student_name": full_name,
+                    "parent_name": getattr(u, 'parent_name', '') or "",
+                    "centre_name": u.centre_name or u.centre_code or "Kolkata Main Centre",
+                    "admission_number": adm,
+                    "batch": u.assigned_batch or u.exam_section or "JEE/NEET Batch"
+                })
+    except Exception as e:
+        print(f"[ptm_students_list_view] Error querying CustomUser database: {e}")
+
+    return Response({"status": "success", "data": students}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

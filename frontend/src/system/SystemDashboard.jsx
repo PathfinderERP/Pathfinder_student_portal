@@ -219,7 +219,7 @@ const SystemDashboard = () => {
                     if (activeTab === 'Admin Student') params.user_type = 'student';
                     else if (activeTab === 'Admin Parent') params.user_type = 'parent';
                     else if (activeTab === 'Admin System') params.user_types = 'superadmin,admin,staff';
-                    
+
                     const response = await axios.get(`${apiUrl}/api/users/`, {
                         headers: { 'Authorization': `Bearer ${token}` },
                         params: params

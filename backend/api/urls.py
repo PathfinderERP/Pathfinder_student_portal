@@ -21,7 +21,7 @@ from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_
 from .gemini_views import generate_ai_study_plan, get_college_intelligence, search_college_ai, extract_marksheet_data, get_student_ai_insights, student_ai_insights_chat, generate_chapter_test
 from .portal_requirements_views import (
     teacher_attendance_view, batch_teacher_attendance_view, topper_rank_view,
-    mentorship_conversion_view, ptm_records_view, test_analysis_view,
+    mentorship_conversion_view, ptm_records_view, ptm_students_list_view, test_analysis_view,
     referrals_collected_view, dc_stopped_view, teacher_training_view,
     upload_media_to_r2_view
 )
@@ -103,6 +103,7 @@ urlpatterns = [
     path('mentorship-conversion/', mentorship_conversion_view, name='mentorship-conversion'),
     path('upload-media/', upload_media_to_r2_view, name='upload-media'),
     path('ptm-records/', ptm_records_view, name='ptm-records'),
+    path('ptm-students/', ptm_students_list_view, name='ptm-students'),
     path('test-analysis/', test_analysis_view, name='test-analysis'),
     path('referrals/', referrals_collected_view, name='referrals-collected'),
     path('dc-stopped/', dc_stopped_view, name='dc-stopped'),

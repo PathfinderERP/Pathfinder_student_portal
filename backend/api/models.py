@@ -325,3 +325,27 @@ class ClassFeedback(models.Model):
 
     def __str__(self):
         return f"Feedback for {self.teacher_name} by {self.student.username}"
+
+
+class PTMMeetingRecord(models.Model):
+    _id = djongo_models.ObjectIdField(primary_key=True)
+    student_name = models.CharField(max_length=255)
+    admission_number = models.CharField(max_length=100, blank=True, null=True)
+    parent_name = models.CharField(max_length=255, blank=True, null=True)
+    teacher_name = models.CharField(max_length=255, blank=True, null=True)
+    centre_name = models.CharField(max_length=255, default='Kolkata Main Centre')
+    ptm_date = models.DateField(null=True, blank=True)
+    discussion_remarks = models.TextField()
+    student_performance = models.CharField(max_length=255, default='Satisfactory')
+    issues_discussed = models.TextField(blank=True, null=True)
+    follow_up_required = models.BooleanField(default=True)
+    next_ptm_date = models.DateField(null=True, blank=True)
+    document_name = models.CharField(max_length=255, blank=True, null=True)
+    document_url = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"PTM: {self.student_name} ({self.centre_name}) - {self.ptm_date}"
