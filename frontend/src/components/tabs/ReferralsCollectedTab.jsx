@@ -4,6 +4,154 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import axios from 'axios';
 
+const SearchableSelect = ({
+    icon: Icon,
+    placeholder = 'Search...',
+    options = [],
+    value,
+    onChange,
+    allLabel = 'All',
+    isDarkMode
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredOptions = useMemo(() => {
+        if (!searchTerm.trim()) return options;
+        const q = searchTerm.toLowerCase().trim();
+        return options.filter(opt =>
+            (opt.label || opt.name || opt.value || '').toLowerCase().includes(q) ||
+            (opt.email || '').toLowerCase().includes(q)
+        );
+    }, [options, searchTerm]);
+
+    const selectedOption = options.find(o => (o.value || o.email || o.name) === value);
+    const displayLabel = value === 'ALL'
+        ? allLabel
+        : (selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : value);
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <button
+                type="button"
+                onClick={() => {
+                    setIsOpen(prev => !prev);
+                    setSearchTerm('');
+                }}
+                className={`w-full flex items-center justify-between gap-2 pl-9 pr-3 py-2.5 rounded-xl border text-xs font-semibold outline-none transition-all text-left ${
+                    isDarkMode
+                        ? `bg-slate-950/60 border-white/10 text-white ${isOpen ? 'border-amber-500/80 ring-1 ring-amber-500/30' : 'hover:border-white/20'}`
+                        : `bg-slate-50 border-slate-200 text-slate-800 ${isOpen ? 'border-amber-500 ring-1 ring-amber-500/20' : 'hover:border-slate-300'}`
+                }`}
+            >
+                {Icon && (
+                    <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                )}
+                <span className="truncate flex-1">{displayLabel}</span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className={`absolute top-full left-0 right-0 mt-1.5 rounded-xl border shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 duration-150 ${
+                    isDarkMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
+                }`}>
+                    {/* Search Input */}
+                    <div className="p-2 border-b border-slate-200 dark:border-white/10">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder={placeholder}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`w-full pl-8 pr-7 py-1.5 rounded-lg border text-xs font-medium outline-none ${
+                                    isDarkMode
+                                        ? 'bg-slate-950 border-white/10 text-white placeholder:text-slate-500 focus:border-amber-500'
+                                        : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-amber-500'
+                                }`}
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Options List */}
+                    <div className="max-h-56 overflow-y-auto p-1 custom-scrollbar text-xs font-medium">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onChange('ALL');
+                                setIsOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
+                                value === 'ALL'
+                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-300 font-bold' : 'bg-amber-50 text-amber-800 font-bold')
+                                    : (isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')
+                            }`}
+                        >
+                            <span>{allLabel}</span>
+                            {value === 'ALL' && <Check size={13} className="text-amber-500 shrink-0" />}
+                        </button>
+
+                        {filteredOptions.length === 0 ? (
+                            <div className="p-3 text-center text-slate-400 text-xs">
+                                No matching options
+                            </div>
+                        ) : (
+                            filteredOptions.map((opt, idx) => {
+                                const optVal = opt.value || opt.name || opt.email;
+                                const isSelected = value === optVal;
+                                return (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(optVal);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
+                                            isSelected
+                                                ? (isDarkMode ? 'bg-amber-500/20 text-amber-300 font-bold' : 'bg-amber-50 text-amber-800 font-bold')
+                                                : (isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700')
+                                        }`}
+                                    >
+                                        <div className="truncate pr-2">
+                                            <p className="truncate font-semibold">{opt.label || opt.name || optVal}</p>
+                                            {opt.email && opt.name && opt.name !== opt.email && (
+                                                <p className="text-[10px] text-slate-400 font-mono truncate">{opt.email}</p>
+                                            )}
+                                        </div>
+                                        {isSelected && <Check size={13} className="text-amber-500 shrink-0" />}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const ReferralsCollectedTab = ({ isAdminView = false, filterTeacherName = null, filterTeacherEmail = null }) => {
     const { isDarkMode } = useTheme();
@@ -322,22 +470,27 @@ const ReferralsCollectedTab = ({ isAdminView = false, filterTeacherName = null, 
 
     const availableTeachers = useMemo(() => {
         const map = new Map();
-        erpTeachersList.forEach(t => {
-            const name = (t.name || t.fullName || t.teacher_name || '').trim();
-            const email = (t.email || t.username || '').trim();
-            if (name || email) {
-                const key = (email || name).toLowerCase();
-                if (!map.has(key)) {
-                    map.set(key, { name: name || email, email: email, label: name ? `${name}${email ? ` (${email})` : ''}` : email });
-                }
-            }
-        });
         referrals.forEach(r => {
             const ref = (r.referred_by || '').trim();
             if (ref) {
                 const key = ref.toLowerCase();
                 if (!map.has(key)) {
-                    map.set(key, { name: ref, email: ref, label: ref });
+                    const erpMatch = erpTeachersList.find(t =>
+                        (t.email && t.email.toLowerCase() === key) ||
+                        (t.name && t.name.toLowerCase() === key) ||
+                        (t.username && t.username.toLowerCase() === key)
+                    );
+                    const displayName = erpMatch?.name || ref;
+                    const displayLabel = erpMatch?.name && erpMatch?.email && erpMatch.name !== erpMatch.email
+                        ? `${erpMatch.name} (${erpMatch.email})`
+                        : ref;
+
+                    map.set(key, {
+                        name: displayName,
+                        email: erpMatch?.email || ref,
+                        value: ref,
+                        label: displayLabel
+                    });
                 }
             }
         });
@@ -346,14 +499,13 @@ const ReferralsCollectedTab = ({ isAdminView = false, filterTeacherName = null, 
 
     const availableCentres = useMemo(() => {
         const set = new Set();
-        masterCentres.forEach(c => {
-            if (c.name) set.add(c.name.trim());
-        });
         referrals.forEach(r => {
-            if (r.centre_name) set.add(r.centre_name.trim());
+            if (r.centre_name && r.centre_name.trim()) {
+                set.add(r.centre_name.trim());
+            }
         });
         return Array.from(set).sort((a, b) => a.localeCompare(b));
-    }, [masterCentres, referrals]);
+    }, [referrals]);
 
     const baseReferrals = useMemo(() => {
         let list = referrals;
@@ -511,7 +663,7 @@ const ReferralsCollectedTab = ({ isAdminView = false, filterTeacherName = null, 
 
             {/* Search and Filters Bar */}
             <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'} shadow-md space-y-3`}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdminView ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3`}>
                     {/* Search */}
                     <div className="relative sm:col-span-2 lg:col-span-1">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
@@ -528,69 +680,44 @@ const ReferralsCollectedTab = ({ isAdminView = false, filterTeacherName = null, 
                         />
                     </div>
 
-                    {/* Teacher Filter */}
-                    <div className="relative">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <select
+                    {/* Teacher Filter (Admin View Only) */}
+                    {isAdminView && (
+                        <SearchableSelect
+                            icon={User}
+                            placeholder="Search teacher name/email..."
+                            allLabel={`All Teachers (${availableTeachers.length})`}
+                            options={availableTeachers}
                             value={selectedTeacherFilter}
-                            onChange={(e) => setSelectedTeacherFilter(e.target.value)}
-                            className={`w-full pl-9 pr-8 py-2.5 rounded-xl border text-xs font-semibold outline-none appearance-none cursor-pointer transition-all ${
-                                isDarkMode
-                                    ? 'bg-slate-950/60 border-white/10 text-white focus:border-amber-500'
-                                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-amber-500'
-                            }`}
-                        >
-                            <option value="ALL">All Teachers</option>
-                            {availableTeachers.map((t, idx) => (
-                                <option key={idx} value={t.email || t.name}>
-                                    {t.label}
-                                </option>
-                            ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                    </div>
+                            onChange={setSelectedTeacherFilter}
+                            isDarkMode={isDarkMode}
+                        />
+                    )}
 
                     {/* Centre Filter */}
-                    <div className="relative">
-                        <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <select
-                            value={selectedCentreFilter}
-                            onChange={(e) => setSelectedCentreFilter(e.target.value)}
-                            className={`w-full pl-9 pr-8 py-2.5 rounded-xl border text-xs font-semibold outline-none appearance-none cursor-pointer transition-all ${
-                                isDarkMode
-                                    ? 'bg-slate-950/60 border-white/10 text-white focus:border-amber-500'
-                                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-amber-500'
-                            }`}
-                        >
-                            <option value="ALL">All Centres</option>
-                            {availableCentres.map((c, idx) => (
-                                <option key={idx} value={c}>
-                                    {c}
-                                </option>
-                            ))}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                    </div>
+                    <SearchableSelect
+                        icon={Building2}
+                        placeholder="Search centre..."
+                        allLabel={`All Centres (${availableCentres.length})`}
+                        options={availableCentres.map(c => ({ value: c, label: c, name: c }))}
+                        value={selectedCentreFilter}
+                        onChange={setSelectedCentreFilter}
+                        isDarkMode={isDarkMode}
+                    />
 
                     {/* Status Filter */}
-                    <div className="relative">
-                        <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <select
-                            value={selectedStatusFilter}
-                            onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                            className={`w-full pl-9 pr-8 py-2.5 rounded-xl border text-xs font-semibold outline-none appearance-none cursor-pointer transition-all ${
-                                isDarkMode
-                                    ? 'bg-slate-950/60 border-white/10 text-white focus:border-amber-500'
-                                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-amber-500'
-                            }`}
-                        >
-                            <option value="ALL">All Statuses</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Admitted">Admitted</option>
-                            <option value="Dropped">Dropped</option>
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                    </div>
+                    <SearchableSelect
+                        icon={Filter}
+                        placeholder="Search status..."
+                        allLabel="All Statuses"
+                        options={[
+                            { value: 'In Progress', label: 'In Progress' },
+                            { value: 'Admitted', label: 'Admitted' },
+                            { value: 'Dropped', label: 'Dropped' }
+                        ]}
+                        value={selectedStatusFilter}
+                        onChange={setSelectedStatusFilter}
+                        isDarkMode={isDarkMode}
+                    />
                 </div>
 
                 {/* Active Filter Pills / Reset button */}
