@@ -349,3 +349,28 @@ class PTMMeetingRecord(models.Model):
 
     def __str__(self):
         return f"PTM: {self.student_name} ({self.centre_name}) - {self.ptm_date}"
+
+
+class Referral(models.Model):
+    _id = djongo_models.ObjectIdField(primary_key=True)
+    referred_by = models.CharField(max_length=255)
+    referral_source = models.CharField(max_length=50, default='Teacher')
+    referred_person = models.CharField(max_length=255)
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    interested_course = models.CharField(max_length=255, blank=True, null=True)
+    centre_name = models.CharField(max_length=255, blank=True, null=True)
+    referral_date = models.DateField(null=True, blank=True)
+    follow_up_status = models.CharField(max_length=100, default='New Referral')
+    conversion_status = models.CharField(max_length=100, default='In Progress')
+    reward_points = models.IntegerField(default=0)
+    remarks = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.referred_person} (by {self.referred_by})"
+
+

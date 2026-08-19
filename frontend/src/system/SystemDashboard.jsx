@@ -4,9 +4,12 @@ import {
     LayoutDashboard, MapPin, Layers, FileText, Database,
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
     MessageSquare, Image, CircleDot, Compass, Activity,
-    Contact, Home, LayoutGrid, PieChart, BookOpen, Star, Calendar, ArrowRightLeft
+    Contact, Home, LayoutGrid, PieChart, BookOpen, Star, Calendar, ArrowRightLeft, UserPlus,
+    GraduationCap, UserCheck
 } from 'lucide-react';
 import MentorshipConversionTab from '../components/tabs/MentorshipConversionTab';
+import ReferralsCollectedTab from '../components/tabs/ReferralsCollectedTab';
+
 
 // Common
 import PortalLayout from '../components/common/PortalLayout';
@@ -104,6 +107,7 @@ const SystemDashboard = () => {
         questions: { total: 0, thisMonth: 0 }
     });
     const [unassignedDoubtCount, setUnassignedDoubtCount] = useState(0);
+    const [inProgressReferralCount, setInProgressReferralCount] = useState(0);
     const [masterSubTab, setMasterSubTab] = useState('Session');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -300,6 +304,21 @@ const SystemDashboard = () => {
         }
     }, [token, getApiUrl, authLoading, user?.user_type]);
 
+    const fetchInProgressReferralCount = useCallback(async () => {
+        if (authLoading || !token) return;
+        try {
+            const apiUrl = getApiUrl();
+            const response = await axios.get(`${apiUrl}/api/referrals/`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const list = response.data?.data || (Array.isArray(response.data) ? response.data : []);
+            const inProgress = list.filter(r => r.conversion_status !== 'Admitted' && r.conversion_status !== 'Dropped').length;
+            setInProgressReferralCount(inProgress);
+        } catch (err) {
+            console.error("Failed to fetch in-progress referral count", err);
+        }
+    }, [token, getApiUrl, authLoading]);
+
     const syncERP = useCallback(async (isManual = false) => {
         if (!isManual && _erpSyncAttempted) return;
         if (authLoading || !token) return;
@@ -310,6 +329,7 @@ const SystemDashboard = () => {
         if (isManual) {
             fetchDashboardStats(true); // Force real-time recount
             fetchUnassignedDoubtCount();
+            fetchInProgressReferralCount();
         }
 
         try {
@@ -358,21 +378,23 @@ const SystemDashboard = () => {
         syncERP();
         fetchDashboardStats();
         fetchUnassignedDoubtCount();
+        fetchInProgressReferralCount();
         initialFetchDone.current = true;
 
-        // 30-min interval aligns with the backend ERP cache TTL (avoids hammering
-        // the ERP endpoint more often than the cache refreshes).
+        // 30-min interval aligns with the backend ERP cache TTL
         const interval = setInterval(() => {
             syncERP(false);
             fetchDashboardStats();
             fetchUnassignedDoubtCount();
+            fetchInProgressReferralCount();
         }, 1800000);
         return () => clearInterval(interval);
-    }, [authLoading, token, syncERP, fetchDashboardStats, fetchUnassignedDoubtCount]);
+    }, [authLoading, token, syncERP, fetchDashboardStats, fetchUnassignedDoubtCount, fetchInProgressReferralCount]);
 
     useEffect(() => {
         fetchUnassignedDoubtCount();
-    }, [activeTab, fetchUnassignedDoubtCount]);
+        fetchInProgressReferralCount();
+    }, [activeTab, fetchUnassignedDoubtCount, fetchInProgressReferralCount]);
 
     // 3. Permissions & Sidebar
     const hasPermission = (moduleId, subModuleId = null) => {
@@ -435,8 +457,9 @@ const SystemDashboard = () => {
             ].filter(sub => hasPermission('doubt_mgmt', sub.id))
         },
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
-        { id: 'student_activity', icon: Activity, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
-        { id: 'teacher_activity', icon: Activity, label: 'Teacher Activity', active: activeTab === 'Teacher Activity', onClick: () => setActiveTab('Teacher Activity') },
+        { id: 'student_activity', icon: GraduationCap, label: 'Student Activity', active: activeTab === 'Student Activity', onClick: () => setActiveTab('Student Activity') },
+        { id: 'teacher_activity', icon: UserCheck, label: 'Teacher Activity', active: activeTab === 'Teacher Activity', onClick: () => setActiveTab('Teacher Activity') },
+        { id: 'teacher_referral', icon: UserPlus, label: 'Teacher Referral', badge: inProgressReferralCount > 0 ? inProgressReferralCount : null, active: activeTab === 'Teacher Referral', onClick: () => setActiveTab('Teacher Referral') },
         { id: 'mentorship_conversion', icon: ArrowRightLeft, label: 'Mentorship & Conversion', active: activeTab === 'Mentorship & Conversion', onClick: () => setActiveTab('Mentorship & Conversion') },
         { id: 'class_feedback', icon: Star, label: 'Class Feedback', active: activeTab === 'Class Feedback', onClick: () => setActiveTab('Class Feedback') },
         { id: 'student_attendance', icon: Calendar, label: 'Student Attendance', active: activeTab === 'Student Attendance', onClick: () => setActiveTab('Student Attendance') },
@@ -507,7 +530,7 @@ const SystemDashboard = () => {
         }
 
         return hasPermission(item.id);
-    }), [activeTab, masterSubTab, user?.permissions, user?.user_type, unassignedDoubtCount]);
+    }), [activeTab, masterSubTab, user?.permissions, user?.user_type, unassignedDoubtCount, inProgressReferralCount]);
 
     const [visitedTabs, setVisitedTabs] = useState(['Dashboard']);
 
@@ -652,6 +675,8 @@ const SystemDashboard = () => {
                 return <StudentActivity studentsData={erpStudents} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(true)} />;
             case 'Teacher Activity':
                 return <TeacherActivity teachersData={erpTeachers} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(false)} />;
+            case 'Teacher Referral':
+                return <ReferralsCollectedTab isAdminView={true} />;
             case 'Mentorship & Conversion':
                 return <MentorshipConversionTab isAdminView={true} />;
             case 'Library':

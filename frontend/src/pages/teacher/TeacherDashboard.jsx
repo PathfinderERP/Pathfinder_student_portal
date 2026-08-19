@@ -35,6 +35,7 @@ const TeacherDashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [unsolvedCount, setUnsolvedCount] = useState(0);
     const [unseenFeedbackCount, setUnseenFeedbackCount] = useState(0);
+    const [inProgressReferralCount, setInProgressReferralCount] = useState(0);
 
     const fetchUnsolvedCount = useCallback(async () => {
         try {
@@ -72,21 +73,40 @@ const TeacherDashboard = () => {
         }
     }, [token, getApiUrl]);
 
+    const fetchReferralCount = useCallback(async () => {
+        try {
+            const tokenVal = token || localStorage.getItem('auth_token');
+            if (!tokenVal) return;
+            const response = await fetch(`${getApiUrl()}/api/referrals/`, {
+                headers: { 'Authorization': `Bearer ${tokenVal}` }
+            });
+            const data = await response.json();
+            const list = data?.data || (Array.isArray(data) ? data : []);
+            const inProgress = list.filter(r => r.conversion_status !== 'Admitted' && r.conversion_status !== 'Dropped').length;
+            setInProgressReferralCount(inProgress);
+        } catch (err) {
+            console.error(err);
+        }
+    }, [token, getApiUrl]);
+
     useEffect(() => {
         setTimeout(() => setIsLoading(false), 800);
         fetchUnsolvedCount();
         fetchFeedbackCount();
+        fetchReferralCount();
         const interval = setInterval(() => {
             fetchUnsolvedCount();
             fetchFeedbackCount();
+            fetchReferralCount();
         }, 15000);
         return () => clearInterval(interval);
-    }, [fetchUnsolvedCount, fetchFeedbackCount]);
+    }, [fetchUnsolvedCount, fetchFeedbackCount, fetchReferralCount]);
 
     useEffect(() => {
         fetchUnsolvedCount();
         fetchFeedbackCount();
-    }, [activeTab, fetchUnsolvedCount, fetchFeedbackCount]);
+        fetchReferralCount();
+    }, [activeTab, fetchUnsolvedCount, fetchFeedbackCount, fetchReferralCount]);
 
     const sidebarItems = React.useMemo(() => [
         {
@@ -136,6 +156,7 @@ const TeacherDashboard = () => {
             label: 'Referrals Collected',
             icon: Gift,
             active: activeTab === 'Referrals Collected',
+            badge: inProgressReferralCount > 0 ? inProgressReferralCount : null,
             onClick: () => setActiveTab('Referrals Collected')
         },
         {
@@ -168,7 +189,7 @@ const TeacherDashboard = () => {
             active: activeTab === 'Notifications',
             onClick: () => setActiveTab('Notifications')
         }
-    ], [activeTab, unsolvedCount]);
+    ], [activeTab, unsolvedCount, inProgressReferralCount]);
 
     const [visitedTabs, setVisitedTabs] = useState(new Set(['Overview']));
 

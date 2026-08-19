@@ -1,11 +1,15 @@
+import logging
+import json
+from datetime import datetime, date, timedelta
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from datetime import datetime, date, timedelta
-import json
+
+logger = logging.getLogger(__name__)
 
 # Mock datasets and endpoints for Requirement & Progress Report modules
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -1131,46 +1135,203 @@ def test_analysis_view(request):
     return Response({"status": "success", "data": analysis_data}, status=status.HTTP_200_OK)
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([AllowAny])
 def referrals_collected_view(request):
     """
     7. Referrals Collected
-    Referred by, referral source, referred person details, referral date, follow-up status, conversion/admission status.
+    Referred by (Teacher), referral source, referred student details, referral date, follow-up status, conversion/admission status.
     """
     if request.method == 'GET':
-        referrals = [
-            {
-                "id": 1,
-                "referred_by": "Aarav Ganguly (Student)",
-                "referral_source": "Student",
-                "referred_person": "Vikram Ganguly",
-                "phone": "+91 98765 43210",
-                "email": "vikram.g@gmail.com",
-                "interested_course": "Class 11 Engineering 2-Year Program",
-                "referral_date": "2026-08-01",
-                "follow_up_status": "Counseled",
-                "conversion_status": "Admitted",
-                "reward_points": 500
-            },
-            {
-                "id": 2,
-                "referred_by": "Dr. Rajesh Sharma (Teacher)",
-                "referral_source": "Teacher",
-                "referred_person": "Debasmita Paul",
-                "phone": "+91 98300 12345",
-                "email": "debasmita.p@gmail.com",
-                "interested_course": "Repeater Medical Batch",
-                "referral_date": "2026-08-05",
-                "follow_up_status": "Demo Class Scheduled",
-                "conversion_status": "In Progress",
-                "reward_points": 0
-            }
-        ]
+        referrals = []
+        try:
+            from api.models import Referral
+            refs = Referral.objects.all().order_by('-created_at')
+            for r in refs:
+                referrals.append({
+                    "id": str(getattr(r, 'pk', None) or getattr(r, '_id', '')),
+                    "referred_by": r.referred_by or '',
+                    "referral_source": r.referral_source or 'Teacher',
+                    "referred_person": r.referred_person or '',
+                    "phone": r.phone or '',
+                    "email": r.email or '',
+                    "interested_course": r.interested_course or '',
+                    "centre_name": r.centre_name or '',
+                    "remarks": r.remarks or '',
+                    "referral_date": str(r.referral_date) if r.referral_date else '',
+                    "follow_up_status": r.follow_up_status or 'New Referral',
+                    "conversion_status": r.conversion_status or 'In Progress',
+                    "reward_points": r.reward_points or 0
+                })
+        except Exception as e:
+            logger.error(f"Error fetching referrals: {e}")
+            referrals = []
+
         return Response({"status": "success", "data": referrals}, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        return Response({"status": "success", "message": "Referral logged successfully!"}, status=status.HTTP_201_CREATED)
+        try:
+            import re
+            from api.models import Referral
+            data = request.data
+            
+            # Validation
+            student_name = (data.get('referred_person') or '').strip()
+            phone = (data.get('phone') or '').strip()
+            email = (data.get('email') or '').strip()
+
+            if not student_name:
+                return Response({
+                    "status": "error",
+                    "message": "Student full name is required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Phone validation: Check at least 10 digits
+            clean_phone = re.sub(r'[\s\-\+\(\)]', '', phone)
+            if not clean_phone or len(clean_phone) < 10 or not re.search(r'\d{10}', clean_phone):
+                return Response({
+                    "status": "error",
+                    "message": "Please provide a valid contact phone number (at least 10 digits)."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Email validation: if provided, check format
+            if email:
+                email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                if not re.match(email_regex, email):
+                    return Response({
+                        "status": "error",
+                        "message": "Please provide a valid email address format."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            ref_date = data.get('referral_date')
+            conv_status = data.get('conversion_status', 'In Progress')
+            reward_pts = 500 if conv_status == 'Admitted' else int(data.get('reward_points', 0) or 0)
+
+            ref = Referral.objects.create(
+                referred_by=data.get('referred_by', ''),
+                referral_source=data.get('referral_source', 'Teacher'),
+                referred_person=student_name,
+                phone=phone,
+                email=email,
+                interested_course=data.get('interested_course', ''),
+                centre_name=data.get('centre_name', ''),
+                remarks=data.get('remarks', ''),
+                referral_date=ref_date if ref_date else None,
+                follow_up_status=data.get('follow_up_status', 'New Referral'),
+                conversion_status=conv_status,
+                reward_points=reward_pts
+            )
+            return Response({
+                "status": "success",
+                "message": "Referral logged successfully!",
+                "data": {
+                    "id": str(getattr(ref, 'pk', None) or getattr(ref, '_id', '')),
+                    "referred_by": ref.referred_by,
+                    "referral_source": ref.referral_source,
+                    "referred_person": ref.referred_person,
+                    "phone": ref.phone,
+                    "email": ref.email,
+                    "interested_course": ref.interested_course,
+                    "centre_name": ref.centre_name,
+                    "remarks": ref.remarks,
+                    "referral_date": str(ref.referral_date) if ref.referral_date else '',
+                    "follow_up_status": ref.follow_up_status,
+                    "conversion_status": ref.conversion_status,
+                    "reward_points": ref.reward_points
+                }
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Error saving referral: {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method in ['PUT', 'PATCH']:
+        try:
+            from bson import ObjectId
+            from api.models import Referral
+            data = request.data
+            ref_id = data.get('id') or request.query_params.get('id')
+            if not ref_id:
+                return Response({"status": "error", "message": "Referral ID is required for update."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            ref = None
+            try:
+                ref = Referral.objects.filter(_id=ObjectId(ref_id)).first()
+            except Exception:
+                ref = Referral.objects.filter(pk=ref_id).first()
+
+            if not ref:
+                return Response({"status": "error", "message": "Referral record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if 'follow_up_status' in data:
+                ref.follow_up_status = data['follow_up_status']
+            if 'conversion_status' in data:
+                conv_status = data['conversion_status']
+                ref.conversion_status = conv_status
+                if conv_status == 'Admitted':
+                    ref.reward_points = 500
+                elif conv_status in ['In Progress', 'Dropped']:
+                    ref.reward_points = int(data.get('reward_points', 0) or 0)
+            if 'reward_points' in data:
+                ref.reward_points = int(data['reward_points'] or 0)
+            if 'remarks' in data:
+                ref.remarks = data['remarks']
+            if 'interested_course' in data:
+                ref.interested_course = data['interested_course']
+            if 'centre_name' in data:
+                ref.centre_name = data['centre_name']
+            if 'phone' in data:
+                ref.phone = data['phone']
+            if 'email' in data:
+                ref.email = data['email']
+            if 'referred_person' in data:
+                ref.referred_person = data['referred_person']
+            if 'referral_date' in data and data['referral_date']:
+                ref.referral_date = data['referral_date']
+
+            ref.save()
+
+            return Response({
+                "status": "success",
+                "message": "Referral updated successfully!",
+                "data": {
+                    "id": str(getattr(ref, 'pk', None) or getattr(ref, '_id', '')),
+                    "referred_by": ref.referred_by,
+                    "referral_source": ref.referral_source,
+                    "referred_person": ref.referred_person,
+                    "phone": ref.phone,
+                    "email": ref.email,
+                    "interested_course": ref.interested_course,
+                    "centre_name": ref.centre_name,
+                    "remarks": ref.remarks,
+                    "referral_date": str(ref.referral_date) if ref.referral_date else '',
+                    "follow_up_status": ref.follow_up_status,
+                    "conversion_status": ref.conversion_status,
+                    "reward_points": ref.reward_points
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error updating referral: {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        try:
+            from bson import ObjectId
+            from api.models import Referral
+            ref_id = request.query_params.get('id') or request.data.get('id')
+            if not ref_id:
+                return Response({"status": "error", "message": "Referral ID is required for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                Referral.objects.filter(_id=ObjectId(ref_id)).delete()
+            except Exception:
+                Referral.objects.filter(pk=ref_id).delete()
+            return Response({"status": "success", "message": "Referral deleted successfully."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error deleting referral: {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
 
 
 @api_view(['GET', 'PUT'])

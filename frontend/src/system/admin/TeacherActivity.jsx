@@ -2,13 +2,15 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2, UserPlus
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 import TopperRankTab from '../../components/tabs/TopperRankTab';
 import MentorshipConversionTab from '../../components/tabs/MentorshipConversionTab';
 import PTMHistoryTab from '../../components/tabs/PTMHistoryTab';
 import TestAnalysisTab from '../../components/tabs/TestAnalysisTab';
+import ReferralsCollectedTab from '../../components/tabs/ReferralsCollectedTab';
+
 
 const FEEDBACK_QUESTIONS = [
     "Explains concepts clearly and uses real-world examples to improve understanding.",
@@ -79,7 +81,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         if (activeDetail === type) { setActiveDetail(null); return; }
         setActiveDetail(type);
         
-        if (type === 'topper_ranks') return;
+        if (['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected'].includes(type)) return;
         if (cachedData[type]) return;
 
         setLoadingDetail(true);
@@ -160,6 +162,19 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                 </div>
             );
         }
+
+        if (activeDetail === 'referrals_collected') {
+            return (
+                <div className="p-2 md:p-4">
+                    <ReferralsCollectedTab 
+                        isAdminView={true} 
+                        filterTeacherName={name}
+                        filterTeacherEmail={email || username}
+                    />
+                </div>
+            );
+        }
+
 
         const detailData = cachedData[activeDetail] || [];
         if (loadingDetail) return (
@@ -405,14 +420,18 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             onClick={() => fetchDetail(detailKey)}
             className={`p-3.5 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start
                 ${activeDetail === detailKey
-                    ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-400 bg-orange-50')
-                    : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-md')
+                    ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-500 bg-orange-50/80 shadow-md shadow-orange-500/10')
+                    : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-300 shadow-sm hover:border-orange-400 hover:shadow-md')
                 }`}
         >
-            <Icon className={`w-5 h-5 mx-auto mb-1 ${color} transition-transform group-hover:scale-110`} />
-            <div className="text-xl font-black">{value}</div>
-            <div className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-0.5 leading-tight">{label}</div>
-            <div className={`text-[8px] mt-1 font-bold uppercase tracking-wider ${activeDetail === detailKey ? 'text-orange-500' : 'opacity-30'}`}>
+            <Icon className={`w-6 h-6 mx-auto ${value !== undefined && value !== 'View' ? 'mb-1' : 'my-auto'} ${color} transition-transform group-hover:scale-110`} />
+            {value !== undefined && value !== 'View' && (
+                <div className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{value}</div>
+            )}
+            <div className={`text-[10px] font-black uppercase tracking-wider mt-1 leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                {label}
+            </div>
+            <div className={`text-[9px] mt-1.5 font-bold uppercase tracking-wider ${activeDetail === detailKey ? 'text-orange-500 font-black' : (isDarkMode ? 'text-slate-400' : 'text-slate-700')}`}>
                 {activeDetail === detailKey ? '▲ Collapse' : '▼ View Details'}
             </div>
         </div>
@@ -425,28 +444,29 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         topper_ranks: `Topper Ranks (Rank Produce) — ${name}`,
         test_analysis: `Test Analysis — ${name}`,
         mentorship_conversion: `Mentorship & Conversion Logs — ${name}`,
-        ptm_records: `Parent-Teacher Meeting (PTM) Records — ${name}`
+        ptm_records: `Parent-Teacher Meeting (PTM) Records — ${name}`,
+        referrals_collected: `Referrals Collected — ${name}`
     };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
             {/* Header with Back Button */}
-            <div className={`flex items-center justify-between p-5 rounded-[5px] border ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200'}`}>
+            <div className={`flex items-center justify-between p-5 rounded-[5px] border ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-300'}`}>
                 <div className="flex items-center gap-4">
                     <button
                         onClick={onBack}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-[5px] text-sm font-bold transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-[5px] text-sm font-bold transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'}`}
                     >
                         <ChevronLeft size={16} /> Back to List
                     </button>
-                    <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-200'}`} />
+                    <div className={`w-px h-8 ${isDarkMode ? 'bg-white/10' : 'bg-slate-300'}`} />
                     <div>
                         <h2 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{name}</h2>
                         <div className="text-xs font-bold text-orange-500 uppercase tracking-widest">USER: {username}</div>
                     </div>
                 </div>
-                <div className={`hidden md:flex items-center gap-6 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    <div><span className="opacity-50 uppercase tracking-wider font-bold">Email</span><div className="font-bold text-sm mt-0.5">{email}</div></div>
+                <div className={`hidden md:flex items-center gap-6 text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <div><span className="opacity-70 uppercase tracking-wider font-bold">Email</span><div className={`font-bold text-sm mt-0.5 ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{email}</div></div>
                 </div>
             </div>
 
@@ -457,39 +477,46 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                     onClick={() => fetchDetail('doubts')}
                     className={`p-3.5 rounded-[5px] border text-center cursor-pointer transition-all duration-200 group flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start
                         ${activeDetail === 'doubts'
-                            ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-400 bg-orange-50')
-                            : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-200 shadow-sm hover:border-orange-300 hover:shadow-md')
+                            ? (isDarkMode ? 'border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/10' : 'border-orange-500 bg-orange-50/80 shadow-md shadow-orange-500/10')
+                            : (isDarkMode ? 'bg-[#0B0F15] border-white/5 hover:border-white/20 hover:bg-white/5' : 'bg-white border-slate-300 shadow-sm hover:border-orange-400 hover:shadow-md')
                         }`}
                 >
                     <MessageCircle className="w-5 h-5 mx-auto mb-1 text-purple-500 transition-transform group-hover:scale-110" />
-                    <div className="text-xl font-black">{activity.doubtsSolved || 0}</div>
-                    <div className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-0.5 leading-tight">Doubts Solved</div>
-                    <div className={`text-[8px] font-bold mt-0.5 flex items-center justify-center gap-0.5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    <div className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{activity.doubtsSolved || 0}</div>
+                    <div className={`text-[10px] font-black uppercase tracking-wider mt-1 leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                        Doubts Solved
+                    </div>
+                    <div className={`text-[8.5px] font-bold mt-0.5 flex items-center justify-center gap-0.5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
                         <Timer size={10} /> {activity.avgDoubtTime || '-'}
                     </div>
-                    <div className={`text-[8px] mt-1 font-bold uppercase tracking-wider ${activeDetail === 'doubts' ? 'text-orange-500' : 'opacity-30'}`}>
+                    <div className={`text-[9px] mt-1.5 font-bold uppercase tracking-wider ${activeDetail === 'doubts' ? 'text-orange-500 font-black' : (isDarkMode ? 'text-slate-400' : 'text-slate-700')}`}>
                         {activeDetail === 'doubts' ? '▲ Collapse' : '▼ View Details'}
                     </div>
                 </div>
 
                 <StatCard icon={Star} color="text-amber-500" value={activity.classRating || "0.0"} label="Class Rating" detailKey="feedback" />
-                <StatCard icon={Trophy} color="text-amber-400" value="View" label="Topper Ranks" detailKey="topper_ranks" />
-                <StatCard icon={BarChart2} color="text-cyan-500" value="View" label="Test Analysis" detailKey="test_analysis" />
-                <StatCard icon={ArrowRightLeft} color="text-orange-500" value="View" label="Mentorship & Conversion" detailKey="mentorship_conversion" />
-                <StatCard icon={Users} color="text-indigo-500" value="View" label="PTM Records" detailKey="ptm_records" />
+                <StatCard icon={Trophy} color="text-amber-500" label="Topper Ranks" detailKey="topper_ranks" />
+                <StatCard icon={BarChart2} color="text-cyan-500" label="Test Analysis" detailKey="test_analysis" />
+                <StatCard icon={ArrowRightLeft} color="text-orange-500" label="Mentorship & Conversion" detailKey="mentorship_conversion" />
+                <StatCard icon={Users} color="text-indigo-500" label="PTM Records" detailKey="ptm_records" />
+                <StatCard icon={UserPlus} color="text-emerald-500" label="Referrals Collected" detailKey="referrals_collected" />
 
-                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-300 shadow-sm'}`}>
                     <LogIn className={`w-5 h-5 mx-auto mb-1 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
-                    <div className={`text-base font-black truncate max-w-full ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : ''}`}>
+                    <div className={`text-base font-black truncate max-w-full ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-600' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-600' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}>
                         {activity.avgEntryDiff || '-'}
                     </div>
-                    <div className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-0.5 leading-tight">Avg Entry Time</div>
+                    <div className={`text-[10px] font-black uppercase tracking-wider mt-1 leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                        Avg Entry Time
+                    </div>
                 </div>
 
-                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-300 shadow-sm'}`}>
                     <Clock className="w-5 h-5 mx-auto mb-1 text-slate-500" />
-                    <div className="text-xs font-black leading-tight">{activity.lastActive ? fmtDate(activity.lastActive) : 'Never'}</div>
-                    <div className="text-[9px] font-bold uppercase tracking-wider opacity-60 mt-0.5 leading-tight">Last Active</div>
+                    <div className={`text-xs font-black leading-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{activity.lastActive ? fmtDate(activity.lastActive) : 'Never'}</div>
+                    <div className={`text-[10px] font-black uppercase tracking-wider mt-1 leading-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>
+                        Last Active
+                    </div>
                 </div>
             </div>
 
@@ -499,7 +526,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                     <div className={`px-5 py-3 border-b flex items-center justify-between gap-3 ${isDarkMode ? 'border-white/10 bg-white/[0.03]' : 'border-slate-100 bg-slate-50'}`}>
                         <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{detailTitles[activeDetail]}</span>
                         <div className="flex items-center gap-3 ml-auto">
-                            {!loadingDetail && !['topper_ranks', 'mentorship_conversion', 'ptm_records'].includes(activeDetail) && (
+                            {!loadingDetail && !['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected'].includes(activeDetail) && (
                                 <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                     {(cachedData[activeDetail] || []).length} record{((cachedData[activeDetail] || []).length) !== 1 ? 's' : ''}
                                 </span>
