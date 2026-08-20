@@ -1092,20 +1092,84 @@ class TestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='status')
     def status(self, request, pk=None):
-        test = self.get_object()
+        from api.db_utils import get_db
+        from bson import ObjectId
+        import json
+
+        try:
+            test = self.get_object()
+        except Exception as e:
+            return Response({'error': 'Test not found', 'detail': str(e)}, status=404)
+
         user = request.user
-        from .models import TestSubmission
-        sub = TestSubmission.objects.filter(test=test, student=user).first()
-        if not sub:
+        if not user or not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+
+        db = get_db()
+        if db is not None:
+            try:
+                t_pk = test.pk
+                s_pk = user.pk
+                query_list = [{'test_id': t_pk, 'student_id': s_pk}]
+                try:
+                    query_list.append({'test_id': ObjectId(str(t_pk)), 'student_id': ObjectId(str(s_pk))})
+                    query_list.append({'test_id': t_pk, 'student_id': ObjectId(str(s_pk))})
+                    query_list.append({'test_id': ObjectId(str(t_pk)), 'student_id': s_pk})
+                except:
+                    pass
+
+                sub_doc = db['tests_testsubmission'].find_one({'$or': query_list})
+                if sub_doc:
+                    raw_res = sub_doc.get('responses', {})
+                    if isinstance(raw_res, str):
+                        try:
+                            raw_res = json.loads(raw_res)
+                        except:
+                            raw_res = {}
+                    elif raw_res is None:
+                        raw_res = {}
+
+                    is_fin = bool(sub_doc.get('is_finalized', False))
+                    allow_res = bool(sub_doc.get('allow_resume', False))
+                    
+                    return Response({
+                        'status': 'submitted' if is_fin else 'in_progress',
+                        'is_finalized': is_fin,
+                        'allow_resume': allow_res,
+                        'responses': raw_res,
+                        'time_spent': int(sub_doc.get('time_spent', 0)),
+                        'submission_type': str(sub_doc.get('submission_type', 'MANUAL'))
+                    })
+                else:
+                    return Response({'status': 'available', 'is_finalized': False, 'allow_resume': True})
+            except Exception as e:
+                print(f"[status] PyMongo error: {e}")
+
+        # Fallback to ORM if PyMongo is unavailable
+        try:
+            from .models import TestSubmission
+            sub = TestSubmission.objects.filter(test=test, student=user).first()
+            if not sub:
+                return Response({'status': 'available', 'is_finalized': False, 'allow_resume': True})
+            
+            raw_res = sub.responses
+            if isinstance(raw_res, str):
+                try: raw_res = json.loads(raw_res)
+                except: raw_res = {}
+            elif raw_res is None:
+                raw_res = {}
+
+            return Response({
+                'status': 'submitted' if sub.is_finalized else 'in_progress',
+                'is_finalized': bool(sub.is_finalized),
+                'allow_resume': bool(sub.allow_resume),
+                'responses': raw_res,
+                'time_spent': int(sub.time_spent or 0),
+                'submission_type': str(sub.submission_type or 'MANUAL')
+            })
+        except Exception as e:
+            print(f"[status] Fallback error: {e}")
             return Response({'status': 'available', 'is_finalized': False, 'allow_resume': True})
-        return Response({
-            'status': 'submitted' if sub.is_finalized else 'in_progress',
-            'is_finalized': sub.is_finalized,
-            'allow_resume': sub.allow_resume,
-            'responses': sub.responses,
-            'time_spent': sub.time_spent,
-            'submission_type': sub.submission_type
-        })
 
     @action(detail=True, methods=['post'], url_path='start_exam')
     def start_exam(self, request, pk=None):

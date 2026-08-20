@@ -392,7 +392,26 @@ const ExamEngine = () => {
         triggerCloudSave();
     }, [currentQuestion, activeSectionIdx, activeQuestionIdx, triggerCloudSave]);
 
-    const handleNext = useCallback(() => {
+    // Check if the current question has an option selected but not yet saved or cleared
+    const checkUnsavedOption = useCallback(() => {
+        if (!currentQuestion) return false;
+        const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
+        const currentResp = responses[qId];
+        const hasOption = currentResp?.selectedOption !== undefined &&
+                          currentResp?.selectedOption !== null &&
+                          currentResp?.selectedOption !== '' &&
+                          (!Array.isArray(currentResp?.selectedOption) || currentResp.selectedOption.length > 0);
+        
+        const isSaved = currentResp?.status === 'ANSWERED' || currentResp?.status === 'MARKED_ANSWERED';
+
+        if (hasOption && !isSaved) {
+            triggerToast("Please click 'Save & Next', 'Review & Next', or 'Clear' to proceed.");
+            return true; // blocked
+        }
+        return false; // allowed
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses]);
+
+    const moveToNext = useCallback(() => {
         if (!paperData || !currentSection) return;
         if (activeQuestionIdx < currentSection.questions_detail.length - 1) {
             setActiveQuestionIdx(prev => prev + 1);
@@ -402,8 +421,14 @@ const ExamEngine = () => {
         }
     }, [activeQuestionIdx, activeSectionIdx, paperData, currentSection]);
 
+    const handleNext = useCallback(() => {
+        if (checkUnsavedOption()) return;
+        moveToNext();
+    }, [checkUnsavedOption, moveToNext]);
+
     const handleBack = useCallback(() => {
         if (!paperData) return;
+        if (checkUnsavedOption()) return;
         if (activeQuestionIdx > 0) {
             setActiveQuestionIdx(prev => prev - 1);
         } else if (activeSectionIdx > 0) {
@@ -412,33 +437,34 @@ const ExamEngine = () => {
             setActiveSectionIdx(prevSectionIdx);
             setActiveQuestionIdx(prevSection.questions_detail.length - 1);
         }
-    }, [activeQuestionIdx, activeSectionIdx, paperData]);
+    }, [checkUnsavedOption, activeQuestionIdx, activeSectionIdx, paperData]);
 
     const handleSaveAndNext = useCallback(() => {
         if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
         const currentResp = responses[qId];
         
-        if (!currentResp?.selectedOption) {
+        if (!currentResp?.selectedOption || (Array.isArray(currentResp.selectedOption) && currentResp.selectedOption.length === 0)) {
             triggerToast('Please select an option to save your answer.');
             return;
         }
 
         updateStatus('ANSWERED', currentResp?.selectedOption);
         triggerCloudSave();
-        handleNext();
-    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, triggerCloudSave, handleNext]);
+        moveToNext();
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, triggerCloudSave, moveToNext]);
 
     const handleMarkForReview = useCallback(() => {
         if (!currentQuestion) return;
         const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
         const currentResp = responses[qId];
         
-        const newStatus = currentResp?.selectedOption ? 'MARKED_ANSWERED' : 'MARKED';
-        updateStatus(newStatus, currentResp?.selectedOption);
+        const hasOpt = currentResp?.selectedOption && (!Array.isArray(currentResp.selectedOption) || currentResp.selectedOption.length > 0);
+        const newStatus = hasOpt ? 'MARKED_ANSWERED' : 'MARKED';
+        updateStatus(newStatus, currentResp?.selectedOption || null);
         triggerCloudSave();
-        handleNext();
-    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, triggerCloudSave, handleNext]);
+        moveToNext();
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, triggerCloudSave, moveToNext]);
 
     const enterFullscreen = useCallback(() => {
         const elem = document.documentElement;
@@ -479,6 +505,7 @@ const ExamEngine = () => {
             return newRes;
         });
         triggerCloudSave();
+        triggerToast('Selection cleared.');
     }, [currentQuestion, activeSectionIdx, activeQuestionIdx, triggerCloudSave]);
 
     const handleSubmit = useCallback(async (type = 'MANUAL') => {
@@ -1034,6 +1061,7 @@ const ExamEngine = () => {
                             <button
                                 key={idx}
                                 onClick={() => { 
+                                    if (checkUnsavedOption()) return;
                                     setLastViewedPerSection(prev => ({...prev, [activeSectionIdx]: activeQuestionIdx}));
                                     setActiveSectionIdx(idx); 
                                     setActiveQuestionIdx(lastViewedPerSection[idx] || 0); 
@@ -1145,7 +1173,7 @@ const ExamEngine = () => {
                                                                 }
                                                                 newOption = arr;
                                                             }
-                                                            updateStatus(responses[qId]?.status || 'VISITED', newOption);
+                                                            updateStatus('VISITED', newOption);
                                                         }}
                                                         className={`w-3.5 h-3.5 sm:w-4 sm:h-4 accent-blue-600 cursor-pointer ${isMulti ? 'rounded-sm' : ''}`} 
                                                     />
@@ -1196,7 +1224,7 @@ const ExamEngine = () => {
                                                             if (key === '.' && newVal.includes('.')) return; // Prevent multiple decimals
                                                             newVal += key;
                                                         }
-                                                        updateStatus('ANSWERED', newVal);
+                                                        updateStatus('VISITED', newVal);
                                                     }}
                                                     className={`p-3 text-lg font-black rounded-[5px] border transition-all active:scale-95 flex items-center justify-center
                                                         ${isDarkMode 
@@ -1210,7 +1238,7 @@ const ExamEngine = () => {
                                                 type="button"
                                                 onClick={() => {
                                                     const qId = currentQuestion.id || `${activeSectionIdx}-${activeQuestionIdx}`;
-                                                    updateStatus('ANSWERED', '');
+                                                    updateStatus('VISITED', '');
                                                 }}
                                                 className={`col-span-3 p-3 text-sm font-black rounded-[5px] border transition-all active:scale-95 uppercase tracking-widest
                                                     ${isDarkMode 
@@ -1307,6 +1335,7 @@ const ExamEngine = () => {
                                     <button
                                         key={idx}
                                         onClick={() => {
+                                            if (checkUnsavedOption()) return;
                                             setActiveQuestionIdx(idx);
                                             // Auto return to question view when clicking palette items on mobile
                                             setMobileShowPalette(false);
