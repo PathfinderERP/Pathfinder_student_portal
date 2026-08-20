@@ -837,6 +837,79 @@ def _extract_erp_parent_name(record):
     return ''
 
 
+def _is_invalid_batch_name(val):
+    if not val or not isinstance(val, str):
+        return True
+    s = val.strip()
+    if not s:
+        return True
+    if s in ['—', 'null', 'undefined', 'None', 'N/A', 'ERP Batch', 'General Batch', 'null null', 'Batch']:
+        return True
+    import re
+    # Filter 24-character hex MongoDB ObjectId (e.g. 69df815087c5f7bd0eaef72d)
+    if re.fullmatch(r'^[0-9a-fA-F]{24}$', s):
+        return True
+    # Filter standard UUID
+    if re.fullmatch(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$', s):
+        return True
+    return False
+
+
+def _extract_erp_batch(record):
+    """
+    Extracts the student's assigned batch/section name from ERP records or CustomUser profiles.
+    Checks sectionAllotment (examSection, studySection), courses, classes, and student details.
+    Ignores MongoDB 24-hex ObjectIds.
+    """
+    if not isinstance(record, dict):
+        return ""
+
+    st = record.get('student') or record if isinstance(record, dict) else {}
+    if not isinstance(st, dict):
+        st = {}
+
+    # 1. Check sectionAllotment in record and student object (Primary human-readable location in ERP)
+    sa = record.get('sectionAllotment') or st.get('sectionAllotment') or {}
+    if isinstance(sa, dict):
+        for field in ['examSection', 'studySection', 'batchName', 'sectionName', 'section', 'batch', 'exam_section', 'study_section']:
+            v = sa.get(field)
+            if v and isinstance(v, str) and not _is_invalid_batch_name(v):
+                return v.strip()
+
+    # 2. Check direct fields in record and st
+    for field in ['exam_section', 'study_section', 'assigned_batch', 'examSection', 'studySection', 'section_name', 'batch_name', 'section', 'batch']:
+        v = record.get(field) or st.get(field)
+        if v and isinstance(v, str) and not _is_invalid_batch_name(v):
+            return v.strip()
+
+    # 3. Check Course object (e.g. 'JEE 2 YEAR', 'NEET 1 YEAR')
+    course = record.get('course') or st.get('course') or {}
+    if isinstance(course, dict):
+        for field in ['examTagName', 'examTag', 'courseName', 'name']:
+            v = course.get(field)
+            if v and isinstance(v, str) and not _is_invalid_batch_name(v):
+                return v.strip()
+
+    # 4. Check Class object (e.g. 'Class 11', 'Class 12')
+    cls = record.get('class') or st.get('class') or {}
+    if isinstance(cls, dict):
+        for field in ['className', 'name']:
+            v = cls.get(field)
+            if v and isinstance(v, str) and not _is_invalid_batch_name(v):
+                return v.strip()
+
+    # 5. Check studentsDetails list
+    details = st.get('studentsDetails') or record.get('studentsDetails') or []
+    if isinstance(details, list) and len(details) > 0 and isinstance(details[0], dict):
+        d0 = details[0]
+        for field in ['examSection', 'studySection', 'className', 'courseName', 'section', 'batch']:
+            v = d0.get(field)
+            if v and isinstance(v, str) and not _is_invalid_batch_name(v):
+                return v.strip()
+
+    return ""
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def ptm_students_list_view(request):
@@ -870,8 +943,7 @@ def ptm_students_list_view(request):
                           record.get('location') or st.get('centreName') or st.get('centre') or 'Kolkata Main Centre')
                 adm = (record.get('admissionNumber') or record.get('omr_code') or record.get('admission_number') or
                        st.get('admissionNumber') or st.get('omr_code') or '')
-                batch = (record.get('exam_section') or record.get('batch') or record.get('assigned_batch') or
-                         st.get('batch') or 'ERP Batch')
+                batch = _extract_erp_batch(record)
 
                 key = f"{name.strip().lower()}_{str(adm).strip().lower()}"
                 if key not in existing_keys:
@@ -882,7 +954,7 @@ def ptm_students_list_view(request):
                         "parent_name": father.strip() if father and isinstance(father, str) and father.strip() else "",
                         "centre_name": centre.strip() if isinstance(centre, str) else "Kolkata Main Centre",
                         "admission_number": str(adm).strip(),
-                        "batch": batch.strip() if isinstance(batch, str) else "ERP Batch"
+                        "batch": batch.strip() if batch and isinstance(batch, str) else ""
                     })
     except Exception as e:
         print(f"[ptm_students_list_view] Error querying ERP database: {e}")
@@ -896,13 +968,14 @@ def ptm_students_list_view(request):
             key = f"{full_name.lower()}_{adm.lower()}"
             if key not in existing_keys:
                 existing_keys.add(key)
+                batch_val = u.assigned_batch or u.exam_section or u.study_section or ""
                 students.append({
                     "id": str(u.pk or u.username),
                     "student_name": full_name,
                     "parent_name": getattr(u, 'parent_name', '') or "",
                     "centre_name": u.centre_name or u.centre_code or "Kolkata Main Centre",
                     "admission_number": adm,
-                    "batch": u.assigned_batch or u.exam_section or "JEE/NEET Batch"
+                    "batch": batch_val.strip() if isinstance(batch_val, str) else ""
                 })
     except Exception as e:
         print(f"[ptm_students_list_view] Error querying CustomUser database: {e}")
@@ -1334,7 +1407,7 @@ def referrals_collected_view(request):
 
 
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([AllowAny])
 def dc_stopped_view(request):
     """
@@ -1342,45 +1415,332 @@ def dc_stopped_view(request):
     Active -> DC Stopped status change, stopped date, reason, remarks, follow-up status.
     """
     if request.method == 'GET':
-        students = [
-            {
-                "id": 1,
-                "student_name": "Karan Ghosh",
-                "roll_no": "PF-2026-0780",
-                "batch": "ENG-11B",
-                "status": "DC Stopped",
-                "stopped_date": "2026-07-15",
-                "reason": "Relocation to Delhi",
-                "remarks": "Transferred out due to father's job relocation",
-                "follow_up_status": "Completed - Exit Clearance Issued"
-            },
-            {
-                "id": 2,
-                "student_name": "Megha Roy",
-                "roll_no": "PF-2026-0899",
-                "batch": "MED-12B",
-                "status": "Active",
-                "stopped_date": "N/A",
-                "reason": "N/A",
-                "remarks": "Regular attendee",
-                "follow_up_status": "N/A"
-            },
-            {
-                "id": 3,
-                "student_name": "Bikramjit Malo",
-                "roll_no": "PF-2026-0912",
-                "batch": "MED-11A",
-                "status": "DC Stopped",
-                "stopped_date": "2026-08-02",
-                "reason": "Financial Constraints",
-                "remarks": "Offered scholarship revision, parent declined",
-                "follow_up_status": "In Counseling"
-            }
-        ]
+        students = []
+        try:
+            from api.db_utils import get_db
+            from api.models import DCStoppedRecord
+            from bson import ObjectId
+
+            db = get_db()
+            raw_docs = []
+            if db is not None:
+                try:
+                    raw_docs = list(db.api_dcstoppedrecord.find().sort("created_at", -1))
+                except Exception as e:
+                    logger.warn(f"PyMongo fetch fallback in dc_stopped: {e}")
+                    raw_docs = []
+
+            if not raw_docs:
+                raw_docs = list(DCStoppedRecord.objects.all().order_by('-created_at'))
+
+            teacher_filter = (request.query_params.get('teacher') or request.query_params.get('recorded_by') or '').strip().lower().replace("'", "").replace('"', '')
+
+            for r in raw_docs:
+                if isinstance(r, dict):
+                    rec_by = (r.get('recorded_by') or '').replace("'", "").replace('"', '').strip()
+                    if teacher_filter:
+                        tf = teacher_filter
+                        rb_low = rec_by.lower()
+                        if tf not in rb_low and rb_low not in tf and tf.replace(' ', '') not in rb_low.replace(' ', ''):
+                            continue
+
+                    v_status = r.get('verification_status')
+                    if not v_status:
+                        v_status = 'Approved' if r.get('is_verified') else 'Pending'
+
+                    students.append({
+                        "id": str(r.get('_id') or r.get('id') or ''),
+                        "student_name": r.get('student_name') or '',
+                        "roll_no": r.get('roll_no') or '',
+                        "batch": r.get('batch') or '',
+                        "status": r.get('status') or 'DC Stopped',
+                        "stopped_date": str(r.get('stopped_date')) if r.get('stopped_date') else 'N/A',
+                        "reason": r.get('reason') or 'N/A',
+                        "remarks": r.get('remarks') or '',
+                        "follow_up_status": r.get('follow_up_status') or 'In Counseling',
+                        "centre_name": r.get('centre_name') or '',
+                        "recorded_by": rec_by,
+                        "verification_status": v_status,
+                        "is_verified": bool(r.get('is_verified') or v_status == 'Approved'),
+                        "verified_by": r.get('verified_by') or '',
+                        "verified_at": str(r.get('verified_at')) if r.get('verified_at') else '',
+                        "rejection_reason": r.get('rejection_reason') or '',
+                        "created_at": str(r.get('created_at')) if r.get('created_at') else ''
+                    })
+                else:
+                    rec_by = (r.recorded_by or '').replace("'", "").replace('"', '').strip()
+                    if teacher_filter:
+                        tf = teacher_filter
+                        rb_low = rec_by.lower()
+                        if tf not in rb_low and rb_low not in tf and tf.replace(' ', '') not in rb_low.replace(' ', ''):
+                            continue
+                    v_status = getattr(r, 'verification_status', None)
+                    if not v_status:
+                        v_status = 'Approved' if getattr(r, 'is_verified', False) else 'Pending'
+
+                    students.append({
+                        "id": str(getattr(r, 'pk', None) or getattr(r, '_id', '')),
+                        "student_name": r.student_name or '',
+                        "roll_no": r.roll_no or '',
+                        "batch": r.batch or '',
+                        "status": r.status or 'DC Stopped',
+                        "stopped_date": str(r.stopped_date) if r.stopped_date else 'N/A',
+                        "reason": r.reason or 'N/A',
+                        "remarks": r.remarks or '',
+                        "follow_up_status": r.follow_up_status or 'In Counseling',
+                        "centre_name": r.centre_name or '',
+                        "recorded_by": rec_by,
+                        "verification_status": v_status,
+                        "is_verified": bool(getattr(r, 'is_verified', False) or v_status == 'Approved'),
+                        "verified_by": getattr(r, 'verified_by', '') or '',
+                        "verified_at": str(r.verified_at) if getattr(r, 'verified_at', None) else '',
+                        "rejection_reason": getattr(r, 'rejection_reason', '') or '',
+                        "created_at": str(r.created_at) if r.created_at else ''
+                    })
+        except Exception as e:
+            logger.error(f"Error fetching DC Stopped records: {e}")
+            students = []
+
         return Response({"status": "success", "data": students}, status=status.HTTP_200_OK)
-    
-    elif request.method == 'PUT':
-        return Response({"status": "success", "message": "Student status updated to DC Stopped"}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        try:
+            from api.models import DCStoppedRecord
+            data = request.data
+            student_name = (data.get('student_name') or '').strip()
+            if not student_name:
+                return Response({
+                    "status": "error",
+                    "message": "Student name is required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            stopped_date = data.get('stopped_date')
+            record = DCStoppedRecord.objects.create(
+                student_name=student_name,
+                roll_no=(data.get('roll_no') or '').strip(),
+                batch=(data.get('batch') or '').strip(),
+                status=data.get('status', 'DC Stopped'),
+                stopped_date=stopped_date if stopped_date and stopped_date != 'N/A' else None,
+                reason=(data.get('reason') or '').strip(),
+                remarks=(data.get('remarks') or '').strip(),
+                follow_up_status=data.get('follow_up_status', 'In Counseling'),
+                centre_name=data.get('centre_name', ''),
+                recorded_by=(data.get('recorded_by') or '').strip().replace("'", "").replace('"', ''),
+                verification_status='Pending',
+                is_verified=False
+            )
+
+            rec_id_str = str(getattr(record, 'pk', None) or getattr(record, '_id', ''))
+            return Response({
+                "status": "success",
+                "message": "DC Stopped record logged successfully!",
+                "data": {
+                    "id": rec_id_str,
+                    "student_name": record.student_name,
+                    "roll_no": record.roll_no,
+                    "batch": record.batch,
+                    "status": record.status,
+                    "stopped_date": str(record.stopped_date) if record.stopped_date else 'N/A',
+                    "reason": record.reason,
+                    "remarks": record.remarks,
+                    "follow_up_status": record.follow_up_status,
+                    "centre_name": record.centre_name,
+                    "recorded_by": record.recorded_by,
+                    "verification_status": 'Pending',
+                    "is_verified": False,
+                    "verified_by": '',
+                    "verified_at": '',
+                    "rejection_reason": ''
+                }
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Error creating DC Stopped record: {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method in ['PUT', 'PATCH']:
+        try:
+            from bson import ObjectId
+            from api.models import DCStoppedRecord
+            from api.db_utils import get_db
+            from django.utils import timezone
+
+            data = request.data
+            rec_id = data.get('id') or request.query_params.get('id')
+            if not rec_id and not data.get('student_name'):
+                return Response({"status": "error", "message": "Record ID is required for update."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Direct MongoDB PyMongo update for 100% reliability
+            db = get_db()
+            v_status = data.get('verification_status')
+            if not v_status:
+                if 'is_verified' in data:
+                    v_status = 'Approved' if data['is_verified'] else 'Pending'
+                else:
+                    v_status = 'Pending'
+
+            admin_name = data.get('verified_by') or (request.user.username if request.user and request.user.is_authenticated else 'Super Admin')
+            now_dt = timezone.now()
+
+            update_dict = {}
+            if 'status' in data:
+                update_dict['status'] = data['status']
+                if data['status'] == 'DC Stopped' and not data.get('stopped_date'):
+                    from datetime import date as d_date
+                    update_dict['stopped_date'] = d_date.today().isoformat()
+            if 'stopped_date' in data:
+                sd = data['stopped_date']
+                update_dict['stopped_date'] = sd if sd and sd != 'N/A' else None
+            if 'reason' in data:
+                update_dict['reason'] = data['reason']
+            if 'remarks' in data:
+                update_dict['remarks'] = data['remarks']
+            if 'follow_up_status' in data:
+                update_dict['follow_up_status'] = data['follow_up_status']
+            if 'batch' in data:
+                update_dict['batch'] = data['batch']
+            if 'roll_no' in data:
+                update_dict['roll_no'] = data['roll_no']
+            if 'student_name' in data:
+                update_dict['student_name'] = data['student_name']
+            if 'centre_name' in data:
+                update_dict['centre_name'] = data['centre_name']
+
+            if 'verification_status' in data or 'is_verified' in data:
+                update_dict['verification_status'] = v_status
+                if v_status == 'Approved':
+                    update_dict['is_verified'] = True
+                    update_dict['verified_by'] = admin_name
+                    update_dict['verified_at'] = now_dt
+                    update_dict['rejection_reason'] = None
+                elif v_status == 'Rejected':
+                    update_dict['is_verified'] = False
+                    update_dict['verified_by'] = admin_name
+                    update_dict['verified_at'] = now_dt
+                    update_dict['rejection_reason'] = data.get('rejection_reason') or 'Rejected by Admin'
+                else:
+                    update_dict['is_verified'] = False
+                    update_dict['verified_by'] = None
+                    update_dict['verified_at'] = None
+                    update_dict['rejection_reason'] = None
+
+            matched_doc = None
+            if db is not None:
+                query_or = []
+                if rec_id:
+                    if ObjectId.is_valid(str(rec_id)):
+                        query_or.append({"_id": ObjectId(str(rec_id))})
+                    query_or.append({"_id": str(rec_id)})
+                    query_or.append({"id": str(rec_id)})
+                if data.get('student_name'):
+                    query_or.append({"student_name": data['student_name']})
+
+                if query_or:
+                    db.api_dcstoppedrecord.update_one({"$or": query_or}, {"$set": update_dict})
+                    matched_doc = db.api_dcstoppedrecord.find_one({"$or": query_or})
+
+            # Also sync ORM instance
+            rec = None
+            try:
+                if rec_id and ObjectId.is_valid(str(rec_id)):
+                    rec = DCStoppedRecord.objects.filter(_id=ObjectId(str(rec_id))).first()
+            except Exception:
+                pass
+            if not rec and rec_id:
+                try:
+                    rec = DCStoppedRecord.objects.filter(pk=rec_id).first()
+                except Exception:
+                    pass
+            if not rec and data.get('student_name'):
+                rec = DCStoppedRecord.objects.filter(student_name=data['student_name']).first()
+
+            if rec:
+                for k, v in update_dict.items():
+                    setattr(rec, k, v)
+                try:
+                    rec.save()
+                except Exception as e_save:
+                    logger.warn(f"ORM save warning: {e_save}")
+
+            final_id = str(matched_doc.get('_id') if matched_doc else (getattr(rec, 'pk', None) or rec_id))
+            final_name = (matched_doc.get('student_name') if matched_doc else None) or data.get('student_name', '')
+            final_roll = (matched_doc.get('roll_no') if matched_doc else None) or data.get('roll_no', '')
+            final_batch = (matched_doc.get('batch') if matched_doc else None) or data.get('batch', '')
+            final_status = (matched_doc.get('status') if matched_doc else None) or data.get('status', 'DC Stopped')
+            final_stopped_date = str(matched_doc.get('stopped_date')) if (matched_doc and matched_doc.get('stopped_date')) else data.get('stopped_date', 'N/A')
+            final_reason = (matched_doc.get('reason') if matched_doc else None) or data.get('reason', 'N/A')
+            final_remarks = (matched_doc.get('remarks') if matched_doc else None) or data.get('remarks', '')
+            final_follow_up = (matched_doc.get('follow_up_status') if matched_doc else None) or data.get('follow_up_status', 'In Counseling')
+            final_centre = (matched_doc.get('centre_name') if matched_doc else None) or data.get('centre_name', '')
+            final_rec_by = (matched_doc.get('recorded_by') if matched_doc else None) or (rec.recorded_by if rec else '')
+            final_v_status = (matched_doc.get('verification_status') if matched_doc else None) or v_status
+            final_is_verified = bool(matched_doc.get('is_verified') if matched_doc else (v_status == 'Approved'))
+            final_ver_by = (matched_doc.get('verified_by') if matched_doc else None) or (admin_name if final_is_verified or final_v_status == 'Rejected' else '')
+            final_ver_at = str(matched_doc.get('verified_at')) if (matched_doc and matched_doc.get('verified_at')) else str(now_dt)
+            final_rej_reason = (matched_doc.get('rejection_reason') if matched_doc else None) or data.get('rejection_reason', '')
+
+            return Response({
+                "status": "success",
+                "message": "DC Stopped record updated successfully!",
+                "data": {
+                    "id": final_id,
+                    "student_name": final_name,
+                    "roll_no": final_roll,
+                    "batch": final_batch,
+                    "status": final_status,
+                    "stopped_date": final_stopped_date,
+                    "reason": final_reason,
+                    "remarks": final_remarks,
+                    "follow_up_status": final_follow_up,
+                    "centre_name": final_centre,
+                    "recorded_by": final_rec_by,
+                    "verification_status": final_v_status,
+                    "is_verified": final_is_verified,
+                    "verified_by": final_ver_by,
+                    "verified_at": final_ver_at,
+                    "rejection_reason": final_rej_reason
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error updating DC Stopped record: {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        try:
+            from bson import ObjectId
+            from api.models import DCStoppedRecord
+            from api.db_utils import get_db
+
+            rec_id = request.query_params.get('id') or request.data.get('id')
+            s_name = (request.data.get('student_name') or request.query_params.get('student_name') or '').strip()
+
+            db = get_db()
+            if db is not None:
+                del_query = []
+                if rec_id:
+                    if ObjectId.is_valid(str(rec_id)):
+                        del_query.append({"_id": ObjectId(str(rec_id))})
+                    del_query.append({"_id": str(rec_id)})
+                    del_query.append({"id": str(rec_id)})
+                if s_name:
+                    del_query.append({"student_name": s_name})
+                if del_query:
+                    db.api_dcstoppedrecord.delete_many({"$or": del_query})
+
+            try:
+                if rec_id and ObjectId.is_valid(str(rec_id)):
+                    DCStoppedRecord.objects.filter(_id=ObjectId(str(rec_id))).delete()
+                elif rec_id:
+                    DCStoppedRecord.objects.filter(pk=rec_id).delete()
+                if s_name:
+                    DCStoppedRecord.objects.filter(student_name=s_name).delete()
+            except Exception:
+                pass
+
+            return Response({"status": "success", "message": "Record deleted successfully."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error deleting DC Stopped record: {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['GET', 'POST', 'PUT'])

@@ -107,6 +107,7 @@ urlpatterns = [
     path('test-analysis/', test_analysis_view, name='test-analysis'),
     path('referrals/', referrals_collected_view, name='referrals-collected'),
     path('dc-stopped/', dc_stopped_view, name='dc-stopped'),
+    path('dc-stopped', dc_stopped_view, name='dc-stopped-noslash'),
     path('teacher-training/', teacher_training_view, name='teacher-training'),
     path('admin/temp-cleanup/', include([
         path('grievances/', 

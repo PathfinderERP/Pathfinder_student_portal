@@ -112,6 +112,60 @@ const PTMHistoryTab = ({ isAdminView = false, filterTeacherName = '' }) => {
         return '';
     };
 
+    const isInvalidBatch = (val) => {
+        if (!val || typeof val !== 'string') return true;
+        const s = val.trim();
+        if (!s) return true;
+        if (['—', 'null', 'undefined', 'None', 'N/A', 'ERP Batch', 'General Batch', 'null null', 'Batch'].includes(s)) return true;
+        // Filter out 24-character hexadecimal MongoDB ObjectIds (e.g. 69df815087c5f7bd0eaef72d)
+        if (/^[0-9a-fA-F]{24}$/.test(s)) return true;
+        // Filter out UUIDs
+        if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)) return true;
+        return false;
+    };
+
+    const extractStudentBatch = (record) => {
+        if (!record) return '';
+        const st = record.student || record;
+        const sa = record.sectionAllotment || st.sectionAllotment || {};
+        const details = st.studentsDetails || record.studentsDetails || [];
+        const d0 = (Array.isArray(details) && details.length > 0 && typeof details[0] === 'object') ? details[0] : {};
+        const course = record.course || st.course || {};
+        const cls = record.class || st.class || {};
+
+        const candidates = [
+            sa.examSection,
+            sa.studySection,
+            sa.batchName,
+            sa.sectionName,
+            sa.section,
+            record.exam_section,
+            record.study_section,
+            record.assigned_batch,
+            st.exam_section,
+            st.study_section,
+            st.assigned_batch,
+            course.examTagName,
+            course.examTag,
+            course.courseName,
+            course.name,
+            cls.className,
+            cls.name,
+            d0.examSection,
+            d0.studySection,
+            d0.className,
+            d0.courseName,
+            d0.section
+        ];
+
+        for (const c of candidates) {
+            if (c && typeof c === 'string' && !isInvalidBatch(c)) {
+                return c.trim();
+            }
+        }
+        return '';
+    };
+
     const fetchDbStudents = async () => {
         try {
             const apiUrl = getApiUrl();
@@ -123,7 +177,10 @@ const PTMHistoryTab = ({ isAdminView = false, filterTeacherName = '' }) => {
             try {
                 const res = await axios.get(`${apiUrl}/api/ptm-students/`, { headers });
                 if (res.data?.data && Array.isArray(res.data.data)) {
-                    allSts = res.data.data;
+                    allSts = res.data.data.map(item => ({
+                        ...item,
+                        batch: (item.batch && !['ERP Batch', 'General Batch', '—'].includes(String(item.batch).trim())) ? String(item.batch).trim() : ''
+                    }));
                 }
             } catch (e) {
                 console.warn("ptm-students fetch notice:", e);
@@ -152,15 +209,18 @@ const PTMHistoryTab = ({ isAdminView = false, filterTeacherName = '' }) => {
                         const father = extractErpParentName(record);
                         const centre = d0.centre || record.centreName || record.centre || record.center || record.location || st.centreName || st.centre || 'Kolkata Main Centre';
                         const adm = record.admissionNumber || record.omr_code || record.admission_number || st.admissionNumber || st.omr_code || '';
-                        const batch = record.exam_section || record.batch || record.assigned_batch || st.batch || 'ERP Batch';
+                        const batch = extractStudentBatch(record);
 
                         const key = `${name.trim().toLowerCase()}_${String(adm).trim().toLowerCase()}`;
                         const existingObj = studentMap.get(key);
 
                         if (existingObj) {
-                            // ENRICH existing object with real ERP parent name if missing or placeholder
+                            // ENRICH existing object with real ERP parent name or batch if missing
                             if (father && father.trim() && (!existingObj.parent_name || existingObj.parent_name.startsWith('Parent of'))) {
                                 existingObj.parent_name = father.trim();
+                            }
+                            if (batch && !existingObj.batch) {
+                                existingObj.batch = batch;
                             }
                         } else {
                             const newObj = {
@@ -169,7 +229,7 @@ const PTMHistoryTab = ({ isAdminView = false, filterTeacherName = '' }) => {
                                 parent_name: father ? father.trim() : "",
                                 centre_name: (centre && typeof centre === 'string') ? centre.trim() : 'Kolkata Main Centre',
                                 admission_number: String(adm).trim(),
-                                batch: (batch && typeof batch === 'string') ? batch.trim() : 'ERP Batch'
+                                batch: batch
                             };
                             studentMap.set(key, newObj);
                             allSts.push(newObj);

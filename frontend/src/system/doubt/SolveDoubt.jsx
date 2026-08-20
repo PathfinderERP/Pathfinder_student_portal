@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
     Search, Eye, CheckCircle, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, X, User, 
     Upload, FileText, Mic, Image, Send, LayoutGrid, List, Filter, Clock, CheckCircle2, 
-    Zap, HelpCircle, Sparkles, MessageSquare, Tag, Building2, BookOpen, Layers, ArrowRight
+    Zap, HelpCircle, Sparkles, MessageSquare, Tag, Building2, BookOpen, Layers, ArrowRight, ExternalLink
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -127,7 +127,27 @@ const SolveDoubt = ({ accentColor }) => {
     const [replyImages, setReplyImages] = useState([null, null, null]);
     const [replyPdf, setReplyPdf] = useState(null);
     const [replyVoice, setReplyVoice] = useState(null);
+    const [existingReplyImages, setExistingReplyImages] = useState([null, null, null]);
+    const [existingReplyPdf, setExistingReplyPdf] = useState(null);
+    const [existingReplyVoice, setExistingReplyVoice] = useState(null);
+    const [mediaPreview, setMediaPreview] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
+    const resolveMediaUrl = (url) => {
+        if (!url) return '';
+        if (typeof url !== 'string') return '';
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        const apiUrl = getApiUrl ? getApiUrl() : '';
+        const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+        return `${apiUrl}${cleanUrl}`;
+    };
+
+    const openMediaPreview = (url, type, title = 'Attachment') => {
+        const fullUrl = resolveMediaUrl(url);
+        setMediaPreview({ url: fullUrl, type, title });
+    };
 
     useEffect(() => {
         if (isTeacherRole && user) {
@@ -191,11 +211,18 @@ const SolveDoubt = ({ accentColor }) => {
         setReplyImages([null, null, null]);
         setReplyPdf(null);
         setReplyVoice(null);
+        setExistingReplyImages([doubt.replyImage || null, doubt.replyImage2 || null, doubt.replyImage3 || null]);
+        setExistingReplyPdf(doubt.replyPdf || null);
+        setExistingReplyVoice(doubt.replyVoiceNote || null);
         setIsSolveModalOpen(true);
     };
 
     const handleSubmitSolution = async () => {
-        if (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice) return;
+        const hasText = replyText && replyText.trim().length > 0;
+        const hasNewMedia = replyImages.some(Boolean) || replyPdf || replyVoice;
+        const hasExistingMedia = existingReplyImages.some(Boolean) || existingReplyPdf || existingReplyVoice;
+        if (!hasText && !hasNewMedia && !hasExistingMedia) return;
+
         setSubmitting(true);
         try {
             const apiUrl = getApiUrl();
@@ -700,43 +727,92 @@ const SolveDoubt = ({ accentColor }) => {
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Student Attached Images</p>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                         {[selectedDoubtForView.image, selectedDoubtForView.image2, selectedDoubtForView.image3].map((img, i) => img && (
-                                            <a key={i} href={img} target="_blank" rel="noreferrer" className="group relative aspect-video rounded-xl overflow-hidden border border-white/10 shadow-lg">
-                                                <img src={img} alt="Attachment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                            <button 
+                                                key={i} 
+                                                type="button"
+                                                onClick={() => openMediaPreview(img, 'image', `Student Image ${i+1}`)} 
+                                                className="group relative aspect-video rounded-xl overflow-hidden border border-white/10 shadow-lg cursor-pointer"
+                                            >
+                                                <img src={resolveMediaUrl(img)} alt="Attachment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                     <Eye size={20} className="text-white" />
                                                 </div>
-                                            </a>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
                             {selectedDoubtForView.pdf && (
-                                <a href={selectedDoubtForView.pdf} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all font-bold text-xs">
+                                <button 
+                                    type="button"
+                                    onClick={() => openMediaPreview(selectedDoubtForView.pdf, 'pdf', 'Student Attached PDF')}
+                                    className="flex items-center gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all font-bold text-xs w-full text-left"
+                                >
                                     <FileText size={18} />
                                     <span>View Attached PDF Document</span>
-                                </a>
+                                    <Eye size={14} className="ml-auto opacity-70" />
+                                </button>
                             )}
 
                             {selectedDoubtForView.voice_note && (
                                 <div className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 space-y-2">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-2"><Mic size={14}/>Voice Explanation</p>
-                                    <audio controls className="w-full h-9">
-                                        <source src={selectedDoubtForView.voice_note} type="audio/mpeg" />
-                                    </audio>
+                                    <audio controls src={resolveMediaUrl(selectedDoubtForView.voice_note)} className="w-full h-9" />
                                 </div>
                             )}
 
                             {/* Existing Solution if solved */}
-                            {selectedDoubtForView.status === 'Resolved' && selectedDoubtForView.teacherReply && (
-                                <div className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 space-y-3">
+                            {selectedDoubtForView.status === 'Resolved' && (
+                                <div className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 space-y-4">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
                                             <CheckCircle2 size={16} /> Teacher Solution Response
                                         </span>
                                         <span className="text-[10px] text-slate-400 font-bold">{selectedDoubtForView.solvedDate}</span>
                                     </div>
-                                    <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{selectedDoubtForView.teacherReply}</p>
+                                    <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{selectedDoubtForView.teacherReply || 'No written explanation provided.'}</p>
+                                    
+                                    {/* Teacher Solution Attachments */}
+                                    {(selectedDoubtForView.replyImage || selectedDoubtForView.replyImage2 || selectedDoubtForView.replyImage3) && (
+                                        <div className="space-y-2 pt-2 border-t border-emerald-500/20">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Solution Images</p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                {[selectedDoubtForView.replyImage, selectedDoubtForView.replyImage2, selectedDoubtForView.replyImage3].map((img, i) => img && (
+                                                    <button 
+                                                        key={i} 
+                                                        type="button"
+                                                        onClick={() => openMediaPreview(img, 'image', `Solution Image ${i+1}`)} 
+                                                        className="group relative aspect-video rounded-xl overflow-hidden border border-emerald-500/20 shadow-lg cursor-pointer"
+                                                    >
+                                                        <img src={resolveMediaUrl(img)} alt="Solution Image" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <Eye size={20} className="text-white" />
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedDoubtForView.replyPdf && (
+                                        <button 
+                                            type="button"
+                                            onClick={() => openMediaPreview(selectedDoubtForView.replyPdf, 'pdf', "Teacher's Solution PDF")}
+                                            className="flex items-center gap-3 p-3 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all font-bold text-xs w-full text-left"
+                                        >
+                                            <FileText size={18} />
+                                            <span>View Solution PDF Document</span>
+                                            <Eye size={14} className="ml-auto opacity-70" />
+                                        </button>
+                                    )}
+
+                                    {selectedDoubtForView.replyVoiceNote && (
+                                        <div className="p-3 rounded-xl border border-purple-500/30 bg-purple-500/10 space-y-2">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-purple-300 flex items-center gap-2"><Mic size={14}/>Teacher Voice Explanation</p>
+                                            <audio controls src={resolveMediaUrl(selectedDoubtForView.replyVoiceNote)} className="w-full h-8" />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -763,11 +839,54 @@ const SolveDoubt = ({ accentColor }) => {
                         {/* Body */}
                         <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
                             
-                            {/* Question Summary */}
-                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-xs space-y-1">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student Question</span>
-                                <h5 className="font-bold text-cyan-500">{selectedDoubtForSolve.title}</h5>
-                                <p className="opacity-70 line-clamp-2">{selectedDoubtForSolve.description}</p>
+                            {/* Question Summary & Attachments */}
+                            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-xs space-y-3">
+                                <div className="space-y-1">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Student Question</span>
+                                    <h5 className="font-bold text-cyan-500 text-sm">{selectedDoubtForSolve.title}</h5>
+                                    <p className="opacity-80 leading-relaxed font-medium">{selectedDoubtForSolve.description}</p>
+                                </div>
+
+                                {/* Student Media Attachments */}
+                                {(selectedDoubtForSolve.image || selectedDoubtForSolve.image2 || selectedDoubtForSolve.image3 || selectedDoubtForSolve.pdf || selectedDoubtForSolve.voice_note) && (
+                                    <div className="pt-3 border-t border-slate-200 dark:border-white/10 space-y-2">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Question Attachments</span>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {[selectedDoubtForSolve.image, selectedDoubtForSolve.image2, selectedDoubtForSolve.image3].map((img, i) => img && (
+                                                <button
+                                                    type="button"
+                                                    key={i}
+                                                    onClick={() => openMediaPreview(img, 'image', `Question Attachment ${i+1}`)}
+                                                    className="relative w-16 h-16 rounded-xl border border-white/20 overflow-hidden cursor-pointer hover:opacity-85 transition-opacity"
+                                                >
+                                                    <img src={resolveMediaUrl(img)} alt={`Question Img ${i+1}`} className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                                        <Eye size={12} className="text-white" />
+                                                    </div>
+                                                </button>
+                                            ))}
+
+                                            {selectedDoubtForSolve.pdf && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openMediaPreview(selectedDoubtForSolve.pdf, 'pdf', 'Student Question PDF')}
+                                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 font-bold text-xs hover:bg-red-500/20 transition-all"
+                                                >
+                                                    <FileText size={14} />
+                                                    <span>Question PDF</span>
+                                                    <Eye size={12} />
+                                                </button>
+                                            )}
+
+                                            {selectedDoubtForSolve.voice_note && (
+                                                <div className="flex items-center gap-2 p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs">
+                                                    <Mic size={14} />
+                                                    <audio controls src={resolveMediaUrl(selectedDoubtForSolve.voice_note)} className="h-7 w-44" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Quick Solution Template Chips */}
@@ -822,20 +941,66 @@ const SolveDoubt = ({ accentColor }) => {
                                     <Image size={14}/> Solution Diagrams / Images (up to 3)
                                 </label>
                                 <div className="grid grid-cols-3 gap-3">
-                                    {replyImages.map((file, i) => (
-                                        <label key={i} className={`relative aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
-                                            file ? 'border-emerald-500 bg-emerald-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')
-                                        }`}>
-                                            <input type="file" accept="image/*" className="hidden" onChange={e => {
-                                                const updated = [...replyImages];
-                                                updated[i] = e.target.files[0] || null;
-                                                setReplyImages(updated);
-                                            }}/>
-                                            {file
-                                                ? <><img src={URL.createObjectURL(file)} alt="preview" className="absolute inset-0 w-full h-full object-cover rounded-2xl"/><span className="absolute bottom-1 right-1 bg-emerald-500 text-white text-[9px] font-black rounded px-1.5">✓</span></>
-                                                : <><Upload size={18} className="opacity-40"/><span className="text-[9px] font-bold opacity-40">Upload {i+1}</span></>}
-                                        </label>
-                                    ))}
+                                    {replyImages.map((file, i) => {
+                                        const existing = existingReplyImages[i];
+                                        return (
+                                            <div key={i} className="relative aspect-square">
+                                                {file ? (
+                                                    <div className="relative w-full h-full rounded-2xl border-2 border-emerald-500 bg-emerald-500/10 overflow-hidden group">
+                                                        <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const updated = [...replyImages];
+                                                                updated[i] = null;
+                                                                setReplyImages(updated);
+                                                            }}
+                                                            className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-500 text-white rounded-full transition-colors"
+                                                            title="Remove"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                        <span className="absolute bottom-1 right-1 bg-emerald-500 text-white text-[8px] font-black rounded px-1">New ✓</span>
+                                                    </div>
+                                                ) : existing ? (
+                                                    <div className="relative w-full h-full rounded-2xl border-2 border-cyan-500/40 bg-cyan-500/5 overflow-hidden group">
+                                                        <img src={resolveMediaUrl(existing)} alt="existing" className="w-full h-full object-cover" />
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 transition-opacity">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openMediaPreview(existing, 'image', `Previous Image ${i+1}`)}
+                                                                className="p-1.5 bg-white/20 hover:bg-white/40 text-white rounded-lg text-[10px] font-bold"
+                                                                title="View"
+                                                            >
+                                                                <Eye size={14} />
+                                                            </button>
+                                                            <label className="p-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg text-[10px] font-bold cursor-pointer" title="Replace">
+                                                                <Upload size={14} />
+                                                                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                                                    const updated = [...replyImages];
+                                                                    updated[i] = e.target.files[0] || null;
+                                                                    setReplyImages(updated);
+                                                                }} />
+                                                            </label>
+                                                        </div>
+                                                        <span className="absolute bottom-1 left-1 bg-cyan-500/90 text-white text-[7.5px] font-black uppercase rounded px-1">Attached</span>
+                                                    </div>
+                                                ) : (
+                                                    <label className={`w-full h-full flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
+                                                        isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400'
+                                                    }`}>
+                                                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                                            const updated = [...replyImages];
+                                                            updated[i] = e.target.files[0] || null;
+                                                            setReplyImages(updated);
+                                                        }}/>
+                                                        <Upload size={18} className="opacity-40"/>
+                                                        <span className="text-[9px] font-bold opacity-40">Upload {i+1}</span>
+                                                    </label>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -843,35 +1008,143 @@ const SolveDoubt = ({ accentColor }) => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14}/>Attach PDF Document</label>
-                                    <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${replyPdf ? 'border-red-500 bg-red-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
-                                        <input type="file" accept=".pdf" className="hidden" onChange={e => setReplyPdf(e.target.files[0] || null)}/>
-                                        <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs flex-shrink-0">PDF</div>
-                                        <span className="text-xs font-bold truncate opacity-70">{replyPdf ? replyPdf.name : 'Choose PDF file...'}</span>
-                                    </label>
+                                    {replyPdf ? (
+                                        <div className="flex items-center justify-between p-3 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-black text-xs flex-shrink-0">PDF</div>
+                                                <span className="text-xs font-bold truncate text-emerald-400">{replyPdf.name}</span>
+                                            </div>
+                                            <button type="button" onClick={() => setReplyPdf(null)} className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white">
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : existingReplyPdf ? (
+                                        <div className="flex items-center justify-between p-3 rounded-2xl border-2 border-red-500/30 bg-red-500/5">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs flex-shrink-0">PDF</div>
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-bold text-red-400 truncate">Previous Attached PDF</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openMediaPreview(existingReplyPdf, 'pdf', 'Attached Solution PDF')}
+                                                        className="text-[10px] font-bold text-cyan-400 hover:underline flex items-center gap-1 mt-0.5"
+                                                    >
+                                                        <Eye size={10} /> View Document
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <label className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] font-bold text-white cursor-pointer transition-colors">
+                                                Replace
+                                                <input type="file" accept=".pdf" className="hidden" onChange={e => setReplyPdf(e.target.files[0] || null)} />
+                                            </label>
+                                        </div>
+                                    ) : (
+                                        <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400'}`}>
+                                            <input type="file" accept=".pdf" className="hidden" onChange={e => setReplyPdf(e.target.files[0] || null)}/>
+                                            <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500 font-black text-xs flex-shrink-0">PDF</div>
+                                            <span className="text-xs font-bold truncate opacity-70">Choose PDF file...</span>
+                                        </label>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Mic size={14}/>Attach Audio Explanation</label>
-                                    <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${replyVoice ? 'border-purple-500 bg-purple-500/10' : (isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400')}`}>
-                                        <input type="file" accept="audio/*" className="hidden" onChange={e => setReplyVoice(e.target.files[0] || null)}/>
-                                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-500 flex-shrink-0"><Mic size={16}/></div>
-                                        <span className="text-xs font-bold truncate opacity-70">{replyVoice ? replyVoice.name : 'Choose audio file...'}</span>
-                                    </label>
+                                    {replyVoice ? (
+                                        <div className="flex items-center justify-between p-3 rounded-2xl border-2 border-emerald-500 bg-emerald-500/10">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0"><Mic size={16}/></div>
+                                                <span className="text-xs font-bold truncate text-emerald-400">{replyVoice.name}</span>
+                                            </div>
+                                            <button type="button" onClick={() => setReplyVoice(null)} className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white">
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : existingReplyVoice ? (
+                                        <div className="p-3 rounded-2xl border-2 border-purple-500/30 bg-purple-500/5 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-purple-400 font-bold text-xs">
+                                                    <Mic size={14} /> Previous Audio Attached
+                                                </div>
+                                                <label className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] font-bold text-white cursor-pointer transition-colors">
+                                                    Replace
+                                                    <input type="file" accept="audio/*" className="hidden" onChange={e => setReplyVoice(e.target.files[0] || null)} />
+                                                </label>
+                                            </div>
+                                            <audio controls src={resolveMediaUrl(existingReplyVoice)} className="w-full h-7" />
+                                        </div>
+                                    ) : (
+                                        <label className={`flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-slate-200 hover:border-slate-400'}`}>
+                                            <input type="file" accept="audio/*" className="hidden" onChange={e => setReplyVoice(e.target.files[0] || null)}/>
+                                            <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-500 flex-shrink-0"><Mic size={16}/></div>
+                                            <span className="text-xs font-bold truncate opacity-70">Choose audio file...</span>
+                                        </label>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Submit Button */}
                             <button
                                 onClick={handleSubmitSolution}
-                                disabled={submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice)}
+                                disabled={submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice && !existingReplyImages.some(Boolean) && !existingReplyPdf && !existingReplyVoice)}
                                 className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
-                                    submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice)
+                                    submitting || (!replyText.trim() && !replyImages.some(Boolean) && !replyPdf && !replyVoice && !existingReplyImages.some(Boolean) && !existingReplyPdf && !existingReplyVoice)
                                         ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-white/5'
                                         : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-xl shadow-emerald-600/25'
                                 }`}
                             >
                                 {submitting ? <><RefreshCw size={16} className="animate-spin"/>Submitting Solution...</> : <><Send size={16}/>Publish Solution</>}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Universal Media Preview Modal Overlay */}
+            {mediaPreview && (
+                <div 
+                    className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 overflow-hidden animate-in fade-in"
+                    onClick={() => setMediaPreview(null)}
+                >
+                    <div 
+                        className={`relative w-full ${mediaPreview.type === 'pdf' ? 'max-w-5xl h-[80vh] max-h-[calc(100vh-3.5rem)]' : 'max-w-4xl max-h-[88vh] h-auto'} flex flex-col rounded-2xl overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#0d1119] border border-white/10 text-white' : 'bg-white border border-slate-200 text-slate-800'}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className={`flex-shrink-0 flex items-center justify-between px-5 py-2.5 border-b ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                            <div className="flex items-center gap-2">
+                                {mediaPreview.type === 'pdf' ? <FileText size={16} className="text-rose-500" /> : <Eye size={16} className="text-cyan-500" />}
+                                <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                    {mediaPreview.title || 'Preview'}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href={mediaPreview.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        isDarkMode ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                                    }`}
+                                >
+                                    <ExternalLink size={13} />
+                                    <span>Open in New Tab</span>
+                                </a>
+                                <button onClick={() => setMediaPreview(null)} className={`p-1.5 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'}`}>
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-auto flex flex-col bg-slate-900/5 dark:bg-black/40 p-2 sm:p-4">
+                            {mediaPreview.type === 'pdf' ? (
+                                <iframe src={mediaPreview.url} title="PDF Preview" className="w-full h-full flex-1 rounded-xl border-0 block" />
+                            ) : (
+                                <div className="w-full flex items-center justify-center m-auto">
+                                    <img 
+                                        src={mediaPreview.url} 
+                                        alt="Preview" 
+                                        className="max-w-full max-h-[72vh] object-contain rounded-xl shadow-md block" 
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

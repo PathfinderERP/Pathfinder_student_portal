@@ -374,3 +374,31 @@ class Referral(models.Model):
         return f"{self.referred_person} (by {self.referred_by})"
 
 
+class DCStoppedRecord(models.Model):
+    _id = djongo_models.ObjectIdField(primary_key=True)
+    student_name = models.CharField(max_length=255)
+    roll_no = models.CharField(max_length=100, blank=True, null=True)
+    batch = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=50, default='DC Stopped')  # 'DC Stopped' or 'Active'
+    stopped_date = models.DateField(null=True, blank=True)
+    reason = models.CharField(max_length=255, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    follow_up_status = models.CharField(max_length=100, default='In Counseling')
+    centre_name = models.CharField(max_length=255, blank=True, null=True)
+    recorded_by = models.CharField(max_length=255, blank=True, null=True)
+    verification_status = models.CharField(max_length=50, default='Pending')  # 'Pending', 'Approved', 'Rejected'
+    is_verified = models.BooleanField(default=False)
+    verified_by = models.CharField(max_length=255, blank=True, null=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.student_name} ({self.roll_no}) - {self.status}"
+
+
+

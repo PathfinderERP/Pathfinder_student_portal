@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2, UserPlus
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2, UserPlus, UserX, FileText, Volume2, ExternalLink, Eye, Play
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 import TopperRankTab from '../../components/tabs/TopperRankTab';
@@ -10,6 +10,7 @@ import MentorshipConversionTab from '../../components/tabs/MentorshipConversionT
 import PTMHistoryTab from '../../components/tabs/PTMHistoryTab';
 import TestAnalysisTab from '../../components/tabs/TestAnalysisTab';
 import ReferralsCollectedTab from '../../components/tabs/ReferralsCollectedTab';
+import DCStoppedTab from '../../components/tabs/DCStoppedTab';
 
 
 const FEEDBACK_QUESTIONS = [
@@ -41,7 +42,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
     const email = teacher.email || 'N/A';
 
     const { token, getApiUrl } = useAuth();
-    const [activeDetail, setActiveDetail] = useState(null);
+    const [activeDetail, setActiveDetail] = useState('topper_ranks');
     const [cachedData, setCachedData] = useState({});
     const [loadingDetail, setLoadingDetail] = useState(false);
     
@@ -81,7 +82,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         if (activeDetail === type) { setActiveDetail(null); return; }
         setActiveDetail(type);
         
-        if (['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected'].includes(type)) return;
+        if (['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected', 'dc_stopped'].includes(type)) return;
         if (cachedData[type]) return;
 
         setLoadingDetail(true);
@@ -167,6 +168,18 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             return (
                 <div className="p-2 md:p-4">
                     <ReferralsCollectedTab 
+                        isAdminView={true} 
+                        filterTeacherName={name}
+                        filterTeacherEmail={email || username}
+                    />
+                </div>
+            );
+        }
+
+        if (activeDetail === 'dc_stopped') {
+            return (
+                <div className="p-2 md:p-4">
+                    <DCStoppedTab 
                         isAdminView={true} 
                         filterTeacherName={name}
                         filterTeacherEmail={email || username}
@@ -445,7 +458,24 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         test_analysis: `Test Analysis — ${name}`,
         mentorship_conversion: `Mentorship & Conversion Logs — ${name}`,
         ptm_records: `Parent-Teacher Meeting (PTM) Records — ${name}`,
-        referrals_collected: `Referrals Collected — ${name}`
+        referrals_collected: `Referrals Collected — ${name}`,
+        dc_stopped: `DC Stopped (Discontinued Students) — ${name}`
+    };
+
+    const resolveMediaUrl = (url) => {
+        if (!url) return '';
+        if (typeof url !== 'string') return '';
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+            return url;
+        }
+        const apiUrl = getApiUrl ? getApiUrl() : '';
+        const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+        return `${apiUrl}${cleanUrl}`;
+    };
+
+    const openMediaPreview = (url, type, title = 'Attachment') => {
+        const fullUrl = resolveMediaUrl(url);
+        setActivePreview({ url: fullUrl, type, title });
     };
 
     return (
@@ -500,6 +530,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                 <StatCard icon={ArrowRightLeft} color="text-orange-500" label="Mentorship & Conversion" detailKey="mentorship_conversion" />
                 <StatCard icon={Users} color="text-indigo-500" label="PTM Records" detailKey="ptm_records" />
                 <StatCard icon={UserPlus} color="text-emerald-500" label="Referrals Collected" detailKey="referrals_collected" />
+                <StatCard icon={UserX} color="text-rose-500" label="DC Stopped" detailKey="dc_stopped" />
 
                 <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-300 shadow-sm'}`}>
                     <LogIn className={`w-5 h-5 mx-auto mb-1 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
@@ -526,7 +557,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                     <div className={`px-5 py-3 border-b flex items-center justify-between gap-3 ${isDarkMode ? 'border-white/10 bg-white/[0.03]' : 'border-slate-100 bg-slate-50'}`}>
                         <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{detailTitles[activeDetail]}</span>
                         <div className="flex items-center gap-3 ml-auto">
-                            {!loadingDetail && !['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected'].includes(activeDetail) && (
+                            {!loadingDetail && !['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected', 'dc_stopped'].includes(activeDetail) && (
                                 <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                     {(cachedData[activeDetail] || []).length} record{((cachedData[activeDetail] || []).length) !== 1 ? 's' : ''}
                                 </span>
@@ -549,8 +580,8 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
 
             {/* Doubt Modal Overlay */}
             {selectedDoubt && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-                    <div className={`w-full max-w-3xl rounded-[5px] shadow-2xl relative animate-in zoom-in-95 duration-200 my-auto ${isDarkMode ? 'bg-[#0B0F15] text-slate-200 border border-white/10' : 'bg-white text-slate-700'}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className={`w-full max-w-3xl rounded-xl shadow-2xl relative animate-in zoom-in-95 duration-200 my-auto ${isDarkMode ? 'bg-[#0B0F15] text-slate-200 border border-white/10' : 'bg-white text-slate-700'}`}>
                         
                         {/* Header */}
                         <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
@@ -558,13 +589,13 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                                 <h3 className="text-lg font-black uppercase tracking-tight text-orange-500">Doubt Details</h3>
                                 <div className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">ID: #{selectedDoubt.id}</div>
                             </div>
-                            <button onClick={() => setSelectedDoubt(null)} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-200'}`}>
-                                <X size={20} strokeWidth={3} />
+                            <button onClick={() => setSelectedDoubt(null)} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'hover:bg-white/10 text-white' : 'hover:bg-slate-200 text-slate-700'}`}>
+                                <X size={20} strokeWidth={2.5} />
                             </button>
                         </div>
 
                         {/* Body */}
-                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject</p>
@@ -584,43 +615,146 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                                 </div>
                             </div>
 
-                            <div className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                                <h4 className="text-sm font-black uppercase tracking-wider mb-2">{selectedDoubt.title}</h4>
-                                <p className="text-sm font-medium whitespace-pre-wrap opacity-80">{selectedDoubt.description}</p>
+                            {/* Student's Question Section */}
+                            <div className={`p-5 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                <h4 className="text-base font-black uppercase tracking-wider mb-2 text-indigo-500">{selectedDoubt.title}</h4>
+                                <p className="text-sm font-medium whitespace-pre-wrap opacity-90 leading-relaxed">{selectedDoubt.description}</p>
                                 
-                                {/* Images */}
-                                {(selectedDoubt.image || selectedDoubt.image2 || selectedDoubt.image3) && (
-                                    <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-                                        {[selectedDoubt.image, selectedDoubt.image2, selectedDoubt.image3].map((img, i) => img && (
-                                            <button 
-                                                key={i} 
-                                                onClick={() => setActivePreview(img)}
-                                                className={`shrink-0 h-24 rounded border overflow-hidden cursor-zoom-in hover:opacity-80 transition-opacity ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}
-                                            >
-                                                <img src={img} alt={`Attachment ${i+1}`} className="h-full w-auto object-cover" />
-                                            </button>
-                                        ))}
+                                {/* Student Media (Images, PDF, Audio) */}
+                                {(selectedDoubt.image || selectedDoubt.image2 || selectedDoubt.image3 || selectedDoubt.pdf || selectedDoubt.voice_note) && (
+                                    <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Question Attachments</p>
+                                        
+                                        {/* Images */}
+                                        {(selectedDoubt.image || selectedDoubt.image2 || selectedDoubt.image3) && (
+                                            <div className="flex gap-3 overflow-x-auto pb-2">
+                                                {[selectedDoubt.image, selectedDoubt.image2, selectedDoubt.image3].map((img, i) => img && (
+                                                    <button 
+                                                        key={i} 
+                                                        onClick={() => openMediaPreview(img, 'image', `Question Attachment ${i+1}`)}
+                                                        className={`shrink-0 h-24 w-28 rounded-lg border overflow-hidden cursor-zoom-in hover:opacity-85 transition-opacity ${isDarkMode ? 'border-white/15 bg-black/40' : 'border-slate-200 bg-white'}`}
+                                                    >
+                                                        <img src={resolveMediaUrl(img)} alt={`Question Attachment ${i+1}`} className="h-full w-full object-cover" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Student PDF */}
+                                        {selectedDoubt.pdf && (
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => openMediaPreview(selectedDoubt.pdf, 'pdf', 'Student Doubt Document PDF')}
+                                                    className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg border text-xs font-bold transition-all ${
+                                                        isDarkMode 
+                                                            ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20' 
+                                                            : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                                                    }`}
+                                                >
+                                                    <FileText size={16} className="text-rose-500 shrink-0" />
+                                                    <span>View Question PDF</span>
+                                                    <Eye size={13} className="opacity-60 ml-1" />
+                                                </button>
+                                                <a
+                                                    href={resolveMediaUrl(selectedDoubt.pdf)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                                                        isDarkMode ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/10' : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                    }`}
+                                                    title="Open in new window"
+                                                >
+                                                    <ExternalLink size={15} />
+                                                </a>
+                                            </div>
+                                        )}
+
+                                        {/* Student Voice Note */}
+                                        {selectedDoubt.voice_note && (
+                                            <div className={`p-3 rounded-lg border flex flex-col gap-1.5 ${isDarkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider">
+                                                    <Volume2 size={13} />
+                                                    <span>Student Voice Note</span>
+                                                </div>
+                                                <audio controls src={resolveMediaUrl(selectedDoubt.voice_note)} className="w-full h-8" />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
 
+                            {/* Teacher's Reply Section */}
                             {selectedDoubt.status === 'Resolved' && (
-                                <div className="p-4 rounded-[5px] border border-emerald-500/20 bg-emerald-500/5">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2">Teacher's Reply</h4>
-                                    <p className="text-sm font-medium whitespace-pre-wrap">{selectedDoubt.teacher_reply || 'No written reply provided.'}</p>
+                                <div className={`p-5 rounded-xl border ${isDarkMode ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-emerald-200 bg-emerald-50/70'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-[11px] font-black uppercase tracking-widest text-emerald-500">Teacher's Reply & Solution</h4>
+                                        {selectedDoubt.teacher_name && (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-white text-slate-700'}`}>
+                                                By: {selectedDoubt.teacher_name}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{selectedDoubt.teacher_reply || 'No written reply provided.'}</p>
                                     
-                                    {/* Reply Images */}
-                                    {(selectedDoubt.reply_image || selectedDoubt.reply_image2 || selectedDoubt.reply_image3) && (
-                                        <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-                                            {[selectedDoubt.reply_image, selectedDoubt.reply_image2, selectedDoubt.reply_image3].map((img, i) => img && (
-                                                <button 
-                                                    key={i} 
-                                                    onClick={() => setActivePreview(img)}
-                                                    className={`shrink-0 h-24 rounded border overflow-hidden cursor-zoom-in hover:opacity-80 transition-opacity ${isDarkMode ? 'border-emerald-500/20' : 'border-emerald-200'}`}
-                                                >
-                                                    <img src={img} alt={`Reply Attachment ${i+1}`} className="h-full w-auto object-cover" />
-                                                </button>
-                                            ))}
+                                    {/* Reply Media (Images, PDF, Audio) */}
+                                    {(selectedDoubt.reply_image || selectedDoubt.reply_image2 || selectedDoubt.reply_image3 || selectedDoubt.reply_pdf || selectedDoubt.reply_voice_note) && (
+                                        <div className="mt-4 pt-4 border-t border-emerald-500/20 space-y-3">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Teacher Solution Attachments</p>
+
+                                            {/* Reply Images */}
+                                            {(selectedDoubt.reply_image || selectedDoubt.reply_image2 || selectedDoubt.reply_image3) && (
+                                                <div className="flex gap-3 overflow-x-auto pb-2">
+                                                    {[selectedDoubt.reply_image, selectedDoubt.reply_image2, selectedDoubt.reply_image3].map((img, i) => img && (
+                                                        <button 
+                                                            key={i} 
+                                                            onClick={() => openMediaPreview(img, 'image', `Solution Image ${i+1}`)}
+                                                            className={`shrink-0 h-24 w-28 rounded-lg border overflow-hidden cursor-zoom-in hover:opacity-85 transition-opacity ${isDarkMode ? 'border-emerald-500/30 bg-black/40' : 'border-emerald-300 bg-white'}`}
+                                                        >
+                                                            <img src={resolveMediaUrl(img)} alt={`Reply Attachment ${i+1}`} className="h-full w-full object-cover" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Reply PDF */}
+                                            {selectedDoubt.reply_pdf && (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => openMediaPreview(selectedDoubt.reply_pdf, 'pdf', "Teacher's Solution PDF")}
+                                                        className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg border text-xs font-bold transition-all shadow-sm ${
+                                                            isDarkMode 
+                                                                ? 'bg-red-500/20 border-red-500/40 text-red-300 hover:bg-red-500/30' 
+                                                                : 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+                                                        }`}
+                                                    >
+                                                        <FileText size={16} className="text-red-500 shrink-0" />
+                                                        <span>Teacher's Solution PDF</span>
+                                                        <Eye size={13} className="opacity-60 ml-1" />
+                                                    </button>
+                                                    <a
+                                                        href={resolveMediaUrl(selectedDoubt.reply_pdf)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                                                            isDarkMode ? 'border-white/10 text-slate-400 hover:text-white hover:bg-white/10' : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                        }`}
+                                                        title="Open in new window"
+                                                    >
+                                                        <ExternalLink size={15} />
+                                                    </a>
+                                                </div>
+                                            )}
+
+                                            {/* Reply Voice Note */}
+                                            {selectedDoubt.reply_voice_note && (
+                                                <div className={`p-3 rounded-lg border flex flex-col gap-1.5 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider">
+                                                        <Volume2 size={13} />
+                                                        <span>Teacher's Voice Explanation</span>
+                                                    </div>
+                                                    <audio controls src={resolveMediaUrl(selectedDoubt.reply_voice_note)} className="w-full h-8" />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -630,24 +764,79 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                 </div>
             )}
             
-            {/* Image Preview Overlay */}
+            {/* Media Preview Overlay (Images, PDF, Audio) */}
             {activePreview && (
                 <div 
-                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in"
+                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 overflow-hidden animate-in fade-in"
                     onClick={() => setActivePreview(null)}
                 >
-                    <button 
-                        onClick={() => setActivePreview(null)} 
-                        className="absolute top-6 right-6 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                    >
-                        <X size={24} strokeWidth={3} />
-                    </button>
-                    <img 
-                        src={activePreview} 
-                        alt="Preview" 
-                        className="max-w-full max-h-[90vh] object-contain rounded-[5px] animate-in zoom-in-95"
+                    <div 
+                        className={`relative w-full ${activePreview.type === 'pdf' ? 'max-w-5xl h-[80vh] max-h-[calc(100vh-3.5rem)]' : 'max-w-4xl max-h-[85vh]'} flex flex-col rounded-xl overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#0d1119] border border-white/10 text-white' : 'bg-white border border-slate-200 text-slate-800'}`}
                         onClick={(e) => e.stopPropagation()}
-                    />
+                    >
+                        {/* Header */}
+                        <div className={`flex-shrink-0 flex items-center justify-between px-5 py-2.5 border-b ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                            <div className="flex items-center gap-2">
+                                {activePreview.type === 'pdf' ? (
+                                    <FileText size={16} className="text-rose-500" />
+                                ) : activePreview.type === 'audio' ? (
+                                    <Volume2 size={16} className="text-blue-500" />
+                                ) : (
+                                    <Eye size={16} className="text-orange-500" />
+                                )}
+                                <span className="text-xs font-black uppercase tracking-wider">
+                                    {activePreview.title || 'Attachment Preview'}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href={typeof activePreview === 'string' ? resolveMediaUrl(activePreview) : activePreview.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        isDarkMode ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    }`}
+                                >
+                                    <Download size={13} />
+                                    <span>Download / Open Tab</span>
+                                </a>
+                                <button 
+                                    onClick={() => setActivePreview(null)} 
+                                    className="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-auto flex flex-col bg-slate-900/5 dark:bg-black/40 p-2 sm:p-4">
+                            {activePreview.type === 'pdf' ? (
+                                <iframe 
+                                    src={activePreview.url} 
+                                    title={activePreview.title || "PDF Viewer"} 
+                                    className="w-full h-full flex-1 rounded-xl border-0 block"
+                                    style={{ minHeight: '100%', height: '100%' }}
+                                />
+                            ) : activePreview.type === 'audio' ? (
+                                <div className="p-8 flex flex-col items-center justify-center gap-4 flex-1">
+                                    <Volume2 size={48} className="text-blue-500 animate-pulse" />
+                                    <p className="font-bold text-sm">{activePreview.title || 'Audio Recording'}</p>
+                                    <audio controls autoPlay src={activePreview.url} className="w-80" />
+                                </div>
+                            ) : (
+                                <div className="w-full flex items-center justify-center m-auto">
+                                    <img 
+                                        src={typeof activePreview === 'string' ? resolveMediaUrl(activePreview) : activePreview.url} 
+                                        alt="Preview" 
+                                        className="max-w-full max-h-[72vh] object-contain rounded-xl shadow-md block"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
