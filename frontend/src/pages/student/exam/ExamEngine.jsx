@@ -26,7 +26,6 @@ const ExamEngine = () => {
     // Removed auto-fullscreen to prevent 'user gesture' errors
     // Browsers block automatic fullscreen requests that aren't triggered by a click.
 
-    // State
     const [paperData, setPaperData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeSectionIdx, setActiveSectionIdx] = useState(0);
@@ -48,6 +47,13 @@ const ExamEngine = () => {
     const [lastViewedPerSection, setLastViewedPerSection] = useState({});
     const [psychometricResult, setPsychometricResult] = useState(null);
     const [mobileShowPalette, setMobileShowPalette] = useState(false);
+    const [syncStatus, setSyncStatus] = useState('synced'); // 'synced', 'syncing', 'offline'
+
+    // Unique per-student, per-test cache key
+    const storageKey = useMemo(() => {
+        const userId = user?._id || user?.id || 'default_user';
+        return `exam_cache_${testId}_${userId}`;
+    }, [testId, user]);
 
     const triggerToast = (msg) => {
         setToast({ show: true, message: msg });
@@ -60,6 +66,7 @@ const ExamEngine = () => {
     const [error, setError] = useState(null);
     const [showResumeModal, setShowResumeModal] = useState(false);
     const isSubmittedRef = useRef(false);
+    const debounceTimerRef = useRef(null);
 
     const handleReturnToDashboard = () => {
         try {
@@ -85,6 +92,21 @@ const ExamEngine = () => {
         return () => clearTimeout(timer);
     }, []);
 
+    // Save responses to localStorage synchronously on every state change
+    useEffect(() => {
+        if (!isSubmitted && !isLocked && Object.keys(responses).length > 0) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify({
+                    responses,
+                    questionTimes,
+                    updatedAt: Date.now()
+                }));
+            } catch (err) {
+                console.warn("LocalStorage save error:", err);
+            }
+        }
+    }, [responses, questionTimes, storageKey, isSubmitted, isLocked]);
+
     // Prepare responses for backend (Map to {questionId: {answer: ...}})
     // Local: {qId: {status, selectedOption}}
     const getBackendResponses = useCallback(() => {
@@ -99,22 +121,89 @@ const ExamEngine = () => {
             }
         });
         return backendResponses;
-    }, [responses]);
+    }, [responses, questionTimes]);
 
     const handleSaveProgress = useCallback(async (isFinal = false) => {
-        if (isSubmitted || isLocked || !paperData || showPsychometric) return;
+        if (isSubmitted || isLocked || !paperData) return;
         try {
+            setSyncStatus('syncing');
             await axios.post(`${getApiUrl()}/api/tests/${testId}/save_progress/`, {
                 responses: getBackendResponses(),
-                time_spent: parseInt(paperData.duration * 60) - timeLeft
+                time_spent: parseInt((paperData.duration || 180) * 60) - timeLeft
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            console.log("Progress auto-saved...");
+            setSyncStatus('synced');
+            console.log("Progress auto-saved to cloud...");
         } catch (err) {
             console.error("Save failed:", err);
+            setSyncStatus('offline');
         }
     }, [testId, token, getApiUrl, responses, timeLeft, paperData, isSubmitted, isLocked, getBackendResponses]);
+
+    // Trigger debounced cloud save (runs 500ms after last student action)
+    const triggerCloudSave = useCallback(() => {
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+            handleSaveProgress();
+        }, 500);
+    }, [handleSaveProgress]);
+
+    // Listen for online/offline events for instant reconnect sync
+    useEffect(() => {
+        const handleOnline = () => {
+            console.log("Network online detected. Syncing answers...");
+            handleSaveProgress();
+        };
+        const handleOffline = () => {
+            console.warn("Network connection lost. Answers will be saved locally.");
+            setSyncStatus('offline');
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [handleSaveProgress]);
+
+    // Beforeunload: Guard against accidental tab close & beacon sync
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (!isSubmittedRef.current) {
+                // Ensure local storage is updated
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        responses,
+                        questionTimes,
+                        updatedAt: Date.now()
+                    }));
+                } catch (err) {}
+
+                // Send beacon if available
+                try {
+                    if (navigator.sendBeacon && paperData) {
+                        const payload = JSON.stringify({
+                            responses: getBackendResponses(),
+                            time_spent: parseInt((paperData.duration || 180) * 60) - timeLeft
+                        });
+                        const blob = new Blob([payload], { type: 'application/json' });
+                        navigator.sendBeacon(`${getApiUrl()}/api/tests/${testId}/save_progress/`, blob);
+                    }
+                } catch (beaconErr) {}
+
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [storageKey, responses, questionTimes, paperData, timeLeft, getBackendResponses, getApiUrl, testId]);
 
     // Fetch Paper & Session Status
     useEffect(() => {
@@ -141,6 +230,7 @@ const ExamEngine = () => {
                 setPaperData(paper);
 
                 if (sData.is_finalized && !sData.allow_resume) {
+                    try { localStorage.removeItem(storageKey); } catch (e) {}
                     setIsSubmitted(true);
                     setIsLoading(false);
                     return;
@@ -154,17 +244,42 @@ const ExamEngine = () => {
                     setTimeLeft(parseInt(paper.duration || 180) * 60);
                 }
 
-                // Restore responses
+                // Restore responses from server
+                const serverResps = {};
                 if (sData.responses) {
-                    const localResps = {};
                     Object.entries(sData.responses).forEach(([qId, data]) => {
-                        localResps[qId] = {
+                        serverResps[qId] = {
                             status: data.status || (data.answer ? 'ANSWERED' : 'VISITED'),
                             selectedOption: data.answer || null
                         };
                     });
-                    setResponses(localResps);
                 }
+
+                let finalResps = serverResps;
+
+                // Check local storage for any unsynced or cached responses
+                if (sData.time_spent === 0 && Object.keys(serverResps).length === 0) {
+                    // Fresh test session or administrative reset -> start completely fresh
+                    try { localStorage.removeItem(storageKey); } catch (e) {}
+                } else {
+                    try {
+                        const localRaw = localStorage.getItem(storageKey);
+                        if (localRaw) {
+                            const parsed = JSON.parse(localRaw);
+                            if (parsed && parsed.responses) {
+                                // Merge: server baseline + local cache overlay
+                                finalResps = { ...serverResps, ...parsed.responses };
+                                if (parsed.questionTimes) {
+                                    setQuestionTimes(prev => ({ ...prev, ...parsed.questionTimes }));
+                                }
+                            }
+                        }
+                    } catch (cacheErr) {
+                        console.warn("Failed to parse local exam cache:", cacheErr);
+                    }
+                }
+
+                setResponses(finalResps);
 
                 // 3. EPR Data
                 try {
@@ -274,7 +389,8 @@ const ExamEngine = () => {
                 selectedOption: option !== undefined ? option : (prev[qId]?.selectedOption || null) 
             }
         }));
-    }, [currentQuestion, activeSectionIdx, activeQuestionIdx]);
+        triggerCloudSave();
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, triggerCloudSave]);
 
     const handleNext = useCallback(() => {
         if (!paperData || !currentSection) return;
@@ -309,8 +425,9 @@ const ExamEngine = () => {
         }
 
         updateStatus('ANSWERED', currentResp?.selectedOption);
+        triggerCloudSave();
         handleNext();
-    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, handleNext]);
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, triggerCloudSave, handleNext]);
 
     const handleMarkForReview = useCallback(() => {
         if (!currentQuestion) return;
@@ -319,8 +436,9 @@ const ExamEngine = () => {
         
         const newStatus = currentResp?.selectedOption ? 'MARKED_ANSWERED' : 'MARKED';
         updateStatus(newStatus, currentResp?.selectedOption);
+        triggerCloudSave();
         handleNext();
-    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, handleNext]);
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, responses, updateStatus, triggerCloudSave, handleNext]);
 
     const enterFullscreen = useCallback(() => {
         const elem = document.documentElement;
@@ -360,7 +478,8 @@ const ExamEngine = () => {
             delete newRes[qId];
             return newRes;
         });
-    }, [currentQuestion, activeSectionIdx, activeQuestionIdx]);
+        triggerCloudSave();
+    }, [currentQuestion, activeSectionIdx, activeQuestionIdx, triggerCloudSave]);
 
     const handleSubmit = useCallback(async (type = 'MANUAL') => {
         if (!paperData || isSubmitting) return;
@@ -387,6 +506,11 @@ const ExamEngine = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
+            // Clear test-specific local storage cache upon verified server acceptance
+            try {
+                localStorage.removeItem(storageKey);
+            } catch (e) {}
+
             const summary = paperData.sections.map(section => {
                 let attempted = 0;
                 section.questions_detail.forEach(q => {
@@ -408,15 +532,17 @@ const ExamEngine = () => {
             
             setIsSubmitted(true);
             isSubmittedRef.current = true;
+            setSyncStatus('synced');
             
             exitFullscreen();
         } catch (err) {
             console.error('Error submitting exam:', err);
-            triggerToast('Connection error. Retrying submission...');
+            setSyncStatus('offline');
+            triggerToast('Connection issue during submit. Your answers are safely stored on device. Click Submit to retry.');
         } finally {
             setIsSubmitting(false);
         }
-    }, [paperData, isSubmitting, timeLeft, getBackendResponses, getApiUrl, testId, token, responses, exitFullscreen]);
+    }, [paperData, isSubmitting, timeLeft, getBackendResponses, getApiUrl, testId, token, responses, storageKey, exitFullscreen]);
 
     // Use a ref to track submission status for event listeners
     useEffect(() => {
@@ -843,6 +969,28 @@ const ExamEngine = () => {
                 </h1>
 
                 <div className="flex items-center gap-2 md:gap-3">
+                    {/* Cloud Sync Status Indicator */}
+                    <div className="hidden sm:flex items-center">
+                        {syncStatus === 'synced' && (
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/20 text-emerald-300 text-[10px] md:text-[11px] font-bold border border-emerald-400/30" title="All answers saved to cloud">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-emerald-400"></span>
+                                <span>Saved</span>
+                            </span>
+                        )}
+                        {syncStatus === 'syncing' && (
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/20 text-amber-200 text-[10px] md:text-[11px] font-bold border border-amber-300/30" title="Syncing with server...">
+                                <Loader2 className="w-3 h-3 animate-spin text-amber-300" />
+                                <span>Saving...</span>
+                            </span>
+                        )}
+                        {syncStatus === 'offline' && (
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-950/70 text-red-200 text-[10px] md:text-[11px] font-bold border border-red-400/40 animate-pulse" title="Network disconnected: Answers saved safely on this device">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-red-400"></span>
+                                <span>Saved Offline</span>
+                            </span>
+                        )}
+                    </div>
+
                     {/* Responsive Mobile Palette Toggle */}
                     <button 
                         onClick={() => setMobileShowPalette(!mobileShowPalette)}
