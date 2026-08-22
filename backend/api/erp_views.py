@@ -329,9 +329,9 @@ def get_student_erp_data(request):
         print(f"[ERP] Serving {search_email} from cache (avoiding expensive ERP call).")
         return Response(cached, status=200)
 
-    # Strategy 2: High-Speed Index (Bypass if force_refresh)
+    # Strategy 2: High-Speed Index (Bypass if force_refresh, non-blocking)
     if not force_refresh:
-        index = get_student_lookup_index()
+        index = get_student_lookup_index(block=False)
         if index:
             match = index.get(f"email_{search_email}") or index.get(f"adm_{search_username}")
             if match:

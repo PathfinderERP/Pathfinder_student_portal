@@ -201,8 +201,8 @@ if MONGO_USERNAME and MONGO_PASSWORD and MONGO_CLUSTER:
     DIRECT_HOSTS = "ac-sozji20-shard-00-00.ariihtc.mongodb.net:27017,ac-sozji20-shard-00-01.ariihtc.mongodb.net:27017,ac-sozji20-shard-00-02.ariihtc.mongodb.net:27017"
     
     # Tune connection pool to avoid SSL handshake overhead on every request
-    # maxPoolSize=50 ensures we reuse connections; waitQueueTimeoutMS=5000 prevents hanging
-    MONGO_URI = f"mongodb://{_user}:{_pwd}@{DIRECT_HOSTS}/{MONGO_DB_NAME}?ssl=true&replicaSet=atlas-38xoz1-shard-0&authSource=admin&retryWrites=true&w=majority&maxPoolSize=50&waitQueueTimeoutMS=5000"
+    # maxPoolSize=50 ensures we reuse connections; w=1 enables sub-millisecond local primary write ack
+    MONGO_URI = f"mongodb://{_user}:{_pwd}@{DIRECT_HOSTS}/{MONGO_DB_NAME}?ssl=true&replicaSet=atlas-38xoz1-shard-0&authSource=admin&retryWrites=true&w=1&maxPoolSize=50&waitQueueTimeoutMS=5000"
     
     DATABASES = {
         'default': {
