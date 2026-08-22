@@ -19,6 +19,44 @@ def parse_section(sec_string):
 
 _mongo_client = None
 _mongo_db = None
+_indexes_created = False
+
+def ensure_database_indexes():
+    global _indexes_created
+    if _indexes_created:
+        return
+    db = get_db()
+    if db is None:
+        return
+    try:
+        # tests_testsubmission — critical for save_progress and results (was doing full table scans!)
+        sub_coll = db['tests_testsubmission']
+        sub_coll.create_index([('test_id', 1), ('student_id', 1), ('is_finalized', 1)], background=True)
+        sub_coll.create_index([('student_id', 1), ('is_finalized', 1)], background=True)
+        sub_coll.create_index([('test_id', 1), ('is_finalized', 1)], background=True)
+        
+        # api_customuser — critical for fast login lookups
+        user_coll = db['api_customuser']
+        user_coll.create_index([('username', 1)], background=True)
+        user_coll.create_index([('email', 1)], background=True)
+        user_coll.create_index([('erp_student_id', 1)], background=True)
+        user_coll.create_index([('admission_number', 1)], background=True)
+        
+        # tests_test — critical for test listings and question papers
+        test_coll = db['tests_test']
+        test_coll.create_index([('is_result_published', 1)], background=True)
+        test_coll.create_index([('created_at', -1)], background=True)
+        
+        # api_doubt — critical for doubts filtering
+        doubt_coll = db['api_doubt']
+        doubt_coll.create_index([('status', 1), ('created_at', -1)], background=True)
+        doubt_coll.create_index([('student_id', 1)], background=True)
+        doubt_coll.create_index([('teacher_id', 1)], background=True)
+
+        _indexes_created = True
+        print("[INDEX] Essential MongoDB Atlas indexes ensured in background.")
+    except Exception as e:
+        print(f"[INDEX ERROR] Failed to create indexes: {e}")
 
 def get_db():
     global _mongo_client, _mongo_db
@@ -38,6 +76,10 @@ def get_db():
             retryWrites=True
         )
         _mongo_db = _mongo_client[db_name]
+        
+        import threading
+        threading.Thread(target=ensure_database_indexes, daemon=True).start()
+        
         return _mongo_db
     except Exception as e:
         print(f"Direct DB Access Error: {e}")

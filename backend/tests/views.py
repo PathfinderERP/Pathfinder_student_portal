@@ -3553,10 +3553,12 @@ class TestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='save_progress')
     def save_progress(self, request, pk=None):
-        test = self.get_object()
         user = request.user
         responses = request.data.get('responses', {})
         time_spent = request.data.get('time_spent', 0)
+        
+        test_id = int(pk) if str(pk).isdigit() else pk
+        user_id = user.pk
         
         # DJONGO WORKAROUND: Use PyMongo directly to avoid duplicate key errors AND RecursionError (500)
         from api.db_utils import get_db
@@ -3566,16 +3568,16 @@ class TestViewSet(viewsets.ModelViewSet):
             try:
                 # 1. Check for finalized submission directly
                 existing = db['tests_testsubmission'].find_one({
-                    'test_id': test.pk,
-                    'student_id': user.pk,
+                    'test_id': test_id,
+                    'student_id': user_id,
                     'is_finalized': True
-                })
+                }, {'_id': 1})
                 if existing:
                     return Response({'error': 'Test already submitted. Contact admin to reset.'}, status=403)
 
                 # 2. Upsert the progress (update if exists, create if not)
                 db['tests_testsubmission'].update_one(
-                    {'test_id': test.pk, 'student_id': user.pk, 'is_finalized': False},
+                    {'test_id': test_id, 'student_id': user_id, 'is_finalized': False},
                     {'$set': {
                         'responses': responses,
                         'time_spent': time_spent,
@@ -3589,6 +3591,7 @@ class TestViewSet(viewsets.ModelViewSet):
                 print(f"PyMongo Upsert failed: {e}")
         
         # Original Fallback Logic (if PyMongo is unavailable)
+        test = self.get_object()
         updated = TestSubmission.objects.filter(test=test, student=user, is_finalized=False).update(
             responses=responses,
             time_spent=time_spent
