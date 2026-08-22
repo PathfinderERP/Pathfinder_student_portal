@@ -30,11 +30,9 @@ worker_class = "sync"
 # ---------------------------------------------------------------------------
 # Binding
 # ---------------------------------------------------------------------------
-# If you are running behind Nginx on the same box, use a Unix socket
-# (faster — avoids TCP stack overhead):
-#   bind = "unix:/run/gunicorn/pathfinder.sock"
-# Otherwise, bind directly to port 8000:
-bind = "0.0.0.0:8000"
+# Unix socket — matches the Nginx upstream config on this EC2 server.
+# Faster than TCP (no network stack overhead for local Nginx → Gunicorn traffic).
+bind = "unix:/home/ubuntu/Pathfinder_student_portal/backend/gunicorn.sock"
 
 # ---------------------------------------------------------------------------
 # Timeouts
