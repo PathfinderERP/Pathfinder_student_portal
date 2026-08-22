@@ -54,13 +54,14 @@ const StudentDashboard = () => {
         if (!token) return;
         try {
             const apiUrl = getApiUrl();
+            // Use a lightweight endpoint to get resolved count — avoid fetching all doubts just for a badge
             const response = await axios.get(`${apiUrl}/api/doubts/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${token}` },
+                params: { status: 'Resolved' } // filter server-side to reduce payload
             });
             const fetchedDoubts = response.data || [];
-            const resolvedDoubts = fetchedDoubts.filter(d => d.status === 'Resolved');
             const seenIds = JSON.parse(localStorage.getItem('seen_resolved_doubts') || '[]');
-            const unseen = resolvedDoubts.filter(d => !seenIds.includes(d.id));
+            const unseen = fetchedDoubts.filter(d => !seenIds.includes(d.id));
             setUnseenResolvedCount(unseen.length);
         } catch (error) {
             console.error('Failed to fetch unseen doubts count:', error);
@@ -72,13 +73,15 @@ const StudentDashboard = () => {
         
         window.addEventListener('seen_doubts_updated', updateUnseenCount);
         
-        const interval = setInterval(updateUnseenCount, 30000);
+        // Poll every 2 minutes — a resolved-doubt badge doesn't need real-time updates
+        const interval = setInterval(updateUnseenCount, 120000);
         
         return () => {
             window.removeEventListener('seen_doubts_updated', updateUnseenCount);
             clearInterval(interval);
         };
     }, [updateUnseenCount]);
+
 
     // URL-based Tab Navigation
     useEffect(() => {

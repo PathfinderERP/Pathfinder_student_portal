@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.core.cache import cache
 import requests
 import os
+import threading
 
 
 class StudentActiveCheckMiddleware(MiddlewareMixin):
@@ -37,31 +38,16 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
                 'code': 'ACCOUNT_DEACTIVATED'
             }, status=403)
         
-        # Periodic ERP validation (every 15 minutes to reduce API and network load)
+        # Periodic ERP validation (every 60 minutes)
         cache_key = f"erp_validation_{request.user.pk}"
         last_validated = cache.get(cache_key)
         
         if last_validated is None:
-            # Not validated recently - check ERP and SYNC fresh data
-            is_valid = self.validate_student_in_erp(request.user)
+            # Set a temporary cache marker to prevent concurrent background checks
+            cache.set(cache_key, 'pending', timeout=300)
             
-            if not is_valid:
-                # Student no longer valid in ERP - deactivate and reject
-                request.user.is_active = False
-                request.user.save()
-                
-                # Clear cached ERP token
-                token_cache_key = f"erp_token_{request.user.pk}"
-                cache.delete(token_cache_key)
-                
-                return JsonResponse({
-                    'error': 'Your account has been deactivated in the ERP system. Please contact administration.',
-                    'code': 'ERP_ACCOUNT_DEACTIVATED',
-                    'logout': True  # Signal frontend to logout
-                 }, status=403)
-            else:
-                 # Student is valid - cache for 15 minutes (900s) instead of 60s
-                 cache.set(cache_key, True, timeout=900)
+            # Start ERP validation in a background thread to keep the request non-blocking
+            threading.Thread(target=self.validate_student_in_erp, args=(request.user,)).start()
         
         return None
     
@@ -76,41 +62,42 @@ class StudentActiveCheckMiddleware(MiddlewareMixin):
             erp_token = cache.get(token_cache_key)
             
             if not erp_token:
-                # No cached token - student needs to re-login
                 print(f"No cached ERP token for {user.username}")
+                cache.set(f"erp_validation_{user.pk}", True, timeout=3600)
                 return False
             
-            # Try to fetch student data with cached token
-            # This validates both token and student status
             headers = {'Authorization': f'Bearer {erp_token}'}
             response = requests.get(
-                f"{erp_url}/api/student-portal/profile",  # Or any student endpoint
+                f"{erp_url}/api/student-portal/profile",
                 headers=headers,
                 timeout=10
             )
             
             if response.status_code == 200:
                 print(f"✓ ERP validation and SYNC successful for {user.username}")
-                # INSTANT SYNC: Update local user fields (Section, Names, etc.)
                 from .erp_views import _sync_user_to_erp
                 data = response.json()
-                # Profile endpoint might return different wrapping, handle it
                 admission_data = data.get('student', data) if isinstance(data.get('student'), dict) else data
                 _sync_user_to_erp(user, admission_data)
+                cache.set(f"erp_validation_{user.pk}", True, timeout=3600)
                 return True
             elif response.status_code in [401, 403]:
-                # Token invalid or student deactivated
                 print(f"✗ ERP validation failed for {user.username}: {response.status_code}")
+                user.is_active = False
+                user.save()
+                cache.delete(token_cache_key)
+                cache.set(f"erp_validation_{user.pk}", False, timeout=3600)
                 return False
             else:
-                # Other error - assume valid to avoid false lockouts
                 print(f"⚠ ERP validation error for {user.username}: {response.status_code}")
-                return True  # Fail open on errors
+                cache.set(f"erp_validation_{user.pk}", True, timeout=3600)
+                return True
                 
         except requests.exceptions.RequestException as e:
-            # Network error - assume valid to avoid lockout during ERP downtime
             print(f"⚠ ERP validation network error for {user.username}: {e}")
-            return True  # Fail open on network errors
+            cache.set(f"erp_validation_{user.pk}", True, timeout=3600)
+            return True
         except Exception as e:
             print(f"⚠ ERP validation exception for {user.username}: {e}")
-            return True  # Fail open on unexpected errors
+            cache.set(f"erp_validation_{user.pk}", True, timeout=3600)
+            return True

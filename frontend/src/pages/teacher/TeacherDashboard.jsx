@@ -41,12 +41,12 @@ const TeacherDashboard = () => {
         try {
             const tokenVal = token || localStorage.getItem('auth_token');
             if (!tokenVal) return;
-            const response = await fetch(`${getApiUrl()}/api/doubts/`, {
+            // Use the lightweight count endpoint instead of fetching all doubts
+            const response = await fetch(`${getApiUrl()}/api/doubts/unassigned_count/`, {
                 headers: { 'Authorization': `Bearer ${tokenVal}` }
             });
             const data = await response.json();
-            const count = data.filter(d => d.status === 'Assign').length;
-            setUnsolvedCount(count);
+            setUnsolvedCount(data.count || 0);
         } catch (err) {
             console.error(err);
         }
@@ -94,19 +94,16 @@ const TeacherDashboard = () => {
         fetchUnsolvedCount();
         fetchFeedbackCount();
         fetchReferralCount();
+        // Poll every 60 seconds instead of 15 — badge counts don't need to be real-time
         const interval = setInterval(() => {
             fetchUnsolvedCount();
             fetchFeedbackCount();
             fetchReferralCount();
-        }, 15000);
+        }, 60000);
         return () => clearInterval(interval);
     }, [fetchUnsolvedCount, fetchFeedbackCount, fetchReferralCount]);
 
-    useEffect(() => {
-        fetchUnsolvedCount();
-        fetchFeedbackCount();
-        fetchReferralCount();
-    }, [activeTab, fetchUnsolvedCount, fetchFeedbackCount, fetchReferralCount]);
+    // Note: Removed tab-change re-fetch — badge counts update on the 60s interval only.
 
     const sidebarItems = React.useMemo(() => [
         {
