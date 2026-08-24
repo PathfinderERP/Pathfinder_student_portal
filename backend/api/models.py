@@ -401,4 +401,20 @@ class DCStoppedRecord(models.Model):
         return f"{self.student_name} ({self.roll_no}) - {self.status}"
 
 
+class TeacherTrainingRecord(models.Model):
+    _id = djongo_models.ObjectIdField(primary_key=True)
+    teacher_name = models.CharField(max_length=255)
+    training_topic = models.CharField(max_length=255)
+    trainer = models.CharField(max_length=255)
+    training_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=50, default='Pending')  # 'Pending', 'In Progress', 'Completed'
+    completion_date = models.CharField(max_length=50, default='Pending')
+    remarks = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.teacher_name} - {self.training_topic} ({self.status})"

@@ -1743,47 +1743,187 @@ def dc_stopped_view(request):
 
 
 
-@api_view(['GET', 'POST', 'PUT'])
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
 @permission_classes([AllowAny])
 def teacher_training_view(request):
     """
     9. Training for New Teachers
     Teacher name, training topic, trainer, training date, status (Pending -> In Progress -> Completed), completion date, remarks.
+    Persists and retrieves real database records.
     """
+    from api.models import TeacherTrainingRecord
+    from api.db_utils import get_db
+    from bson import ObjectId
+
     if request.method == 'GET':
-        modules = [
-            {
-                "id": 1,
-                "teacher_name": "Priyanka Das",
-                "training_topic": "Interactive Pedagogy & Smartboard Operations",
-                "trainer": "Dr. Rajesh Sharma",
-                "training_date": "2026-07-20",
-                "status": "Completed",
-                "completion_date": "2026-07-25",
-                "remarks": "Successfully completed module and passed mock teaching session with 92% rating."
-            },
-            {
-                "id": 2,
-                "teacher_name": "Sourav Bhattacharya",
-                "training_topic": "Advanced NEET Problem Solving & Doubt Resolution",
-                "trainer": "Anita Verma",
-                "training_date": "2026-08-01",
-                "status": "In Progress",
-                "completion_date": "Pending",
-                "remarks": "Currently undergoing module 3 (Physical Chemistry Shortcuts)."
-            },
-            {
-                "id": 3,
-                "teacher_name": "Rina Paul",
-                "training_topic": "ERP Operations, Attendance & Classroom Analytics",
-                "trainer": "IT Administrator",
-                "training_date": "2026-08-15",
-                "status": "Pending",
-                "completion_date": "Pending",
-                "remarks": "Scheduled for mid-August session."
-            }
-        ]
-        return Response({"status": "success", "data": modules}, status=status.HTTP_200_OK)
+        teacher_param = (request.query_params.get('teacher') or request.GET.get('teacher') or '').strip()
+        try:
+            qs = TeacherTrainingRecord.objects.all()
+            if teacher_param:
+                from django.db.models import Q
+                qs = qs.filter(Q(teacher_name__icontains=teacher_param) | Q(trainer__icontains=teacher_param))
+            records = list(qs.order_by('-created_at').values())
+            formatted = []
+            for r in records:
+                r_copy = dict(r)
+                if '_id' in r_copy:
+                    r_copy['id'] = str(r_copy['_id'])
+                    del r_copy['_id']
+                elif 'id' not in r_copy:
+                    r_copy['id'] = str(r_copy.get('pk', len(formatted) + 1))
+                formatted.append(r_copy)
+            return Response({"status": "success", "data": formatted}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"[teacher_training_view GET ERROR] {e}")
+            try:
+                db = get_db()
+                if db is not None:
+                    query = {}
+                    if teacher_param:
+                        import re
+                        rgx = re.compile(teacher_param, re.IGNORECASE)
+                        query = {"$or": [{"teacher_name": rgx}, {"trainer": rgx}]}
+                    docs = list(db.api_teachertrainingrecord.find(query).sort('created_at', -1))
+                    formatted = []
+                    for doc in docs:
+                        d = dict(doc)
+                        d['id'] = str(d.pop('_id', ''))
+                        formatted.append(d)
+                    return Response({"status": "success", "data": formatted}, status=status.HTTP_200_OK)
+            except Exception as e2:
+                logger.error(f"[teacher_training_view Mongo fallback ERROR] {e2}")
+            return Response({"status": "success", "data": []}, status=status.HTTP_200_OK)
     
-    elif request.method in ['POST', 'PUT']:
-        return Response({"status": "success", "message": "Teacher training status updated"}, status=status.HTTP_200_OK)
+    elif request.method == 'POST':
+        data = request.data or {}
+        try:
+            t_date = data.get('training_date') or None
+            status_val = data.get('status', 'Pending')
+            completion_date = data.get('completion_date')
+            if not completion_date:
+                completion_date = str(date.today()) if status_val == 'Completed' else 'Pending'
+
+            rec = TeacherTrainingRecord.objects.create(
+                teacher_name=data.get('teacher_name', '').strip(),
+                training_topic=data.get('training_topic', '').strip(),
+                trainer=data.get('trainer', '').strip(),
+                training_date=t_date,
+                status=status_val,
+                completion_date=completion_date,
+                remarks=data.get('remarks', '').strip()
+            )
+            res_data = dict(data)
+            res_data['id'] = str(rec.pk)
+            res_data['status'] = status_val
+            res_data['completion_date'] = completion_date
+            return Response({
+                "status": "success", 
+                "message": "Teacher training scheduled successfully",
+                "data": res_data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"[teacher_training_view POST ERROR] {e}")
+            # Fallback to direct PyMongo insert if ORM fails
+            try:
+                db = get_db()
+                if db is not None:
+                    insert_doc = {
+                        "teacher_name": data.get('teacher_name', '').strip(),
+                        "training_topic": data.get('training_topic', '').strip(),
+                        "trainer": data.get('trainer', '').strip(),
+                        "training_date": data.get('training_date'),
+                        "status": data.get('status', 'Pending'),
+                        "completion_date": data.get('completion_date', 'Pending'),
+                        "remarks": data.get('remarks', '').strip(),
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now()
+                    }
+                    res = db.api_teachertrainingrecord.insert_one(insert_doc)
+                    insert_doc['id'] = str(res.inserted_id)
+                    insert_doc.pop('_id', None)
+                    return Response({
+                        "status": "success",
+                        "message": "Teacher training scheduled successfully",
+                        "data": insert_doc
+                    }, status=status.HTTP_201_CREATED)
+            except Exception as e2:
+                logger.error(f"[teacher_training_view PyMongo POST ERROR] {e2}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method in ['PUT', 'PATCH']:
+        data = request.data or {}
+        rec_id = data.get('id') or request.query_params.get('id')
+        new_status = data.get('status')
+        new_completion_date = data.get('completion_date')
+        if not new_completion_date and new_status == 'Completed':
+            new_completion_date = str(date.today())
+        elif not new_completion_date and new_status != 'Completed':
+            new_completion_date = 'Pending'
+
+        update_fields = {}
+        if new_status:
+            update_fields['status'] = new_status
+        if new_completion_date:
+            update_fields['completion_date'] = new_completion_date
+        if 'remarks' in data:
+            update_fields['remarks'] = data.get('remarks')
+        if 'trainer' in data:
+            update_fields['trainer'] = data.get('trainer')
+        if 'training_topic' in data:
+            update_fields['training_topic'] = data.get('training_topic')
+        if 'teacher_name' in data:
+            update_fields['teacher_name'] = data.get('teacher_name')
+        if 'training_date' in data:
+            update_fields['training_date'] = data.get('training_date')
+
+        try:
+            db = get_db()
+            if db is not None and rec_id:
+                query_or = []
+                if ObjectId.is_valid(str(rec_id)):
+                    query_or.append({"_id": ObjectId(str(rec_id))})
+                query_or.append({"_id": str(rec_id)})
+                query_or.append({"id": str(rec_id)})
+                db.api_teachertrainingrecord.update_one({"$or": query_or}, {"$set": {**update_fields, "updated_at": datetime.now()}})
+            
+            try:
+                if rec_id and ObjectId.is_valid(str(rec_id)):
+                    TeacherTrainingRecord.objects.filter(_id=ObjectId(str(rec_id))).update(**update_fields)
+                elif rec_id:
+                    TeacherTrainingRecord.objects.filter(pk=rec_id).update(**update_fields)
+            except Exception:
+                pass
+
+            return Response({
+                "status": "success", 
+                "message": "Teacher training updated successfully",
+                "data": { "id": str(rec_id), **update_fields }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"[teacher_training_view PUT ERROR] {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        rec_id = request.query_params.get('id') or (request.data and request.data.get('id'))
+        try:
+            db = get_db()
+            if db is not None and rec_id:
+                query_or = []
+                if ObjectId.is_valid(str(rec_id)):
+                    query_or.append({"_id": ObjectId(str(rec_id))})
+                query_or.append({"_id": str(rec_id)})
+                query_or.append({"id": str(rec_id)})
+                db.api_teachertrainingrecord.delete_many({"$or": query_or})
+
+            try:
+                if rec_id and ObjectId.is_valid(str(rec_id)):
+                    TeacherTrainingRecord.objects.filter(_id=ObjectId(str(rec_id))).delete()
+                elif rec_id:
+                    TeacherTrainingRecord.objects.filter(pk=rec_id).delete()
+            except Exception:
+                pass
+
+            return Response({"status": "success", "message": "Teacher training record deleted successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"[teacher_training_view DELETE ERROR] {e}")
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)

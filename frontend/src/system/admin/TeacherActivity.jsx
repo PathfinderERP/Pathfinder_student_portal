@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2, UserPlus, UserX, FileText, Volume2, ExternalLink, Eye, Play
+    Search, ChevronLeft, ChevronRight, Activity, Clock, RefreshCw, Download, RotateCcw, Filter, MessageCircle, Star, X, Timer, LogIn, Trophy, ArrowRightLeft, Users, BarChart2, UserPlus, UserX, FileText, Volume2, ExternalLink, Eye, Play, GraduationCap
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 import TopperRankTab from '../../components/tabs/TopperRankTab';
@@ -11,6 +11,7 @@ import PTMHistoryTab from '../../components/tabs/PTMHistoryTab';
 import TestAnalysisTab from '../../components/tabs/TestAnalysisTab';
 import ReferralsCollectedTab from '../../components/tabs/ReferralsCollectedTab';
 import DCStoppedTab from '../../components/tabs/DCStoppedTab';
+import TeacherTrainingTab from '../../components/tabs/TeacherTrainingTab';
 
 
 const FEEDBACK_QUESTIONS = [
@@ -82,7 +83,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         if (activeDetail === type) { setActiveDetail(null); return; }
         setActiveDetail(type);
         
-        if (['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected', 'dc_stopped'].includes(type)) return;
+        if (['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected', 'dc_stopped', 'teacher_training'].includes(type)) return;
         if (cachedData[type]) return;
 
         setLoadingDetail(true);
@@ -180,6 +181,18 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
             return (
                 <div className="p-2 md:p-4">
                     <DCStoppedTab 
+                        isAdminView={true} 
+                        filterTeacherName={name}
+                        filterTeacherEmail={email || username}
+                    />
+                </div>
+            );
+        }
+
+        if (activeDetail === 'teacher_training') {
+            return (
+                <div className="p-2 md:p-4">
+                    <TeacherTrainingTab 
                         isAdminView={true} 
                         filterTeacherName={name}
                         filterTeacherEmail={email || username}
@@ -459,7 +472,8 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
         mentorship_conversion: `Mentorship & Conversion Logs — ${name}`,
         ptm_records: `Parent-Teacher Meeting (PTM) Records — ${name}`,
         referrals_collected: `Referrals Collected — ${name}`,
-        dc_stopped: `DC Stopped (Discontinued Students) — ${name}`
+        dc_stopped: `DC Stopped (Discontinued Students) — ${name}`,
+        teacher_training: `Teacher Training Records — ${name}`
     };
 
     const resolveMediaUrl = (url) => {
@@ -531,6 +545,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                 <StatCard icon={Users} color="text-indigo-500" label="PTM Records" detailKey="ptm_records" />
                 <StatCard icon={UserPlus} color="text-emerald-500" label="Referrals Collected" detailKey="referrals_collected" />
                 <StatCard icon={UserX} color="text-rose-500" label="DC Stopped" detailKey="dc_stopped" />
+                <StatCard icon={GraduationCap} color="text-cyan-500" label="Teacher Training" detailKey="teacher_training" />
 
                 <div className={`p-3.5 rounded-[5px] border text-center flex flex-col justify-between items-center min-h-[110px] min-w-[140px] flex-1 shrink-0 snap-start ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-300 shadow-sm'}`}>
                     <LogIn className={`w-5 h-5 mx-auto mb-1 ${activity.avgEntryDiff?.includes('Late') ? 'text-amber-500' : activity.avgEntryDiff?.includes('Early') || activity.avgEntryDiff === 'On Time' ? 'text-emerald-500' : 'text-slate-500'}`} />
@@ -557,7 +572,7 @@ const TeacherDetailPage = ({ teacher, activity, username, isDarkMode, onBack }) 
                     <div className={`px-5 py-3 border-b flex items-center justify-between gap-3 ${isDarkMode ? 'border-white/10 bg-white/[0.03]' : 'border-slate-100 bg-slate-50'}`}>
                         <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{detailTitles[activeDetail]}</span>
                         <div className="flex items-center gap-3 ml-auto">
-                            {!loadingDetail && !['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected', 'dc_stopped'].includes(activeDetail) && (
+                            {!loadingDetail && !['topper_ranks', 'test_analysis', 'mentorship_conversion', 'ptm_records', 'referrals_collected', 'dc_stopped', 'teacher_training'].includes(activeDetail) && (
                                 <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                     {(cachedData[activeDetail] || []).length} record{((cachedData[activeDetail] || []).length) !== 1 ? 's' : ''}
                                 </span>
