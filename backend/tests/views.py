@@ -1884,6 +1884,10 @@ class TestViewSet(viewsets.ModelViewSet):
 
         # Aggregate from MongoDB
         db = get_db()
+        available_centres = set()
+        available_batches = set()
+        total_count = 0
+
         if db is not None:
             try:
                 try:
@@ -1893,15 +1897,85 @@ class TestViewSet(viewsets.ModelViewSet):
 
                 sub_docs = list(db['tests_testsubmission'].find(
                     {'test_id': t_pk, 'is_finalized': True},
-                    {'responses': 1}
+                    {'student_id': 1, 'responses': 1, 'centre_name': 1, 'centre_code': 1, 'assigned_batch': 1}
                 ))
             except Exception as e:
                 print(f"[question_analysis] PyMongo error: {e}")
                 sub_docs = []
 
+            # Retrieve student metadata (centre & batch)
+            from api.models import CustomUser
+            student_ids = [s.get('student_id') for s in sub_docs if s.get('student_id')]
+            s_objs = CustomUser.objects.filter(_id__in=student_ids).values(
+                '_id', 'centre_name', 'centre_code', 'assigned_batch', 'exam_section', 'study_section'
+            )
+            def clean_batch_str(val):
+                if not val:
+                    return 'N/A'
+                if isinstance(val, list):
+                    return ', '.join([str(x).strip() for x in val if str(x).strip()]) or 'N/A'
+                s = str(val).strip()
+                if s.startswith('[') and s.endswith(']'):
+                    import json
+                    try:
+                        parsed = json.loads(s)
+                        if isinstance(parsed, list):
+                            return ', '.join([str(x).strip() for x in parsed if str(x).strip()]) or 'N/A'
+                    except Exception:
+                        pass
+                    s = s.strip('[]"\'').strip()
+                return s or 'N/A'
+
+            s_lookup = {}
+            for s in s_objs:
+                centre = (s.get('centre_name') or s.get('centre_code') or '').strip()
+                batch = clean_batch_str(s.get('assigned_batch') or s.get('exam_section') or s.get('study_section'))
+                s_lookup[str(s['_id'])] = {
+                    'centre': centre or 'N/A',
+                    'batch': batch or 'N/A',
+                }
+
+            # Map resolved centre and batch to each doc and build available filter sets
+            for doc in sub_docs:
+                sid = str(doc.get('student_id'))
+                u_info = s_lookup.get(sid, {})
+                c_val = u_info.get('centre') or doc.get('centre_name') or doc.get('centre_code') or 'N/A'
+                b_val = u_info.get('batch') or clean_batch_str(doc.get('assigned_batch')) or 'N/A'
+
+                doc['_resolved_centre'] = c_val
+                doc['_resolved_batch'] = b_val
+
+                if c_val and c_val != 'N/A':
+                    available_centres.add(c_val)
+                if b_val and b_val != 'N/A':
+                    available_batches.add(b_val)
+
+            # Filter by centres and batches if query parameters are provided
+            raw_centres = request.GET.get('centres', '')
+            raw_batches = request.GET.get('batches', '')
+
+            req_centres = [c.strip().lower() for c in raw_centres.split(',') if c.strip()]
+            req_batches = [b.strip().lower() for b in raw_batches.split(',') if b.strip()]
+
+            if req_centres or req_batches:
+                filtered_sub_docs = []
+                for doc in sub_docs:
+                    c_val = doc.get('_resolved_centre', 'N/A').strip().lower()
+                    b_val = doc.get('_resolved_batch', 'N/A').strip().lower()
+
+                    if req_centres and c_val not in req_centres:
+                        continue
+                    if req_batches and b_val not in req_batches:
+                        continue
+                    filtered_sub_docs.append(doc)
+                sub_docs = filtered_sub_docs
+
+            total_count = len(sub_docs)
+
             q_lookup = {}
             for sec in sections_data:
                 for q in sec['questions']:
+                    q['student_results'] = []
                     q_lookup[q['id']] = q
 
             total = len(sub_docs)
@@ -1919,6 +1993,9 @@ class TestViewSet(viewsets.ModelViewSet):
                         raw_responses = {}
                 responses = raw_responses if isinstance(raw_responses, dict) else {}
 
+                doc_centre = doc.get('_resolved_centre', 'N/A')
+                doc_batch = doc.get('_resolved_batch', 'N/A')
+
                 for q_id, q_data in q_lookup.items():
                     response = responses.get(q_id)
                     # response may be a dict {'answer': ...}, a raw value, or None
@@ -1931,6 +2008,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
                     if answer is None or answer == '' or answer == [] or (isinstance(answer, list) and len(answer) == 0):
                         q_data['not_attempted'] += 1
+                        q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'NA'})
                         continue
                     q_type = q_data['type']
                     if q_type == 'SINGLE_CHOICE':
@@ -1963,8 +2041,10 @@ class TestViewSet(viewsets.ModelViewSet):
 
                         if is_correct:
                             q_data['correct'] += 1
+                            q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'CA'})
                         else:
                             q_data['incorrect'] += 1
+                            q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'IA'})
                     elif q_type == 'MULTI_CHOICE':
                         raw_selected = answer if isinstance(answer, list) else [answer]
                         selected = set()
@@ -1999,27 +2079,37 @@ class TestViewSet(viewsets.ModelViewSet):
                         correct  = set(q_data['correct_options'])
                         if selected == correct:
                             q_data['correct'] += 1
+                            q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'CA'})
                         elif selected & correct:
                             q_data['partial'] += 1
+                            q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'PA'})
                         else:
                             q_data['incorrect'] += 1
+                            q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'IA'})
                     elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
                         try:
                             val = float(answer)
                             lo, hi = q_data['answer_from'], q_data['answer_to']
                             if lo is not None and hi is not None and lo <= val <= hi:
                                 q_data['correct'] += 1
+                                q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'CA'})
                             else:
                                 q_data['incorrect'] += 1
+                                q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'IA'})
                         except (TypeError, ValueError):
                             q_data['incorrect'] += 1
+                            q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'IA'})
                     else:
                         q_data['incorrect'] += 1
+                        q_data['student_results'].append({'c': doc_centre, 'b': doc_batch, 's': 'IA'})
 
         return Response({
             'test_name': test.name,
             'test_code': test.code,
             'duration': test.duration,
+            'total_attempted': total_count,
+            'available_centres': sorted(list(available_centres)),
+            'available_batches': sorted(list(available_batches)),
             'sections': sections_data,
         })
 
@@ -2084,22 +2174,27 @@ class TestViewSet(viewsets.ModelViewSet):
                 ))
             except: pass
 
-        # 3. Enhance with student names/enrollments
+        # 3. Enhance with student names/enrollments and centre
         student_ids = [s['student_id'] for s in submissions]
-        s_objs = CustomUser.objects.filter(_id__in=student_ids).values('_id', 'first_name', 'last_name', 'username', 'admission_number')
+        s_objs = CustomUser.objects.filter(_id__in=student_ids).values(
+            '_id', 'first_name', 'last_name', 'username', 'admission_number', 'centre_name', 'centre_code'
+        )
         s_lookup = {}
         for s in s_objs:
             full_name = f"{s['first_name']} {s['last_name']}".strip() or s['username']
+            centre = s.get('centre_name') or s.get('centre_code') or 'N/A'
             s_lookup[str(s['_id'])] = {
                 'name': full_name,
-                'enrollment_number': s['admission_number'] or s['username']
+                'enrollment_number': s['admission_number'] or s['username'],
+                'student_center': centre,
             }
 
         # 4. Build the matrix
         matrix_data = []
         for sub in submissions:
             sid_str = str(sub['student_id'])
-            s_info = s_lookup.get(sid_str) or {'name': 'Unknown', 'enrollment_number': sid_str}
+            s_info = s_lookup.get(sid_str) or {'name': 'Unknown', 'enrollment_number': sid_str, 'student_center': 'N/A'}
+            student_center = s_info.get('student_center') or sub.get('centre_name') or sub.get('centre_code') or 'N/A'
             
             # Parse responses
             raw_res = sub.get('responses') or {}
@@ -2112,6 +2207,7 @@ class TestViewSet(viewsets.ModelViewSet):
             row = {
                 'student_name': s_info['name'],
                 'enrollment_number': s_info['enrollment_number'],
+                'student_center': student_center,
                 'results': []
             }
 

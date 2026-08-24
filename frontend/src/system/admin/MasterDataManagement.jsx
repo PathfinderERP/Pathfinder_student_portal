@@ -4,7 +4,8 @@ import {
     Calendar, Layers, GraduationCap, Plus, Search, Target,
     Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen, RefreshCw,
     Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle,
-    Download, FileSpreadsheet, Upload, FileCheck
+    Download, FileSpreadsheet, Upload, FileCheck,
+    CheckSquare, Square, CheckCircle2, XCircle, SlidersHorizontal
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -341,11 +342,26 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         is_active: true
     });
 
-    // Bulk Import/Export State
+    // Bulk Import/Export & Multi-Select State
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [importFile, setImportFile] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
+    const [bulkImportMode, setBulkImportMode] = useState('upsert'); // 'upsert', 'update', 'create'
     const bulkFileInputRef = useRef(null);
+
+    // Multi-Select Bulk Actions State
+    const [selectedRowIds, setSelectedRowIds] = useState([]);
+    const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+    const [bulkEditFields, setBulkEditFields] = useState({
+        is_active: '',
+        class_level: '',
+        subject: '',
+        chapter: '',
+        topic: '',
+        session: '',
+        target_exam: '',
+        exam_type: '',
+    });
 
     const lastFetchedTab = useRef(null);
     const activeFetchKeyRef = useRef(null); // Prevent duplicate simultaneous requests
@@ -911,6 +927,19 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 config.headers['X-CSRFToken'] = csrfToken;
             }
 
+            if (id === 'bulk') {
+                const endpoint = activeSubTab === 'Image'
+                    ? `questions/images/bulk-delete`
+                    : `master-data/${currentTabConfig.endpoint}/bulk-delete`;
+                const res = await axios.post(`${apiUrl}/api/${endpoint}/`, { ids: selectedRowIds }, config);
+                toast.success(res.data.message || `Deleted ${selectedRowIds.length} items successfully!`);
+                setSelectedRowIds([]);
+                fetchData(true);
+                const eventKey = getMasterDataEventKey(activeSubTab);
+                if (eventKey) dispatchMasterDataUpdate(eventKey);
+                return;
+            }
+
             // Optimistic delete: remove from local state immediately
             setData(prev => prev.filter(item => (item.id !== id && item._id !== id)));
 
@@ -1057,6 +1086,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
         setIsImporting(true);
         const formData = new FormData();
         formData.append('file', importFile);
+        formData.append('mode', bulkImportMode);
         try {
             const apiUrl = getApiUrl();
             const config = getAuthConfig();
@@ -1065,20 +1095,130 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             });
 
             if (res.data.errors && res.data.errors.length > 0) {
-                toast.success(`Imported with ${res.data.errors.length} errors. Check console.`);
-                console.warn("Import Errors:", res.data.errors);
+                toast.success(`${res.data.message || 'Import processed'}. (${res.data.errors.length} warnings)`);
+                console.warn("Import Warnings:", res.data.errors);
             } else {
-                toast.success(res.data.message || "Import successful!");
+                toast.success(res.data.message || "Import & Bulk update successful!");
             }
 
             setShowBulkModal(false);
             setImportFile(null);
             fetchData(true);
+            const eventKey = getMasterDataEventKey(activeSubTab);
+            if (eventKey) dispatchMasterDataUpdate(eventKey);
         } catch (err) {
             toast.error(err.response?.data?.error || "Import failed");
         } finally {
             setIsImporting(false);
         }
+    };
+
+    // Bulk Multi-Select Operations Handlers
+    const handleBulkStatusChange = async (newStatus) => {
+        if (selectedRowIds.length === 0) return;
+        setIsActionLoading(true);
+        const toastId = toast.loading(`Updating ${selectedRowIds.length} records...`);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/bulk-update/`, {
+                ids: selectedRowIds,
+                updates: { is_active: newStatus }
+            }, getAuthConfig());
+            toast.success(res.data.message || `Updated ${selectedRowIds.length} records to ${newStatus ? 'Active' : 'Inactive'}`, { id: toastId });
+            setSelectedRowIds([]);
+            fetchData(true);
+            const eventKey = getMasterDataEventKey(activeSubTab);
+            if (eventKey) dispatchMasterDataUpdate(eventKey);
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Bulk status update failed', { id: toastId });
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleBulkEditSubmit = async (e) => {
+        e.preventDefault();
+        if (selectedRowIds.length === 0) return;
+        
+        const updates = {};
+        if (bulkEditFields.is_active !== '') updates.is_active = bulkEditFields.is_active === 'true';
+        if (bulkEditFields.class_level) updates.class_level = bulkEditFields.class_level;
+        if (bulkEditFields.subject) updates.subject = bulkEditFields.subject;
+        if (bulkEditFields.chapter) updates.chapter = bulkEditFields.chapter;
+        if (bulkEditFields.topic) updates.topic = bulkEditFields.topic;
+        if (bulkEditFields.session) updates.session = bulkEditFields.session;
+        if (bulkEditFields.target_exam) updates.target_exam = bulkEditFields.target_exam;
+        if (bulkEditFields.exam_type) updates.exam_type = bulkEditFields.exam_type;
+
+        if (Object.keys(updates).length === 0) {
+            toast.error("Please select at least one field to update");
+            return;
+        }
+
+        setIsActionLoading(true);
+        const toastId = toast.loading(`Bulk updating ${selectedRowIds.length} records...`);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.post(`${apiUrl}/api/master-data/${currentTabConfig.endpoint}/bulk-update/`, {
+                ids: selectedRowIds,
+                updates
+            }, getAuthConfig());
+            toast.success(res.data.message || "Bulk update completed successfully!", { id: toastId });
+            setIsBulkEditModalOpen(false);
+            setSelectedRowIds([]);
+            setBulkEditFields({
+                is_active: '',
+                class_level: '',
+                subject: '',
+                chapter: '',
+                topic: '',
+                session: '',
+                target_exam: '',
+                exam_type: '',
+            });
+            fetchData(true);
+            const eventKey = getMasterDataEventKey(activeSubTab);
+            if (eventKey) dispatchMasterDataUpdate(eventKey);
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Bulk update failed', { id: toastId });
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedRowIds.length === 0) return;
+        setConfirmDialog({
+            isOpen: true,
+            id: 'bulk',
+            title: `Delete ${selectedRowIds.length} selected ${activeSubTab}(s)?`
+        });
+    };
+
+    const handleExportSelected = () => {
+        if (selectedRowIds.length === 0) return;
+        const selectedItems = data.filter(item => selectedRowIds.includes(item.id));
+        if (selectedItems.length === 0) return;
+
+        const headers = Object.keys(selectedItems[0]).filter(k => typeof selectedItems[0][k] !== 'object' || selectedItems[0][k] === null);
+        const csvRows = [];
+        csvRows.push(headers.join(','));
+        for (const item of selectedItems) {
+            const values = headers.map(h => {
+                const val = item[h] === null || item[h] === undefined ? '' : String(item[h]).replace(/"/g, '""');
+                return `"${val}"`;
+            });
+            csvRows.push(values.join(','));
+        }
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${activeSubTab.toLowerCase()}_selected_${selectedRowIds.length}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success(`Exported ${selectedRowIds.length} items to CSV`);
     };
 
     const filteredData = useMemo(() => {
@@ -1191,6 +1331,43 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             setPageNumber(page);
         }
         setJumpPage('');
+    };
+
+    // Multi-Select Computed States & Handlers
+    useEffect(() => {
+        setSelectedRowIds([]);
+    }, [activeSubTab, statusFilter, sessionFilter, classFilter, targetFilter, topicFilter, subjectFilter, examTypeFilter, chapterFilter]);
+
+    const isAllPageSelected = useMemo(() => {
+        if (paginatedData.length === 0) return false;
+        return paginatedData.every(item => selectedRowIds.includes(item.id));
+    }, [paginatedData, selectedRowIds]);
+
+    const isSomePageSelected = useMemo(() => {
+        if (paginatedData.length === 0) return false;
+        return paginatedData.some(item => selectedRowIds.includes(item.id)) && !isAllPageSelected;
+    }, [paginatedData, selectedRowIds, isAllPageSelected]);
+
+    const handleToggleSelectAllPage = () => {
+        if (isAllPageSelected) {
+            const pageIds = paginatedData.map(i => i.id);
+            setSelectedRowIds(prev => prev.filter(id => !pageIds.includes(id)));
+        } else {
+            const pageIds = paginatedData.map(i => i.id);
+            setSelectedRowIds(prev => Array.from(new Set([...prev, ...pageIds])));
+        }
+    };
+
+    const handleSelectAllFiltered = () => {
+        const allIds = filteredData.map(i => i.id);
+        setSelectedRowIds(allIds);
+    };
+
+    const handleToggleRowSelect = (id, e) => {
+        if (e) e.stopPropagation();
+        setSelectedRowIds(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
     };
 
     const renderHeader = () => (
@@ -2058,11 +2235,12 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                             </button>
                         )}
 
-                        {(activeSubTab === 'Chapter' || activeSubTab === 'Topic' || activeSubTab === 'SubTopic') && (
+                        {activeSubTab !== 'Section Management' && activeSubTab !== 'Chapter Test Settings' && activeSubTab !== 'Image' && (
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleExport}
                                     className={`flex items-center gap-2 px-4 py-2.5 rounded-[5px] border font-black text-[10px] uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    title="Export All to CSV"
                                 >
                                     <Download size={16} />
                                     Export
@@ -2085,6 +2263,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className={`border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                                        <th className="pb-4 px-3 w-10 text-center"><div className={`h-4 w-4 mx-auto rounded ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
                                         {activeSubTab === 'Exam Details' ? (
                                             <>
                                                 <th className="pb-4 px-4"><div className={`h-3 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></th>
@@ -2108,6 +2287,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 <tbody className="divide-y divide-transparent">
                                     {[1, 2, 3, 4, 5].map((row) => (
                                         <tr key={row}>
+                                            <td className="py-5 px-3 w-10 text-center"><div className={`h-4 w-4 mx-auto rounded ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
                                             {activeSubTab === 'Exam Details' ? (
                                                 <>
                                                     <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
@@ -2163,6 +2343,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                         <table className="w-full text-left">
                             <thead>
                                 <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                                    <th className="pb-4 px-3 w-10 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={isAllPageSelected}
+                                            ref={el => { if (el) el.indeterminate = isSomePageSelected; }}
+                                            onChange={handleToggleSelectAllPage}
+                                            className="w-4 h-4 rounded border cursor-pointer accent-orange-500"
+                                            title="Select all on this page"
+                                        />
+                                    </th>
                                     {activeSubTab === 'Exam Details' ? (
                                         <>
                                             <th className="pb-4 px-4 font-black">#</th>
@@ -2237,8 +2427,26 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-transparent">
-                                {paginatedData.length > 0 ? paginatedData.map((item, index) => (
-                                    <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
+                                {paginatedData.length > 0 ? paginatedData.map((item, index) => {
+                                    const isSelected = selectedRowIds.includes(item.id);
+                                    return (
+                                    <tr 
+                                        key={item.id} 
+                                        onClick={() => handleToggleRowSelect(item.id)}
+                                        className={`group cursor-pointer transition-colors ${
+                                            isSelected 
+                                                ? (isDarkMode ? 'bg-orange-500/15 border-l-4 border-orange-500' : 'bg-orange-50/90 border-l-4 border-orange-500') 
+                                                : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50')
+                                        }`}
+                                    >
+                                        <td className="py-5 px-3 w-10 text-center" onClick={e => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={e => handleToggleRowSelect(item.id, e)}
+                                                className="w-4 h-4 rounded border cursor-pointer accent-orange-500"
+                                            />
+                                        </td>
                                         <td className="py-5 px-4 font-bold opacity-30 text-xs">{index + 1 + (pageNumber - 1) * rowsPerPage}</td>
                                         {activeSubTab === 'Exam Details' ? (
                                             <>
@@ -2301,11 +2509,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <span className="font-extrabold text-sm uppercase">{item.name}</span>
                                                 </td>
                                                 <td className="py-5 px-4 text-center">
-                                                    <span className="font-bold text-sm tracking-tight">{item.class_level_name}</span>
+                                                    <span className="font-bold text-sm tracking-tight">{item.class_level_name || '-'}</span>
                                                 </td>
                                                 <td className="py-5 px-4">
                                                     <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                                        {item.subject_name}
+                                                        {item.subject_name || '-'}
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-4 text-xs font-bold opacity-70">
@@ -2319,10 +2527,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <td className="py-5 px-4">
                                                     <span className="font-extrabold text-sm uppercase">{item.name}</span>
                                                 </td>
-                                                <td className="py-5 px-4">
-                                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                                        {item.topic_name}
-                                                    </span>
+                                                <td className="py-5 px-4 text-center">
+                                                    <span className="font-bold text-sm tracking-tight">{item.topic_name || '-'}</span>
                                                 </td>
                                                 <td className="py-5 px-4 text-xs font-bold opacity-70">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
@@ -2336,22 +2542,18 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                     <span className="font-extrabold text-sm uppercase">{item.name}</span>
                                                 </td>
                                                 <td className="py-5 px-4 text-center">
-                                                    <span className="font-bold text-sm tracking-tight">{item.class_level_name}</span>
+                                                    <span className="font-bold text-sm tracking-tight">{item.class_level_name || '-'}</span>
                                                 </td>
                                                 <td className="py-5 px-4">
                                                     <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                                        {item.subject_name}
+                                                        {item.subject_name || '-'}
                                                     </span>
                                                 </td>
                                                 <td className="py-5 px-4">
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase">
-                                                        {item.chapter_name || '-'}
-                                                    </span>
+                                                    <span className="text-xs font-bold opacity-80">{item.chapter_name || '-'}</span>
                                                 </td>
                                                 <td className="py-5 px-4">
-                                                    <span className="text-[10px] font-bold opacity-60 uppercase">
-                                                        {item.sub_topic || '-'}
-                                                    </span>
+                                                    <span className="text-xs font-bold opacity-80">{item.sub_topic || '-'}</span>
                                                 </td>
                                                 <td className="py-5 px-4 text-xs font-bold opacity-70">
                                                     <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
@@ -2361,39 +2563,44 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             </>
                                         ) : activeSubTab === 'Teacher' ? (
                                             <>
-                                                <td className="py-5 px-4 block">
-                                                    <span className="font-extrabold text-sm uppercase">{item.name}</span>
-                                                    <div className="text-[10px] opacity-40 font-bold uppercase tracking-wider">{item.code}</div>
+                                                <td className="py-5 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-orange-500/10 text-orange-500 flex items-center justify-center font-bold text-xs">
+                                                            {item.name.charAt(0)}
+                                                        </div>
+                                                        <span className="font-bold text-sm">{item.name}</span>
+                                                    </div>
                                                 </td>
                                                 <td className="py-5 px-4">
                                                     <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                                        {item.subject_name}
+                                                        {item.subject_name || '-'}
                                                     </span>
                                                 </td>
-                                                <td className="py-5 px-4 font-bold text-xs opacity-70">
-                                                    {item.email || '-'}
+                                                <td className="py-5 px-4 text-xs font-bold opacity-70">{item.email || '-'}</td>
+                                                <td className="py-5 px-4 text-xs font-bold opacity-70">{item.phone || '-'}</td>
+                                                <td className="py-5 px-4 text-xs font-bold opacity-70">{item.qualification || '-'}</td>
+                                            </>
+                                        ) : activeSubTab === 'Partial Marks' ? (
+                                            <>
+                                                <td className="py-5 px-4">
+                                                    <span className="font-extrabold text-sm">{item.name}</span>
                                                 </td>
-                                                <td className="py-5 px-4 font-bold text-xs opacity-70">
-                                                    {item.phone || '-'}
-                                                </td>
-                                                <td className="py-5 px-4 font-bold text-xs opacity-70">
-                                                    {item.qualification || '-'}
+                                                <td className="py-5 px-4 text-sm font-bold opacity-70">
+                                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                        {item.code}
+                                                    </span>
                                                 </td>
                                             </>
                                         ) : activeSubTab === 'Psychometric Traits' ? (
                                             <>
                                                 <td className="py-5 px-4">
-                                                    <span className="font-extrabold text-sm uppercase">{item.name}</span>
+                                                    <span className="font-extrabold text-sm">{item.name}</span>
                                                 </td>
-                                                <td className="py-5 px-4">
-                                                    <span className="text-[10px] font-bold opacity-70">
-                                                        {item.description || '-'}
-                                                    </span>
+                                                <td className="py-5 px-4 text-xs opacity-70 font-medium max-w-xs truncate">
+                                                    {item.description || '-'}
                                                 </td>
-                                                <td className="py-5 px-4 text-center">
-                                                    <span className="text-[10px] font-black text-orange-500">
-                                                        {item.order}
-                                                    </span>
+                                                <td className="py-5 px-4 text-center font-black text-xs">
+                                                    {item.order}
                                                 </td>
                                             </>
                                         ) : activeSubTab === 'Psychometric Questions' ? (
@@ -2447,7 +2654,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 </td>
                                             </>
                                         )}
-                                        <td className="py-5 px-4">
+                                        <td className="py-5 px-4" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-center">
                                                 <button
                                                     onClick={() => handleToggleStatus(item)}
@@ -2462,7 +2669,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium" onClick={e => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-2">
                                                 {activeSubTab === 'Chapter' && (
                                                     <button
@@ -2493,15 +2700,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             </div>
                                         </td>
                                     </tr>
-                                )) : (
+                                    );
+                                }) : (
                                     <tr>
                                         <td colSpan={
-                                            activeSubTab === 'Exam Details' ? 11 :
-                                                activeSubTab === 'Topic' ? 9 :
-                                                    activeSubTab === 'Teacher' ? 8 :
-                                                        activeSubTab === 'Chapter' ? 7 :
-                                                            activeSubTab === 'Exam Type' ? 6 :
-                                                                activeSubTab === 'SubTopic' ? 6 : 5
+                                            activeSubTab === 'Exam Details' ? 12 :
+                                                activeSubTab === 'Topic' ? 10 :
+                                                    activeSubTab === 'Teacher' ? 9 :
+                                                        activeSubTab === 'Chapter' ? 8 :
+                                                            activeSubTab === 'Exam Type' ? 7 :
+                                                                activeSubTab === 'SubTopic' ? 7 : 6
                                         } className="py-24 text-center">
                                             <div className="flex flex-col items-center opacity-20">
                                                 <Database size={48} className="mb-4" />
@@ -2577,6 +2785,263 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                     </div>
                 )}
             </div>
+        );
+    };
+
+    const renderFloatingActionBar = () => {
+        if (selectedRowIds.length === 0) return null;
+        return (
+            <AnimatePresence>
+                <motion.div
+                    initial={{ y: 80, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 80, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                    className="fixed bottom-6 inset-x-0 z-50 flex justify-center px-4 pointer-events-none"
+                >
+                    <div className={`pointer-events-auto flex flex-wrap items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl ${
+                        isDarkMode ? 'bg-[#0F131A]/90 border-white/10 text-white shadow-black/80' : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-300/60'
+                    }`}>
+                        {/* Selection info */}
+                        <div className="flex items-center gap-2.5 pr-3 border-r border-slate-200 dark:border-white/10">
+                            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-orange-500 text-white font-black text-xs">
+                                {selectedRowIds.length}
+                            </span>
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black uppercase tracking-wider">Selected</span>
+                                {selectedRowIds.length < filteredData.length && (
+                                    <button
+                                        onClick={handleSelectAllFiltered}
+                                        className="text-[9px] font-bold text-orange-500 hover:underline text-left cursor-pointer"
+                                    >
+                                        Select all {filteredData.length}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Quick actions */}
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => handleBulkStatusChange(true)}
+                                disabled={isActionLoading}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all ${
+                                    isDarkMode ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                }`}
+                                title="Set selected items as Active"
+                            >
+                                <CheckCircle2 size={14} />
+                                Set Active
+                            </button>
+
+                            <button
+                                onClick={() => handleBulkStatusChange(false)}
+                                disabled={isActionLoading}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all ${
+                                    isDarkMode ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30' : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
+                                }`}
+                                title="Set selected items as Inactive"
+                            >
+                                <XCircle size={14} />
+                                Set Inactive
+                            </button>
+
+                            {activeSubTab !== 'Target Exam' && activeSubTab !== 'Session' && activeSubTab !== 'Class' && activeSubTab !== 'Image' && (
+                                <button
+                                    onClick={() => setIsBulkEditModalOpen(true)}
+                                    disabled={isActionLoading}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-orange-600/30 transition-all active:scale-95 cursor-pointer"
+                                    title="Edit fields across all selected items"
+                                >
+                                    <SlidersHorizontal size={14} />
+                                    Bulk Edit
+                                </button>
+                            )}
+
+                            <button
+                                onClick={handleExportSelected}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider border transition-all ${
+                                    isDarkMode ? 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                                }`}
+                                title="Export selected rows as CSV"
+                            >
+                                <Download size={14} />
+                                Export
+                            </button>
+
+                            {activeSubTab !== 'Target Exam' && activeSubTab !== 'Session' && activeSubTab !== 'Class' && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    disabled={isActionLoading}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 font-black text-[10px] uppercase tracking-wider transition-all"
+                                    title="Delete selected items"
+                                >
+                                    <Trash2 size={14} />
+                                    Delete
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Deselect / Close */}
+                        <button
+                            onClick={() => setSelectedRowIds([])}
+                            className={`p-2 rounded-xl ml-1 transition-all ${isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800'}`}
+                            title="Clear selection"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+        );
+    };
+
+    const renderBulkEditModal = () => {
+        if (!isBulkEditModalOpen) return null;
+        return (
+            <AnimatePresence>
+                <div className="fixed inset-0 z-2000 flex items-start justify-center p-6 pt-24 backdrop-blur-md bg-black/70">
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                        className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden ${
+                            isDarkMode ? 'bg-[#0F131A] border-white/10' : 'bg-white border-slate-200'
+                        }`}
+                    >
+                        <form onSubmit={handleBulkEditSubmit} className="p-6 space-y-5">
+                            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-orange-500 rounded-xl text-white">
+                                        <SlidersHorizontal size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black uppercase tracking-tight">Bulk Edit ({selectedRowIds.length} {activeSubTab}s)</h3>
+                                        <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-0.5">Select fields to batch update across all selected items</p>
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setIsBulkEditModalOpen(false)} className={`p-2 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}>
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                                {/* Status Update */}
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Status</label>
+                                    <select
+                                        value={bulkEditFields.is_active}
+                                        onChange={(e) => setBulkEditFields({ ...bulkEditFields, is_active: e.target.value })}
+                                        className={`w-full px-4 py-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                            isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-orange-500'
+                                        }`}
+                                    >
+                                        <option value="">-- Leave Unchanged --</option>
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
+                                </div>
+
+                                {/* Class Level Update */}
+                                {(activeSubTab === 'Chapter' || activeSubTab === 'Topic' || activeSubTab === 'Exam Details') && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Class Level</label>
+                                        <select
+                                            value={bulkEditFields.class_level}
+                                            onChange={(e) => setBulkEditFields({ ...bulkEditFields, class_level: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-orange-500'
+                                            }`}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            {classes.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Subject Update */}
+                                {(activeSubTab === 'Chapter' || activeSubTab === 'Topic' || activeSubTab === 'Teacher') && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Subject</label>
+                                        <select
+                                            value={bulkEditFields.subject}
+                                            onChange={(e) => setBulkEditFields({ ...bulkEditFields, subject: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-orange-500'
+                                            }`}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            {subjects.map(s => (
+                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Chapter Update */}
+                                {activeSubTab === 'Topic' && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Chapter</label>
+                                        <select
+                                            value={bulkEditFields.chapter}
+                                            onChange={(e) => setBulkEditFields({ ...bulkEditFields, chapter: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-orange-500'
+                                            }`}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            {chapters.map(ch => (
+                                                <option key={ch.id} value={ch.id}>{ch.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Target Exam Update */}
+                                {(activeSubTab === 'Exam Details' || activeSubTab === 'Exam Type') && (
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Target Exam</label>
+                                        <select
+                                            value={bulkEditFields.target_exam}
+                                            onChange={(e) => setBulkEditFields({ ...bulkEditFields, target_exam: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-orange-500'
+                                            }`}
+                                        >
+                                            <option value="">-- Leave Unchanged --</option>
+                                            {targetExams.map(te => (
+                                                <option key={te.id} value={te.id}>{te.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBulkEditModalOpen(false)}
+                                    className={`flex-1 py-3.5 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${
+                                        isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isActionLoading}
+                                    className="flex-[1.5] py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-xl shadow-orange-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    {isActionLoading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                    Apply Bulk Changes
+                                </button>
+                            </div>
+                        </form>
+                    </motion.div>
+                </div>
+            </AnimatePresence>
         );
     };
 
@@ -3430,6 +3895,8 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             {renderContent()}
             {renderModal()}
             {renderBulkImportModal()}
+            {renderBulkEditModal()}
+            {renderFloatingActionBar()}
 
             {/* Premium Confirm Modal */}
             <AnimatePresence>

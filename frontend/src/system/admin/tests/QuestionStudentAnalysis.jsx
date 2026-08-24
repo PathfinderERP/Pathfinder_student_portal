@@ -1,8 +1,103 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Loader2, AlertCircle, FileSpreadsheet, X, Maximize2, Minimize2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { 
+    ArrowLeft, 
+    Loader2, 
+    AlertCircle, 
+    FileSpreadsheet, 
+    X, 
+    Maximize2, 
+    Minimize2,
+    ChevronLeft,
+    ChevronRight,
+    Compass
+} from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+
+// Static status styles to avoid runtime style allocations
+const STATUS_STYLES = {
+    CA: 'bg-emerald-500 text-white',
+    IA: 'bg-rose-500 text-white',
+    PA: 'bg-amber-500 text-white',
+    NA_DARK: 'bg-white/5 text-transparent border border-white/5',
+    NA_LIGHT: 'bg-slate-50 text-transparent border border-slate-200',
+};
+
+// Memoized row component with content-visibility virtualization for 60fps performance
+const MatrixRow = React.memo(({ row, isDarkMode, sectionEndIndices }) => {
+    return (
+        <tr 
+            style={{ contentVisibility: 'auto', containIntrinsicSize: '52px' }}
+            className={`border-b ${isDarkMode ? 'border-white/5 hover:bg-white/[0.02]' : 'border-slate-100 hover:bg-slate-50/80'}`}
+        >
+            {/* Student Name */}
+            <td className={`sticky left-0 z-30 w-[220px] min-w-[220px] p-0 border-r ${
+                isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'
+            }`}>
+                <div className="h-[52px] flex flex-col justify-center px-5">
+                    <span className={`text-xs font-bold tracking-wide truncate pr-2 ${
+                        isDarkMode ? 'text-white' : 'text-slate-800'
+                    }`}>{row.student_name}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Verified Profile</span>
+                </div>
+            </td>
+
+            {/* Reg. ID */}
+            <td className={`sticky left-[220px] z-30 w-[130px] min-w-[130px] p-0 text-center border-r ${
+                isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'
+            }`}>
+                <div className="h-[52px] flex items-center justify-center px-2">
+                    <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border max-w-full truncate ${
+                        isDarkMode ? 'text-slate-400 bg-white/5 border-white/10' : 'text-slate-600 bg-slate-100 border-slate-200'
+                    }`}>
+                        {row.enrollment_number}
+                    </span>
+                </div>
+            </td>
+
+            {/* Student Center */}
+            <td className={`sticky left-[350px] z-30 w-[150px] min-w-[150px] p-0 text-center border-r ${
+                isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'
+            }`}>
+                <div className="h-[52px] flex items-center justify-center px-2">
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded border max-w-full truncate ${
+                        isDarkMode ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' : 'text-cyan-700 bg-cyan-50 border-cyan-200'
+                    }`}>
+                        {row.student_center || 'N/A'}
+                    </span>
+                </div>
+            </td>
+
+            {/* Question Matrix Cells */}
+            {row.results.map((res, qIdx) => {
+                const isLastInSection = sectionEndIndices.has(qIdx + 1);
+                const styleClass = res === 'CA' ? STATUS_STYLES.CA :
+                    res === 'IA' ? STATUS_STYLES.IA :
+                    res === 'PA' ? STATUS_STYLES.PA :
+                    (isDarkMode ? STATUS_STYLES.NA_DARK : STATUS_STYLES.NA_LIGHT);
+
+                return (
+                    <td 
+                        key={qIdx} 
+                        className={`w-[52px] min-w-[52px] max-w-[52px] p-0 text-center ${
+                            isLastInSection 
+                                ? (isDarkMode ? 'border-r-2 border-white/20' : 'border-r-2 border-slate-300') 
+                                : (isDarkMode ? 'border-r border-white/5' : 'border-r border-slate-100')
+                        }`}
+                    >
+                        <div className="h-[52px] flex items-center justify-center">
+                            <div className={`w-7 h-7 rounded-md flex items-center justify-center font-bold text-[10px] ${styleClass}`}>
+                                {res !== 'NA' ? res : ''}
+                            </div>
+                        </div>
+                    </td>
+                );
+            })}
+        </tr>
+    );
+});
 
 const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
     const { isDarkMode } = useTheme();
@@ -12,8 +107,11 @@ const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const containerRef = useRef(null);
-    const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
+    const [pageSize, setPageSize] = useState('50'); // '50' | '100' | 'All'
+    const [currentPage, setCurrentPage] = useState(1);
+    
+    const tableContainerRef = useRef(null);
+    const activeFetchKeysRef = useRef(new Set());
 
     useEffect(() => {
         const fetch = async () => {
@@ -39,28 +137,94 @@ const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
         fetch();
     }, [testId]);
 
-    const handleExport = () => {
+    // Handle ESC key to exit fullscreen smoothly
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isFullscreen) {
+                setIsFullscreen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isFullscreen]);
+
+    const toggleFullscreen = useCallback(() => {
+        setIsFullscreen(prev => !prev);
+    }, []);
+
+    // Table scrolling helpers
+    const scrollTableHorizontal = useCallback((direction) => {
+        if (tableContainerRef.current) {
+            const amount = direction === 'left' ? -350 : 350;
+            tableContainerRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+        }
+    }, []);
+
+    const scrollToSection = useCallback((sectionIndex) => {
+        if (!tableContainerRef.current || !data?.sections_info) return;
+        let questionsBefore = 0;
+        for (let i = 0; i < sectionIndex; i++) {
+            questionsBefore += data.sections_info[i].count;
+        }
+        const targetScrollLeft = questionsBefore * 52;
+        tableContainerRef.current.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+    }, [data?.sections_info]);
+
+    const handleExport = useCallback(() => {
         if (!data) return;
         const csvRows = [];
-        const headers = ['Student Name', 'Enrollment', ...Array.from({ length: data.questions_count }, (_, i) => `Q${i + 1}`)];
+        const headers = ['Student Name', 'Enrollment', 'Student Center', ...Array.from({ length: data.questions_count }, (_, i) => `Q${i + 1}`)];
         csvRows.push(headers.join(','));
 
         data.matrix.forEach(row => {
-            const values = [row.student_name, row.enrollment_number, ...row.results];
+            const studentCenter = row.student_center || row.centre_name || row.centre_code || 'N/A';
+            const values = [
+                `"${(row.student_name || '').replace(/"/g, '""')}"`,
+                `"${(row.enrollment_number || '').replace(/"/g, '""')}"`,
+                `"${(studentCenter).replace(/"/g, '""')}"`,
+                ...row.results
+            ];
             csvRows.push(values.join(','));
         });
 
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `Analysis_${data.test_name}.csv`;
         a.click();
-    };
+    }, [data]);
 
-    const toggleFullscreen = () => {
-        setIsFullscreen(!isFullscreen);
-    };
+    // Precalculate section break indices for O(1) checks
+    const sectionEndIndices = useMemo(() => {
+        const set = new Set();
+        if (!data?.sections_info) return set;
+        let currentTotal = 0;
+        for (let sec of data.sections_info) {
+            currentTotal += sec.count;
+            set.add(currentTotal);
+        }
+        return set;
+    }, [data?.sections_info]);
+
+    const questionNumbers = useMemo(() => {
+        return Array.from({ length: data?.questions_count || 0 }, (_, i) => i + 1);
+    }, [data?.questions_count]);
+
+    // Paginated / sliced matrix data for supercharged rendering performance
+    const displayedMatrix = useMemo(() => {
+        if (!data?.matrix) return [];
+        if (pageSize === 'All') return data.matrix;
+        const size = parseInt(pageSize, 10) || 50;
+        const start = (currentPage - 1) * size;
+        return data.matrix.slice(start, start + size);
+    }, [data?.matrix, pageSize, currentPage]);
+
+    const totalPages = useMemo(() => {
+        if (!data?.matrix || pageSize === 'All') return 1;
+        const size = parseInt(pageSize, 10) || 50;
+        return Math.max(1, Math.ceil(data.matrix.length / size));
+    }, [data?.matrix, pageSize]);
 
     if (isLoading) return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -77,157 +241,248 @@ const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
         </div>
     );
 
-    const questionNumbers = Array.from({ length: data?.questions_count || 0 }, (_, i) => i + 1);
-
-    const getStatusStyle = (status) => {
-        switch (status) {
-            case 'CA': return 'bg-[#22c55e] text-white'; // Correct
-            case 'IA': return 'bg-[#ef4444] text-white'; // Incorrect
-            case 'PA': return 'bg-[#f97316] text-white'; // Partial
-            default: return isDarkMode ? 'bg-white/5 text-transparent' : 'bg-slate-50 text-transparent'; // NA
-        }
-    };
-
-    return (
+    const mainContent = (
         <div
-            ref={containerRef}
+            style={isFullscreen ? {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100vw',
+                height: '100vh',
+                zIndex: 99999999,
+                margin: 0,
+                borderRadius: 0,
+            } : {}}
             className={`
-                animate-in fade-in duration-500 flex flex-col overflow-hidden
-                ${isDarkMode ? 'bg-slate-900 text-white border-white/10' : 'bg-white text-slate-900 border-slate-200'}
-                ${isFullscreen ? 'fixed inset-0 z-100 h-screen' : 'relative rounded-3xl border h-[800px] shadow-2xl'}
+                flex flex-col
+                ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}
+                ${isFullscreen
+                    ? 'fixed inset-0 z-[99999999] w-screen h-screen m-0 p-0 rounded-none border-none shadow-none'
+                    : 'relative rounded-3xl border border-slate-200 dark:border-white/10 h-[calc(100vh-140px)] min-h-[580px] shadow-2xl overflow-hidden'
+                }
             `}
         >
             {/* Header */}
-            <div className={`flex items-center justify-between px-8 py-5 border-b relative z-50 backdrop-blur-xl ${isDarkMode ? 'bg-slate-900/80 border-white/5' : 'bg-white/80 border-slate-100'
-                }`}>
-                <div className="flex items-center gap-6">
+            <div className={`flex flex-wrap items-center justify-between px-6 py-3.5 border-b relative z-50 gap-4 ${
+                isDarkMode ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'
+            }`}>
+                <div className="flex items-center gap-4">
                     {!isFullscreen && (
                         <button
                             onClick={onBack}
-                            className={`group flex items-center justify-center w-10 h-10 rounded-xl border transition-all active:scale-90 ${isDarkMode ? 'bg-white/5 hover:bg-white/10 border-white/5' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
-                                }`}
+                            className={`group flex items-center justify-center w-9 h-9 rounded-xl border transition-all active:scale-90 ${
+                                isDarkMode ? 'bg-white/5 hover:bg-white/10 border-white/10' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
+                            }`}
                         >
-                            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                            <ArrowLeft size={17} className="group-hover:-translate-x-1 transition-transform" />
                         </button>
                     )}
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-blue-500/80' : 'text-blue-600/80'
-                                }`}>Performance Analysis</span>
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.25em] ${
+                                isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                            }`}>Performance Analysis</span>
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                         </div>
-                        <h2 className={`text-xl font-bold tracking-tight truncate max-w-xl ${isDarkMode ? 'text-white' : 'text-slate-800'
-                            }`}>
+                        <h2 className={`text-base md:text-lg font-bold tracking-tight truncate max-w-md lg:max-w-xl ${
+                            isDarkMode ? 'text-white' : 'text-slate-800'
+                        }`}>
                             {testName || data?.test_name}
                         </h2>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-10">
-                    {/* Compact Glass Legend */}
-                    <div className={`hidden xl:flex items-center gap-8 px-6 py-2.5 rounded-2xl border backdrop-blur-md ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200'
-                        }`}>
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Compact Legend */}
+                    <div className={`hidden lg:flex items-center gap-4 px-3.5 py-1.5 rounded-xl border ${
+                        isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200'
+                    }`}>
                         {[
                             { label: 'CA', color: 'bg-emerald-500', title: 'Correct' },
                             { label: 'IA', color: 'bg-rose-500', title: 'Wrong' },
                             { label: 'PA', color: 'bg-amber-500', title: 'Partial' },
                             { label: 'NA', color: isDarkMode ? 'bg-slate-700' : 'bg-slate-200', title: 'Unattempted' }
                         ].map((l) => (
-                            <div key={l.label} className="flex items-center gap-2.5">
-                                <div className={`w-3 h-3 rounded-full ${l.color} shadow-sm`} />
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'
-                                    }`}>
-                                    <span className={isDarkMode ? 'text-white mr-1' : 'text-slate-900 mr-1'}>{l.label}:</span> {l.title}
+                            <div key={l.label} className="flex items-center gap-1.5">
+                                <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                    isDarkMode ? 'text-slate-400' : 'text-slate-500'
+                                }`}>
+                                    <strong className={isDarkMode ? 'text-white mr-0.5' : 'text-slate-900 mr-0.5'}>{l.label}:</strong> {l.title}
                                 </span>
                             </div>
                         ))}
                     </div>
 
-                    <div className="flex gap-3">
+                    {/* Scroll Controls & Actions */}
+                    <div className="flex items-center gap-2">
+                        {/* Horizontal Scroll Buttons */}
+                        <div className={`flex items-center p-0.5 rounded-xl border ${isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-100 border-slate-200'}`}>
+                            <button
+                                onClick={() => scrollTableHorizontal('left')}
+                                title="Scroll Questions Left"
+                                className={`p-1.5 rounded-lg transition-all ${
+                                    isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                                }`}
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            <button
+                                onClick={() => scrollTableHorizontal('right')}
+                                title="Scroll Questions Right"
+                                className={`p-1.5 rounded-lg transition-all ${
+                                    isDarkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                                }`}
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+
+                        {/* Fullscreen Button */}
                         <button
                             onClick={toggleFullscreen}
-                            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all border ${isDarkMode ? 'bg-white/5 hover:bg-white/10 border-white/5' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
-                                }`}
-                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                            className={`p-2 flex items-center justify-center rounded-xl transition-all border ${
+                                isDarkMode ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                            }`}
+                            title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
                         >
-                            {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                            {isFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
                         </button>
+
+                        {/* Export CSV Button */}
                         <button
                             onClick={handleExport}
-                            className={`group flex items-center gap-3 px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-xl active:scale-95 ${isDarkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-900/20' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200/50'
-                                }`}
+                            className={`group flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90 shadow-blue-500/20`}
                         >
-                            <FileSpreadsheet size={16} className="group-hover:rotate-12 transition-transform" />
-                            Export Report
+                            <FileSpreadsheet size={14} />
+                            <span>Export</span>
                         </button>
+
+                        {/* Close/Back Button */}
                         <button
                             onClick={onBack}
-                            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all border border-transparent ${isDarkMode ? 'hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 hover:border-rose-500/20' : 'hover:bg-rose-50 text-slate-400 hover:text-rose-600 hover:border-rose-100'
-                                }`}
+                            title="Close Analysis"
+                            className={`p-2 flex items-center justify-center rounded-xl transition-all border ${
+                                isDarkMode ? 'hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border-white/10 hover:border-rose-500/20' : 'hover:bg-rose-50 text-slate-500 hover:text-rose-600 border-slate-200 hover:border-rose-200'
+                            }`}
                         >
-                            <X size={22} />
+                            <X size={17} />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Matrix Table with Refined Scrollbars */}
-            <div className={`flex-1 overflow-auto scrollbar-thin ${isDarkMode ? 'bg-slate-900 scrollbar-thumb-white/10' : 'bg-white scrollbar-thumb-slate-200'
+            {/* Quick Section Navigator Bar */}
+            {data?.sections_info && data.sections_info.length > 0 && (
+                <div className={`px-6 py-2 border-b flex items-center gap-3 overflow-x-auto text-xs ${
+                    isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
                 }`}>
-                <table className="w-full border-separate border-spacing-0 table-fixed">
+                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+                        <Compass size={13} className="text-blue-500" />
+                        <span>Jump to Section:</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {data.sections_info.map((sec, sIdx) => (
+                            <button
+                                key={sIdx}
+                                onClick={() => scrollToSection(sIdx)}
+                                className={`px-3 py-0.5 rounded-lg text-[11px] font-bold transition-all shrink-0 border ${
+                                    isDarkMode 
+                                        ? 'bg-slate-800 hover:bg-blue-600 hover:text-white border-white/10 text-slate-300' 
+                                        : 'bg-white hover:bg-blue-600 hover:text-white border-slate-200 text-slate-700 shadow-sm'
+                                }`}
+                            >
+                                {sec.name} ({sec.count}Q)
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Matrix Table Container */}
+            <div 
+                ref={tableContainerRef}
+                className={`flex-1 overflow-auto ${
+                    isDarkMode ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'
+                }`}
+                style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: isDarkMode ? '#334155 #0f172a' : '#cbd5e1 #f8fafc'
+                }}
+            >
+                <table className="min-w-max w-full border-separate border-spacing-0">
                     <thead className="sticky top-0 z-40">
                         {/* Section Header Row */}
-                        <tr className={isDarkMode ? 'bg-slate-800' : 'bg-slate-50'}>
-                            <th className={`sticky left-0 z-45 w-[280px] p-0 border-b border-r ${isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-50 border-slate-200'
-                                }`} rowSpan={2}>
-                                <div className="h-full flex items-center px-8 text-left">
-                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-blue-500' : 'text-blue-600'
-                                        }`}>Student Identity</span>
+                        <tr className={isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}>
+                            <th 
+                                className={`sticky left-0 top-0 z-50 w-[220px] min-w-[220px] p-0 border-b border-r ${
+                                    isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-100 border-slate-200'
+                                }`} 
+                                rowSpan={2}
+                            >
+                                <div className="h-full flex items-center px-5 text-left">
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                                        isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                                    }`}>Student Identity</span>
                                 </div>
                             </th>
-                            <th className={`sticky left-[280px] z-45 w-[160px] p-0 border-b border-r ${isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-50 border-slate-200'
-                                }`} rowSpan={2}>
+                            <th 
+                                className={`sticky left-[220px] top-0 z-50 w-[130px] min-w-[130px] p-0 border-b border-r ${
+                                    isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-100 border-slate-200'
+                                }`} 
+                                rowSpan={2}
+                            >
                                 <div className="h-full flex items-center justify-center">
-                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-blue-500' : 'text-blue-600'
-                                        }`}>Reg. ID</span>
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                                        isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                                    }`}>Reg. ID</span>
+                                </div>
+                            </th>
+                            <th 
+                                className={`sticky left-[350px] top-0 z-50 w-[150px] min-w-[150px] p-0 border-b border-r ${
+                                    isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-100 border-slate-200'
+                                }`} 
+                                rowSpan={2}
+                            >
+                                <div className="h-full flex items-center justify-center">
+                                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                                        isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                                    }`}>Student Center</span>
                                 </div>
                             </th>
                             {data?.sections_info?.map((sec, sIdx) => (
                                 <th
                                     key={sIdx}
                                     colSpan={sec.count}
-                                    className={`p-0 border-b ${isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-50 border-slate-200'
-                                        } ${sIdx !== data.sections_info.length - 1 ? (isDarkMode ? 'border-r-2 border-white/20' : 'border-r-2 border-slate-300') : ''}`}
+                                    className={`p-0 border-b ${
+                                        isDarkMode ? 'bg-slate-800 border-white/10' : 'bg-slate-100 border-slate-200'
+                                    } ${sIdx !== data.sections_info.length - 1 ? (isDarkMode ? 'border-r-2 border-white/20' : 'border-r-2 border-slate-300') : ''}`}
                                 >
-                                    <div className="h-[40px] flex items-center justify-center">
-                                        <span className={`text-[9px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/40' : 'text-slate-400'
-                                            }`}>{sec.name}</span>
+                                    <div className="h-[34px] flex items-center justify-center">
+                                        <span className={`text-[10px] font-black uppercase tracking-[0.25em] ${
+                                            isDarkMode ? 'text-white/60' : 'text-slate-600'
+                                        }`}>{sec.name}</span>
                                     </div>
                                 </th>
                             ))}
                         </tr>
                         {/* Question Number Row */}
                         <tr className={isDarkMode ? 'bg-slate-900' : 'bg-white'}>
-                            {questionNumbers.map((n, nIdx) => {
-                                let isLastInSection = false;
-                                let currentTotal = 0;
-                                for (let sec of (data?.sections_info || [])) {
-                                    currentTotal += sec.count;
-                                    if (n === currentTotal) {
-                                        isLastInSection = true;
-                                        break;
-                                    }
-                                }
-
+                            {questionNumbers.map((n) => {
+                                const isLastInSection = sectionEndIndices.has(n);
                                 return (
                                     <th
                                         key={n}
-                                        className={`w-[54px] p-0 border-b ${isDarkMode ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100'
-                                            } ${isLastInSection ? (isDarkMode ? 'border-r-2 border-white/20' : 'border-r-2 border-slate-300') : (isDarkMode ? 'border-r border-white/5' : 'border-r border-slate-100')}`}
+                                        className={`w-[52px] min-w-[52px] max-w-[52px] p-0 border-b ${
+                                            isDarkMode ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-200'
+                                        } ${isLastInSection ? (isDarkMode ? 'border-r-2 border-white/20' : 'border-r-2 border-slate-300') : (isDarkMode ? 'border-r border-white/5' : 'border-r border-slate-100')}`}
                                     >
-                                        <div className="h-[40px] flex items-center justify-center group">
-                                            <span className={`text-xs font-black group-hover:text-blue-400 transition-colors ${isDarkMode ? 'text-white/90' : 'text-slate-600'
-                                                }`}>{n}</span>
+                                        <div className="h-[34px] flex items-center justify-center">
+                                            <span className={`text-xs font-black ${
+                                                isDarkMode ? 'text-white/90' : 'text-slate-700'
+                                            }`}>{n}</span>
                                         </div>
                                     </th>
                                 );
@@ -235,80 +490,86 @@ const QuestionStudentAnalysis = ({ testId, testName, onBack }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {data?.matrix.map((row, idx) => (
-                            <tr key={idx} className={`group transition-colors ${isDarkMode ? 'hover:bg-white/3' : 'hover:bg-slate-50'}`}>
-                                <td className={`sticky left-0 z-30 p-0 border-r transition-colors ${isDarkMode ? 'bg-slate-900 group-hover:bg-slate-800 border-white/10' : 'bg-white group-hover:bg-slate-50 border-slate-200'
-                                    }`}>
-                                    <div className={`h-[64px] flex flex-col justify-center px-8 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'
-                                        }`}>
-                                        <span className={`text-xs font-bold tracking-wide truncate pr-4 ${isDarkMode ? 'text-white' : 'text-slate-700'
-                                            }`}>{row.student_name}</span>
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">Verified Profile</span>
-                                    </div>
-                                </td>
-                                <td className={`sticky left-[280px] z-30 p-0 text-center border-r transition-colors ${isDarkMode ? 'bg-slate-900 group-hover:bg-slate-800 border-white/10' : 'bg-white group-hover:bg-slate-50 border-slate-200'
-                                    }`}>
-                                    <div className={`h-[64px] flex items-center justify-center border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'
-                                        }`}>
-                                        <span className={`font-mono text-[10px] font-black px-2.5 py-1 rounded-lg border ${isDarkMode ? 'text-slate-400 bg-white/5 border-white/5' : 'text-slate-500 bg-slate-100 border-slate-200'
-                                            }`}>
-                                            {row.enrollment_number}
-                                        </span>
-                                    </div>
-                                </td>
-                                {row.results.map((res, qIdx) => {
-                                    let isLastInSection = false;
-                                    let currentTotal = 0;
-                                    for (let sec of (data?.sections_info || [])) {
-                                        currentTotal += sec.count;
-                                        if ((qIdx + 1) === currentTotal) {
-                                            isLastInSection = true;
-                                            break;
-                                        }
-                                    }
-
-                                    return (
-                                        <td key={qIdx} className={`p-0 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'
-                                            } ${isLastInSection ? (isDarkMode ? 'border-r-2 border-white/20' : 'border-r-2 border-slate-300') : (isDarkMode ? 'border-r border-white/5' : 'border-r border-slate-100')}`}>
-                                            <div className="h-[64px] flex items-center justify-center relative overflow-hidden group/cell">
-                                                <div className={`
-                                                    relative z-10 w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] transition-all duration-300
-                                                    group-cell:scale-110
-                                                    ${res === 'CA' ? 'bg-emerald-500 text-white shadow-sm' :
-                                                        res === 'IA' ? 'bg-rose-500 text-white shadow-sm' :
-                                                            res === 'PA' ? 'bg-amber-500 text-white shadow-sm' :
-                                                                (isDarkMode ? 'bg-white/5 text-transparent border border-white/5' : 'bg-slate-50 text-transparent border border-slate-100')}
-                                                `}>
-                                                    {res !== 'NA' ? res : ''}
-                                                </div>
-                                            </div>
-                                        </td>
-                                    );
-                                })}
-                            </tr>
+                        {displayedMatrix.map((row, idx) => (
+                            <MatrixRow
+                                key={row.enrollment_number || idx}
+                                row={row}
+                                isDarkMode={isDarkMode}
+                                sectionEndIndices={sectionEndIndices}
+                            />
                         ))}
                     </tbody>
                 </table>
             </div>
 
-            {/* Footer Summary Bar */}
-            <div className={`h-11 border-t flex items-center px-8 justify-between ${isDarkMode ? 'bg-slate-900 border-white/5' : 'bg-slate-50 border-slate-200'
-                }`}>
-                <div className="flex items-center gap-6">
+            {/* Footer Summary Bar with Pagination Controls */}
+            <div className={`h-11 border-t flex flex-wrap items-center px-6 justify-between shrink-0 gap-3 ${
+                isDarkMode ? 'bg-slate-900 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+            }`}>
+                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
                     <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Dataset: Fully Finalized</span>
+                        <span>Dataset: Finalized</span>
                     </div>
                     <div className="w-px h-3 bg-slate-300 dark:bg-white/10" />
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Active Students: {data?.matrix.length}</span>
+                    <span>Total Students: {data?.matrix?.length || 0}</span>
+                    <div className="w-px h-3 bg-slate-300 dark:bg-white/10" />
+                    <span>Questions: {data?.questions_count || 0}</span>
                 </div>
-                <div className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-blue-500/40' : 'text-blue-600/40'
-                    }`}>
-                    Secure Integrated Performance Database
+
+                {/* Rows per page & Page Jump */}
+                <div className="flex items-center gap-3 text-xs font-bold">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase">
+                        <span className="opacity-60">Rows:</span>
+                        {['50', '100', 'All'].map(size => (
+                            <button
+                                key={size}
+                                onClick={() => {
+                                    setPageSize(size);
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-2 py-0.5 rounded transition-all ${
+                                    pageSize === size
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : (isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300')
+                                }`}
+                            >
+                                {size}
+                            </button>
+                        ))}
+                    </div>
+
+                    {pageSize !== 'All' && totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                            <button
+                                disabled={currentPage <= 1}
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                className="px-2 py-0.5 rounded border disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                ‹ Prev
+                            </button>
+                            <span className="text-[10px] px-1 font-mono">
+                                {currentPage} / {totalPages}
+                            </span>
+                            <button
+                                disabled={currentPage >= totalPages}
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                className="px-2 py-0.5 rounded border disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Next ›
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
+
+    if (isFullscreen && typeof document !== 'undefined') {
+        return createPortal(mainContent, document.body);
+    }
+
+    return mainContent;
 };
 
 export default QuestionStudentAnalysis;

@@ -198,6 +198,66 @@ class CachedListViewSetMixin(object):
         instance.delete()
         self.clear_cache()
 
+    @action(detail=False, methods=['post'], url_path='bulk-update')
+    def bulk_update(self, request):
+        ids = request.data.get('ids', [])
+        updates = request.data.get('updates', {})
+        items = request.data.get('items', [])
+
+        if not ids and not items:
+            return response.Response({"error": "No ids or items provided for bulk update"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model = self.get_queryset().model
+        updated_count = 0
+
+        if ids and updates:
+            valid_fields = [f.name for f in model._meta.get_fields() if not f.is_relation or f.many_to_one or f.one_to_one]
+            filtered_updates = {}
+            for k, v in updates.items():
+                if k in valid_fields:
+                    filtered_updates[k] = v
+                elif f"{k}_id" in valid_fields:
+                    filtered_updates[f"{k}_id"] = v
+
+            if filtered_updates:
+                updated_count = model.objects.filter(id__in=ids).update(**filtered_updates)
+
+        elif items:
+            valid_fields = [f.name for f in model._meta.get_fields() if not f.is_relation or f.many_to_one or f.one_to_one]
+            for item_data in items:
+                item_id = item_data.get('id')
+                if not item_id:
+                    continue
+                item_updates = {k: v for k, v in item_data.items() if k != 'id'}
+                filtered_updates = {}
+                for k, v in item_updates.items():
+                    if k in valid_fields:
+                        filtered_updates[k] = v
+                    elif f"{k}_id" in valid_fields:
+                        filtered_updates[f"{k}_id"] = v
+                if filtered_updates:
+                    updated_count += model.objects.filter(id=item_id).update(**filtered_updates)
+
+        self.clear_cache()
+        return response.Response({
+            "message": f"Successfully updated {updated_count} record(s)",
+            "updated_count": updated_count
+        })
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return response.Response({"error": "No ids provided for bulk delete"}, status=status.HTTP_400_BAD_REQUEST)
+
+        model = self.get_queryset().model
+        deleted_count, _ = model.objects.filter(id__in=ids).delete()
+        self.clear_cache()
+        return response.Response({
+            "message": f"Successfully deleted {deleted_count} record(s)",
+            "deleted_count": deleted_count
+        })
+
 class MasterSectionViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = MasterSection.objects.all().order_by('priority', 'created_at')
     serializer_class = MasterSectionSerializer
@@ -468,8 +528,10 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             logging.getLogger(__name__).info(f"chapters bulk_upload: decoded file using encoding='{used_encoding}'")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
+            mode = request.data.get('mode', 'upsert').lower() # 'upsert', 'update', 'create'
             
             created_count = 0
+            updated_count = 0
             errors = []
             
             for row_idx, row in enumerate(reader, start=2):
@@ -477,6 +539,7 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                     name = row.get('Name', '').strip()
                     class_name = row.get('Class Level', '').strip()
                     subject_name = row.get('Subject', '').strip()
+                    code = row.get('Code', '').strip()
                     sort_order = row.get('Sort Order', '1').strip()
                     is_active = str(row.get('Is Active', 'true')).lower() == 'true'
                     
@@ -486,13 +549,10 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                         continue
                         
                     class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
-                    # Fallback heuristics when exact match fails (helps with CSV variations like 'Class 7')
                     if not class_level:
-                        # try to match by digit (e.g., 'Class 7' -> '7')
                         digits = re.findall(r"\d+", class_name)
                         if digits:
                             class_level = ClassLevel.objects.filter(name__icontains=digits[0]).first()
-                        # try contains match
                         if not class_level:
                             class_level = ClassLevel.objects.filter(name__icontains=class_name).first()
 
@@ -506,23 +566,52 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                     if not subject:
                         errors.append(f"Row {row_idx}: Subject '{subject_name}' not found")
                         continue
-                        
-                    Chapter.objects.create(
-                        name=name,
-                        class_level=class_level,
-                        subject=subject,
-                        sort_order=int(sort_order) if sort_order.isdigit() else 1,
-                        is_active=is_active
-                    )
-                    created_count += 1
+                    
+                    existing_chapter = None
+                    if code:
+                        existing_chapter = Chapter.objects.filter(code=code).first()
+                    if not existing_chapter:
+                        existing_chapter = Chapter.objects.filter(name__iexact=name, class_level=class_level, subject=subject).first()
+
+                    if existing_chapter and mode in ('update', 'upsert'):
+                        existing_chapter.name = name
+                        existing_chapter.class_level = class_level
+                        existing_chapter.subject = subject
+                        if code:
+                            existing_chapter.code = code
+                        if sort_order.isdigit():
+                            existing_chapter.sort_order = int(sort_order)
+                        existing_chapter.is_active = is_active
+                        existing_chapter.save()
+                        updated_count += 1
+                    elif not existing_chapter and mode in ('create', 'upsert'):
+                        Chapter.objects.create(
+                            name=name,
+                            class_level=class_level,
+                            subject=subject,
+                            code=code if code else None,
+                            sort_order=int(sort_order) if sort_order.isdigit() else 1,
+                            is_active=is_active
+                        )
+                        created_count += 1
+                    elif existing_chapter and mode == 'create':
+                        errors.append(f"Row {row_idx}: Chapter '{name}' already exists (skipped in Create-Only mode)")
+                    elif not existing_chapter and mode == 'update':
+                        errors.append(f"Row {row_idx}: Chapter '{name}' does not exist (skipped in Update-Only mode)")
                 except Exception as e:
                     errors.append(f"Row {row_idx}: {str(e)}")
             
             self.clear_cache()
+            msg = []
+            if created_count: msg.append(f"created {created_count}")
+            if updated_count: msg.append(f"updated {updated_count}")
+            summary = " and ".join(msg) if msg else "processed 0"
             return response.Response({
-                "message": f"Successfully imported {created_count} chapters",
+                "message": f"Successfully {summary} chapters",
+                "created_count": created_count,
+                "updated_count": updated_count,
                 "errors": errors
-            }, status=status.HTTP_201_CREATED)
+            }, status=status.HTTP_200_OK if updated_count else status.HTTP_201_CREATED)
         except Exception as e:
             return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -594,8 +683,10 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             logging.getLogger(__name__).info(f"topics bulk_upload: decoded file using encoding='{used_encoding}'")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
+            mode = request.data.get('mode', 'upsert').lower()
             
             created_count = 0
+            updated_count = 0
             errors = []
             
             for row_idx, row in enumerate(reader, start=2):
@@ -604,6 +695,7 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                     chapter_name = row.get('Chapter', '').strip()
                     class_name = row.get('Class Level', '').strip()
                     subject_name = row.get('Subject', '').strip()
+                    code = row.get('Code', '').strip()
                     sort_order = row.get('Sort Order', '1').strip()
                     is_active = str(row.get('Is Active', 'true')).lower() == 'true'
                     
@@ -613,7 +705,17 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                         continue
                         
                     class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
+                    if not class_level:
+                        digits = re.findall(r"\d+", class_name)
+                        if digits:
+                            class_level = ClassLevel.objects.filter(name__icontains=digits[0]).first()
+                        if not class_level:
+                            class_level = ClassLevel.objects.filter(name__icontains=class_name).first()
+
                     subject = Subject.objects.filter(name__iexact=subject_name).first()
+                    if not subject:
+                        subject = Subject.objects.filter(name__icontains=subject_name).first()
+
                     chapter = Chapter.objects.filter(name__iexact=chapter_name, subject=subject, class_level=class_level).first() if chapter_name else None
                     
                     if not class_level:
@@ -622,24 +724,54 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                     if not subject:
                         errors.append(f"Row {row_idx}: Subject '{subject_name}' not found")
                         continue
-                        
-                    Topic.objects.create(
-                        name=name,
-                        chapter=chapter,
-                        class_level=class_level,
-                        subject=subject,
-                        sort_order=int(sort_order) if sort_order.isdigit() else 1,
-                        is_active=is_active
-                    )
-                    created_count += 1
+                    
+                    existing_topic = None
+                    if code:
+                        existing_topic = Topic.objects.filter(code=code).first()
+                    if not existing_topic:
+                        existing_topic = Topic.objects.filter(name__iexact=name, chapter=chapter, subject=subject, class_level=class_level).first()
+
+                    if existing_topic and mode in ('update', 'upsert'):
+                        existing_topic.name = name
+                        existing_topic.chapter = chapter
+                        existing_topic.class_level = class_level
+                        existing_topic.subject = subject
+                        if code:
+                            existing_topic.code = code
+                        if sort_order.isdigit():
+                            existing_topic.sort_order = int(sort_order)
+                        existing_topic.is_active = is_active
+                        existing_topic.save()
+                        updated_count += 1
+                    elif not existing_topic and mode in ('create', 'upsert'):
+                        Topic.objects.create(
+                            name=name,
+                            chapter=chapter,
+                            class_level=class_level,
+                            subject=subject,
+                            code=code if code else None,
+                            sort_order=int(sort_order) if sort_order.isdigit() else 1,
+                            is_active=is_active
+                        )
+                        created_count += 1
+                    elif existing_topic and mode == 'create':
+                        errors.append(f"Row {row_idx}: Topic '{name}' already exists (skipped in Create-Only mode)")
+                    elif not existing_topic and mode == 'update':
+                        errors.append(f"Row {row_idx}: Topic '{name}' does not exist (skipped in Update-Only mode)")
                 except Exception as e:
                     errors.append(f"Row {row_idx}: {str(e)}")
             
             self.clear_cache()
+            msg = []
+            if created_count: msg.append(f"created {created_count}")
+            if updated_count: msg.append(f"updated {updated_count}")
+            summary = " and ".join(msg) if msg else "processed 0"
             return response.Response({
-                "message": f"Successfully imported {created_count} topics",
+                "message": f"Successfully {summary} topics",
+                "created_count": created_count,
+                "updated_count": updated_count,
                 "errors": errors
-            }, status=status.HTTP_201_CREATED)
+            }, status=status.HTTP_200_OK if updated_count else status.HTTP_201_CREATED)
         except Exception as e:
             return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -725,14 +857,17 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             logging.getLogger(__name__).info(f"subtopics bulk_upload: decoded file using encoding='{used_encoding}'")
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
+            mode = request.data.get('mode', 'upsert').lower()
             
             created_count = 0
+            updated_count = 0
             errors = []
             
             for row_idx, row in enumerate(reader, start=2):
                 try:
                     name = row.get('Name', '').strip()
                     topic_name = row.get('Topic', '').strip()
+                    code = row.get('Code', '').strip()
                     sort_order = row.get('Sort Order', '1').strip()
                     is_active = str(row.get('Is Active', 'true')).lower() == 'true'
                     
@@ -746,22 +881,50 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
                     if not topic:
                         errors.append(f"Row {row_idx}: Topic '{topic_name}' not found")
                         continue
-                        
-                    SubTopic.objects.create(
-                        name=name,
-                        topic=topic,
-                        sort_order=int(sort_order) if sort_order.isdigit() else 1,
-                        is_active=is_active
-                    )
-                    created_count += 1
+                    
+                    existing_subtopic = None
+                    if code:
+                        existing_subtopic = SubTopic.objects.filter(code=code).first()
+                    if not existing_subtopic:
+                        existing_subtopic = SubTopic.objects.filter(name__iexact=name, topic=topic).first()
+
+                    if existing_subtopic and mode in ('update', 'upsert'):
+                        existing_subtopic.name = name
+                        existing_subtopic.topic = topic
+                        if code:
+                            existing_subtopic.code = code
+                        if sort_order.isdigit():
+                            existing_subtopic.sort_order = int(sort_order)
+                        existing_subtopic.is_active = is_active
+                        existing_subtopic.save()
+                        updated_count += 1
+                    elif not existing_subtopic and mode in ('create', 'upsert'):
+                        SubTopic.objects.create(
+                            name=name,
+                            topic=topic,
+                            code=code if code else None,
+                            sort_order=int(sort_order) if sort_order.isdigit() else 1,
+                            is_active=is_active
+                        )
+                        created_count += 1
+                    elif existing_subtopic and mode == 'create':
+                        errors.append(f"Row {row_idx}: SubTopic '{name}' already exists (skipped in Create-Only mode)")
+                    elif not existing_subtopic and mode == 'update':
+                        errors.append(f"Row {row_idx}: SubTopic '{name}' does not exist (skipped in Update-Only mode)")
                 except Exception as e:
                     errors.append(f"Row {row_idx}: {str(e)}")
             
             self.clear_cache()
+            msg = []
+            if created_count: msg.append(f"created {created_count}")
+            if updated_count: msg.append(f"updated {updated_count}")
+            summary = " and ".join(msg) if msg else "processed 0"
             return response.Response({
-                "message": f"Successfully imported {created_count} sub-topics",
+                "message": f"Successfully {summary} sub-topics",
+                "created_count": created_count,
+                "updated_count": updated_count,
                 "errors": errors
-            }, status=status.HTTP_201_CREATED)
+            }, status=status.HTTP_200_OK if updated_count else status.HTTP_201_CREATED)
         except Exception as e:
             return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

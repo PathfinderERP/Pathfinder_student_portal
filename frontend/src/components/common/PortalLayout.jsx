@@ -52,7 +52,7 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
     }, [isSidebarOpen]);
 
     return (
-        <div className={`flex h-screen font-sans overflow-hidden transition-all duration-700 
+        <div className={`flex h-screen font-sans overflow-hidden transition-colors duration-300 
             ${isPremium 
                 ? (isDarkMode ? 'bg-premium-mesh-dark' : 'bg-premium-mesh') 
                 : (isDarkMode ? 'bg-[#0B0E14] text-white' : 'bg-white text-slate-800')}`}
@@ -71,12 +71,12 @@ const PortalLayout = ({ children, sidebarItems, title, subtitle, headerActions, 
             {/* Backdrop for mobile */}
             {isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-md transition-all duration-500"
+                    className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-md transition-opacity duration-300"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
-            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] 
+            <div className={`flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] 
                 ${isSidebarOpen 
                     ? "md:ml-64" 
                     : "md:ml-20"}`}>
