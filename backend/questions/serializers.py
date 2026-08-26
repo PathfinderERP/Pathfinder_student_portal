@@ -8,6 +8,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = [
             'id', 'class_level', 'subject', 'chapter', 'topic', 'exam_type', 'target_exam', 'test_name',
+            'class_levels', 'subjects', 'chapters', 'topics', 'exam_types', 'target_exams', 'test_names', 'difficulty_levels',
             'question_type', 'difficulty_level', 'solve_time', 'content', 'image_1', 'image_2',
             'solution', 'question_options', 'answer_from', 'answer_to',
             'has_calculator', 'use_numeric_options', 'is_wrong', 'created_at', 'updated_at'

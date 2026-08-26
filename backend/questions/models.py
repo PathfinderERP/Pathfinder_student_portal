@@ -15,6 +15,16 @@ class Question(models.Model):
     target_exam = models.ForeignKey(TargetExam, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
     test_name = models.ForeignKey('master_data.ExamDetail', on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
     
+    # Multi-value Associations (JSON arrays of IDs/values for multi-select support)
+    class_levels = models.JSONField(default=list, blank=True)
+    subjects = models.JSONField(default=list, blank=True)
+    chapters = models.JSONField(default=list, blank=True)
+    topics = models.JSONField(default=list, blank=True)
+    exam_types = models.JSONField(default=list, blank=True)
+    target_exams = models.JSONField(default=list, blank=True)
+    test_names = models.JSONField(default=list, blank=True)
+    difficulty_levels = models.JSONField(default=list, blank=True)
+    
     # Metadata
     QUESTION_TYPES = (
         ('SINGLE_CHOICE', 'SINGLE_CHOICE'),
