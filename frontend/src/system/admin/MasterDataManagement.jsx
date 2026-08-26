@@ -5,7 +5,7 @@ import {
     Edit2, Trash2, Filter, Loader2, Database, X, Check, ChevronDown, Clock, BookOpen, RefreshCw,
     Image as ImageIcon, Copy, ExternalLink, CloudUpload, ArrowLeft, AlertTriangle,
     Download, FileSpreadsheet, Upload, FileCheck,
-    CheckSquare, Square, CheckCircle2, XCircle, SlidersHorizontal
+    CheckSquare, Square, CheckCircle2, XCircle, SlidersHorizontal, FileText, Sparkles, Info, HelpCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -346,7 +346,11 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [importFile, setImportFile] = useState(null);
     const [isImporting, setIsImporting] = useState(false);
-    const [bulkImportMode, setBulkImportMode] = useState('upsert'); // 'upsert', 'update', 'create'
+    const [bulkImportMode, setBulkImportMode] = useState('skip_existing'); // 'skip_existing', 'upsert', 'create'
+    const [importReport, setImportReport] = useState(null);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportFilter, setReportFilter] = useState('all'); // 'all', 'created', 'skipped', 'error', 'updated'
+    const [reportSearch, setReportSearch] = useState('');
     const bulkFileInputRef = useRef(null);
 
     // Multi-Select Bulk Actions State
@@ -1094,23 +1098,56 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                 headers: { ...config.headers, 'Content-Type': 'multipart/form-data' }
             });
 
-            if (res.data.errors && res.data.errors.length > 0) {
-                toast.success(`${res.data.message || 'Import processed'}. (${res.data.errors.length} warnings)`);
-                console.warn("Import Warnings:", res.data.errors);
-            } else {
-                toast.success(res.data.message || "Import & Bulk update successful!");
-            }
-
+            setImportReport(res.data);
             setShowBulkModal(false);
             setImportFile(null);
+            setShowReportModal(true);
+            setReportFilter('all');
+            setReportSearch('');
+
+            toast.success(res.data.message || "Import completed!");
+
+            // Clear in-memory caches to ensure all dropdowns and search views get fresh data
+            masterDataCacheRef.current = {};
+            masterDataTimestampRef.current = {};
+
             fetchData(true);
+            fetchMasterData(['classes', 'subjects', 'chapters', 'topics'], true);
+
             const eventKey = getMasterDataEventKey(activeSubTab);
             if (eventKey) dispatchMasterDataUpdate(eventKey);
+            dispatchMasterDataUpdate('chapters');
         } catch (err) {
             toast.error(err.response?.data?.error || "Import failed");
         } finally {
             setIsImporting(false);
         }
+    };
+
+    const handleDownloadImportReport = () => {
+        if (!importReport || !importReport.details || importReport.details.length === 0) {
+            toast.error("No report details available to download");
+            return;
+        }
+        const headers = ["Row", "Name", "Class Level", "Subject", "Status", "Message"];
+        const rows = importReport.details.map(d => [
+            d.row,
+            `"${(d.name || '').replace(/"/g, '""')}"`,
+            `"${(d.class_level || '').replace(/"/g, '""')}"`,
+            `"${(d.subject || d.topic || '').replace(/"/g, '""')}"`,
+            `"${(d.status || '').toUpperCase()}"`,
+            `"${(d.message || '').replace(/"/g, '""')}"`
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `import_report_${activeSubTab.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success("Import report downloaded as CSV");
     };
 
     // Bulk Multi-Select Operations Handlers
@@ -2422,6 +2459,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                             <th className="pb-4 px-4 font-black">Code</th>
                                         </>
                                     )}
+                                    <th className="pb-4 px-4 font-black">Uploaded / Edited</th>
                                     <th className="pb-4 px-4 font-black text-center">Status</th>
                                     <th className="pb-4 px-4 text-right font-black">Actions</th>
                                 </tr>
@@ -2580,17 +2618,6 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 <td className="py-5 px-4 text-xs font-bold opacity-70">{item.phone || '-'}</td>
                                                 <td className="py-5 px-4 text-xs font-bold opacity-70">{item.qualification || '-'}</td>
                                             </>
-                                        ) : activeSubTab === 'Partial Marks' ? (
-                                            <>
-                                                <td className="py-5 px-4">
-                                                    <span className="font-extrabold text-sm">{item.name}</span>
-                                                </td>
-                                                <td className="py-5 px-4 text-sm font-bold opacity-70">
-                                                    <span className={`px-3 py-1 rounded-[5px] text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                        {item.code}
-                                                    </span>
-                                                </td>
-                                            </>
                                         ) : activeSubTab === 'Psychometric Traits' ? (
                                             <>
                                                 <td className="py-5 px-4">
@@ -2606,22 +2633,20 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                         ) : activeSubTab === 'Psychometric Questions' ? (
                                             <>
                                                 <td className="py-5 px-4">
-                                                    <span className="font-extrabold text-sm">{item.text}</span>
+                                                    <span className="font-bold text-sm">{item.question_text}</span>
                                                 </td>
                                                 <td className="py-5 px-4">
-                                                    <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                                        {item.trait_name || '-'}
-                                                    </span>
+                                                    <span className="text-xs font-bold opacity-80">{item.trait_name || '-'}</span>
                                                 </td>
-                                                <td className="py-5 px-4 text-center">
-                                                    <span className="text-[10px] font-black">
-                                                        {item.order}
-                                                    </span>
+                                                <td className="py-5 px-4 text-center font-black text-xs">
+                                                    {item.order}
                                                 </td>
-                                                <td className="py-5 px-4 text-center">
-                                                    <span className={`px-2 py-1 rounded-[3px] text-[9px] font-bold ${item.is_reverse_scored ? 'bg-orange-500/10 text-orange-500' : isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                        {item.is_reverse_scored ? 'YES' : 'NO'}
-                                                    </span>
+                                                <td className="py-5 px-4 text-center font-bold text-xs">
+                                                    {item.is_reverse ? (
+                                                        <span className="text-amber-500">Yes</span>
+                                                    ) : (
+                                                        <span className="opacity-40">No</span>
+                                                    )}
                                                 </td>
                                             </>
                                         ) : (
@@ -2654,6 +2679,20 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                                 </td>
                                             </>
                                         )}
+                                        <td className="py-5 px-4">
+                                            <div className="flex flex-col text-[11px] leading-tight">
+                                                <span className="font-bold text-xs flex items-center gap-1">
+                                                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{item.updated_by || item.created_by || 'Admin'}</span>
+                                                </span>
+                                                <span className="text-[10px] opacity-40 font-mono mt-0.5 whitespace-nowrap">
+                                                    {item.updated_at 
+                                                        ? new Date(item.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                                        : (item.created_at 
+                                                            ? new Date(item.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+                                                            : '—')}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td className="py-5 px-4" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-center">
                                                 <button
@@ -2704,12 +2743,12 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
                                 }) : (
                                     <tr>
                                         <td colSpan={
-                                            activeSubTab === 'Exam Details' ? 12 :
-                                                activeSubTab === 'Topic' ? 10 :
-                                                    activeSubTab === 'Teacher' ? 9 :
-                                                        activeSubTab === 'Chapter' ? 8 :
-                                                            activeSubTab === 'Exam Type' ? 7 :
-                                                                activeSubTab === 'SubTopic' ? 7 : 6
+                                            activeSubTab === 'Exam Details' ? 13 :
+                                                activeSubTab === 'Topic' ? 11 :
+                                                    activeSubTab === 'Teacher' ? 10 :
+                                                        activeSubTab === 'Chapter' ? 9 :
+                                                            activeSubTab === 'Exam Type' ? 8 :
+                                                                activeSubTab === 'SubTopic' ? 8 : 7
                                         } className="py-24 text-center">
                                             <div className="flex flex-col items-center opacity-20">
                                                 <Database size={48} className="mb-4" />
@@ -3047,83 +3086,418 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
 
     const renderBulkImportModal = () => {
         if (!showBulkModal) return null;
-        return (
-            <div className="fixed inset-0 z-2000 flex items-start justify-center p-6 pt-32 backdrop-blur-md bg-black/60">
-                <div className={`relative w-full max-w-md rounded-[15px] shadow-2xl animate-in zoom-in-95 fade-in duration-300 ${isDarkMode ? 'bg-[#0F131A] border border-white/10' : 'bg-white'}`}>
-                    <div className="p-8 md:max-lg:p-4 space-y-6 md:max-lg:space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 md:max-lg:p-2 bg-emerald-500 rounded-[10px] text-white">
-                                    <CloudUpload size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl md:max-lg:text-base font-black uppercase tracking-tight">Bulk Import {activeSubTab}s</h3>
-                                    <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Upload CSV file to process records</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowBulkModal(false)} className={`p-2 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}>
-                                <X size={20} />
-                            </button>
-                        </div>
+        const isExcel = importFile?.name?.endsWith('.xlsx') || importFile?.name?.endsWith('.xls');
 
+        return (
+            <div className="fixed inset-0 z-2000 flex items-start justify-center p-4 pt-16 sm:pt-24 backdrop-blur-md bg-black/70 overflow-y-auto">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                    className={`relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden my-6 border ${isDarkMode ? 'bg-[#0F131A] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                >
+                    {/* Header */}
+                    <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
+                        <div className="flex items-center gap-3.5">
+                            <div className="p-3 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl text-white shadow-lg shadow-emerald-500/20">
+                                <CloudUpload size={22} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black tracking-tight">Bulk Import {activeSubTab}s</h3>
+                                <p className="text-[11px] font-semibold opacity-50">Upload Excel (.xlsx, .xls) or CSV (.csv) file</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowBulkModal(false)} 
+                            className={`p-2 rounded-xl transition-all ${isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500'}`}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        {/* Dropzone */}
                         <div
                             onClick={() => bulkFileInputRef.current?.click()}
-                            className={`p-10 md:max-lg:p-5 border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center gap-4 md:max-lg:gap-2 cursor-pointer transition-all ${importFile ? 'bg-emerald-500/5 border-emerald-500/50' : isDarkMode ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-white hover:border-orange-500/30'}`}
+                            className={`p-7 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3.5 cursor-pointer transition-all ${
+                                importFile 
+                                    ? isDarkMode ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-emerald-50/80 border-emerald-500/50' 
+                                    : isDarkMode ? 'bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-emerald-500/40' : 'bg-slate-50/70 border-slate-200 hover:bg-white hover:border-emerald-500/40'
+                            }`}
                         >
                             <input
                                 type="file"
                                 ref={bulkFileInputRef}
-                                onChange={(e) => setImportFile(e.target.files[0])}
-                                accept=".csv"
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setImportFile(e.target.files[0]);
+                                    }
+                                }}
+                                accept=".csv, .xlsx, .xls"
                                 className="hidden"
                             />
                             {importFile ? (
                                 <>
-                                    <FileSpreadsheet size={48} className="text-emerald-500" />
-                                    <div className="text-center">
-                                        <p className="text-sm font-black truncate max-w-[200px]">{importFile.name}</p>
-                                        <p className="text-[9px] font-bold opacity-50 uppercase mt-1">{(importFile.size / 1024).toFixed(2)} KB</p>
+                                    <div className={`p-3.5 rounded-2xl ${isExcel ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                        {isExcel ? <FileSpreadsheet size={36} /> : <FileText size={36} />}
+                                    </div>
+                                    <div className="text-center space-y-1">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider uppercase ${isExcel ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                                {isExcel ? 'Excel' : 'CSV'}
+                                            </span>
+                                            <p className="text-sm font-bold truncate max-w-[240px]">{importFile.name}</p>
+                                        </div>
+                                        <p className="text-[10px] font-semibold opacity-50">{(importFile.size / 1024).toFixed(2)} KB • Click to change file</p>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <Database size={48} className="opacity-20" />
-                                    <p className="text-xs font-black uppercase tracking-widest opacity-40">Click to Select CSV File</p>
+                                    <div className={`p-3.5 rounded-2xl ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                        <FileSpreadsheet size={36} />
+                                    </div>
+                                    <div className="text-center space-y-1">
+                                        <p className="text-xs font-bold uppercase tracking-wider">Click or Drag & Drop File Here</p>
+                                        <p className="text-[10px] font-medium opacity-50">Supports Microsoft Excel (.xlsx, .xls) and CSV (.csv)</p>
+                                    </div>
                                 </>
                             )}
                         </div>
 
-                        <div className={`p-4 rounded-[10px] ${isDarkMode ? 'bg-blue-500/5' : 'bg-blue-50'} border ${isDarkMode ? 'border-blue-500/20' : 'border-blue-100'}`}>
+                        {/* Import Mode / Strategy Selection */}
+                        <div className="space-y-2.5">
+                            <label className="text-[11px] font-black uppercase tracking-wider opacity-70 flex items-center gap-1.5">
+                                <SlidersHorizontal size={12} />
+                                Import Mode / Duplicate Handling
+                            </label>
+                            
+                            <div className="space-y-2">
+                                <label 
+                                    onClick={() => setBulkImportMode('skip_existing')}
+                                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                        bulkImportMode === 'skip_existing'
+                                            ? isDarkMode ? 'bg-emerald-500/10 border-emerald-500/60 ring-1 ring-emerald-500/40' : 'bg-emerald-50/80 border-emerald-400 ring-1 ring-emerald-400'
+                                            : isDarkMode ? 'bg-white/[0.02] border-white/10 hover:bg-white/[0.04]' : 'bg-slate-50/50 border-slate-200 hover:bg-white'
+                                    }`}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="bulkMode" 
+                                        checked={bulkImportMode === 'skip_existing'} 
+                                        onChange={() => setBulkImportMode('skip_existing')}
+                                        className="mt-1 text-emerald-500 focus:ring-0" 
+                                    />
+                                    <div className="flex-1 text-left">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold">Skip Existing Duplicates</span>
+                                            <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 text-[9px] font-black rounded uppercase">Recommended</span>
+                                        </div>
+                                        <p className="text-[11px] opacity-60 mt-0.5 leading-relaxed">
+                                            If a record already exists in database, skip it safely and upload all new records without failing.
+                                        </p>
+                                    </div>
+                                </label>
+
+                                <label 
+                                    onClick={() => setBulkImportMode('upsert')}
+                                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                        bulkImportMode === 'upsert'
+                                            ? isDarkMode ? 'bg-blue-500/10 border-blue-500/60 ring-1 ring-blue-500/40' : 'bg-blue-50/80 border-blue-400 ring-1 ring-blue-400'
+                                            : isDarkMode ? 'bg-white/[0.02] border-white/10 hover:bg-white/[0.04]' : 'bg-slate-50/50 border-slate-200 hover:bg-white'
+                                    }`}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="bulkMode" 
+                                        checked={bulkImportMode === 'upsert'} 
+                                        onChange={() => setBulkImportMode('upsert')}
+                                        className="mt-1 text-blue-500 focus:ring-0" 
+                                    />
+                                    <div className="flex-1 text-left">
+                                        <span className="text-xs font-bold">Update Existing & Add New (Upsert)</span>
+                                        <p className="text-[11px] opacity-60 mt-0.5 leading-relaxed">
+                                            Update attributes (code, sort order, status) of matching records, and create any new records.
+                                        </p>
+                                    </div>
+                                </label>
+
+                                <label 
+                                    onClick={() => setBulkImportMode('create')}
+                                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                        bulkImportMode === 'create'
+                                            ? isDarkMode ? 'bg-purple-500/10 border-purple-500/60 ring-1 ring-purple-500/40' : 'bg-purple-50/80 border-purple-400 ring-1 ring-purple-400'
+                                            : isDarkMode ? 'bg-white/[0.02] border-white/10 hover:bg-white/[0.04]' : 'bg-slate-50/50 border-slate-200 hover:bg-white'
+                                    }`}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="bulkMode" 
+                                        checked={bulkImportMode === 'create'} 
+                                        onChange={() => setBulkImportMode('create')}
+                                        className="mt-1 text-purple-500 focus:ring-0" 
+                                    />
+                                    <div className="flex-1 text-left">
+                                        <span className="text-xs font-bold">Create Only (Strict)</span>
+                                        <p className="text-[11px] opacity-60 mt-0.5 leading-relaxed">
+                                            Insert only new records; flags duplicate entries as warnings/errors in the final report.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Format Guideline Box */}
+                        <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/60 border-blue-100'}`}>
                             <div className="flex gap-3">
-                                <AlertTriangle className="text-blue-500 shrink-0" size={18} />
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-blue-500 tracking-widest">CSV Instructions</p>
-                                    <p className="text-[10px] font-bold opacity-70 leading-relaxed text-left">
-                                        Ensure columns match the template: <span className="underline cursor-pointer" onClick={handleExport}>Download current as template</span>.
-                                        Check Class and Subject names exactly as they appear in the system.
+                                <Info className="text-blue-500 shrink-0 mt-0.5" size={16} />
+                                <div className="space-y-1 text-left">
+                                    <p className="text-[11px] font-black uppercase text-blue-500 tracking-wider">File Format Requirements</p>
+                                    <p className="text-[11px] font-medium opacity-75 leading-relaxed">
+                                        Columns required: <code className="px-1 py-0.5 rounded bg-blue-500/10 font-bold">Name</code>, <code className="px-1 py-0.5 rounded bg-blue-500/10 font-bold">Class Level</code>, <code className="px-1 py-0.5 rounded bg-blue-500/10 font-bold">Subject</code>. 
+                                        Optional: <code className="px-1 py-0.5 rounded bg-blue-500/10">Code</code>, <code className="px-1 py-0.5 rounded bg-blue-500/10">Sort Order</code>, <code className="px-1 py-0.5 rounded bg-blue-500/10">Is Active</code>.
+                                    </p>
+                                    <p className="text-[11px] font-semibold text-blue-500 hover:underline cursor-pointer pt-1 flex items-center gap-1" onClick={handleExport}>
+                                        <Download size={12} /> Download Current Data as Template
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-3">
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3 pt-2">
                             <button
                                 onClick={() => setShowBulkModal(false)}
-                                className={`flex-1 py-4 md:max-lg:py-2 rounded-[10px] font-black uppercase text-[11px] tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
+                                className={`flex-1 py-3.5 rounded-xl font-bold uppercase text-xs tracking-wider transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleBulkImport}
                                 disabled={!importFile || isImporting}
-                                className={`flex-[1.5] py-4 md:max-lg:py-2 rounded-[10px] font-black uppercase text-[11px] tracking-widest text-white shadow-xl transition-all flex items-center justify-center gap-3 ${!importFile || isImporting ? 'bg-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30'}`}
+                                className={`flex-[1.6] py-3.5 rounded-xl font-bold uppercase text-xs tracking-wider text-white shadow-xl transition-all flex items-center justify-center gap-2.5 ${
+                                    !importFile || isImporting 
+                                        ? 'bg-slate-600 opacity-60 cursor-not-allowed' 
+                                        : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-500/25 active:scale-[0.98]'
+                                }`}
                             >
-                                {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                                {isImporting ? 'Processing...' : 'Confirm Import'}
+                                {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                {isImporting ? 'Processing File...' : 'Start Import'}
                             </button>
                         </div>
                     </div>
-                </div>
+                </motion.div>
+            </div>
+        );
+    };
+
+    const renderImportReportModal = () => {
+        if (!showReportModal || !importReport) return null;
+
+        const totalRows = importReport.total_rows || 0;
+        const createdCount = importReport.created_count || 0;
+        const skippedCount = importReport.skipped_count || 0;
+        const updatedCount = importReport.updated_count || 0;
+        const errorCount = importReport.error_count || (importReport.errors ? importReport.errors.length : 0);
+
+        const details = importReport.details || [];
+        const filteredDetails = details.filter(item => {
+            if (reportFilter === 'created' && item.status !== 'created') return false;
+            if (reportFilter === 'skipped' && item.status !== 'skipped') return false;
+            if (reportFilter === 'updated' && item.status !== 'updated') return false;
+            if (reportFilter === 'error' && item.status !== 'error') return false;
+
+            if (reportSearch.trim()) {
+                const q = reportSearch.toLowerCase();
+                const nameMatch = (item.name || '').toLowerCase().includes(q);
+                const classMatch = (item.class_level || '').toLowerCase().includes(q);
+                const subjectMatch = (item.subject || item.topic || '').toLowerCase().includes(q);
+                const msgMatch = (item.message || '').toLowerCase().includes(q);
+                return nameMatch || classMatch || subjectMatch || msgMatch;
+            }
+            return true;
+        });
+
+        return (
+            <div className="fixed inset-0 z-2000 flex items-start justify-center p-4 pt-12 sm:pt-16 backdrop-blur-md bg-black/75 overflow-y-auto">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                    className={`relative w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden my-6 border ${isDarkMode ? 'bg-[#0F131A] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                >
+                    {/* Header */}
+                    <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'}`}>
+                        <div className="flex items-center gap-3.5">
+                            <div className={`p-3 rounded-xl text-white shadow-lg ${errorCount === 0 ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-tr from-amber-600 to-orange-500 shadow-orange-500/20'}`}>
+                                {errorCount === 0 ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black tracking-tight">Bulk Import Report: {activeSubTab}s</h3>
+                                <p className="text-[11px] font-semibold opacity-50">{importReport.message || 'Import process finished'}</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowReportModal(false)} 
+                            className={`p-2 rounded-xl transition-all ${isDarkMode ? 'hover:bg-white/10 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500'}`}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        {/* KPI Summary Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className={`p-3.5 rounded-xl border text-left ${isDarkMode ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                <p className="text-[10px] font-bold uppercase tracking-wider opacity-50">Total Rows</p>
+                                <p className="text-xl font-black mt-1">{totalRows}</p>
+                            </div>
+                            
+                            <div className={`p-3.5 rounded-xl border text-left ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+                                <p className="text-[10px] font-bold uppercase tracking-wider opacity-75">Created / Added</p>
+                                <p className="text-xl font-black mt-1">{createdCount}</p>
+                            </div>
+
+                            <div className={`p-3.5 rounded-xl border text-left ${isDarkMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                                <p className="text-[10px] font-bold uppercase tracking-wider opacity-75">Skipped (Exists)</p>
+                                <p className="text-xl font-black mt-1">{skippedCount}</p>
+                            </div>
+
+                            <div className={`p-3.5 rounded-xl border text-left ${errorCount > 0 ? (isDarkMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-700') : (isDarkMode ? 'bg-white/[0.02] border-white/10 opacity-50' : 'bg-slate-50 border-slate-200 opacity-50')}`}>
+                                <p className="text-[10px] font-bold uppercase tracking-wider opacity-75">Failed / Errors</p>
+                                <p className="text-xl font-black mt-1">{errorCount}</p>
+                            </div>
+                        </div>
+
+                        {/* Filter Tabs & Search */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                            <div className={`flex items-center p-1 rounded-xl border ${isDarkMode ? 'bg-white/[0.03] border-white/10' : 'bg-slate-100 border-slate-200'}`}>
+                                <button
+                                    onClick={() => setReportFilter('all')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportFilter === 'all' ? (isDarkMode ? 'bg-white/10 text-white shadow' : 'bg-white text-slate-900 shadow') : 'opacity-60 hover:opacity-100'}`}
+                                >
+                                    All ({details.length})
+                                </button>
+                                <button
+                                    onClick={() => setReportFilter('created')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportFilter === 'created' ? 'bg-emerald-500 text-white shadow' : 'opacity-60 hover:opacity-100 text-emerald-400'}`}
+                                >
+                                    Added ({createdCount})
+                                </button>
+                                <button
+                                    onClick={() => setReportFilter('skipped')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportFilter === 'skipped' ? 'bg-amber-500 text-white shadow' : 'opacity-60 hover:opacity-100 text-amber-400'}`}
+                                >
+                                    Skipped ({skippedCount})
+                                </button>
+                                {errorCount > 0 && (
+                                    <button
+                                        onClick={() => setReportFilter('error')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportFilter === 'error' ? 'bg-rose-500 text-white shadow' : 'opacity-60 hover:opacity-100 text-rose-400'}`}
+                                    >
+                                        Errors ({errorCount})
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="relative flex-1 sm:max-w-xs">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" />
+                                <input
+                                    type="text"
+                                    value={reportSearch}
+                                    onChange={(e) => setReportSearch(e.target.value)}
+                                    placeholder="Filter by name, class, subject..."
+                                    className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border outline-none transition-all ${
+                                        isDarkMode 
+                                            ? 'bg-white/[0.04] border-white/10 text-white focus:border-emerald-500/50' 
+                                            : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500/50'
+                                    }`}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Details Table */}
+                        <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50/50'}`}>
+                            <div className="max-h-64 overflow-y-auto">
+                                <table className="w-full text-left text-xs border-collapse">
+                                    <thead className={`sticky top-0 z-10 text-[10px] font-black uppercase tracking-wider border-b ${isDarkMode ? 'bg-[#151921] border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+                                        <tr>
+                                            <th className="py-2.5 px-3">Row</th>
+                                            <th className="py-2.5 px-3">Name</th>
+                                            <th className="py-2.5 px-3">Class & Subject</th>
+                                            <th className="py-2.5 px-3">Status</th>
+                                            <th className="py-2.5 px-3">Details / Message</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {filteredDetails.length > 0 ? (
+                                            filteredDetails.map((item, idx) => (
+                                                <tr key={idx} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-white'}`}>
+                                                    <td className="py-2.5 px-3 font-mono opacity-50">{item.row}</td>
+                                                    <td className="py-2.5 px-3 font-bold max-w-[180px] truncate" title={item.name}>{item.name}</td>
+                                                    <td className="py-2.5 px-3 text-[11px] opacity-70">
+                                                        {item.class_level ? `${item.class_level} • ${item.subject || item.topic || ''}` : (item.topic || '—')}
+                                                    </td>
+                                                    <td className="py-2.5 px-3">
+                                                        {item.status === 'created' && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                Added
+                                                            </span>
+                                                        )}
+                                                        {item.status === 'skipped' && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                                                Skipped (Exists)
+                                                            </span>
+                                                        )}
+                                                        {item.status === 'updated' && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                                                Updated
+                                                            </span>
+                                                        )}
+                                                        {item.status === 'error' && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                                                Failed
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-[11px] opacity-75 max-w-[280px] truncate" title={item.message || item.error || item.reason || ''}>
+                                                        {item.message || item.error || item.reason || '—'}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={5} className="py-8 text-center opacity-40 font-medium text-xs">
+                                                    No records match the selected filter or search.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Action Footer */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                            <button
+                                onClick={handleDownloadImportReport}
+                                className={`w-full sm:w-auto px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider border flex items-center justify-center gap-2 transition-all ${
+                                    isDarkMode ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                                }`}
+                            >
+                                <Download size={15} />
+                                Download Full Report (CSV)
+                            </button>
+
+                            <button
+                                onClick={() => setShowReportModal(false)}
+                                className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-wider text-white shadow-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-500/25 active:scale-[0.98] flex items-center justify-center gap-2"
+                            >
+                                <Check size={16} />
+                                Done & View List
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
             </div>
         );
     };
@@ -3895,6 +4269,7 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
             {renderContent()}
             {renderModal()}
             {renderBulkImportModal()}
+            {renderImportReportModal()}
             {renderBulkEditModal()}
             {renderFloatingActionBar()}
 

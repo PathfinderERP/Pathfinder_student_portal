@@ -9,7 +9,7 @@ import {
     Type, Hash, Zap, Trash2, Save, ChevronLeft, ChevronDown, Check,
     Strikethrough, Quote, Code, Subscript, Superscript,
     AlignLeft, AlignCenter, AlignRight, Link, Sigma,
-    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw, Settings2
+    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw, Settings2, Tag
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -660,8 +660,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(c.class_level) === String(filters.classId);
             const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(c.subject) === String(filters.subjectId);
             return matchesClass && matchesSubject;
-        });
-    }, [chapters, filters.classId, filters.subjectId]);
+        }).map(c => ({
+            ...c,
+            topicCount: topics.filter(t => String(t.chapter) === String(c.id)).length
+        }));
+    }, [chapters, topics, filters.classId, filters.subjectId]);
 
     const repositoryFilteredTopics = useMemo(() => {
         return topics.filter(t => {
@@ -686,8 +689,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const matchesClass = !bulkUpdateFields.class_level || String(c.class_level) === String(bulkUpdateFields.class_level);
             const matchesSubject = !bulkUpdateFields.subject || String(c.subject) === String(bulkUpdateFields.subject);
             return matchesClass && matchesSubject;
-        });
-    }, [chapters, bulkUpdateFields.class_level, bulkUpdateFields.subject]);
+        }).map(c => ({
+            ...c,
+            topicCount: topics.filter(t => String(t.chapter) === String(c.id)).length
+        }));
+    }, [chapters, topics, bulkUpdateFields.class_level, bulkUpdateFields.subject]);
 
     const bulkUpdateFilteredTopics = useMemo(() => {
         return topics.filter(t => {
@@ -711,13 +717,19 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     }, [subjects, topics, form.classId, form.isIndependentSelection]);
 
     const filteredChapters = useMemo(() => {
-        if (form.isIndependentSelection) return chapters;
-        return chapters.filter(c => {
-            const matchesClass = !form.classId || String(c.class_level) === String(form.classId);
-            const matchesSubject = !form.subjectId || String(c.subject) === String(form.subjectId);
-            return matchesClass && matchesSubject;
-        });
-    }, [chapters, form.classId, form.subjectId, form.isIndependentSelection]);
+        let list = chapters;
+        if (!form.isIndependentSelection) {
+            list = chapters.filter(c => {
+                const matchesClass = !form.classId || String(c.class_level) === String(form.classId);
+                const matchesSubject = !form.subjectId || String(c.subject) === String(form.subjectId);
+                return matchesClass && matchesSubject;
+            });
+        }
+        return list.map(c => ({
+            ...c,
+            topicCount: topics.filter(t => String(t.chapter) === String(c.id)).length
+        }));
+    }, [chapters, topics, form.classId, form.subjectId, form.isIndependentSelection]);
 
     const filteredTopics = useMemo(() => {
         if (form.isIndependentSelection) return topics;
@@ -1000,34 +1012,54 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
-                            <div className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
+                        <div className={`px-5 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-3.5`}>
+                            <div className="p-2.5 rounded-[5px] bg-blue-500/10 text-blue-500 shrink-0">
                                 <Database size={20} />
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5">Total Questions</p>
-                                <p className="text-lg font-black tracking-tight">{stats.total}</p>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Total Questions</p>
+                                <p className="text-lg font-black tracking-tight">{stats.total || questions.length || 0}</p>
                             </div>
                         </div>
 
-                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
-                            <div className="p-2.5 rounded-[5px] bg-orange-500/10 text-orange-500">
+                        <div className={`px-5 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-3.5`}>
+                            <div className="p-2.5 rounded-[5px] bg-purple-500/10 text-purple-500 shrink-0">
+                                <BookOpen size={20} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Total Chapters</p>
+                                <p className="text-lg font-black tracking-tight">{chapters.length || 0}</p>
+                            </div>
+                        </div>
+
+                        <div className={`px-5 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-3.5`}>
+                            <div className="p-2.5 rounded-[5px] bg-indigo-500/10 text-indigo-500 shrink-0">
+                                <Tag size={20} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Total Topics</p>
+                                <p className="text-lg font-black tracking-tight">{topics.length || 0}</p>
+                            </div>
+                        </div>
+
+                        <div className={`px-5 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-3.5`}>
+                            <div className="p-2.5 rounded-[5px] bg-orange-500/10 text-orange-500 shrink-0">
                                 <Clock size={20} />
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5">Last Batch</p>
-                                <p className="text-lg font-black tracking-tight">{stats.lastBatch}</p>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Last Batch</p>
+                                <p className="text-lg font-black tracking-tight truncate">{stats.lastBatch || 'No data'}</p>
                             </div>
                         </div>
 
-                        <div className={`px-6 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-4`}>
-                            <div className="p-2.5 rounded-[5px] bg-emerald-500/10 text-emerald-500">
+                        <div className={`px-5 py-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'} flex items-center gap-3.5`}>
+                            <div className="p-2.5 rounded-[5px] bg-emerald-500/10 text-emerald-500 shrink-0">
                                 <Plus size={20} />
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5">Added This Month</p>
-                                <p className="text-lg font-black tracking-tight">+{stats.thisMonth}</p>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Added This Month</p>
+                                <p className="text-lg font-black tracking-tight">+{stats.thisMonth || 0}</p>
                             </div>
                         </div>
                     </div>
@@ -1105,7 +1137,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     );
 
     // Custom Floating Label Select Component
-    const CustomSelect = ({ label, value, onChange, options, placeholder, icon: Icon }) => {
+    const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon: Icon, showCount = true }) => {
         const [isOpen, setIsOpen] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
         const containerRef = useRef(null);
@@ -1124,11 +1156,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             return () => document.removeEventListener("mousedown", handleClickOutside);
         }, []);
 
-        const selectedOption = options.find(opt => String(opt.id) === String(value) || opt.value === value);
+        const validOptions = useMemo(() => {
+            return (options || []).filter(opt => opt && opt.id !== '__NULL__' && opt.value !== '');
+        }, [options]);
+
+        const totalAvailableCount = validOptions.length > 0 ? validOptions.length : (options || []).length;
+
+        const selectedOption = (options || []).find(opt => String(opt.id) === String(value) || opt.value === value);
 
         const filteredOptions = useMemo(() => {
-            if (!searchTerm) return options;
-            return options.filter(opt => {
+            if (!searchTerm) return options || [];
+            return (options || []).filter(opt => {
                 const text = (opt.label || opt.name || opt.value || '').toLowerCase();
                 return text.includes(searchTerm.toLowerCase());
             });
@@ -1144,10 +1182,19 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             ? 'border-blue-500 bg-white shadow-[0_0_0_4px_rgba(59,130,246,0.1)]'
                             : isDarkMode ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-300 bg-white hover:border-slate-400 shadow-sm'}`}
                 >
-                    {/* The Floating Label */}
-                    <label className={`absolute left-3 -top-2 px-1 text-[11px] font-bold transition-all
-                        ${isOpen ? 'text-blue-500 bg-white' : isDarkMode ? 'bg-[#10141D] text-slate-400' : 'bg-white text-slate-500'}`}>
-                        {label}
+                    {/* The Floating Label with Count Badge */}
+                    <label className={`absolute left-3 -top-2.5 px-1.5 text-[11px] font-black transition-all flex items-center gap-1.5 z-10 rounded
+                        ${isOpen ? 'text-blue-500 bg-white dark:bg-[#10141D]' : isDarkMode ? 'bg-[#10141D] text-slate-400' : 'bg-white text-slate-500'}`}>
+                        <span>{label}</span>
+                        {showCount && totalAvailableCount > 0 && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black leading-none transition-colors ${
+                                isOpen
+                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-200'
+                                    : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {totalAvailableCount}
+                            </span>
+                        )}
                     </label>
 
                     <span className={`text-[13px] font-bold truncate ${!selectedOption ? 'opacity-30' : ''}`}>
@@ -1176,9 +1223,24 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     <div className={`absolute z-100 left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
                         ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
 
+                        {/* Dropdown Header Info */}
+                        <div className={`px-3.5 py-2 border-b text-[10px] font-black uppercase tracking-wider flex items-center justify-between sticky top-0 z-10 ${
+                            isDarkMode ? 'bg-[#151922] border-white/5 text-slate-400' : 'bg-slate-50/95 border-slate-100 text-slate-500 backdrop-blur-sm'
+                        }`}>
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                Available {label}: <span className="text-blue-500 font-extrabold">{totalAvailableCount}</span>
+                            </span>
+                            {searchTerm && (
+                                <span className="text-[9px] opacity-70 font-bold">
+                                    Found: {filteredOptions.length}
+                                </span>
+                            )}
+                        </div>
+
                         {/* Search Option */}
                         {options.length > 5 && (
-                            <div className={`p-2 border-b sticky top-0 z-101 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className={`p-2 border-b sticky top-[33px] z-101 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
                                 <div className="relative">
                                     <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
                                     <input
@@ -1186,7 +1248,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onClick={(e) => e.stopPropagation()}
-                                        placeholder={`Search ${label}...`}
+                                        placeholder={`Search ${label}... (${totalAvailableCount} available)`}
                                         className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
                                             ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-blue-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-blue-500 shadow-sm'}`}
                                     />
@@ -1208,22 +1270,45 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                     <X size={12} className="text-red-500 group-hover:scale-125 transition-transform" />
                                 </div>
                             )}
-                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => (
-                                <div
-                                    key={i}
-                                    onClick={() => {
-                                        onChange(opt.id || opt.value);
-                                        setIsOpen(false);
-                                    }}
-                                    className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between
-                                        ${(String(opt.id) === String(value) || opt.value === value)
-                                            ? 'bg-blue-500 text-white'
-                                            : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
-                                >
-                                    {opt.label || opt.name || opt.value}
-                                    {(String(opt.id) === String(value) || opt.value === value) && <Check size={14} />}
-                                </div>
-                            )) : (
+                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                                const isSelected = (String(opt.id) === String(value) || (opt.value !== undefined && opt.value === value && value !== ''));
+                                return (
+                                    <div
+                                        key={i}
+                                        onClick={() => {
+                                            onChange(opt.id !== undefined ? opt.id : opt.value);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
+                                            ${isSelected
+                                                ? 'bg-blue-500 text-white'
+                                                : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                    >
+                                        <span className="truncate flex-1">{opt.label || opt.name || opt.value}</span>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {opt.topicCount !== undefined && (
+                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide transition-all ${
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                                }`}>
+                                                    {opt.topicCount} {opt.topicCount === 1 ? 'topic' : 'topics'}
+                                                </span>
+                                            )}
+                                            {opt.badge && (
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                    {opt.badge}
+                                                </span>
+                                            )}
+                                            {isSelected && <Check size={14} className="shrink-0" strokeWidth={3} />}
+                                        </div>
+                                    </div>
+                                );
+                            }) : (
                                 <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
                             )}
                         </div>

@@ -82,6 +82,8 @@ class Session(models.Model):
     erp_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -99,6 +101,8 @@ class TargetExam(models.Model):
     erp_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -116,6 +120,8 @@ class ExamType(models.Model):
     code = models.CharField(max_length=50, unique=True, blank=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -133,6 +139,8 @@ class ClassLevel(models.Model):
     erp_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -159,6 +167,8 @@ class ExamDetail(models.Model):
     option_type_numeric = models.BooleanField(default=False)
     instructions = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -218,20 +228,17 @@ class ExamDetail(models.Model):
             print(f"Error syncing ExamDetail to Test: {e}")
 
     def delete(self, *args, **kwargs):
-        # Auto-delete corresponding Test
-        try:
-            from tests.models import Test
-            Test.objects.filter(code=self.code).delete()
-            
-            # Clear admin test list cache
-            from django.core.cache import cache
-            cache.delete('admin_test_list')
-        except Exception as e:
-            print(f"Error deleting synced Test: {e}")
+        code_to_delete = self.code
         super().delete(*args, **kwargs)
+        if code_to_delete:
+            try:
+                from tests.models import Test
+                Test.objects.filter(code=code_to_delete).delete()
+            except Exception as e:
+                print(f"Error deleting associated Test for ExamDetail {code_to_delete}: {e}")
 
     def __str__(self):
-        return f"{self.exam_type.name} - {self.class_level.name}"
+        return f"{self.name} - {self.exam_type.name}"
 
 @receiver(m2m_changed, sender=ExamDetail.sessions.through)
 def sync_exam_detail_sessions(sender, instance, action, **kwargs):
@@ -271,6 +278,8 @@ class Subject(models.Model):
     code = models.CharField(max_length=50, unique=True, blank=True)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -293,6 +302,8 @@ class Chapter(models.Model):
     code = models.CharField(max_length=100, unique=True, blank=True)
     sort_order = models.IntegerField(default=1)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -314,6 +325,8 @@ class Topic(models.Model):
     code = models.CharField(max_length=100, unique=True, blank=True)
     sort_order = models.IntegerField(default=1)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -333,6 +346,8 @@ class SubTopic(models.Model):
     code = models.CharField(max_length=100, unique=True, blank=True)
     sort_order = models.IntegerField(default=1)
     is_active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=150, blank=True, null=True)
+    updated_by = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

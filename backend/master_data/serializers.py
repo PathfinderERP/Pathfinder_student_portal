@@ -82,7 +82,7 @@ class ChapterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chapter
-        fields = ['id', 'class_level', 'subject', 'name', 'code', 'order', 'is_active', 'created_at', 'updated_at', 'class_level_name', 'subject_name']
+        fields = ['id', 'class_level', 'subject', 'name', 'code', 'order', 'is_active', 'created_by', 'updated_by', 'created_at', 'updated_at', 'class_level_name', 'subject_name']
 
 class ExamDetailSerializer(serializers.ModelSerializer):
     session_name = serializers.CharField(source='session.name', read_only=True)
@@ -127,6 +127,24 @@ class ExamDetailSerializer(serializers.ModelSerializer):
         except:
             return []
 
+    def get_session_names(self, obj):
+        try:
+            return [s.name for s in obj.sessions.all()]
+        except:
+            return []
+
+    def get_target_exam_names(self, obj):
+        try:
+            return [te.name for te in obj.target_exams.all()]
+        except:
+            return []
+
+    def get_class_level_names(self, obj):
+        try:
+            return [c.name for c in obj.class_levels.all()]
+        except:
+            return []
+
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
@@ -140,7 +158,7 @@ class TopicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Topic
-        fields = ['id', 'chapter', 'class_level', 'subject', 'name', 'code', 'order', 'is_active', 'created_at', 'updated_at', 'chapter_name', 'class_level_name', 'subject_name']
+        fields = ['id', 'chapter', 'class_level', 'subject', 'name', 'code', 'order', 'is_active', 'created_by', 'updated_by', 'created_at', 'updated_at', 'chapter_name', 'class_level_name', 'subject_name']
 
 class SubTopicSerializer(serializers.ModelSerializer):
     topic_name = serializers.CharField(source='topic.name', read_only=True)
@@ -148,7 +166,7 @@ class SubTopicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubTopic
-        fields = ['id', 'topic', 'name', 'code', 'order', 'is_active', 'created_at', 'updated_at', 'topic_name']
+        fields = ['id', 'topic', 'name', 'code', 'order', 'is_active', 'created_by', 'updated_by', 'created_at', 'updated_at', 'topic_name']
 
 class TeacherSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)

@@ -8,7 +8,7 @@ import time
 import requests
 from api.erp_views import _get_erp_url, _get_erp_admin_token
 import logging
-from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason, ChapterTestSetting
+from .models import Session, TargetExam, ExamType, ClassLevel, ExamDetail, Subject, Topic, Chapter, SubTopic, Teacher, LibraryItem, LibraryPDF, LibraryVideo, LibraryDPP, SolutionItem, Notice, LiveClass, Video, PenPaperTest, Homework, Banner, Seminar, Guide, Community, MasterSection, PartialMarkRule, PsychometricTrait, PsychometricQuestion, MistakeReason, ChapterTestSetting, generate_unique_code
 from .serializers import SessionSerializer, TargetExamSerializer, ExamTypeSerializer, ClassLevelSerializer, ExamDetailSerializer, SubjectSerializer, TopicSerializer, ChapterSerializer, SubTopicSerializer, TeacherSerializer, LibraryItemSerializer, SolutionItemSerializer, NoticeSerializer, LiveClassSerializer, VideoSerializer, PenPaperTestSerializer, HomeworkSerializer, BannerSerializer, SeminarSerializer, GuideSerializer, CommunitySerializer, MasterSectionSerializer, PartialMarkRuleSerializer, PsychometricTraitSerializer, PsychometricQuestionSerializer, MistakeReasonSerializer, ChapterTestSettingSerializer
 
 class StandardPagination(pagination.PageNumberPagination):
@@ -16,6 +16,356 @@ class StandardPagination(pagination.PageNumberPagination):
 from django.db.models import Q, Count
 from django.core.cache import cache
 import re
+import pandas as pd
+
+def clean_val(val):
+    if val is None or pd.isna(val):
+        return ''
+    if isinstance(val, float) and val.is_integer():
+        return str(int(val)).strip()
+    s = str(val).strip()
+    if s.lower() in ('nan', 'none', 'null', '<na>'):
+        return ''
+    return s
+
+def resolve_class_level(class_name):
+    if not class_name:
+        return None
+    class_name = clean_val(class_name)
+    # 1. Exact match (case insensitive)
+    cl = ClassLevel.objects.filter(name__iexact=class_name).first()
+    if cl: return cl
+    # 2. Extract digits if any (e.g. "Class 11", "11th", "Class-12", "11.0")
+    digits = re.findall(r"\d+", class_name)
+    if digits:
+        cl = ClassLevel.objects.filter(name__iexact=digits[0]).first()
+        if cl: return cl
+        cl = ClassLevel.objects.filter(name__icontains=digits[0]).first()
+        if cl: return cl
+    # 3. Clean alphanumeric string match (e.g. "repeater", "taat a")
+    clean_str = re.sub(r'[^a-zA-Z0-9]', '', class_name).lower()
+    for item in ClassLevel.objects.all():
+        if re.sub(r'[^a-zA-Z0-9]', '', item.name).lower() == clean_str:
+            return item
+    return ClassLevel.objects.filter(name__icontains=class_name).first()
+
+def resolve_subject(subject_name):
+    if not subject_name:
+        return None
+    subject_name = clean_val(subject_name)
+    # 1. Exact match (case insensitive)
+    sub = Subject.objects.filter(name__iexact=subject_name).first()
+    if sub: return sub
+    # 2. Code match
+    sub = Subject.objects.filter(code__iexact=subject_name).first()
+    if sub: return sub
+    # 3. Normalized alias match
+    sub_clean = re.sub(r'[^a-zA-Z0-9]', '', subject_name).lower()
+    alias_map = {
+        'math': 'MATHEMATICS', 'maths': 'MATHEMATICS', 'mathematics': 'MATHEMATICS',
+        'phy': 'PHYSICS', 'phys': 'PHYSICS', 'physics': 'PHYSICS',
+        'chem': 'CHEMISTRY', 'che': 'CHEMISTRY', 'chemistry': 'CHEMISTRY',
+        'bio': 'BIOLOGY', 'biology': 'BIOLOGY',
+        'bot': 'BOTANY', 'botany': 'BOTANY',
+        'zoo': 'ZOOLOGY', 'zoology': 'ZOOLOGY',
+    }
+    if sub_clean in alias_map:
+        sub = Subject.objects.filter(name__iexact=alias_map[sub_clean]).first()
+        if sub: return sub
+    for item in Subject.objects.all():
+        if re.sub(r'[^a-zA-Z0-9]', '', item.name).lower() == sub_clean:
+            return item
+    return Subject.objects.filter(name__icontains=subject_name).first()
+
+def find_existing_chapter(clean_name, class_level, subject):
+    if not clean_name or not class_level or not subject:
+        return None
+    # 1. Direct exact match
+    ch = Chapter.objects.filter(name=clean_name, class_level=class_level, subject=subject).first()
+    if ch: return ch
+    # 2. Case and whitespace/punctuation normalized search (immune to Djongo regex bugs)
+    clean_lower = clean_name.lower().strip()
+    norm_name = re.sub(r'[^a-zA-Z0-9]', '', clean_name).lower()
+    for item in Chapter.objects.filter(class_level=class_level, subject=subject):
+        if item.name.lower().strip() == clean_lower or re.sub(r'[^a-zA-Z0-9]', '', item.name).lower() == norm_name:
+            return item
+    return None
+
+def find_existing_topic(clean_name, class_level, subject, chapter=None):
+    if not clean_name or not class_level or not subject:
+        return None
+    if chapter:
+        t = Topic.objects.filter(name=clean_name, chapter=chapter, class_level=class_level, subject=subject).first()
+        if t: return t
+    t = Topic.objects.filter(name=clean_name, class_level=class_level, subject=subject).first()
+    if t: return t
+    clean_lower = clean_name.lower().strip()
+    norm_name = re.sub(r'[^a-zA-Z0-9]', '', clean_name).lower()
+    qs = Topic.objects.filter(class_level=class_level, subject=subject)
+    if chapter:
+        for item in qs.filter(chapter=chapter):
+            if item.name.lower().strip() == clean_lower or re.sub(r'[^a-zA-Z0-9]', '', item.name).lower() == norm_name:
+                return item
+    for item in qs:
+        if item.name.lower().strip() == clean_lower or re.sub(r'[^a-zA-Z0-9]', '', item.name).lower() == norm_name:
+            return item
+    return None
+
+def find_existing_subtopic(clean_name, topic):
+    if not clean_name or not topic:
+        return None
+    st = SubTopic.objects.filter(name=clean_name, topic=topic).first()
+    if st: return st
+    clean_lower = clean_name.lower().strip()
+    norm_name = re.sub(r'[^a-zA-Z0-9]', '', clean_name).lower()
+    for item in SubTopic.objects.filter(topic=topic):
+        if item.name.lower().strip() == clean_lower or re.sub(r'[^a-zA-Z0-9]', '', item.name).lower() == norm_name:
+            return item
+    return None
+
+class BulkImportCache:
+    """High-performance pre-loaded in-memory cache and index for batch imports."""
+    def __init__(self, model_class):
+        self.model_class = model_class
+        
+        # 1. Preload all ClassLevels
+        self.class_levels = list(ClassLevel.objects.all())
+        self.class_map = {}
+        for cl in self.class_levels:
+            self.class_map[cl.name.lower().strip()] = cl
+            norm = re.sub(r'[^a-zA-Z0-9]', '', cl.name).lower()
+            if norm: self.class_map[norm] = cl
+            digits = re.findall(r'\d+', cl.name)
+            if digits and digits[0] not in self.class_map:
+                self.class_map[digits[0]] = cl
+
+        # 2. Preload all Subjects
+        self.subjects = list(Subject.objects.all())
+        self.subject_map = {}
+        alias_map = {
+            'math': 'MATHEMATICS', 'maths': 'MATHEMATICS', 'mathematics': 'MATHEMATICS',
+            'phy': 'PHYSICS', 'phys': 'PHYSICS', 'physics': 'PHYSICS',
+            'chem': 'CHEMISTRY', 'che': 'CHEMISTRY', 'chemistry': 'CHEMISTRY',
+            'bio': 'BIOLOGY', 'biology': 'BIOLOGY',
+            'bot': 'BOTANY', 'botany': 'BOTANY',
+            'zoo': 'ZOOLOGY', 'zoology': 'ZOOLOGY',
+        }
+        for sub in self.subjects:
+            self.subject_map[sub.name.lower().strip()] = sub
+            if sub.code:
+                self.subject_map[sub.code.lower().strip()] = sub
+            norm = re.sub(r'[^a-zA-Z0-9]', '', sub.name).lower()
+            if norm: self.subject_map[norm] = sub
+        for alias_key, target_name in alias_map.items():
+            for sub in self.subjects:
+                if sub.name.upper() == target_name:
+                    self.subject_map[alias_key] = sub
+                    break
+
+        # 3. Preload all Chapters
+        self.chapters = list(Chapter.objects.all())
+        self.chapter_map = {}
+        for ch in self.chapters:
+            norm = re.sub(r'[^a-zA-Z0-9]', '', ch.name).lower()
+            lower = ch.name.lower().strip()
+            self.chapter_map[(ch.class_level_id, ch.subject_id, lower)] = ch
+            self.chapter_map[(ch.class_level_id, ch.subject_id, norm)] = ch
+            self.chapter_map[(ch.subject_id, lower)] = ch
+            self.chapter_map[(ch.subject_id, norm)] = ch
+
+        # 4. Preload all Topics
+        self.topics = list(Topic.objects.all())
+        self.topic_map = {}
+        for t in self.topics:
+            norm = re.sub(r'[^a-zA-Z0-9]', '', t.name).lower()
+            lower = t.name.lower().strip()
+            if t.chapter_id:
+                self.topic_map[(t.class_level_id, t.subject_id, t.chapter_id, lower)] = t
+                self.topic_map[(t.class_level_id, t.subject_id, t.chapter_id, norm)] = t
+            self.topic_map[(t.class_level_id, t.subject_id, lower)] = t
+            self.topic_map[(t.class_level_id, t.subject_id, norm)] = t
+            self.topic_map[lower] = t
+            self.topic_map[norm] = t
+
+        # 5. Preload all SubTopics
+        self.subtopics = list(SubTopic.objects.all())
+        self.subtopic_map = {}
+        for st in self.subtopics:
+            norm = re.sub(r'[^a-zA-Z0-9]', '', st.name).lower()
+            lower = st.name.lower().strip()
+            self.subtopic_map[(st.topic_id, lower)] = st
+            self.subtopic_map[(st.topic_id, norm)] = st
+
+        # 6. Preload all existing codes for collision-free in-memory code generation
+        self.existing_codes = set(model_class.objects.values_list('code', flat=True))
+
+    def resolve_class(self, class_name):
+        if not class_name: return None
+        clean = clean_val(class_name)
+        lower = clean.lower().strip()
+        if lower in self.class_map: return self.class_map[lower]
+        norm = re.sub(r'[^a-zA-Z0-9]', '', clean).lower()
+        if norm in self.class_map: return self.class_map[norm]
+        digits = re.findall(r'\d+', clean)
+        if digits and digits[0] in self.class_map: return self.class_map[digits[0]]
+        for cl in self.class_levels:
+            if clean.lower() in cl.name.lower(): return cl
+        return None
+
+    def resolve_sub(self, subject_name):
+        if not subject_name: return None
+        clean = clean_val(subject_name)
+        lower = clean.lower().strip()
+        if lower in self.subject_map: return self.subject_map[lower]
+        norm = re.sub(r'[^a-zA-Z0-9]', '', clean).lower()
+        if norm in self.subject_map: return self.subject_map[norm]
+        for sub in self.subjects:
+            if clean.lower() in sub.name.lower(): return sub
+        return None
+
+    def find_chapter(self, chapter_name, class_level, subject):
+        if not chapter_name or not subject: return None
+        clean = re.sub(r'\s+', ' ', str(chapter_name).strip())
+        lower = clean.lower()
+        norm = re.sub(r'[^a-zA-Z0-9]', '', clean).lower()
+        if class_level:
+            if (class_level.id, subject.id, lower) in self.chapter_map:
+                return self.chapter_map[(class_level.id, subject.id, lower)]
+            if (class_level.id, subject.id, norm) in self.chapter_map:
+                return self.chapter_map[(class_level.id, subject.id, norm)]
+        if (subject.id, lower) in self.chapter_map:
+            return self.chapter_map[(subject.id, lower)]
+        if (subject.id, norm) in self.chapter_map:
+            return self.chapter_map[(subject.id, norm)]
+        for ch in self.chapters:
+            if ch.subject_id == subject.id and clean.lower() in ch.name.lower():
+                return ch
+        return None
+
+    def find_topic(self, topic_name, class_level, subject, chapter=None):
+        if not topic_name or not class_level or not subject: return None
+        clean = re.sub(r'\s+', ' ', str(topic_name).strip())
+        lower = clean.lower()
+        norm = re.sub(r'[^a-zA-Z0-9]', '', clean).lower()
+        if chapter:
+            if (class_level.id, subject.id, chapter.id, lower) in self.topic_map:
+                return self.topic_map[(class_level.id, subject.id, chapter.id, lower)]
+            if (class_level.id, subject.id, chapter.id, norm) in self.topic_map:
+                return self.topic_map[(class_level.id, subject.id, chapter.id, norm)]
+        if (class_level.id, subject.id, lower) in self.topic_map:
+            return self.topic_map[(class_level.id, subject.id, lower)]
+        if (class_level.id, subject.id, norm) in self.topic_map:
+            return self.topic_map[(class_level.id, subject.id, norm)]
+        return None
+
+    def find_subtopic(self, subtopic_name, topic):
+        if not subtopic_name or not topic: return None
+        clean = re.sub(r'\s+', ' ', str(subtopic_name).strip())
+        lower = clean.lower()
+        norm = re.sub(r'[^a-zA-Z0-9]', '', clean).lower()
+        if (topic.id, lower) in self.subtopic_map:
+            return self.subtopic_map[(topic.id, lower)]
+        if (topic.id, norm) in self.subtopic_map:
+            return self.subtopic_map[(topic.id, norm)]
+        return None
+
+    def generate_code(self, base_name):
+        clean_base = re.sub(r'[^a-zA-Z0-9]', '', str(base_name)).upper()
+        if not clean_base: clean_base = "ITEM"
+        clean_base = clean_base[:4]
+        code = clean_base
+        counter = 1
+        while code in self.existing_codes:
+            code = f"{clean_base}{counter}"
+            counter += 1
+        self.existing_codes.add(code)
+        return code
+
+    def register_chapter(self, ch):
+        norm = re.sub(r'[^a-zA-Z0-9]', '', ch.name).lower()
+        lower = ch.name.lower().strip()
+        self.chapter_map[(ch.class_level_id, ch.subject_id, lower)] = ch
+        self.chapter_map[(ch.class_level_id, ch.subject_id, norm)] = ch
+        self.chapter_map[(ch.subject_id, lower)] = ch
+        self.chapter_map[(ch.subject_id, norm)] = ch
+        self.chapters.append(ch)
+
+    def register_topic(self, t):
+        norm = re.sub(r'[^a-zA-Z0-9]', '', t.name).lower()
+        lower = t.name.lower().strip()
+        if t.chapter_id:
+            self.topic_map[(t.class_level_id, t.subject_id, t.chapter_id, lower)] = t
+            self.topic_map[(t.class_level_id, t.subject_id, t.chapter_id, norm)] = t
+        self.topic_map[(t.class_level_id, t.subject_id, lower)] = t
+        self.topic_map[(t.class_level_id, t.subject_id, norm)] = t
+        self.topics.append(t)
+
+    def register_subtopic(self, st):
+        norm = re.sub(r'[^a-zA-Z0-9]', '', st.name).lower()
+        lower = st.name.lower().strip()
+        self.subtopic_map[(st.topic_id, lower)] = st
+        self.subtopic_map[(st.topic_id, norm)] = st
+        self.subtopics.append(st)
+
+def parse_tabular_file(file_obj):
+    """
+    Parses an uploaded CSV or Excel (.xlsx, .xls) file into a list of (row_idx, row_dict).
+    Handles encoding variations, blank rows, numeric types, and case/whitespace variations in header names.
+    """
+    filename = (file_obj.name or '').lower()
+    records = []
+    
+    if filename.endswith(('.xlsx', '.xls')):
+        try:
+            df = pd.read_excel(file_obj)
+            headers = [clean_val(c) for c in df.columns]
+            for idx, row in df.iterrows():
+                row_dict = {}
+                for col_idx, col_name in enumerate(headers):
+                    if not col_name: continue
+                    val = row.iloc[col_idx]
+                    row_dict[col_name] = clean_val(val)
+                if any(v != '' for v in row_dict.values()):
+                    records.append((idx + 2, row_dict))
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Excel read error: {e}")
+            raise ValueError(f"Failed to read Excel file: {str(e)}")
+    else:
+        raw = file_obj.read()
+        decoded_file = None
+        for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
+            try:
+                decoded_file = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if decoded_file is None:
+            decoded_file = raw.decode('latin-1', errors='replace')
+            
+        io_string = io.StringIO(decoded_file)
+        reader = csv.DictReader(io_string)
+        if reader.fieldnames:
+            reader.fieldnames = [clean_val(f) for f in reader.fieldnames]
+            
+        for row_idx, row in enumerate(reader, start=2):
+            if not row:
+                continue
+            row_dict = {clean_val(k): clean_val(v) for k, v in row.items() if k is not None}
+            if any(v != '' for v in row_dict.values()):
+                records.append((row_idx, row_dict))
+                
+    return records
+
+def get_field_case_insensitive(row_dict, field_names, default=''):
+    """
+    Extracts value from row_dict matching any alias in field_names (case & separator insensitive).
+    """
+    for key in row_dict:
+        clean_key = key.lower().replace('_', '').replace(' ', '').replace('-', '')
+        for fn in field_names:
+            if clean_key == fn.lower().replace('_', '').replace(' ', '').replace('-', ''):
+                return row_dict[key]
+    return default
 
 class StudentSectionFilterMixin:
     """
@@ -187,11 +537,21 @@ class CachedListViewSetMixin(object):
         return res
 
     def perform_create(self, serializer):
-        serializer.save()
+        user_str = str(self.request.user.email or self.request.user.username or 'Admin') if self.request.user and self.request.user.is_authenticated else 'Admin'
+        save_kwargs = {}
+        if hasattr(serializer.Meta.model, 'created_by'):
+            save_kwargs['created_by'] = user_str
+        if hasattr(serializer.Meta.model, 'updated_by'):
+            save_kwargs['updated_by'] = user_str
+        serializer.save(**save_kwargs)
         self.clear_cache()
 
     def perform_update(self, serializer):
-        serializer.save()
+        user_str = str(self.request.user.email or self.request.user.username or 'Admin') if self.request.user and self.request.user.is_authenticated else 'Admin'
+        save_kwargs = {}
+        if hasattr(serializer.Meta.model, 'updated_by'):
+            save_kwargs['updated_by'] = user_str
+        serializer.save(**save_kwargs)
         self.clear_cache()
 
     def perform_destroy(self, instance):
@@ -510,108 +870,156 @@ class ChapterViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            raw = file_obj.read()
-            decoded_file = None
-            used_encoding = None
-            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
-                try:
-                    decoded_file = raw.decode(enc)
-                    used_encoding = enc
-                    break
-                except UnicodeDecodeError:
-                    continue
+            records = parse_tabular_file(file_obj)
+            if not records:
+                return response.Response({"error": "Uploaded file contains no data rows"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if decoded_file is None:
-                decoded_file = raw.decode('latin-1', errors='replace')
-                used_encoding = 'latin-1-replace'
-
-            logging.getLogger(__name__).info(f"chapters bulk_upload: decoded file using encoding='{used_encoding}'")
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
-            mode = request.data.get('mode', 'upsert').lower() # 'upsert', 'update', 'create'
+            mode = request.data.get('mode', 'skip_existing').lower() # 'skip_existing', 'upsert', 'create', 'update'
             
             created_count = 0
             updated_count = 0
+            skipped_count = 0
             errors = []
             
-            for row_idx, row in enumerate(reader, start=2):
+            created_items = []
+            updated_items = []
+            skipped_items = []
+            error_items = []
+            details = []
+            user_str = str(request.user.email or request.user.username or 'Admin') if request.user and request.user.is_authenticated else 'Bulk Import'
+            cache = BulkImportCache(Chapter)
+
+            for row_idx, row in records:
                 try:
-                    name = row.get('Name', '').strip()
-                    class_name = row.get('Class Level', '').strip()
-                    subject_name = row.get('Subject', '').strip()
-                    code = row.get('Code', '').strip()
-                    sort_order = row.get('Sort Order', '1').strip()
-                    is_active = str(row.get('Is Active', 'true')).lower() == 'true'
+                    name = get_field_case_insensitive(row, ['Name', 'Chapter Name', 'Chapter', 'Title', 'ChapterName'])
+                    class_name = get_field_case_insensitive(row, ['Class Level', 'Class', 'ClassLevel', 'Class_Level'])
+                    subject_name = get_field_case_insensitive(row, ['Subject', 'Subject Name', 'SubjectName', 'Subject_Name'])
+                    code = get_field_case_insensitive(row, ['Code', 'Chapter Code', 'ChapterCode'])
+                    sort_order_str = get_field_case_insensitive(row, ['Sort Order', 'Order', 'SortOrder'], '1')
+                    is_active_str = get_field_case_insensitive(row, ['Is Active', 'Active', 'Status', 'IsActive'], 'true')
+                    is_active = str(is_active_str).lower() in ('true', '1', 'yes', 'active')
+                    
+                    sort_order = 1
+                    try:
+                        sort_order = int(float(sort_order_str)) if sort_order_str else 1
+                    except (ValueError, TypeError):
+                        sort_order = 1
                     
                     if not name or not class_name or not subject_name:
-                        if any(row.values()):
-                            errors.append(f"Row {row_idx}: Missing required fields (Name, Class Level, or Subject)")
+                        err_msg = f"Row {row_idx}: Missing required fields (Name='{name}', Class='{class_name}', or Subject='{subject_name}')"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name or 'N/A', 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name or 'N/A', 'class_level': class_name, 'subject': subject_name, 'status': 'error', 'message': err_msg})
                         continue
                         
-                    class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
-                    if not class_level:
-                        digits = re.findall(r"\d+", class_name)
-                        if digits:
-                            class_level = ClassLevel.objects.filter(name__icontains=digits[0]).first()
-                        if not class_level:
-                            class_level = ClassLevel.objects.filter(name__icontains=class_name).first()
-
-                    subject = Subject.objects.filter(name__iexact=subject_name).first()
-                    if not subject:
-                        subject = Subject.objects.filter(name__icontains=subject_name).first()
+                    class_level = cache.resolve_class(class_name)
+                    subject = cache.resolve_sub(subject_name)
                     
                     if not class_level:
-                        errors.append(f"Row {row_idx}: Class '{class_name}' not found")
+                        err_msg = f"Row {row_idx}: Class '{class_name}' not found in system"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name, 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name, 'class_level': class_name, 'subject': subject_name, 'status': 'error', 'message': err_msg})
                         continue
                     if not subject:
-                        errors.append(f"Row {row_idx}: Subject '{subject_name}' not found")
+                        err_msg = f"Row {row_idx}: Subject '{subject_name}' not found in system"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name, 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name, 'class_level': class_level.name, 'subject': subject_name, 'status': 'error', 'message': err_msg})
                         continue
                     
-                    existing_chapter = None
-                    if code:
-                        existing_chapter = Chapter.objects.filter(code=code).first()
-                    if not existing_chapter:
-                        existing_chapter = Chapter.objects.filter(name__iexact=name, class_level=class_level, subject=subject).first()
+                    clean_name = re.sub(r'\s+', ' ', name.strip())
+                    clean_code = code.strip() if code else ''
 
-                    if existing_chapter and mode in ('update', 'upsert'):
-                        existing_chapter.name = name
-                        existing_chapter.class_level = class_level
-                        existing_chapter.subject = subject
-                        if code:
-                            existing_chapter.code = code
-                        if sort_order.isdigit():
-                            existing_chapter.sort_order = int(sort_order)
-                        existing_chapter.is_active = is_active
-                        existing_chapter.save()
-                        updated_count += 1
-                    elif not existing_chapter and mode in ('create', 'upsert'):
-                        Chapter.objects.create(
-                            name=name,
-                            class_level=class_level,
-                            subject=subject,
-                            code=code if code else None,
-                            sort_order=int(sort_order) if sort_order.isdigit() else 1,
-                            is_active=is_active
-                        )
-                        created_count += 1
-                    elif existing_chapter and mode == 'create':
-                        errors.append(f"Row {row_idx}: Chapter '{name}' already exists (skipped in Create-Only mode)")
-                    elif not existing_chapter and mode == 'update':
-                        errors.append(f"Row {row_idx}: Chapter '{name}' does not exist (skipped in Update-Only mode)")
+                    # In-memory instant duplicate lookup (O(1))
+                    existing_chapter = cache.find_chapter(clean_name, class_level, subject)
+
+                    if existing_chapter:
+                        if mode in ('skip_existing', 'skip'):
+                            skipped_count += 1
+                            skip_msg = f"Chapter '{existing_chapter.name}' already exists (Class: {class_level.name}, Subject: {subject.name})"
+                            skipped_items.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'reason': skip_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'skipped', 'message': skip_msg})
+                        elif mode in ('update', 'upsert'):
+                            existing_chapter.name = clean_name
+                            existing_chapter.class_level = class_level
+                            existing_chapter.subject = subject
+                            if clean_code:
+                                existing_chapter.code = clean_code
+                            existing_chapter.sort_order = sort_order
+                            existing_chapter.is_active = is_active
+                            existing_chapter.updated_by = user_str
+                            existing_chapter.save()
+                            cache.register_chapter(existing_chapter)
+                            updated_count += 1
+                            upd_msg = f"Updated chapter '{clean_name}'"
+                            updated_items.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'id': str(existing_chapter.id)})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'updated', 'message': upd_msg})
+                        elif mode == 'create':
+                            err_msg = f"Row {row_idx}: Chapter '{clean_name}' already exists (Class: {class_level.name}, Subject: {subject.name})"
+                            errors.append(err_msg)
+                            error_items.append({'row': row_idx, 'name': clean_name, 'error': err_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'error', 'message': err_msg})
+                    else:
+                        if mode in ('skip_existing', 'skip', 'create', 'upsert'):
+                            if clean_code:
+                                if clean_code in cache.existing_codes:
+                                    final_code = cache.generate_code(f"{clean_code}_{clean_name[:4]}")
+                                else:
+                                    final_code = clean_code
+                                    cache.existing_codes.add(final_code)
+                            else:
+                                final_code = cache.generate_code(clean_name[:4])
+
+                            new_chapter = Chapter.objects.create(
+                                name=clean_name,
+                                class_level=class_level,
+                                subject=subject,
+                                code=final_code,
+                                sort_order=sort_order,
+                                is_active=is_active,
+                                created_by=user_str,
+                                updated_by=user_str
+                            )
+                            cache.register_chapter(new_chapter)
+                            created_count += 1
+                            created_items.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'id': str(new_chapter.id)})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'created', 'message': 'Successfully added'})
+                        elif mode == 'update':
+                            err_msg = f"Row {row_idx}: Chapter '{clean_name}' does not exist (skipped in Update-Only mode)"
+                            errors.append(err_msg)
+                            error_items.append({'row': row_idx, 'name': clean_name, 'error': err_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'error', 'message': err_msg})
                 except Exception as e:
-                    errors.append(f"Row {row_idx}: {str(e)}")
+                    err_text = str(e).strip() if str(e).strip() else f"Database/Format error ({type(e).__name__})"
+                    err_msg = f"Row {row_idx}: {err_text}"
+                    errors.append(err_msg)
+                    error_items.append({'row': row_idx, 'name': row.get('Name', 'Unknown'), 'error': err_text})
+                    details.append({'row': row_idx, 'name': row.get('Name', 'Unknown'), 'class_level': row.get('Class Level', ''), 'subject': row.get('Subject', ''), 'status': 'error', 'message': err_text})
             
             self.clear_cache()
-            msg = []
-            if created_count: msg.append(f"created {created_count}")
-            if updated_count: msg.append(f"updated {updated_count}")
-            summary = " and ".join(msg) if msg else "processed 0"
+            
+            msg_parts = []
+            if created_count: msg_parts.append(f"{created_count} created")
+            if skipped_count: msg_parts.append(f"{skipped_count} skipped (already exist)")
+            if updated_count: msg_parts.append(f"{updated_count} updated")
+            if errors: msg_parts.append(f"{len(errors)} failed")
+            summary = ", ".join(msg_parts) if msg_parts else "Processed 0 records"
+            
             return response.Response({
-                "message": f"Successfully {summary} chapters",
+                "message": f"Bulk import complete: {summary}",
+                "total_rows": len(records),
                 "created_count": created_count,
                 "updated_count": updated_count,
+                "skipped_count": skipped_count,
+                "error_count": len(errors),
+                "created_items": created_items,
+                "updated_items": updated_items,
+                "skipped_items": skipped_items,
+                "error_items": error_items,
+                "details": details,
                 "errors": errors
-            }, status=status.HTTP_200_OK if updated_count else status.HTTP_201_CREATED)
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -665,113 +1073,165 @@ class TopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            raw = file_obj.read()
-            decoded_file = None
-            used_encoding = None
-            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
-                try:
-                    decoded_file = raw.decode(enc)
-                    used_encoding = enc
-                    break
-                except UnicodeDecodeError:
-                    continue
+            records = parse_tabular_file(file_obj)
+            if not records:
+                return response.Response({"error": "Uploaded file contains no data rows"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if decoded_file is None:
-                decoded_file = raw.decode('latin-1', errors='replace')
-                used_encoding = 'latin-1-replace'
-
-            logging.getLogger(__name__).info(f"topics bulk_upload: decoded file using encoding='{used_encoding}'")
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
-            mode = request.data.get('mode', 'upsert').lower()
+            mode = request.data.get('mode', 'skip_existing').lower()
             
             created_count = 0
             updated_count = 0
+            skipped_count = 0
             errors = []
             
-            for row_idx, row in enumerate(reader, start=2):
+            created_items = []
+            updated_items = []
+            skipped_items = []
+            error_items = []
+            details = []
+            user_str = str(request.user.email or request.user.username or 'Admin') if request.user and request.user.is_authenticated else 'Bulk Import'
+            cache = BulkImportCache(Topic)
+
+            for row_idx, row in records:
                 try:
-                    name = row.get('Name', '').strip()
-                    chapter_name = row.get('Chapter', '').strip()
-                    class_name = row.get('Class Level', '').strip()
-                    subject_name = row.get('Subject', '').strip()
-                    code = row.get('Code', '').strip()
-                    sort_order = row.get('Sort Order', '1').strip()
-                    is_active = str(row.get('Is Active', 'true')).lower() == 'true'
+                    name = get_field_case_insensitive(row, ['Name', 'Topic Name', 'Topic', 'Title', 'TopicName'])
+                    chapter_name = get_field_case_insensitive(row, ['Chapter', 'Chapter Name', 'ChapterName'])
+                    class_name = get_field_case_insensitive(row, ['Class Level', 'Class', 'ClassLevel', 'Class_Level'])
+                    subject_name = get_field_case_insensitive(row, ['Subject', 'Subject Name', 'SubjectName', 'Subject_Name'])
+                    code = get_field_case_insensitive(row, ['Code', 'Topic Code', 'TopicCode'])
+                    sort_order_str = get_field_case_insensitive(row, ['Sort Order', 'Order', 'SortOrder'], '1')
+                    is_active_str = get_field_case_insensitive(row, ['Is Active', 'Active', 'Status', 'IsActive'], 'true')
+                    is_active = str(is_active_str).lower() in ('true', '1', 'yes', 'active')
+                    
+                    sort_order = 1
+                    try:
+                        sort_order = int(float(sort_order_str)) if sort_order_str else 1
+                    except (ValueError, TypeError):
+                        sort_order = 1
                     
                     if not name or not class_name or not subject_name:
-                        if any(row.values()):
-                            errors.append(f"Row {row_idx}: Missing required fields (Name, Class Level, or Subject)")
+                        err_msg = f"Row {row_idx}: Missing required fields (Name='{name}', Class='{class_name}', or Subject='{subject_name}')"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name or 'N/A', 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name or 'N/A', 'class_level': class_name, 'subject': subject_name, 'status': 'error', 'message': err_msg})
                         continue
                         
-                    class_level = ClassLevel.objects.filter(name__iexact=class_name).first()
-                    if not class_level:
-                        digits = re.findall(r"\d+", class_name)
-                        if digits:
-                            class_level = ClassLevel.objects.filter(name__icontains=digits[0]).first()
-                        if not class_level:
-                            class_level = ClassLevel.objects.filter(name__icontains=class_name).first()
-
-                    subject = Subject.objects.filter(name__iexact=subject_name).first()
-                    if not subject:
-                        subject = Subject.objects.filter(name__icontains=subject_name).first()
-
-                    chapter = Chapter.objects.filter(name__iexact=chapter_name, subject=subject, class_level=class_level).first() if chapter_name else None
+                    class_level = cache.resolve_class(class_name)
+                    subject = cache.resolve_sub(subject_name)
                     
                     if not class_level:
-                        errors.append(f"Row {row_idx}: Class '{class_name}' not found")
+                        err_msg = f"Row {row_idx}: Class '{class_name}' not found in system"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name, 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name, 'class_level': class_name, 'subject': subject_name, 'status': 'error', 'message': err_msg})
                         continue
                     if not subject:
-                        errors.append(f"Row {row_idx}: Subject '{subject_name}' not found")
+                        err_msg = f"Row {row_idx}: Subject '{subject_name}' not found in system"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name, 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name, 'class_level': class_level.name, 'subject': subject_name, 'status': 'error', 'message': err_msg})
                         continue
-                    
-                    existing_topic = None
-                    if code:
-                        existing_topic = Topic.objects.filter(code=code).first()
-                    if not existing_topic:
-                        existing_topic = Topic.objects.filter(name__iexact=name, chapter=chapter, subject=subject, class_level=class_level).first()
 
-                    if existing_topic and mode in ('update', 'upsert'):
-                        existing_topic.name = name
-                        existing_topic.chapter = chapter
-                        existing_topic.class_level = class_level
-                        existing_topic.subject = subject
-                        if code:
-                            existing_topic.code = code
-                        if sort_order.isdigit():
-                            existing_topic.sort_order = int(sort_order)
-                        existing_topic.is_active = is_active
-                        existing_topic.save()
-                        updated_count += 1
-                    elif not existing_topic and mode in ('create', 'upsert'):
-                        Topic.objects.create(
-                            name=name,
-                            chapter=chapter,
-                            class_level=class_level,
-                            subject=subject,
-                            code=code if code else None,
-                            sort_order=int(sort_order) if sort_order.isdigit() else 1,
-                            is_active=is_active
-                        )
-                        created_count += 1
-                    elif existing_topic and mode == 'create':
-                        errors.append(f"Row {row_idx}: Topic '{name}' already exists (skipped in Create-Only mode)")
-                    elif not existing_topic and mode == 'update':
-                        errors.append(f"Row {row_idx}: Topic '{name}' does not exist (skipped in Update-Only mode)")
+                    chapter = None
+                    if chapter_name:
+                        chapter = cache.find_chapter(chapter_name, class_level, subject)
+                    
+                    clean_name = re.sub(r'\s+', ' ', name.strip())
+                    clean_code = code.strip() if code else ''
+
+                    # In-memory instant duplicate lookup (O(1))
+                    existing_topic = cache.find_topic(clean_name, class_level, subject, chapter)
+
+                    if existing_topic:
+                        if mode in ('skip_existing', 'skip'):
+                            skipped_count += 1
+                            skip_msg = f"Topic '{existing_topic.name}' already exists (Class: {class_level.name}, Subject: {subject.name})"
+                            skipped_items.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'reason': skip_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'skipped', 'message': skip_msg})
+                        elif mode in ('update', 'upsert'):
+                            existing_topic.name = clean_name
+                            existing_topic.chapter = chapter
+                            existing_topic.class_level = class_level
+                            existing_topic.subject = subject
+                            if clean_code:
+                                existing_topic.code = clean_code
+                            existing_topic.sort_order = sort_order
+                            existing_topic.is_active = is_active
+                            existing_topic.updated_by = user_str
+                            existing_topic.save()
+                            cache.register_topic(existing_topic)
+                            updated_count += 1
+                            upd_msg = f"Updated topic '{clean_name}'"
+                            updated_items.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'id': str(existing_topic.id)})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'updated', 'message': upd_msg})
+                        elif mode == 'create':
+                            err_msg = f"Row {row_idx}: Topic '{clean_name}' already exists for Chapter {chapter_name or 'N/A'}"
+                            errors.append(err_msg)
+                            error_items.append({'row': row_idx, 'name': clean_name, 'error': err_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'error', 'message': err_msg})
+                    else:
+                        if mode in ('skip_existing', 'skip', 'create', 'upsert'):
+                            if clean_code:
+                                if clean_code in cache.existing_codes:
+                                    final_code = cache.generate_code(f"{clean_code}_{clean_name[:4]}")
+                                else:
+                                    final_code = clean_code
+                                    cache.existing_codes.add(final_code)
+                            else:
+                                final_code = cache.generate_code(clean_name[:4])
+
+                            new_topic = Topic.objects.create(
+                                name=clean_name,
+                                chapter=chapter,
+                                class_level=class_level,
+                                subject=subject,
+                                code=final_code,
+                                sort_order=sort_order,
+                                is_active=is_active,
+                                created_by=user_str,
+                                updated_by=user_str
+                            )
+                            cache.register_topic(new_topic)
+                            created_count += 1
+                            created_items.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'id': str(new_topic.id)})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'created', 'message': 'Successfully added'})
+                        elif mode == 'update':
+                            err_msg = f"Row {row_idx}: Topic '{clean_name}' does not exist (skipped in Update-Only mode)"
+                            errors.append(err_msg)
+                            error_items.append({'row': row_idx, 'name': clean_name, 'error': err_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'class_level': class_level.name, 'subject': subject.name, 'status': 'error', 'message': err_msg})
                 except Exception as e:
-                    errors.append(f"Row {row_idx}: {str(e)}")
+                    err_text = str(e).strip() if str(e).strip() else f"Database/Format error ({type(e).__name__})"
+                    err_msg = f"Row {row_idx}: {err_text}"
+                    errors.append(err_msg)
+                    error_items.append({'row': row_idx, 'name': row.get('Name', 'Unknown'), 'error': err_text})
+                    details.append({'row': row_idx, 'name': row.get('Name', 'Unknown'), 'class_level': row.get('Class Level', ''), 'subject': row.get('Subject', ''), 'status': 'error', 'message': err_text})
             
             self.clear_cache()
-            msg = []
-            if created_count: msg.append(f"created {created_count}")
-            if updated_count: msg.append(f"updated {updated_count}")
-            summary = " and ".join(msg) if msg else "processed 0"
+            
+            msg_parts = []
+            if created_count: msg_parts.append(f"{created_count} created")
+            if skipped_count: msg_parts.append(f"{skipped_count} skipped (already exist)")
+            if updated_count: msg_parts.append(f"{updated_count} updated")
+            if errors: msg_parts.append(f"{len(errors)} failed")
+            summary = ", ".join(msg_parts) if msg_parts else "Processed 0 records"
+            
             return response.Response({
-                "message": f"Successfully {summary} topics",
+                "message": f"Bulk import complete: {summary}",
+                "total_rows": len(records),
                 "created_count": created_count,
                 "updated_count": updated_count,
+                "skipped_count": skipped_count,
+                "error_count": len(errors),
+                "created_items": created_items,
+                "updated_items": updated_items,
+                "skipped_items": skipped_items,
+                "error_items": error_items,
+                "details": details,
                 "errors": errors
-            }, status=status.HTTP_200_OK if updated_count else status.HTTP_201_CREATED)
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -839,92 +1299,156 @@ class SubTopicViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
             return response.Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            raw = file_obj.read()
-            decoded_file = None
-            used_encoding = None
-            for enc in ('utf-8-sig', 'utf-8', 'cp1252', 'latin-1'):
-                try:
-                    decoded_file = raw.decode(enc)
-                    used_encoding = enc
-                    break
-                except UnicodeDecodeError:
-                    continue
+            records = parse_tabular_file(file_obj)
+            if not records:
+                return response.Response({"error": "Uploaded file contains no data rows"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if decoded_file is None:
-                decoded_file = raw.decode('latin-1', errors='replace')
-                used_encoding = 'latin-1-replace'
-
-            logging.getLogger(__name__).info(f"subtopics bulk_upload: decoded file using encoding='{used_encoding}'")
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
-            mode = request.data.get('mode', 'upsert').lower()
+            mode = request.data.get('mode', 'skip_existing').lower()
             
             created_count = 0
             updated_count = 0
+            skipped_count = 0
             errors = []
             
-            for row_idx, row in enumerate(reader, start=2):
+            created_items = []
+            updated_items = []
+            skipped_items = []
+            error_items = []
+            details = []
+            
+            user_str = str(request.user.email or request.user.username or 'Admin') if request.user and request.user.is_authenticated else 'Bulk Import'
+            cache = BulkImportCache(SubTopic)
+
+            for row_idx, row in records:
                 try:
-                    name = row.get('Name', '').strip()
-                    topic_name = row.get('Topic', '').strip()
-                    code = row.get('Code', '').strip()
-                    sort_order = row.get('Sort Order', '1').strip()
-                    is_active = str(row.get('Is Active', 'true')).lower() == 'true'
+                    name = get_field_case_insensitive(row, ['Name', 'SubTopic Name', 'SubTopic', 'Title', 'SubTopicName'])
+                    topic_name = get_field_case_insensitive(row, ['Topic', 'Topic Name', 'TopicName'])
+                    code = get_field_case_insensitive(row, ['Code', 'SubTopic Code', 'SubTopicCode'])
+                    sort_order_str = get_field_case_insensitive(row, ['Sort Order', 'Order', 'SortOrder'], '1')
+                    is_active_str = get_field_case_insensitive(row, ['Is Active', 'Active', 'Status', 'IsActive'], 'true')
+                    is_active = str(is_active_str).lower() in ('true', '1', 'yes', 'active')
+                    
+                    sort_order = 1
+                    try:
+                        sort_order = int(float(sort_order_str)) if sort_order_str else 1
+                    except (ValueError, TypeError):
+                        sort_order = 1
                     
                     if not name or not topic_name:
-                        if any(row.values()):
-                            errors.append(f"Row {row_idx}: Missing required fields (Name or Topic)")
+                        err_msg = f"Row {row_idx}: Missing required fields (Name='{name}' or Topic='{topic_name}')"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name or 'N/A', 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name or 'N/A', 'topic': topic_name, 'status': 'error', 'message': err_msg})
                         continue
                         
-                    topic = Topic.objects.filter(name__iexact=topic_name).first()
+                    clean_topic_name = re.sub(r'\s+', ' ', topic_name.strip())
+                    clean_topic_lower = clean_topic_name.lower()
+                    clean_topic_norm = re.sub(r'[^a-zA-Z0-9]', '', clean_topic_name).lower()
+                    
+                    topic = cache.topic_map.get(clean_topic_lower) or cache.topic_map.get(clean_topic_norm)
+                    if not topic:
+                        for t in cache.topics:
+                            if clean_topic_lower in t.name.lower():
+                                topic = t
+                                break
                     
                     if not topic:
-                        errors.append(f"Row {row_idx}: Topic '{topic_name}' not found")
+                        err_msg = f"Row {row_idx}: Topic '{topic_name}' not found in system"
+                        errors.append(err_msg)
+                        error_items.append({'row': row_idx, 'name': name, 'error': err_msg})
+                        details.append({'row': row_idx, 'name': name, 'topic': topic_name, 'status': 'error', 'message': err_msg})
                         continue
                     
-                    existing_subtopic = None
-                    if code:
-                        existing_subtopic = SubTopic.objects.filter(code=code).first()
-                    if not existing_subtopic:
-                        existing_subtopic = SubTopic.objects.filter(name__iexact=name, topic=topic).first()
+                    clean_name = re.sub(r'\s+', ' ', name.strip())
+                    clean_code = code.strip() if code else ''
 
-                    if existing_subtopic and mode in ('update', 'upsert'):
-                        existing_subtopic.name = name
-                        existing_subtopic.topic = topic
-                        if code:
-                            existing_subtopic.code = code
-                        if sort_order.isdigit():
-                            existing_subtopic.sort_order = int(sort_order)
-                        existing_subtopic.is_active = is_active
-                        existing_subtopic.save()
-                        updated_count += 1
-                    elif not existing_subtopic and mode in ('create', 'upsert'):
-                        SubTopic.objects.create(
-                            name=name,
-                            topic=topic,
-                            code=code if code else None,
-                            sort_order=int(sort_order) if sort_order.isdigit() else 1,
-                            is_active=is_active
-                        )
-                        created_count += 1
-                    elif existing_subtopic and mode == 'create':
-                        errors.append(f"Row {row_idx}: SubTopic '{name}' already exists (skipped in Create-Only mode)")
-                    elif not existing_subtopic and mode == 'update':
-                        errors.append(f"Row {row_idx}: SubTopic '{name}' does not exist (skipped in Update-Only mode)")
+                    # In-memory instant duplicate lookup (O(1))
+                    existing_subtopic = cache.find_subtopic(clean_name, topic)
+
+                    if existing_subtopic:
+                        if mode in ('skip_existing', 'skip'):
+                            skipped_count += 1
+                            skip_msg = f"SubTopic '{existing_subtopic.name}' already exists for topic '{topic.name}'"
+                            skipped_items.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'reason': skip_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'status': 'skipped', 'message': skip_msg})
+                        elif mode in ('update', 'upsert'):
+                            existing_subtopic.name = clean_name
+                            existing_subtopic.topic = topic
+                            if clean_code:
+                                existing_subtopic.code = clean_code
+                            existing_subtopic.sort_order = sort_order
+                            existing_subtopic.is_active = is_active
+                            existing_subtopic.updated_by = user_str
+                            existing_subtopic.save()
+                            cache.register_subtopic(existing_subtopic)
+                            updated_count += 1
+                            upd_msg = f"Updated subtopic '{clean_name}'"
+                            updated_items.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'id': str(existing_subtopic.id)})
+                            details.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'status': 'updated', 'message': upd_msg})
+                        elif mode == 'create':
+                            err_msg = f"Row {row_idx}: SubTopic '{clean_name}' already exists for Topic '{topic.name}'"
+                            errors.append(err_msg)
+                            error_items.append({'row': row_idx, 'name': clean_name, 'error': err_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'status': 'error', 'message': err_msg})
+                    else:
+                        if mode in ('skip_existing', 'skip', 'create', 'upsert'):
+                            if clean_code:
+                                if clean_code in cache.existing_codes:
+                                    final_code = cache.generate_code(f"{clean_code}_{clean_name[:4]}")
+                                else:
+                                    final_code = clean_code
+                                    cache.existing_codes.add(final_code)
+                            else:
+                                final_code = cache.generate_code(clean_name[:4])
+
+                            new_sub = SubTopic.objects.create(
+                                name=clean_name,
+                                topic=topic,
+                                code=final_code,
+                                sort_order=sort_order,
+                                is_active=is_active,
+                                created_by=user_str,
+                                updated_by=user_str
+                            )
+                            cache.register_subtopic(new_sub)
+                            created_count += 1
+                            created_items.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'id': str(new_sub.id)})
+                            details.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'status': 'created', 'message': 'Successfully added'})
+                        elif mode == 'update':
+                            err_msg = f"Row {row_idx}: SubTopic '{clean_name}' does not exist (skipped in Update-Only mode)"
+                            errors.append(err_msg)
+                            error_items.append({'row': row_idx, 'name': clean_name, 'error': err_msg})
+                            details.append({'row': row_idx, 'name': clean_name, 'topic': topic.name, 'status': 'error', 'message': err_msg})
                 except Exception as e:
-                    errors.append(f"Row {row_idx}: {str(e)}")
+                    err_text = str(e).strip() if str(e).strip() else f"Database/Format error ({type(e).__name__})"
+                    err_msg = f"Row {row_idx}: {err_text}"
+                    errors.append(err_msg)
+                    error_items.append({'row': row_idx, 'name': row.get('Name', 'Unknown'), 'error': err_text})
+                    details.append({'row': row_idx, 'name': row.get('Name', 'Unknown'), 'topic': row.get('Topic', ''), 'status': 'error', 'message': err_text})
             
             self.clear_cache()
-            msg = []
-            if created_count: msg.append(f"created {created_count}")
-            if updated_count: msg.append(f"updated {updated_count}")
-            summary = " and ".join(msg) if msg else "processed 0"
+            
+            msg_parts = []
+            if created_count: msg_parts.append(f"{created_count} created")
+            if skipped_count: msg_parts.append(f"{skipped_count} skipped (already exist)")
+            if updated_count: msg_parts.append(f"{updated_count} updated")
+            if errors: msg_parts.append(f"{len(errors)} failed")
+            summary = ", ".join(msg_parts) if msg_parts else "Processed 0 records"
+            
             return response.Response({
-                "message": f"Successfully {summary} sub-topics",
+                "message": f"Bulk import complete: {summary}",
+                "total_rows": len(records),
                 "created_count": created_count,
                 "updated_count": updated_count,
+                "skipped_count": skipped_count,
+                "error_count": len(errors),
+                "created_items": created_items,
+                "updated_items": updated_items,
+                "skipped_items": skipped_items,
+                "error_items": error_items,
+                "details": details,
                 "errors": errors
-            }, status=status.HTTP_200_OK if updated_count else status.HTTP_201_CREATED)
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return response.Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
