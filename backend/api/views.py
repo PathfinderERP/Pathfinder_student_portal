@@ -2338,3 +2338,185 @@ def get_admin_teacher_activity_detail(request, username):
         return response.Response(data)
 
     return response.Response([])
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_performance_analytics(request):
+    """
+    Returns comprehensive performance analytics for the logged-in teacher:
+    - Batch-wise feedback rating & student counts
+    - Centre-wise breakdown
+    - 30-day rating trend
+    - Doubt resolution stats
+    - Subject-wise rating breakdown
+    """
+    from api.models import Doubt, ClassFeedback, CustomUser
+    from django.db.models import Q, Avg, Count
+    from collections import defaultdict
+    from django.utils import timezone
+    import datetime
+
+    user = request.user
+
+    # Build teacher identity query for ClassFeedback
+    full_name = f"{user.first_name} {user.last_name}".strip()
+    teacher_id_q = (
+        Q(teacher_id=str(user.pk)) |
+        Q(teacher_id__iexact=user.email) |
+        Q(teacher_id__iexact=user.username)
+    )
+    if full_name:
+        teacher_id_q |= Q(teacher_name__iexact=full_name)
+
+    # Fetch all feedbacks for this teacher
+    feedbacks = list(ClassFeedback.objects.filter(teacher_id_q).select_related('student').values(
+        'average_score', 'subject', 'date_of_class', 'created_at',
+        'student__assigned_batch', 'student__centre_name', 'student__centre_code',
+        'chapter_name', 'responses'
+    ))
+
+    # --- Batch-wise breakdown ---
+    batch_map = defaultdict(lambda: {'scores': [], 'students': set(), 'count': 0})
+    for fb in feedbacks:
+        batch = fb.get('student__assigned_batch') or 'Unknown Batch'
+        batch_map[batch]['scores'].append(fb['average_score'] or 0)
+        batch_map[batch]['count'] += 1
+
+    batch_data = []
+    for batch, info in sorted(batch_map.items()):
+        avg = round(sum(info['scores']) / len(info['scores']), 2) if info['scores'] else 0
+        batch_data.append({
+            'batch': batch,
+            'avg_rating': avg,
+            'feedback_count': info['count'],
+        })
+    batch_data.sort(key=lambda x: x['avg_rating'], reverse=True)
+
+    # --- Centre-wise breakdown ---
+    centre_map = defaultdict(lambda: {'scores': [], 'count': 0})
+    for fb in feedbacks:
+        centre = fb.get('student__centre_name') or fb.get('student__centre_code') or 'Main Centre'
+        centre_map[centre]['scores'].append(fb['average_score'] or 0)
+        centre_map[centre]['count'] += 1
+
+    centre_data = []
+    for centre, info in sorted(centre_map.items()):
+        avg = round(sum(info['scores']) / len(info['scores']), 2) if info['scores'] else 0
+        centre_data.append({
+            'centre': centre,
+            'avg_rating': avg,
+            'feedback_count': info['count'],
+        })
+    centre_data.sort(key=lambda x: x['avg_rating'], reverse=True)
+
+    # --- Subject-wise breakdown ---
+    subject_map = defaultdict(lambda: {'scores': [], 'count': 0})
+    for fb in feedbacks:
+        subj = fb.get('subject') or 'Unknown'
+        subject_map[subj]['scores'].append(fb['average_score'] or 0)
+        subject_map[subj]['count'] += 1
+
+    subject_data = []
+    for subj, info in sorted(subject_map.items()):
+        avg = round(sum(info['scores']) / len(info['scores']), 2) if info['scores'] else 0
+        subject_data.append({
+            'subject': subj,
+            'avg_rating': avg,
+            'feedback_count': info['count'],
+        })
+    subject_data.sort(key=lambda x: x['avg_rating'], reverse=True)
+
+    # --- 30-day rating trend (daily averages) ---
+    today = timezone.now().date()
+    trend_map = defaultdict(list)
+    for fb in feedbacks:
+        date_val = fb.get('date_of_class') or (fb.get('created_at').date() if fb.get('created_at') else None)
+        if date_val:
+            if isinstance(date_val, str):
+                try:
+                    date_val = datetime.date.fromisoformat(date_val)
+                except Exception:
+                    continue
+            delta = (today - date_val).days
+            if 0 <= delta <= 30:
+                trend_map[date_val.isoformat()].append(fb['average_score'] or 0)
+
+    rating_trend = []
+    for i in range(30, -1, -1):
+        d = today - datetime.timedelta(days=i)
+        key = d.isoformat()
+        scores = trend_map.get(key, [])
+        avg = round(sum(scores) / len(scores), 2) if scores else None
+        rating_trend.append({'date': key, 'avg_rating': avg, 'count': len(scores)})
+
+    # --- Doubt stats ---
+    doubt_q = Q(teacher_id=str(user.pk)) | Q(teacher_id__iexact=user.email) | Q(teacher_id__iexact=user.username)
+    if full_name:
+        doubt_q |= Q(teacher_name__iexact=full_name)
+
+    doubts_qs = Doubt.objects.filter(doubt_q)
+    total_doubts = doubts_qs.count()
+    resolved_doubts = doubts_qs.filter(status='Resolved').count()
+    pending_doubts = doubts_qs.filter(status='Assign').count()
+    unassigned_doubts = doubts_qs.filter(status='Unassigned').count()
+    rejected_doubts = doubts_qs.filter(status='Rejected').count()
+
+    # Subject-wise doubt count
+    doubt_by_subject = defaultdict(int)
+    for d in doubts_qs.values('subject'):
+        doubt_by_subject[d['subject'] or 'Unknown'] += 1
+    doubt_subject_data = [{'subject': k, 'count': v} for k, v in sorted(doubt_by_subject.items(), key=lambda x: -x[1])]
+
+    # --- Overall metrics ---
+    total_feedbacks = len(feedbacks)
+    overall_rating = round(sum(fb['average_score'] or 0 for fb in feedbacks) / total_feedbacks, 2) if total_feedbacks else 0
+
+    # Count students in the DB that match teacher's batches/centres
+    # Get teacher's known batches from feedback
+    teacher_batches = list(batch_map.keys())
+    teacher_centres = list(centre_map.keys())
+
+    # Count students per batch
+    student_batch_counts = {}
+    for batch in teacher_batches:
+        if batch and batch != 'Unknown Batch':
+            count = CustomUser.objects.filter(
+                user_type='student',
+                assigned_batch__icontains=batch
+            ).count()
+            student_batch_counts[batch] = count
+
+    # Count students per centre
+    student_centre_counts = {}
+    for centre in teacher_centres:
+        if centre and centre not in ('Main Centre',):
+            count = CustomUser.objects.filter(
+                user_type='student',
+                centre_name__icontains=centre
+            ).count()
+            student_centre_counts[centre] = count
+
+    # Merge student counts into batch_data and centre_data
+    for item in batch_data:
+        item['student_count'] = student_batch_counts.get(item['batch'], 0)
+    for item in centre_data:
+        item['student_count'] = student_centre_counts.get(item['centre'], 0)
+
+    return response.Response({
+        'overall': {
+            'avg_rating': overall_rating,
+            'total_feedbacks': total_feedbacks,
+            'total_doubts': total_doubts,
+            'resolved_doubts': resolved_doubts,
+            'pending_doubts': pending_doubts,
+            'unassigned_doubts': unassigned_doubts,
+            'rejected_doubts': rejected_doubts,
+            'resolution_rate': round((resolved_doubts / total_doubts * 100), 1) if total_doubts else 0,
+        },
+        'batch_data': batch_data,
+        'centre_data': centre_data,
+        'subject_data': subject_data,
+        'rating_trend': rating_trend,
+        'doubt_by_subject': doubt_subject_data,
+    }, status=200)

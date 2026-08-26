@@ -275,7 +275,7 @@ const TeacherDashboard = () => {
                 )}
                 {visitedTabs.has('Performance') && (
                     <div className={activeTab === 'Performance' ? 'block' : 'hidden'}>
-                        <TeacherPerformance />
+                        <TeacherPerformance user={user} />
                     </div>
                 )}
                 {visitedTabs.has('Profile') && (
