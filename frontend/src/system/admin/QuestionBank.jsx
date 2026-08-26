@@ -610,14 +610,33 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
     }, [getApiUrl, getAuthConfig]);
 
-    // Initialize master data and stats only once on mount
+    // Master Data Active Lists
+    const activeClasses = useMemo(() => classes.filter(c => c.is_active !== false), [classes]);
+    const activeSubjects = useMemo(() => subjects.filter(s => s.is_active !== false), [subjects]);
+    const activeChapters = useMemo(() => chapters.filter(c => c.is_active !== false), [chapters]);
+    const activeTopics = useMemo(() => topics.filter(t => t.is_active !== false), [topics]);
+    const activeExamTypes = useMemo(() => examTypes.filter(e => e.is_active !== false), [examTypes]);
+    const activeTargetExams = useMemo(() => targetExams.filter(t => t.is_active !== false), [targetExams]);
+    const activeExamDetails = useMemo(() => examDetails.filter(d => d.is_active !== false), [examDetails]);
+
+    // Initialize master data and stats on mount, and listen for live updates
     useEffect(() => {
         const initializeData = async () => {
             await fetchMasterData();
             await fetchStats();
         };
         initializeData();
-    }, []);
+
+        const handleMasterDataUpdated = () => {
+            fetchMasterData(true);
+        };
+        window.addEventListener('master-data-updated', handleMasterDataUpdated);
+        window.addEventListener('master_data_updated', handleMasterDataUpdated);
+        return () => {
+            window.removeEventListener('master-data-updated', handleMasterDataUpdated);
+            window.removeEventListener('master_data_updated', handleMasterDataUpdated);
+        };
+    }, [fetchMasterData, fetchStats]);
 
     useEffect(() => {
         if (view === 'media') {
@@ -628,98 +647,113 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
     }, [view, questions.length]);
 
-    // Media Cascading Filters
+    // Media Cascading Filters (Active only)
     const filteredSubjectsForMedia = useMemo(() => {
-        if (!imageFilters.classId) return subjects;
-        const subjectIds = [...new Set(topics
+        if (!imageFilters.classId) return activeSubjects;
+        const activeTop = topics.filter(t => t.is_active !== false);
+        const subjectIds = [...new Set(activeTop
             .filter(t => String(t.class_level) === String(imageFilters.classId))
             .map(t => String(t.subject))
         )];
-        return subjects.filter(s => subjectIds.includes(String(s.id)));
-    }, [subjects, topics, imageFilters.classId]);
+        return activeSubjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [activeSubjects, topics, imageFilters.classId]);
 
     const filteredTopicsForMedia = useMemo(() => {
-        return topics.filter(t => {
+        const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
+        const activeTop = topics.filter(t => t.is_active !== false && (!t.chapter || activeChapIds.has(String(t.chapter))));
+        return activeTop.filter(t => {
             const matchesClass = !imageFilters.classId || String(t.class_level) === String(imageFilters.classId);
             const matchesSubject = !imageFilters.subjectId || String(t.subject) === String(imageFilters.subjectId);
             return matchesClass && matchesSubject;
         });
-    }, [topics, imageFilters.classId, imageFilters.subjectId]);
+    }, [topics, chapters, imageFilters.classId, imageFilters.subjectId]);
 
     const repositoryFilteredSubjects = useMemo(() => {
-        if (!filters.classId || filters.classId === '__NULL__') return subjects;
-        const subjectIds = [...new Set(topics
+        if (!filters.classId || filters.classId === '__NULL__') return activeSubjects;
+        const activeTop = topics.filter(t => t.is_active !== false);
+        const subjectIds = [...new Set(activeTop
             .filter(t => String(t.class_level) === String(filters.classId))
             .map(t => String(t.subject))
         )];
-        return subjects.filter(s => subjectIds.includes(String(s.id)));
-    }, [subjects, topics, filters.classId]);
+        return activeSubjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [activeSubjects, topics, filters.classId]);
 
     const repositoryFilteredChapters = useMemo(() => {
-        return chapters.filter(c => {
+        const activeChap = chapters.filter(c => c.is_active !== false);
+        const activeTop = topics.filter(t => t.is_active !== false);
+        return activeChap.filter(c => {
             const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(c.class_level) === String(filters.classId);
             const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(c.subject) === String(filters.subjectId);
             return matchesClass && matchesSubject;
         }).map(c => ({
             ...c,
-            topicCount: topics.filter(t => String(t.chapter) === String(c.id)).length
+            topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length
         }));
     }, [chapters, topics, filters.classId, filters.subjectId]);
 
     const repositoryFilteredTopics = useMemo(() => {
-        return topics.filter(t => {
+        const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
+        const activeTop = topics.filter(t => t.is_active !== false && (!t.chapter || activeChapIds.has(String(t.chapter))));
+        return activeTop.filter(t => {
             const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(t.class_level) === String(filters.classId);
             const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(t.subject) === String(filters.subjectId);
             const matchesChapter = !filters.chapterId || filters.chapterId === '__NULL__' || String(t.chapter) === String(filters.chapterId);
             return matchesClass && matchesSubject && matchesChapter;
         });
-    }, [topics, filters.classId, filters.subjectId, filters.chapterId]);
+    }, [topics, chapters, filters.classId, filters.subjectId, filters.chapterId]);
 
     const bulkUpdateFilteredSubjects = useMemo(() => {
-        if (!bulkUpdateFields.class_level) return subjects;
-        const subjectIds = [...new Set(topics
+        if (!bulkUpdateFields.class_level) return activeSubjects;
+        const activeTop = topics.filter(t => t.is_active !== false);
+        const subjectIds = [...new Set(activeTop
             .filter(t => String(t.class_level) === String(bulkUpdateFields.class_level))
             .map(t => String(t.subject))
         )];
-        return subjects.filter(s => subjectIds.includes(String(s.id)));
-    }, [subjects, topics, bulkUpdateFields.class_level]);
+        return activeSubjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [activeSubjects, topics, bulkUpdateFields.class_level]);
 
     const bulkUpdateFilteredChapters = useMemo(() => {
-        return chapters.filter(c => {
+        const activeChap = chapters.filter(c => c.is_active !== false);
+        const activeTop = topics.filter(t => t.is_active !== false);
+        return activeChap.filter(c => {
             const matchesClass = !bulkUpdateFields.class_level || String(c.class_level) === String(bulkUpdateFields.class_level);
             const matchesSubject = !bulkUpdateFields.subject || String(c.subject) === String(bulkUpdateFields.subject);
             return matchesClass && matchesSubject;
         }).map(c => ({
             ...c,
-            topicCount: topics.filter(t => String(t.chapter) === String(c.id)).length
+            topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length
         }));
     }, [chapters, topics, bulkUpdateFields.class_level, bulkUpdateFields.subject]);
 
     const bulkUpdateFilteredTopics = useMemo(() => {
-        return topics.filter(t => {
+        const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
+        const activeTop = topics.filter(t => t.is_active !== false && (!t.chapter || activeChapIds.has(String(t.chapter))));
+        return activeTop.filter(t => {
             const matchesClass = !bulkUpdateFields.class_level || String(t.class_level) === String(bulkUpdateFields.class_level);
             const matchesSubject = !bulkUpdateFields.subject || String(t.subject) === String(bulkUpdateFields.subject);
             const matchesChapter = !bulkUpdateFields.chapter || String(t.chapter) === String(bulkUpdateFields.chapter);
             return matchesClass && matchesSubject && matchesChapter;
         });
-    }, [topics, bulkUpdateFields.class_level, bulkUpdateFields.subject, bulkUpdateFields.chapter]);
+    }, [topics, chapters, bulkUpdateFields.class_level, bulkUpdateFields.subject, bulkUpdateFields.chapter]);
 
-    // Cascading Filter: Filter subjects based on selected class
+    // Cascading Filter: Filter subjects based on selected class (Active only)
     const filteredSubjects = useMemo(() => {
-        if (form.isIndependentSelection) return subjects;
-        if (!form.classId) return subjects;
-        // Get unique subject IDs that have topics for the selected class
-        const subjectIds = [...new Set(topics
+        if (form.isIndependentSelection) return activeSubjects;
+        if (!form.classId) return activeSubjects;
+        const activeTop = topics.filter(t => t.is_active !== false);
+        const subjectIds = [...new Set(activeTop
             .filter(t => String(t.class_level) === String(form.classId))
             .map(t => String(t.subject))
         )];
-        return subjects.filter(s => subjectIds.includes(String(s.id)));
-    }, [subjects, topics, form.classId, form.isIndependentSelection]);
+        return activeSubjects.filter(s => subjectIds.includes(String(s.id)));
+    }, [activeSubjects, topics, form.classId, form.isIndependentSelection]);
 
     const filteredChapters = useMemo(() => {
-        let list = chapters;
+        const activeChap = chapters.filter(c => c.is_active !== false);
+        const activeTop = topics.filter(t => t.is_active !== false);
+        let list = activeChap;
         if (!form.isIndependentSelection) {
-            list = chapters.filter(c => {
+            list = activeChap.filter(c => {
                 const matchesClass = !form.classId || String(c.class_level) === String(form.classId);
                 const matchesSubject = !form.subjectId || String(c.subject) === String(form.subjectId);
                 return matchesClass && matchesSubject;
@@ -727,19 +761,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
         return list.map(c => ({
             ...c,
-            topicCount: topics.filter(t => String(t.chapter) === String(c.id)).length
+            topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length
         }));
     }, [chapters, topics, form.classId, form.subjectId, form.isIndependentSelection]);
 
     const filteredTopics = useMemo(() => {
-        if (form.isIndependentSelection) return topics;
-        return topics.filter(t => {
+        const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
+        const activeTop = topics.filter(t => t.is_active !== false && (!t.chapter || activeChapIds.has(String(t.chapter))));
+        if (form.isIndependentSelection) return activeTop;
+        return activeTop.filter(t => {
             const matchesClass = !form.classId || String(t.class_level) === String(form.classId);
             const matchesSubject = !form.subjectId || String(t.subject) === String(form.subjectId);
             const matchesChapter = !form.chapterId || String(t.chapter) === String(form.chapterId);
             return matchesClass && matchesSubject && matchesChapter;
         });
-    }, [topics, form.classId, form.subjectId, form.chapterId, form.isIndependentSelection]);
+    }, [topics, chapters, form.classId, form.subjectId, form.chapterId, form.isIndependentSelection]);
 
     // Helper to process and upload Base64 images from HTML content before saving to DB
     const processEditorImages = async (html) => {
@@ -1029,7 +1065,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             </div>
                             <div className="min-w-0">
                                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Total Chapters</p>
-                                <p className="text-lg font-black tracking-tight">{chapters.length || 0}</p>
+                                <p className="text-lg font-black tracking-tight">{activeChapters.length || 0}</p>
                             </div>
                         </div>
 
@@ -1039,7 +1075,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             </div>
                             <div className="min-w-0">
                                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-0.5 truncate">Total Topics</p>
-                                <p className="text-lg font-black tracking-tight">{topics.length || 0}</p>
+                                <p className="text-lg font-black tracking-tight">{activeTopics.length || 0}</p>
                             </div>
                         </div>
 
@@ -1197,7 +1233,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         )}
                     </label>
 
-                    <span className={`text-[13px] font-bold truncate ${!selectedOption ? 'opacity-30' : ''}`}>
+                    <span
+                        title={selectedOption ? String(selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
+                        className={`text-[13px] font-bold truncate ${!selectedOption ? 'opacity-30' : ''}`}
+                    >
                         {selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
                     </span>
 
@@ -1272,9 +1311,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             )}
                             {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
                                 const isSelected = (String(opt.id) === String(value) || (opt.value !== undefined && opt.value === value && value !== ''));
+                                const optText = String(opt.label || opt.name || opt.value || '');
                                 return (
                                     <div
                                         key={i}
+                                        title={optText}
                                         onClick={() => {
                                             onChange(opt.id !== undefined ? opt.id : opt.value);
                                             setIsOpen(false);
@@ -1282,9 +1323,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
                                             ${isSelected
                                                 ? 'bg-blue-500 text-white'
-                                                : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
+                                                : isDarkMode ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-blue-50/80 text-slate-700 hover:text-blue-700'}`}
                                     >
-                                        <span className="truncate flex-1">{opt.label || opt.name || opt.value}</span>
+                                        <span className="truncate flex-1" title={optText}>{optText}</span>
                                         <div className="flex items-center gap-2 shrink-0">
                                             {opt.topicCount !== undefined && (
                                                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide transition-all ${
@@ -1694,7 +1735,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Filter Class"
                             value={filters.classId}
-                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...classes]}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeClasses]}
                             placeholder="All Classes"
                             onChange={(val) => setFilters({ ...filters, classId: val })}
                         />
@@ -1722,14 +1763,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Exam Type"
                             value={filters.examTypeId}
-                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...examTypes]}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeExamTypes]}
                             placeholder="All Exams"
                             onChange={(val) => setFilters({ ...filters, examTypeId: val })}
                         />
                         <CustomSelect
                             label="Target Exam"
                             value={filters.targetExamId}
-                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...targetExams]}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeTargetExams]}
                             placeholder="All Targets"
                             onChange={(val) => setFilters({ ...filters, targetExamId: val })}
                         />
@@ -1740,7 +1781,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Filter Test Name"
                             value={filters.testNameId}
-                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...examDetails]}
+                            options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeExamDetails]}
                             placeholder="All Tests"
                             onChange={(val) => setFilters({ ...filters, testNameId: val })}
                         />
@@ -2397,7 +2438,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Class"
                             value={form.classId}
-                            options={classes}
+                            options={activeClasses}
                             placeholder="Select Class"
                             onChange={(val) => setForm({ ...form, classId: val })}
                         />
@@ -2425,14 +2466,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Exam Type"
                             value={form.examTypeId}
-                            options={examTypes}
+                            options={activeExamTypes}
                             placeholder="Select Type"
                             onChange={(val) => setForm({ ...form, examTypeId: val })}
                         />
                         <CustomSelect
                             label="Target Exam"
                             value={form.targetExamId}
-                            options={targetExams}
+                            options={activeTargetExams}
                             placeholder="Select Exam"
                             onChange={(val) => setForm({ ...form, targetExamId: val })}
                         />
@@ -2443,7 +2484,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Test Name"
                             value={form.testNameId}
-                            options={examDetails}
+                            options={activeExamDetails}
                             placeholder="Select Test (Optional)"
                             onChange={(val) => setForm({ ...form, testNameId: val })}
                         />
@@ -2803,7 +2844,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         <CustomSelect
                             label="Filter Class"
                             value={imageFilters.classId}
-                            options={classes}
+                            options={activeClasses}
                             placeholder="All Classes"
                             onChange={(val) => setImageFilters(prev => ({ ...prev, classId: val, subjectId: '', topicId: '' }))}
                         />
@@ -3093,7 +3134,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <CustomSelect
                                 label="Update Class"
                                 value={bulkUpdateFields.class_level}
-                                options={classes}
+                                options={activeClasses}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, class_level: val })}
                             />
@@ -3135,21 +3176,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             <CustomSelect
                                 label="Update Exam Type"
                                 value={bulkUpdateFields.exam_type}
-                                options={examTypes}
+                                options={activeExamTypes}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, exam_type: val })}
                             />
                             <CustomSelect
                                 label="Update Target Exam"
                                 value={bulkUpdateFields.target_exam}
-                                options={targetExams}
+                                options={activeTargetExams}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, target_exam: val })}
                             />
                             <CustomSelect
                                 label="Update Test Name"
                                 value={bulkUpdateFields.test_name}
-                                options={examDetails}
+                                options={activeExamDetails}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, test_name: val })}
                             />

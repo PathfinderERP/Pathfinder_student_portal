@@ -84,7 +84,7 @@ const SearchableSelect = ({
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 className={`w-full p-3 md:max-lg:p-2 rounded-[5px] border font-bold text-sm flex items-center justify-between cursor-pointer transition-all ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? 'bg-[#1A1F2B] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
             >
-                <span className="truncate">{getDisplayValue()}</span>
+                <span className="truncate" title={getDisplayValue()}>{getDisplayValue()}</span>
                 <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
 
@@ -139,6 +139,7 @@ const SearchableSelect = ({
                                 return (
                                     <div
                                         key={opt.id}
+                                        title={opt.name}
                                         onClick={() => handleSelect(opt.id)}
                                         className={`flex items-center gap-3 px-3 py-2.5 rounded-[5px] text-xs font-bold cursor-pointer transition-all mb-1 ${isSelected 
                                             ? (isDarkMode ? 'bg-orange-500/10 text-orange-500' : 'bg-orange-50 text-orange-600') 
@@ -150,7 +151,7 @@ const SearchableSelect = ({
                                         >
                                             {isSelected && <Check size={12} className="text-white" strokeWidth={4} />}
                                         </div>
-                                        <span className="flex-1 truncate">{opt.name}</span>
+                                        <span className="flex-1 truncate" title={opt.name}>{opt.name}</span>
                                     </div>
                                 );
                             })
@@ -563,8 +564,16 @@ const MasterDataManagement = ({ activeSubTab, setActiveSubTab, onBack, onNavigat
     }, []);
 
     const dispatchMasterDataUpdate = useCallback((key) => {
-        if (!key || typeof window === 'undefined') return;
-        window.dispatchEvent(new CustomEvent('master-data-updated', { detail: { key } }));
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.removeItem('masterDataCache');
+                localStorage.removeItem('masterDataCacheTime');
+            } catch (e) {
+                console.error("Error clearing master data cache", e);
+            }
+            window.dispatchEvent(new CustomEvent('master-data-updated', { detail: { key } }));
+            window.dispatchEvent(new CustomEvent('master_data_updated', { detail: { key } }));
+        }
     }, []);
 
     const fetchData = useCallback(async (force = false, topicFilterId = null) => {
