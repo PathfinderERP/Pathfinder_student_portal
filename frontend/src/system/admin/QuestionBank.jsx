@@ -64,6 +64,275 @@ const processLatexToHtml = (text) => {
     return processed.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 };
 
+// Custom Floating Label Select Component with Multi-Select Support
+const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon: Icon, showCount = true, isMulti = false }) => {
+    const { isDarkMode } = useTheme();
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const containerRef = useRef(null);
+
+    const multiMode = isMulti || Array.isArray(value);
+    const safeArrayValue = useMemo(() => {
+        if (!multiMode) return [];
+        return Array.isArray(value) ? value.map(String) : (value ? [String(value)] : []);
+    }, [multiMode, value]);
+
+    useEffect(() => {
+        if (!isOpen) setSearchTerm('');
+    }, [isOpen]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const validOptions = useMemo(() => {
+        return (options || []).filter(opt => opt && opt.id !== '__NULL__' && opt.value !== '');
+    }, [options]);
+
+    const totalAvailableCount = validOptions.length > 0 ? validOptions.length : (options || []).length;
+
+    const filteredOptions = useMemo(() => {
+        if (!searchTerm) return options || [];
+        return (options || []).filter(opt => {
+            const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+            return text.includes(searchTerm.toLowerCase());
+        });
+    }, [options, searchTerm]);
+
+    // Text summary of selected options
+    const displayText = useMemo(() => {
+        if (multiMode) {
+            if (safeArrayValue.length === 0) return placeholder;
+            const labels = safeArrayValue.map(v => {
+                const found = (options || []).find(o => String(o.id) === String(v) || String(o.value) === String(v));
+                return found ? (found.label || found.name || found.value) : v;
+            }).filter(Boolean);
+
+            if (labels.length === 0) return placeholder;
+            if (labels.length <= 2) return labels.join(', ');
+            return `${labels.length} Selected`;
+        } else {
+            const selectedOption = (options || []).find(opt => String(opt.id) === String(value) || opt.value === value);
+            return selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : placeholder;
+        }
+    }, [multiMode, safeArrayValue, value, options, placeholder]);
+
+    const fullTooltipText = useMemo(() => {
+        if (multiMode && safeArrayValue.length > 0) {
+            return safeArrayValue.map(v => {
+                const found = (options || []).find(o => String(o.id) === String(v) || String(o.value) === String(v));
+                return found ? (found.label || found.name || found.value) : v;
+            }).join(', ');
+        }
+        return displayText;
+    }, [multiMode, safeArrayValue, options, displayText]);
+
+    const handleOptionClick = (optId) => {
+        if (multiMode) {
+            const strId = String(optId);
+            let next;
+            if (safeArrayValue.includes(strId)) {
+                next = safeArrayValue.filter(v => v !== strId);
+            } else {
+                next = [...safeArrayValue, optId];
+            }
+            onChange(next);
+        } else {
+            onChange(optId);
+            setIsOpen(false);
+        }
+    };
+
+    const handleSelectAll = (e) => {
+        e.stopPropagation();
+        if (!multiMode) return;
+        const validIds = validOptions.map(opt => opt.id !== undefined ? opt.id : opt.value);
+        if (safeArrayValue.length >= validIds.length && validIds.length > 0) {
+            onChange([]);
+        } else {
+            onChange(validIds);
+        }
+    };
+
+    const hasValue = multiMode ? safeArrayValue.length > 0 : (value !== '' && value !== null && value !== undefined);
+
+    return (
+        <div className="relative group" ref={containerRef}>
+            {/* Floating Label Container */}
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={`relative w-full px-4 py-3.5 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                    ${isOpen
+                        ? 'border-blue-500 bg-white shadow-[0_0_0_4px_rgba(59,130,246,0.1)]'
+                        : isDarkMode ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-300 bg-white hover:border-slate-400 shadow-sm'}`}
+            >
+                {/* The Floating Label with Count Badge */}
+                <label className={`absolute left-3 -top-2.5 px-1.5 text-[11px] font-black transition-all flex items-center gap-1.5 z-10 rounded
+                    ${isOpen ? 'text-blue-500 bg-white dark:bg-[#10141D]' : isDarkMode ? 'bg-[#10141D] text-slate-400' : 'bg-white text-slate-500'}`}>
+                    <span>{label}</span>
+                    {showCount && totalAvailableCount > 0 && (
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black leading-none transition-colors ${
+                            isOpen
+                                ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-200'
+                                : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                            {totalAvailableCount}
+                        </span>
+                    )}
+                </label>
+
+                <span
+                    title={fullTooltipText}
+                    className={`text-[13px] font-bold truncate ${!hasValue ? 'opacity-30' : ''}`}
+                >
+                    {displayText}
+                </span>
+
+                <div className="flex items-center gap-2">
+                    {hasValue && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange(multiMode ? [] : '');
+                            }}
+                            className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                            title="Clear Selection"
+                        >
+                            <X size={12} strokeWidth={3} className="text-red-500" />
+                        </button>
+                    )}
+                    <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-500' : 'opacity-40'}`} />
+                </div>
+            </div>
+
+            {/* Dropdown Menu */}
+            {isOpen && (
+                <div className={`absolute z-100 left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                    ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+
+                    {/* Dropdown Header Info */}
+                    <div className={`px-3.5 py-2 border-b text-[10px] font-black uppercase tracking-wider flex items-center justify-between sticky top-0 z-10 ${
+                        isDarkMode ? 'bg-[#151922] border-white/5 text-slate-400' : 'bg-slate-50/95 border-slate-100 text-slate-500 backdrop-blur-sm'
+                    }`}>
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            Available {label}: <span className="text-blue-500 font-extrabold">{totalAvailableCount}</span>
+                        </span>
+                        {multiMode ? (
+                            <button
+                                onClick={handleSelectAll}
+                                className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-all ${
+                                    isDarkMode ? 'bg-white/10 hover:bg-white/20 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+                                }`}
+                            >
+                                {safeArrayValue.length >= validOptions.length && validOptions.length > 0 ? 'Deselect All' : 'Select All'}
+                            </button>
+                        ) : searchTerm ? (
+                            <span className="text-[9px] opacity-70 font-bold">
+                                Found: {filteredOptions.length}
+                            </span>
+                        ) : null}
+                    </div>
+
+                    {/* Search Option */}
+                    {options.length > 5 && (
+                        <div className={`p-2 border-b sticky top-[33px] z-101 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    placeholder={`Search ${label}... (${totalAvailableCount} available)`}
+                                    className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                        ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-blue-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-blue-500 shadow-sm'}`}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        {hasValue && (
+                            <div
+                                onClick={() => {
+                                    onChange(multiMode ? [] : '');
+                                    if (!multiMode) setIsOpen(false);
+                                }}
+                                className={`px-4 py-2 bg-red-500/5 border-b transition-all flex items-center justify-between cursor-pointer group
+                                    ${isDarkMode ? 'border-white/5 hover:bg-red-500/20' : 'border-slate-100 hover:bg-red-100'}`}
+                            >
+                                <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Clear All Selections</span>
+                                <X size={12} className="text-red-500 group-hover:scale-125 transition-transform" />
+                            </div>
+                        )}
+                        {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
+                            const optVal = opt.id !== undefined ? opt.id : opt.value;
+                            const isSelected = multiMode
+                                ? safeArrayValue.includes(String(optVal))
+                                : (String(opt.id) === String(value) || (opt.value !== undefined && opt.value === value && value !== ''));
+                            const optText = String(opt.label || opt.name || opt.value || '');
+                            return (
+                                <div
+                                    key={i}
+                                    title={optText}
+                                    onClick={() => handleOptionClick(optVal)}
+                                    className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
+                                        ${isSelected
+                                            ? 'bg-blue-500 text-white'
+                                            : isDarkMode ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-blue-50/80 text-slate-700 hover:text-blue-700'}`}
+                                >
+                                    <div className="flex items-center gap-3 truncate flex-1">
+                                        {multiMode && (
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${
+                                                isSelected
+                                                    ? 'bg-white border-white text-blue-600'
+                                                    : isDarkMode ? 'border-white/30 bg-white/5' : 'border-slate-300 bg-white'
+                                            }`}>
+                                                {isSelected && <Check size={10} strokeWidth={4} />}
+                                            </div>
+                                        )}
+                                        <span className="truncate" title={optText}>{optText}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {opt.topicCount !== undefined && (
+                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide transition-all ${
+                                                isSelected
+                                                    ? 'bg-white/20 text-white'
+                                                    : isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                            }`}>
+                                                {opt.topicCount} {opt.topicCount === 1 ? 'topic' : 'topics'}
+                                            </span>
+                                        )}
+                                        {opt.badge && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                isSelected
+                                                    ? 'bg-white/20 text-white'
+                                                    : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
+                                            }`}>
+                                                {opt.badge}
+                                            </span>
+                                        )}
+                                        {!multiMode && isSelected && <Check size={14} className="shrink-0" strokeWidth={3} />}
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [], totalAllowed = 0, currentCount = 0 }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
@@ -109,18 +378,18 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     // Repository Filter State
     // Repository Filter State
     const [filters, setFilters] = useState({
-        classId: '',
-        subjectId: '',
-        topicId: '',
-        chapterId: '',
-        examTypeId: '',
-        targetExamId: '',
+        classId: [],
+        subjectId: [],
+        topicId: [],
+        chapterId: [],
+        examTypeId: [],
+        targetExamId: [],
         question_type: '',
-        level: '',
+        level: [],
         is_wrong: '',
         sortBy: 'newest',
         filterDate: '',
-        testNameId: '',
+        testNameId: [],
         search: ''
     });
 
@@ -181,31 +450,55 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
     // Filtered Questions Logic
     const filteredQuestions = useMemo(() => {
+        const toArray = (val) => Array.isArray(val) ? val : (val !== undefined && val !== null && val !== '' ? [val] : []);
+        const getFieldValues = (q, singleField, multiField) => {
+            const multi = Array.isArray(q[multiField]) ? q[multiField] : [];
+            const single = q[singleField]?.id || q[singleField]?._id || q[singleField];
+            const allVals = new Set();
+            multi.forEach(m => {
+                const id = typeof m === 'object' && m !== null ? (m.id || m._id || m) : m;
+                if (id !== undefined && id !== null && id !== '') allVals.add(String(id));
+            });
+            if (single !== undefined && single !== null && single !== '') allVals.add(String(single));
+            return Array.from(allVals);
+        };
+
+        const checkMatch = (filterVal, itemValues) => {
+            const selected = toArray(filterVal);
+            if (selected.length === 0) return true;
+            if (selected.includes('__NULL__') && itemValues.length === 0) return true;
+            const validSelected = selected.filter(s => s !== '__NULL__').map(String);
+            if (validSelected.length === 0) return selected.includes('__NULL__') ? itemValues.length === 0 : true;
+            return validSelected.some(s => itemValues.map(String).includes(s));
+        };
+
         const result = questions.filter(q => {
-            // Helper to check for NULL filters
-            const checkNullFilter = (filterVal, questionVal) => {
-                if (filterVal === '__NULL__') return !questionVal;
-                if (filterVal && String(questionVal) !== String(filterVal)) return false;
-                return true;
-            };
+            const qClasses = getFieldValues(q, 'class_level', 'class_levels');
+            if (!checkMatch(filters.classId, qClasses)) return false;
 
-            if (!checkNullFilter(filters.classId, q.class_level)) return false;
+            const qSubjects = getFieldValues(q, 'subject', 'subjects');
+            if (!checkMatch(filters.subjectId, qSubjects)) return false;
 
-            const qSub = q.subject?.id || q.subject;
-            if (!checkNullFilter(filters.subjectId, qSub)) return false;
+            const qChapters = getFieldValues(q, 'chapter', 'chapters');
+            if (!checkMatch(filters.chapterId, qChapters)) return false;
 
-            const qTopic = q.topic?.id || q.topic;
-            if (!checkNullFilter(filters.topicId, qTopic)) return false;
+            const qTopics = getFieldValues(q, 'topic', 'topics');
+            if (!checkMatch(filters.topicId, qTopics)) return false;
 
-            const qExamType = q.exam_type?.id || q.exam_type;
-            if (!checkNullFilter(filters.examTypeId, qExamType)) return false;
+            const qExamTypes = getFieldValues(q, 'exam_type', 'exam_types');
+            if (!checkMatch(filters.examTypeId, qExamTypes)) return false;
 
-            const qTargetExam = q.target_exam?.id || q.target_exam;
-            if (!checkNullFilter(filters.targetExamId, qTargetExam)) return false;
+            const qTargetExams = getFieldValues(q, 'target_exam', 'target_exams');
+            if (!checkMatch(filters.targetExamId, qTargetExams)) return false;
+
+            const qTestNames = getFieldValues(q, 'test_name', 'test_names');
+            if (!checkMatch(filters.testNameId, qTestNames)) return false;
+
+            const qLevels = getFieldValues(q, 'difficulty_level', 'difficulty_levels');
+            if (q.level && !qLevels.includes(String(q.level))) qLevels.push(String(q.level));
+            if (!checkMatch(filters.level, qLevels)) return false;
 
             if (filters.question_type && q.question_type !== filters.question_type) return false;
-
-            if (filters.level && String(q.difficulty_level) !== String(filters.level)) return false;
 
             if (filters.is_wrong !== '') {
                 const filterVal = filters.is_wrong === 'true';
@@ -217,12 +510,6 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 if (qDate !== filters.filterDate) return false;
             }
 
-            const qChapter = q.chapter?.id || q.chapter;
-            if (!checkNullFilter(filters.chapterId, qChapter)) return false;
-
-            const qTestName = q.test_name?.id || q.test_name;
-            if (!checkNullFilter(filters.testNameId, qTestName)) return false;
-
             // Use debounced search instead of immediate filter search
             if (debouncedSearch) {
                 const searchTerm = debouncedSearch.trim().toLowerCase();
@@ -231,16 +518,20 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     const qId = String(q.id || q._id || '').toLowerCase();
 
                     // Resolve names from master data for searching if needed
-                    const qSubjectObj = subjects.find(s => String(s.id) === String(q.subject?.id || q.subject));
-                    const qSubjectName = (qSubjectObj?.name || '').toLowerCase();
+                    const matchesSubjectName = qSubjects.some(sid => {
+                        const sObj = subjects.find(s => String(s.id) === String(sid));
+                        return (sObj?.name || '').toLowerCase().includes(searchTerm);
+                    });
 
-                    const qTopicObj = topics.find(t => String(t.id) === String(q.topic?.id || q.topic));
-                    const qTopicName = (qTopicObj?.name || '').toLowerCase();
+                    const matchesTopicName = qTopics.some(tid => {
+                        const tObj = topics.find(t => String(t.id) === String(tid));
+                        return (tObj?.name || '').toLowerCase().includes(searchTerm);
+                    });
 
                     if (!qText.includes(searchTerm) &&
                         !qId.includes(searchTerm) &&
-                        !qSubjectName.includes(searchTerm) &&
-                        !qTopicName.includes(searchTerm)) {
+                        !matchesSubjectName &&
+                        !matchesTopicName) {
                         return false;
                     }
                 }
@@ -298,14 +589,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
     const [form, setForm] = useState({
         id: null,
-        classId: '',
-        subjectId: '',
-        chapterId: '',
-        topicId: '',
-        examTypeId: '',
-        targetExamId: '',
-        testNameId: '',
-        level: '1',
+        classId: [],
+        subjectId: [],
+        chapterId: [],
+        topicId: [],
+        examTypeId: [],
+        targetExamId: [],
+        testNameId: [],
+        level: ['1'],
         hasCalculator: false,
         useNumericOptions: false,
         isIndependentSelection: false,
@@ -386,14 +677,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         setFormKey(prev => prev + 1);
         setForm({
             id: null,
-            classId: '',
-            subjectId: '',
-            chapterId: '',
-            topicId: '',
-            examTypeId: '',
-            targetExamId: '',
-            testNameId: '',
-            level: '1',
+            classId: [],
+            subjectId: [],
+            chapterId: [],
+            topicId: [],
+            examTypeId: [],
+            targetExamId: [],
+            testNameId: [],
+            level: ['1'],
             hasCalculator: false,
             useNumericOptions: false,
             isIndependentSelection: false,
@@ -669,21 +960,24 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     }, [topics, chapters, imageFilters.classId, imageFilters.subjectId]);
 
     const repositoryFilteredSubjects = useMemo(() => {
-        if (!filters.classId || filters.classId === '__NULL__') return activeSubjects;
+        const classIds = Array.isArray(filters.classId) ? filters.classId.filter(id => id && id !== '__NULL__') : (filters.classId && filters.classId !== '__NULL__' ? [filters.classId] : []);
+        if (classIds.length === 0) return activeSubjects;
         const activeTop = topics.filter(t => t.is_active !== false);
         const subjectIds = [...new Set(activeTop
-            .filter(t => String(t.class_level) === String(filters.classId))
+            .filter(t => classIds.map(String).includes(String(t.class_level)))
             .map(t => String(t.subject))
         )];
         return activeSubjects.filter(s => subjectIds.includes(String(s.id)));
     }, [activeSubjects, topics, filters.classId]);
 
     const repositoryFilteredChapters = useMemo(() => {
+        const classIds = Array.isArray(filters.classId) ? filters.classId.filter(id => id && id !== '__NULL__') : (filters.classId && filters.classId !== '__NULL__' ? [filters.classId] : []);
+        const subjectIds = Array.isArray(filters.subjectId) ? filters.subjectId.filter(id => id && id !== '__NULL__') : (filters.subjectId && filters.subjectId !== '__NULL__' ? [filters.subjectId] : []);
         const activeChap = chapters.filter(c => c.is_active !== false);
         const activeTop = topics.filter(t => t.is_active !== false);
         return activeChap.filter(c => {
-            const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(c.class_level) === String(filters.classId);
-            const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(c.subject) === String(filters.subjectId);
+            const matchesClass = classIds.length === 0 || classIds.map(String).includes(String(c.class_level));
+            const matchesSubject = subjectIds.length === 0 || subjectIds.map(String).includes(String(c.subject));
             return matchesClass && matchesSubject;
         }).map(c => ({
             ...c,
@@ -692,12 +986,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     }, [chapters, topics, filters.classId, filters.subjectId]);
 
     const repositoryFilteredTopics = useMemo(() => {
+        const classIds = Array.isArray(filters.classId) ? filters.classId.filter(id => id && id !== '__NULL__') : (filters.classId && filters.classId !== '__NULL__' ? [filters.classId] : []);
+        const subjectIds = Array.isArray(filters.subjectId) ? filters.subjectId.filter(id => id && id !== '__NULL__') : (filters.subjectId && filters.subjectId !== '__NULL__' ? [filters.subjectId] : []);
+        const chapterIds = Array.isArray(filters.chapterId) ? filters.chapterId.filter(id => id && id !== '__NULL__') : (filters.chapterId && filters.chapterId !== '__NULL__' ? [filters.chapterId] : []);
         const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
         const activeTop = topics.filter(t => t.is_active !== false && (!t.chapter || activeChapIds.has(String(t.chapter))));
         return activeTop.filter(t => {
-            const matchesClass = !filters.classId || filters.classId === '__NULL__' || String(t.class_level) === String(filters.classId);
-            const matchesSubject = !filters.subjectId || filters.subjectId === '__NULL__' || String(t.subject) === String(filters.subjectId);
-            const matchesChapter = !filters.chapterId || filters.chapterId === '__NULL__' || String(t.chapter) === String(filters.chapterId);
+            const matchesClass = classIds.length === 0 || classIds.map(String).includes(String(t.class_level));
+            const matchesSubject = subjectIds.length === 0 || subjectIds.map(String).includes(String(t.subject));
+            const matchesChapter = chapterIds.length === 0 || chapterIds.map(String).includes(String(t.chapter));
             return matchesClass && matchesSubject && matchesChapter;
         });
     }, [topics, chapters, filters.classId, filters.subjectId, filters.chapterId]);
@@ -739,10 +1036,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     // Cascading Filter: Filter subjects based on selected class (Active only)
     const filteredSubjects = useMemo(() => {
         if (form.isIndependentSelection) return activeSubjects;
-        if (!form.classId) return activeSubjects;
+        const classIds = Array.isArray(form.classId) ? form.classId : (form.classId ? [form.classId] : []);
+        if (classIds.length === 0) return activeSubjects;
         const activeTop = topics.filter(t => t.is_active !== false);
         const subjectIds = [...new Set(activeTop
-            .filter(t => String(t.class_level) === String(form.classId))
+            .filter(t => classIds.map(String).includes(String(t.class_level)))
             .map(t => String(t.subject))
         )];
         return activeSubjects.filter(s => subjectIds.includes(String(s.id)));
@@ -753,9 +1051,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const activeTop = topics.filter(t => t.is_active !== false);
         let list = activeChap;
         if (!form.isIndependentSelection) {
+            const classIds = Array.isArray(form.classId) ? form.classId.map(String) : (form.classId ? [String(form.classId)] : []);
+            const subjectIds = Array.isArray(form.subjectId) ? form.subjectId.map(String) : (form.subjectId ? [String(form.subjectId)] : []);
             list = activeChap.filter(c => {
-                const matchesClass = !form.classId || String(c.class_level) === String(form.classId);
-                const matchesSubject = !form.subjectId || String(c.subject) === String(form.subjectId);
+                const matchesClass = classIds.length === 0 || classIds.includes(String(c.class_level));
+                const matchesSubject = subjectIds.length === 0 || subjectIds.includes(String(c.subject));
                 return matchesClass && matchesSubject;
             });
         }
@@ -769,10 +1069,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
         const activeTop = topics.filter(t => t.is_active !== false && (!t.chapter || activeChapIds.has(String(t.chapter))));
         if (form.isIndependentSelection) return activeTop;
+        const classIds = Array.isArray(form.classId) ? form.classId.map(String) : (form.classId ? [String(form.classId)] : []);
+        const subjectIds = Array.isArray(form.subjectId) ? form.subjectId.map(String) : (form.subjectId ? [String(form.subjectId)] : []);
+        const chapterIds = Array.isArray(form.chapterId) ? form.chapterId.map(String) : (form.chapterId ? [String(form.chapterId)] : []);
         return activeTop.filter(t => {
-            const matchesClass = !form.classId || String(t.class_level) === String(form.classId);
-            const matchesSubject = !form.subjectId || String(t.subject) === String(form.subjectId);
-            const matchesChapter = !form.chapterId || String(t.chapter) === String(form.chapterId);
+            const matchesClass = classIds.length === 0 || classIds.includes(String(t.class_level));
+            const matchesSubject = subjectIds.length === 0 || subjectIds.includes(String(t.subject));
+            const matchesChapter = chapterIds.length === 0 || chapterIds.includes(String(t.chapter));
             return matchesClass && matchesSubject && matchesChapter;
         });
     }, [topics, chapters, form.classId, form.subjectId, form.chapterId, form.isIndependentSelection]);
@@ -1172,192 +1475,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         </div>
     );
 
-    // Custom Floating Label Select Component
-    const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon: Icon, showCount = true }) => {
-        const [isOpen, setIsOpen] = useState(false);
-        const [searchTerm, setSearchTerm] = useState('');
-        const containerRef = useRef(null);
 
-        useEffect(() => {
-            if (!isOpen) setSearchTerm('');
-        }, [isOpen]);
-
-        useEffect(() => {
-            const handleClickOutside = (event) => {
-                if (containerRef.current && !containerRef.current.contains(event.target)) {
-                    setIsOpen(false);
-                }
-            };
-            document.addEventListener("mousedown", handleClickOutside);
-            return () => document.removeEventListener("mousedown", handleClickOutside);
-        }, []);
-
-        const validOptions = useMemo(() => {
-            return (options || []).filter(opt => opt && opt.id !== '__NULL__' && opt.value !== '');
-        }, [options]);
-
-        const totalAvailableCount = validOptions.length > 0 ? validOptions.length : (options || []).length;
-
-        const selectedOption = (options || []).find(opt => String(opt.id) === String(value) || opt.value === value);
-
-        const filteredOptions = useMemo(() => {
-            if (!searchTerm) return options || [];
-            return (options || []).filter(opt => {
-                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
-                return text.includes(searchTerm.toLowerCase());
-            });
-        }, [options, searchTerm]);
-
-        return (
-            <div className="relative group" ref={containerRef}>
-                {/* Floating Label Container */}
-                <div
-                    onClick={() => setIsOpen(!isOpen)}
-                    className={`relative w-full px-4 py-3.5 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
-                        ${isOpen
-                            ? 'border-blue-500 bg-white shadow-[0_0_0_4px_rgba(59,130,246,0.1)]'
-                            : isDarkMode ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-300 bg-white hover:border-slate-400 shadow-sm'}`}
-                >
-                    {/* The Floating Label with Count Badge */}
-                    <label className={`absolute left-3 -top-2.5 px-1.5 text-[11px] font-black transition-all flex items-center gap-1.5 z-10 rounded
-                        ${isOpen ? 'text-blue-500 bg-white dark:bg-[#10141D]' : isDarkMode ? 'bg-[#10141D] text-slate-400' : 'bg-white text-slate-500'}`}>
-                        <span>{label}</span>
-                        {showCount && totalAvailableCount > 0 && (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black leading-none transition-colors ${
-                                isOpen
-                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-200'
-                                    : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
-                            }`}>
-                                {totalAvailableCount}
-                            </span>
-                        )}
-                    </label>
-
-                    <span
-                        title={selectedOption ? String(selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
-                        className={`text-[13px] font-bold truncate ${!selectedOption ? 'opacity-30' : ''}`}
-                    >
-                        {selectedOption ? (selectedOption.label || selectedOption.name || selectedOption.value) : placeholder}
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                        {value && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onChange('');
-                                }}
-                                className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
-                                title="Clear Selection"
-                            >
-                                <X size={12} strokeWidth={3} className="text-red-500" />
-                            </button>
-                        )}
-                        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-500' : 'opacity-40'}`} />
-                    </div>
-                </div>
-
-                {/* Dropdown Menu */}
-                {isOpen && (
-                    <div className={`absolute z-100 left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
-                        ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-
-                        {/* Dropdown Header Info */}
-                        <div className={`px-3.5 py-2 border-b text-[10px] font-black uppercase tracking-wider flex items-center justify-between sticky top-0 z-10 ${
-                            isDarkMode ? 'bg-[#151922] border-white/5 text-slate-400' : 'bg-slate-50/95 border-slate-100 text-slate-500 backdrop-blur-sm'
-                        }`}>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                Available {label}: <span className="text-blue-500 font-extrabold">{totalAvailableCount}</span>
-                            </span>
-                            {searchTerm && (
-                                <span className="text-[9px] opacity-70 font-bold">
-                                    Found: {filteredOptions.length}
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Search Option */}
-                        {options.length > 5 && (
-                            <div className={`p-2 border-b sticky top-[33px] z-101 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
-                                <div className="relative">
-                                    <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
-                                    <input
-                                        type="text"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        placeholder={`Search ${label}... (${totalAvailableCount} available)`}
-                                        className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
-                                            ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-blue-500' : 'bg-white border border-slate-200 text-slate-700 focus:border-blue-500 shadow-sm'}`}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                            {value && (
-                                <div
-                                    onClick={() => {
-                                        onChange('');
-                                        setIsOpen(false);
-                                    }}
-                                    className={`px-4 py-2 bg-red-500/5 border-b transition-all flex items-center justify-between cursor-pointer group
-                                        ${isDarkMode ? 'border-white/5 hover:bg-red-500/20' : 'border-slate-100 hover:bg-red-100'}`}
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Clear Selection</span>
-                                    <X size={12} className="text-red-500 group-hover:scale-125 transition-transform" />
-                                </div>
-                            )}
-                            {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
-                                const isSelected = (String(opt.id) === String(value) || (opt.value !== undefined && opt.value === value && value !== ''));
-                                const optText = String(opt.label || opt.name || opt.value || '');
-                                return (
-                                    <div
-                                        key={i}
-                                        title={optText}
-                                        onClick={() => {
-                                            onChange(opt.id !== undefined ? opt.id : opt.value);
-                                            setIsOpen(false);
-                                        }}
-                                        className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
-                                            ${isSelected
-                                                ? 'bg-blue-500 text-white'
-                                                : isDarkMode ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-blue-50/80 text-slate-700 hover:text-blue-700'}`}
-                                    >
-                                        <span className="truncate flex-1" title={optText}>{optText}</span>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            {opt.topicCount !== undefined && (
-                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide transition-all ${
-                                                    isSelected
-                                                        ? 'bg-white/20 text-white'
-                                                        : isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'
-                                                }`}>
-                                                    {opt.topicCount} {opt.topicCount === 1 ? 'topic' : 'topics'}
-                                                </span>
-                                            )}
-                                            {opt.badge && (
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                                    isSelected
-                                                        ? 'bg-white/20 text-white'
-                                                        : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                    {opt.badge}
-                                                </span>
-                                            )}
-                                            {isSelected && <Check size={14} className="shrink-0" strokeWidth={3} />}
-                                        </div>
-                                    </div>
-                                );
-                            }) : (
-                                <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    };
 
 
     // Form Submission Handler
@@ -1396,19 +1514,42 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     content: await processEditorImages(opt.content)
                 })));
 
+                const toArray = (val) => Array.isArray(val) ? val : (val ? [val] : []);
+                const firstOrNull = (val) => {
+                    if (Array.isArray(val)) return val.length > 0 ? val[0] : null;
+                    return val || null;
+                };
+
+                const classList = toArray(form.classId);
+                const subjectList = toArray(form.subjectId);
+                const chapterList = toArray(form.chapterId);
+                const topicList = toArray(form.topicId);
+                const examTypeList = toArray(form.examTypeId);
+                const targetExamList = toArray(form.targetExamId);
+                const testNameList = toArray(form.testNameId);
+                const levelList = toArray(form.level);
+
                 const payload = {
                     content: cleanContent,
                     question_options: cleanOptions,
                     solution: cleanSolution,
                     question_type: q.question_type,
-                    difficulty_level: form.level,
-                    class_level: form.classId,
-                    subject: form.subjectId,
-                    chapter: form.chapterId || null,
-                    topic: form.topicId,
-                    exam_type: form.examTypeId,
-                    target_exam: form.targetExamId,
-                    test_name: form.testNameId || null,
+                    difficulty_level: levelList.length > 0 ? String(levelList[0]) : '1',
+                    difficulty_levels: levelList.map(String),
+                    class_level: firstOrNull(classList),
+                    class_levels: classList,
+                    subject: firstOrNull(subjectList),
+                    subjects: subjectList,
+                    chapter: firstOrNull(chapterList),
+                    chapters: chapterList,
+                    topic: firstOrNull(topicList),
+                    topics: topicList,
+                    exam_type: firstOrNull(examTypeList),
+                    exam_types: examTypeList,
+                    target_exam: firstOrNull(targetExamList),
+                    target_exams: targetExamList,
+                    test_name: firstOrNull(testNameList),
+                    test_names: testNameList,
                     has_calculator: form.hasCalculator,
                     use_numeric_options: form.useNumericOptions,
                     solve_time: q.solve_time || 30,
@@ -1733,6 +1874,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     {/* Filters - Row 1 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                         <CustomSelect
+                            isMulti={true}
                             label="Filter Class"
                             value={filters.classId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeClasses]}
@@ -1740,6 +1882,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setFilters({ ...filters, classId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Filter Subject"
                             value={filters.subjectId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...repositoryFilteredSubjects]}
@@ -1747,6 +1890,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setFilters({ ...filters, subjectId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Filter Chapter"
                             value={filters.chapterId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...repositoryFilteredChapters]}
@@ -1754,6 +1898,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setFilters({ ...filters, chapterId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Filter Topic"
                             value={filters.topicId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...repositoryFilteredTopics]}
@@ -1761,6 +1906,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setFilters({ ...filters, topicId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Exam Type"
                             value={filters.examTypeId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeExamTypes]}
@@ -1768,6 +1914,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setFilters({ ...filters, examTypeId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Target Exam"
                             value={filters.targetExamId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeTargetExams]}
@@ -1779,6 +1926,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     {/* Filters - Row 2 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
                         <CustomSelect
+                            isMulti={true}
                             label="Filter Test Name"
                             value={filters.testNameId}
                             options={[{ id: '__NULL__', name: 'None / Not Assigned' }, ...activeExamDetails]}
@@ -1798,10 +1946,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setFilters({ ...filters, question_type: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Difficulty"
                             value={filters.level}
                             options={[
-                                { value: '', label: 'All Levels' },
+                                { value: '1', label: 'Level 1 (Very Easy)' },
+                                { value: '2', label: 'Level 2 (Easy)' },
+                                { value: '3', label: 'Level 3 (Moderate)' },
+                                { value: '4', label: 'Level 4 (Hard)' },
+                                { value: '5', label: 'Level 5 (Very Hard)' },
                                 { value: 'very_easy', label: 'Very Easy' },
                                 { value: 'easy', label: 'Easy' },
                                 { value: 'moderate', label: 'Moderate' },
@@ -2010,7 +2163,25 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 <div className="flex flex-col gap-4 mt-8">
                                     {paginatedQuestions.map((q) => {
                                         const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
-                                        const qSubject = subjects.find(s => s.id === (q.subject?.id || q.subject));
+                                        const getMultiNames = (list, masterList, singleItem) => {
+                                            const ids = [];
+                                            if (Array.isArray(list) && list.length > 0) {
+                                                list.forEach(i => {
+                                                    const id = typeof i === 'object' && i !== null ? (i.id || i._id || i.name) : i;
+                                                    if (id) ids.push(String(id));
+                                                });
+                                            } else if (singleItem) {
+                                                const id = typeof singleItem === 'object' && singleItem !== null ? (singleItem.id || singleItem._id || singleItem.name) : singleItem;
+                                                if (id) ids.push(String(id));
+                                            }
+                                            return ids.map(id => {
+                                                const found = masterList.find(m => String(m.id) === String(id) || String(m._id) === String(id) || m.name === id);
+                                                return found ? found.name : id;
+                                            }).filter(Boolean);
+                                        };
+
+                                        const qSubjectNames = getMultiNames(q.subjects, subjects, q.subject);
+                                        const qChapterNames = getMultiNames(q.chapters, chapters, q.chapter);
 
                                         return (
                                             <div
@@ -2068,7 +2239,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                         })()}
                                                         <div className={`w-14 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
                                                             <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
-                                                            <div className="text-sm font-black">{q.difficulty_level || q.level}</div>
+                                                            <div className="text-sm font-black">
+                                                                {Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0
+                                                                    ? q.difficulty_levels.join(', ')
+                                                                    : (q.difficulty_level || q.level || '1')}
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -2084,16 +2259,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                     <span>IN TEST</span>
                                                                 </div>
                                                             )}
-                                                            {qSubject && (
-                                                                <div className="px-3 py-1 rounded-[5px] bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
-                                                                    {qSubject.name}
+                                                            {qSubjectNames.length > 0 && qSubjectNames.map((name, sIdx) => (
+                                                                <div key={sIdx} className="px-3 py-1 rounded-[5px] bg-slate-200/50 dark:bg-white/10 text-[10px] font-black uppercase tracking-widest opacity-60">
+                                                                    {name}
                                                                 </div>
-                                                            )}
-                                                            {q.chapter && (
-                                                                <div className="px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest">
-                                                                    {chapters.find(c => String(c.id) === String(q.chapter?.id || q.chapter))?.name || 'Chapter'}
+                                                            ))}
+                                                            {qChapterNames.length > 0 && qChapterNames.map((name, cIdx) => (
+                                                                <div key={cIdx} className="px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest">
+                                                                    {name}
                                                                 </div>
-                                                            )}
+                                                            ))}
                                                             {q.solve_time && (
                                                                 <div className="px-3 py-1 rounded-[5px] bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                                                                     <Clock size={10} />
@@ -2214,17 +2389,31 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                         content: opt.content,
                                                                         isCorrect: opt.isCorrect
                                                                     }));
+                                                                    const extractIds = (multiList, singleVal) => {
+                                                                        if (Array.isArray(multiList) && multiList.length > 0) {
+                                                                            return multiList.map(item => typeof item === 'object' && item !== null ? (item.id || item._id || item) : item).filter(Boolean);
+                                                                        }
+                                                                        if (singleVal) {
+                                                                            const id = typeof singleVal === 'object' && singleVal !== null ? (singleVal.id || singleVal._id) : singleVal;
+                                                                            return id ? [id] : [];
+                                                                        }
+                                                                        return [];
+                                                                    };
+                                                                    const levels = Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0
+                                                                        ? q.difficulty_levels.map(String)
+                                                                        : (q.difficulty_level ? [String(q.difficulty_level)] : (q.level ? [String(q.level)] : ['1']));
+
                                                                     setForm({
                                                                         ...form,
                                                                         id: q.id || q._id,
-                                                                        level: String(q.difficulty_level),
-                                                                         classId: q.class_level,
-                                                                        subjectId: q.subject?.id || q.subject,
-                                                                        chapterId: q.chapter?.id || q.chapter || '',
-                                                                        topicId: q.topic?.id || q.topic || '',
-                                                                        examTypeId: q.exam_type?.id || q.exam_type || '',
-                                                                        targetExamId: q.target_exam?.id || q.target_exam || '',
-                                                                        testNameId: q.test_name?.id || q.test_name || '',
+                                                                        level: levels,
+                                                                        classId: extractIds(q.class_levels, q.class_level),
+                                                                        subjectId: extractIds(q.subjects, q.subject),
+                                                                        chapterId: extractIds(q.chapters, q.chapter),
+                                                                        topicId: extractIds(q.topics, q.topic),
+                                                                        examTypeId: extractIds(q.exam_types, q.exam_type),
+                                                                        targetExamId: extractIds(q.target_exams, q.target_exam),
+                                                                        testNameId: extractIds(q.test_names, q.test_name),
                                                                         hasCalculator: q.has_calculator || false,
                                                                         useNumericOptions: q.use_numeric_options || false,
                                                                         questions: [{
@@ -2436,6 +2625,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     {/* Metadata Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                         <CustomSelect
+                            isMulti={true}
                             label="Class"
                             value={form.classId}
                             options={activeClasses}
@@ -2443,6 +2633,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, classId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Subject"
                             value={form.subjectId}
                             options={filteredSubjects}
@@ -2450,6 +2641,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, subjectId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Chapter"
                             value={form.chapterId}
                             options={filteredChapters}
@@ -2457,6 +2649,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, chapterId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Topic"
                             value={form.topicId}
                             options={filteredTopics}
@@ -2464,6 +2657,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, topicId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Exam Type"
                             value={form.examTypeId}
                             options={activeExamTypes}
@@ -2471,6 +2665,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, examTypeId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Target Exam"
                             value={form.targetExamId}
                             options={activeTargetExams}
@@ -2482,6 +2677,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     {/* Settings */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">
                         <CustomSelect
+                            isMulti={true}
                             label="Test Name"
                             value={form.testNameId}
                             options={activeExamDetails}
@@ -2489,10 +2685,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             onChange={(val) => setForm({ ...form, testNameId: val })}
                         />
                         <CustomSelect
+                            isMulti={true}
                             label="Difficulty Level"
                             value={form.level}
                             options={[
-                                { value: '', label: 'All Levels' },
+                                { value: '1', label: 'Level 1 (Very Easy)' },
+                                { value: '2', label: 'Level 2 (Easy)' },
+                                { value: '3', label: 'Level 3 (Moderate)' },
+                                { value: '4', label: 'Level 4 (Hard)' },
+                                { value: '5', label: 'Level 5 (Very Hard)' },
                                 { value: 'very_easy', label: 'Very Easy' },
                                 { value: 'easy', label: 'Easy' },
                                 { value: 'moderate', label: 'Moderate' },

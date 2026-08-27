@@ -401,12 +401,111 @@ class QuestionViewSet(viewsets.ModelViewSet):
         cache.delete("dashboard_section_stats_v1")
         cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
 
+    def _sync_single_and_multi_fields(self, instance):
+        updated = False
+        # Sync class_level <-> class_levels
+        if instance.class_levels and not instance.class_level_id:
+            try:
+                from master_data.models import ClassLevel
+                first_id = instance.class_levels[0]
+                instance.class_level = ClassLevel.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.class_level_id and not instance.class_levels:
+            instance.class_levels = [str(instance.class_level_id)]
+            updated = True
+
+        # Sync subject <-> subjects
+        if instance.subjects and not instance.subject_id:
+            try:
+                from master_data.models import Subject
+                first_id = instance.subjects[0]
+                instance.subject = Subject.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.subject_id and not instance.subjects:
+            instance.subjects = [str(instance.subject_id)]
+            updated = True
+
+        # Sync chapter <-> chapters
+        if instance.chapters and not instance.chapter_id:
+            try:
+                from master_data.models import Chapter
+                first_id = instance.chapters[0]
+                instance.chapter = Chapter.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.chapter_id and not instance.chapters:
+            instance.chapters = [str(instance.chapter_id)]
+            updated = True
+
+        # Sync topic <-> topics
+        if instance.topics and not instance.topic_id:
+            try:
+                from master_data.models import Topic
+                first_id = instance.topics[0]
+                instance.topic = Topic.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.topic_id and not instance.topics:
+            instance.topics = [str(instance.topic_id)]
+            updated = True
+
+        # Sync exam_type <-> exam_types
+        if instance.exam_types and not instance.exam_type_id:
+            try:
+                from master_data.models import ExamType
+                first_id = instance.exam_types[0]
+                instance.exam_type = ExamType.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.exam_type_id and not instance.exam_types:
+            instance.exam_types = [str(instance.exam_type_id)]
+            updated = True
+
+        # Sync target_exam <-> target_exams
+        if instance.target_exams and not instance.target_exam_id:
+            try:
+                from master_data.models import TargetExam
+                first_id = instance.target_exams[0]
+                instance.target_exam = TargetExam.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.target_exam_id and not instance.target_exams:
+            instance.target_exams = [str(instance.target_exam_id)]
+            updated = True
+
+        # Sync test_name <-> test_names
+        if instance.test_names and not instance.test_name_id:
+            try:
+                from master_data.models import ExamDetail
+                first_id = instance.test_names[0]
+                instance.test_name = ExamDetail.objects.filter(pk=first_id).first()
+                updated = True
+            except: pass
+        elif instance.test_name_id and not instance.test_names:
+            instance.test_names = [str(instance.test_name_id)]
+            updated = True
+
+        # Sync difficulty_level <-> difficulty_levels
+        if instance.difficulty_levels and not instance.difficulty_level:
+            instance.difficulty_level = str(instance.difficulty_levels[0])
+            updated = True
+        elif instance.difficulty_level and not instance.difficulty_levels:
+            instance.difficulty_levels = [str(instance.difficulty_level)]
+            updated = True
+
+        if updated:
+            instance.save()
+
     def perform_create(self, serializer):
-        serializer.save()
+        instance = serializer.save()
+        self._sync_single_and_multi_fields(instance)
         self._clear_global_caches()
 
     def perform_update(self, serializer):
-        serializer.save()
+        instance = serializer.save()
+        self._sync_single_and_multi_fields(instance)
         self._clear_global_caches()
 
     def perform_destroy(self, instance):
