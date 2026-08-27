@@ -1715,13 +1715,19 @@ def get_admin_student_activity_detail(request, admission_number):
 @permission_classes([permissions.IsAuthenticated])
 def get_student_activity_analytics(request):
     try:
+        from django.core.cache import cache
+        user = request.user
+        cache_key = f"activity_analytics_v1_{user.pk}"
+        cached_res = cache.get(cache_key)
+        if cached_res is not None:
+            return response.Response(cached_res)
+
         from django.utils import timezone
         from datetime import timedelta
         from collections import defaultdict
         import requests
         from .erp_views import _get_erp_url, _get_erp_admin_token, _fetch_erp_student_id
 
-        user = request.user
         now = timezone.now()
         last_35_days = now - timedelta(days=35)
 
@@ -1899,7 +1905,7 @@ def get_student_activity_analytics(request):
             if len(recent_videos_data) >= 5:
                 break
 
-        return response.Response({
+        result_payload = {
             'total_hours': total_hours,
             'heatmap': heatmap_data,
             'distribution': distribution,
@@ -1913,7 +1919,9 @@ def get_student_activity_analytics(request):
                 'total_hours': total_hours
             },
             'recent_videos': recent_videos_data
-        })
+        }
+        cache.set(cache_key, result_payload, 300)
+        return response.Response(result_payload)
     except Exception as e:
         import traceback
         traceback.print_exc()

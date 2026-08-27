@@ -736,14 +736,22 @@ class TestViewSet(viewsets.ModelViewSet):
         # We override super().list logic slightly to use our context
         queryset = self.filter_queryset(self.get_queryset())
         
-        # --- STUDENT LOGIC REMAINS DRF ---
+        # --- STUDENT LOGIC WITH 60s BURST CACHING ---
         if not is_staff:
+            student_cache_key = f"student_test_list_v2_{request.user.pk}"
+            if not force_refresh:
+                cached_tests = cache.get(student_cache_key)
+                if cached_tests is not None:
+                    return Response(cached_tests)
+
             page = self.paginate_queryset(queryset)
             if page is not None:
                 serializer = self.get_serializer(page, many=True, context=serializer_context)
                 return self.get_paginated_response(serializer.data)
             serializer = self.get_serializer(queryset, many=True, context=serializer_context)
-            return Response(serializer.data)
+            data = serializer.data
+            cache.set(student_cache_key, data, 60)
+            return Response(data)
             
         # --- STAFF LOGIC REWRITTEN TO NATIVE PYMONGO FOR 100x SPEED ---
         from api.db_utils import get_db
@@ -2750,6 +2758,32 @@ class TestViewSet(viewsets.ModelViewSet):
         # Mark test as completed so frontend shows 'Regenerate' button next time
         Test.objects.filter(pk=test.pk).update(is_completed=True)
 
+        # ── CACHE INVALIDATION: bust all stale caches for this test ───────────
+        # 1. Invalidate per-student result page caches (student_performance endpoint)
+        try:
+            from django.core.cache import cache
+            from api.models import CustomUser
+
+            all_student_ids = [str(sub.get('student_id')) for sub in submissions]
+
+            # Resolve enrollment keys for each student (cache is keyed by enrollment)
+            students = CustomUser.objects.filter(pk__in=all_student_ids).values('pk', 'admission_number', 'username')
+            for s in students:
+                enrollment = s['admission_number'] or s['username']
+                if enrollment:
+                    cache.delete(f"student_perf_{test.pk}_{enrollment}")
+                    cache.delete(f"student_perf_{test.pk}_{enrollment.upper()}")
+                    cache.delete(f"student_perf_{test.pk}_{enrollment.lower()}")
+                # Also bust my_results cache for this student
+                cache.delete(f"my_results_{s['pk']}")
+                # Bust SWOT cache
+                cache.delete(f"swot_data_{s['pk']}")
+
+            print(f"[generate_result] Cache invalidated for {len(all_student_ids)} students on test {test.pk}")
+        except Exception as _ce:
+            print(f"[generate_result] Cache invalidation warning: {_ce}")
+        # ──────────────────────────────────────────────────────────────────────
+
         grace_count = len(wrong_question_ids)
         grace_msg = f" Grace marks applied to {grace_count} question(s)." if grace_count else " No grace marks applied."
         return Response({
@@ -2998,6 +3032,7 @@ class TestViewSet(viewsets.ModelViewSet):
         from api.db_utils import get_db
         from bson import ObjectId
         from api.models import CustomUser
+        from django.core.cache import cache
         import json
 
         enrollment = request.query_params.get('enrollment', '').strip()
@@ -3009,52 +3044,71 @@ class TestViewSet(viewsets.ModelViewSet):
 
         test = self.get_object()
 
-        # 1. Resolve student
-        student_obj = CustomUser.objects.filter(admission_number__iexact=enrollment).first() \
-                   or CustomUser.objects.filter(username__iexact=enrollment).first()
+        # ── 2-minute cache per student+test ──────────────────────────────────
+        _cache_key = f"student_perf_{pk}_{enrollment}"
+        _cached = cache.get(_cache_key)
+        if _cached is not None:
+            return Response(_cached)
+        # ─────────────────────────────────────────────────────────────────────
 
-        # 2. Load all sections + questions once
-        sections = list(test.sections.prefetch_related('questions').order_by('priority'))
-        # Build flat q_map: q_id -> metadata
-        q_map = {}
-        sections_meta = []
-        for sec in sections:
-            order_list = sec.question_order or []
-            order_map = {str(oid): i for i, oid in enumerate(order_list)}
-            seen = set()
-            qs = []
-            for q in sec.questions.all():
-                qid = str(q.pk)
-                if qid not in seen:
-                    seen.add(qid)
-                    qs.append(q)
-            qs.sort(key=lambda q: order_map.get(str(q.pk), 999999))
-            total_q_marks = len(qs) * float(sec.correct_marks or 0)
-            sections_meta.append({
-                'name': sec.name,
-                'questions': qs,
-                'correct_marks': float(sec.correct_marks or 0),
-                'negative_marks': float(sec.negative_marks or 0),
-                'total_max_marks': total_q_marks,
-                'question_count': len(qs),
-            })
-            for q in qs:
-                qid = str(q.pk)
-                q_map[qid] = {
-                    'section': sec.name,
+        # 1. Resolve student
+        student_obj = None
+        if request.user and request.user.is_authenticated:
+            if (request.user.admission_number and request.user.admission_number.lower() == enrollment.lower()) or \
+               (request.user.username and request.user.username.lower() == enrollment.lower()):
+                student_obj = request.user
+        if not student_obj:
+            student_obj = CustomUser.objects.filter(admission_number__iexact=enrollment).first() \
+                       or CustomUser.objects.filter(username__iexact=enrollment).first()
+
+        # 2. Load all sections + questions once (cached per test for speed)
+        test_meta_cache_key = f"test_parsed_qmap_v2_{test.pk}"
+        cached_meta = cache.get(test_meta_cache_key)
+        if cached_meta:
+            sections_meta, q_map = cached_meta
+        else:
+            sections = list(test.sections.prefetch_related('questions').order_by('priority'))
+            q_map = {}
+            sections_meta = []
+            for sec in sections:
+                order_list = sec.question_order or []
+                order_map = {str(oid): i for i, oid in enumerate(order_list)}
+                seen = set()
+                qs = []
+                for q in sec.questions.all():
+                    qid = str(q.pk)
+                    if qid not in seen:
+                        seen.add(qid)
+                        qs.append(q)
+                qs.sort(key=lambda q: order_map.get(str(q.pk), 999999))
+                total_q_marks = len(qs) * float(sec.correct_marks or 0)
+                sections_meta.append({
+                    'name': sec.name,
+                    'questions': [{'pk': str(q.pk), 'id': str(q.pk)} for q in qs],
                     'correct_marks': float(sec.correct_marks or 0),
                     'negative_marks': float(sec.negative_marks or 0),
-                    'partial_mark_rule': sec.partial_mark_rule,
-                    'is_wrong': False,  # Will be patched from grace_applied_questions after sub_doc is loaded
-                    'type': q.question_type or 'SINGLE_CHOICE',
-                    'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
-                    'correct_contents': [clean_html(opt.get('content') or opt.get('text', '')) for opt in (q.question_options or []) if opt.get('isCorrect')],
-                    'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
-                    'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
-                    'options': q.question_options or [],
-                    'content': q.content or '',
-                    'solution': q.solution or '',
-                }
+                    'total_max_marks': total_q_marks,
+                    'question_count': len(qs),
+                })
+                for q in qs:
+                    qid = str(q.pk)
+                    q_map[qid] = {
+                        'section': sec.name,
+                        'correct_marks': float(sec.correct_marks or 0),
+                        'negative_marks': float(sec.negative_marks or 0),
+                        'partial_mark_rule': sec.partial_mark_rule,
+                        'is_wrong': False,
+                        'type': q.question_type or 'SINGLE_CHOICE',
+                        'correct_options': [str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')],
+                        'correct_contents': [clean_html(opt.get('content') or opt.get('text', '')) for opt in (q.question_options or []) if opt.get('isCorrect')],
+                        'answer_from': float(q.answer_from) if getattr(q, 'answer_from', None) is not None else None,
+                        'answer_to': float(q.answer_to) if getattr(q, 'answer_to', None) is not None else None,
+                        'options': q.question_options or [],
+                        'content': q.content or '',
+                        'solution': q.solution or '',
+                    }
+            # Cache parsed question paper definition for 1 hour
+            cache.set(test_meta_cache_key, (sections_meta, q_map), 3600)
 
         total_questions = sum(s['question_count'] for s in sections_meta)
         db = get_db()
@@ -3116,7 +3170,7 @@ class TestViewSet(viewsets.ModelViewSet):
 
         for sec in sections_meta:
             for q in sec['questions']:
-                qid = str(q.pk)
+                qid = str(q.pk if hasattr(q, 'pk') else (q.get('pk') or q.get('id') if isinstance(q, dict) else q))
                 qi = q_map[qid]
                 res_obj = responses.get(qid)
                 if res_obj is None:
@@ -3378,130 +3432,27 @@ class TestViewSet(viewsets.ModelViewSet):
         
         if db is not None:
             try:
-                # Fetch all finalized submissions with responses for re-calculation
+                # ── OPTIMIZED: Read precomputed 'score' field — no re-grading of all students ──
                 all_docs = list(db['tests_testsubmission'].find(
-                    {'test_id': t_id_obj, 'is_finalized': True}, 
-                    {'responses': 1, 'submitted_at': 1, '_id': 1, 'time_spent': 1}
+                    {'test_id': t_id_obj, 'is_finalized': True},
+                    {'score': 1, 'time_spent': 1, 'submitted_at': 1, '_id': 1}
+                    # NOTE: 'responses' intentionally excluded — we never re-grade here anymore
                 ))
-                
+
                 scored_docs = []
                 for doc in all_docs:
-                    # ... re-scoring loop ...
-                    # (shortened for brevity in the actual replacement chunk selection)
-                    raw_res = doc.get('responses') or {}
-                    if isinstance(raw_res, str):
-                        import json
-                        try: raw_res = json.loads(raw_res)
-                        except: raw_res = {}
-                    responses = raw_res if isinstance(raw_res, dict) else {}
-                    
-                    # Score this document using the SAME logic
-                    s_score = 0
-                    d_attempted = 0
-                    d_correct = 0
-                    for sec in sections_meta:
-                        for qs in sec['questions']:
-                            q_id = str(qs.pk)
-                            q_info = q_map[q_id]
-                            
-                            res_obj = responses.get(str(q_id))
-                            if res_obj is None:
-                                try: res_obj = responses.get(int(q_id))
-                                except: pass
-                            
-                            ans = res_obj.get('answer') if isinstance(res_obj, dict) else res_obj
-                            if ans in (None, '', [], {}): continue
-                            d_attempted += 1
-                            earned = 0
-                            neg = 0
-                            q_type = q_info['type']
-                            # GRACE MARKS: re-score wrong questions with full marks for rank calculation
-                            if q_info.get('is_wrong'):
-                                earned = q_info['correct_marks']
-                                d_correct += 1
-                            elif q_type == 'SINGLE_CHOICE':
-                                ans_str = str(ans).strip().lower()
-                                is_correct = False
-                                keys = ['a', 'b', 'c', 'd', 'e', 'f']
-                                for oi, opt in enumerate(q_info.get('options', [])):
-                                    opt_id = str(opt.get('id', ''))
-                                    opt_label = keys[oi] if oi < len(keys) else None
-                                    if ans_str == opt_id or (opt_label and ans_str == opt_label):
-                                        if opt.get('isCorrect'): is_correct = True
-                                        break
-                                if not is_correct:
-                                    pass
-                                if is_correct: earned = q_info['correct_marks']
-                                else: neg = q_info['negative_marks']
-                            elif q_type == 'MULTI_CHOICE':
-                                raw_selected = ans if isinstance(ans, list) else [ans]
-                                normalized_selected = set()
-                                keys = ['a', 'b', 'c', 'd', 'e', 'f']
-                                for item in raw_selected:
-                                    item_str = str(item).strip().lower()
-                                    for oi, opt in enumerate(q_info.get('options', [])):
-                                        opt_id = str(opt.get('id', ''))
-                                        opt_content = clean_html(opt.get('content') or opt.get('text', ''))
-                                        opt_label = keys[oi] if oi < len(keys) else None
-                                        if item_str == opt_id or item_str == opt_content or (opt_label and item_str == opt_label):
-                                            normalized_selected.add(opt_id)
-                                            break
-                                correct = set(q_info['correct_options'])
-                                rule = q_info.get('partial_mark_rule')
-                                if rule and rule.logic_type == 'JEE_ADVANCED':
-                                    if not normalized_selected.issubset(correct):
-                                        neg = rule.base_negative_marks
-                                    elif normalized_selected == correct:
-                                        earned = rule.base_correct_marks
-                                    else:
-                                        num_correct_selected = len(normalized_selected)
-                                        if num_correct_selected >= 3: earned = 3.0
-                                        elif num_correct_selected == 2: earned = 2.0
-                                        elif num_correct_selected == 1: earned = 1.0
-                                        else: earned = float(num_correct_selected)
-                                elif rule and rule.logic_type in ['WBJEE', 'CUSTOM_FRACTIONAL']:
-                                    if not normalized_selected.issubset(correct):
-                                        if rule.logic_type == 'CUSTOM_FRACTIONAL':
-                                            neg = rule.base_negative_marks
-                                        else:
-                                            neg = 0.0
-                                    elif normalized_selected == correct:
-                                        earned = rule.base_correct_marks
-                                    else:
-                                        fraction = len(normalized_selected) / len(correct) if correct else 0
-                                        earned = round(rule.base_correct_marks * fraction, 2)
-                                elif rule and rule.logic_type == 'STANDARD':
-                                    if normalized_selected == correct:
-                                        earned = rule.base_correct_marks
-                                    else:
-                                        neg = rule.base_negative_marks
-                                else:
-                                    if normalized_selected == correct:
-                                        earned = q_info['correct_marks']
-                                    elif normalized_selected & correct:
-                                        fraction = len(normalized_selected & correct) / len(correct) if correct else 0
-                                        earned = round(q_info['correct_marks'] * fraction, 2)
-                                    else:
-                                        neg = q_info['negative_marks']
-                            elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
-                                try:
-                                    val = float(ans)
-                                    if q_info.get('answer_from') is not None and q_info.get('answer_to') is not None:
-                                        if q_info['answer_from'] <= val <= q_info['answer_to']: earned = q_info['correct_marks']
-                                        else: neg = q_info['negative_marks']
-                                except: neg = q_info['negative_marks']
-                            s_score += (earned - neg)
-                            if earned > 0 and earned == q_info.get('correct_marks', 0):
-                                d_correct += 1
-                    
+                    sc = doc.get('score')
+                    if sc is None:
+                        # Skip unscored docs — they'll be fixed on next submit or backfill
+                        continue
                     scored_docs.append({
                         '_id': doc['_id'],
-                        'score': round(s_score, 2),
+                        'score': round(float(sc), 2),
                         'time_spent': int(doc.get('time_spent', 0)),
-                        'accuracy': round((d_correct / d_attempted * 100) if d_attempted > 0 else 0, 2),
+                        'accuracy': 0.0,  # Not needed for rank sort
                         'submission_time': str(doc.get('submitted_at') or doc['_id'])
                     })
-                
+
                 # Sort by score DESC, time_spent ASC, submission_time ASC
                 scored_docs.sort(key=lambda d: (-d['score'], d['time_spent'], d['submission_time']))
                 
@@ -3532,7 +3483,7 @@ class TestViewSet(viewsets.ModelViewSet):
         # In a real system, you'd calculate these by querying all submissions' accuracy
         # but let's at least provide something more than hardcoded frontend constants.
 
-        return Response({
+        return_data = {
             'student_name': student_obj.get_full_name().upper() if student_obj else enrollment.upper(),
             'enrollment': enrollment.upper(),
             'score': total_score,
@@ -3576,7 +3527,10 @@ class TestViewSet(viewsets.ModelViewSet):
             'section_questions': section_question_map,
             'all_section_names': [s['name'] for s in sections_meta],
             'is_missed': sub_doc.get('is_missed', False)
-        })
+        }
+        # Cache for 2 minutes — test results don't change frequently
+        cache.set(_cache_key, return_data, 120)
+        return Response(return_data)
 
     @action(detail=True, methods=['post'], url_path='resume_test')
 
@@ -3915,15 +3869,22 @@ class TestViewSet(viewsets.ModelViewSet):
         from sections.models import Section
         
         # Resolve all questions in this test's structural sections to correctly map marks
+        # Build section_map for section_stats precomputation at the same time
         questions_map = {}
-        for section in test.sections.prefetch_related('questions'):
+        sections_ordered = list(test.sections.prefetch_related('questions').all())
+        # Track per-section score accumulators for precomputed section_stats
+        section_score_map = {}  # section_name -> {'score': float, 'total': float}
+        for section in sections_ordered:
+            sec_total = 0.0
             for q in section.questions.all():
+                sec_total += float(section.correct_marks or 0)
                 questions_map[str(q.pk)] = {
                     'question': q,
                     'correct_marks': float(section.correct_marks or 0),
                     'negative_marks': float(section.negative_marks or 0),
-                    # Partial scoring not fully implemented here but structure is ready
+                    'section_name': section.name,
                 }
+            section_score_map[section.name] = {'score': 0.0, 'total': sec_total}
         
         for q_id, response in responses.items():
             if q_id not in questions_map:
@@ -3963,12 +3924,25 @@ class TestViewSet(viewsets.ModelViewSet):
                 except (TypeError, ValueError):
                     is_correct = False
             
+            sec_name = q_info['section_name']
             if is_correct:
                 total_score += q_info['correct_marks']
+                section_score_map[sec_name]['score'] += q_info['correct_marks']
             else:
                 total_score -= q_info['negative_marks']
+                section_score_map[sec_name]['score'] -= q_info['negative_marks']
         
-        # Save or Update Submission (DJONGO WORKAROUND: Use update() to avoid E11000 duplicate key errors on save())
+        # Build precomputed section_stats list (computed once at submit time, never again)
+        precomputed_section_stats = [
+            {
+                'name': sec_name,
+                'marks': round(data['score'], 2),
+                'total': round(data['total'], 2)
+            }
+            for sec_name, data in section_score_map.items()
+        ]
+        
+        # Save or Update Submission (DJONGO WORKAROUND: Use update() to avoid E11000 duplicate key errors on save())\
         from .models import TestSubmission
         upd_data = {
             'responses': responses,
@@ -3993,6 +3967,43 @@ class TestViewSet(viewsets.ModelViewSet):
 
         # Cleanup any stray duplicates via timestamp
         TestSubmission.objects.filter(test=test, student=user, submitted_at__lt=submission.submitted_at).delete()
+
+        # ── PERSIST precomputed section_stats to MongoDB ──────────────────────
+        # This ensures my_results can read section_stats directly without re-grading questions
+        try:
+            from api.db_utils import get_db
+            from bson import ObjectId
+            _db = get_db()
+            if _db is not None:
+                _mongo_test_ids = []
+                try: _mongo_test_ids.append(ObjectId(test.pk))
+                except: pass
+                _mongo_test_ids.append(test.pk)
+                _mongo_user_ids = []
+                try: _mongo_user_ids.append(ObjectId(user.pk))
+                except: pass
+                _mongo_user_ids.append(user.pk)
+                try: _mongo_user_ids.append(int(user.pk))
+                except: pass
+                _db['tests_testsubmission'].update_one(
+                    {'test_id': {'$in': _mongo_test_ids}, 'student_id': {'$in': _mongo_user_ids}},
+                    {'$set': {
+                        'section_stats': precomputed_section_stats,
+                        'score': round(total_score, 2),
+                    }},
+                    upsert=False
+                )
+        except Exception as _e:
+            # Non-critical: section_stats will be computed on-the-fly as fallback
+            print(f"[submit] Could not persist section_stats to MongoDB: {_e}")
+        
+        # Invalidate the student's cached my_results so next load is fresh
+        try:
+            from django.core.cache import cache
+            cv = cache.get('my_results_version', 1)
+            cache.delete(f"my_results_{user.pk}_v{cv}")
+        except Exception:
+            pass
         
         return Response({
             'success': True,
@@ -4216,28 +4227,37 @@ class TestViewSet(viewsets.ModelViewSet):
         except:
             pass
 
+        # ── OPTIMIZED BATCH: fetch student submissions with precomputed section_stats ──
+        # Also grab responses (used as fallback if section_stats not precomputed)
         user_subs = list(db['tests_testsubmission'].find(
             {'test_id': {'$in': mongo_test_ids}, 'student_id': {'$in': mongo_student_ids}, 'is_finalized': True},
-            {'test_id': 1, 'responses': 1}
+            {'test_id': 1, 'responses': 1, 'section_stats': 1, 'time_spent': 1}
         ))
+        # Build maps keyed by test_id string
         user_responses_map = {str(sub.get('test_id')): sub.get('responses', {}) for sub in user_subs}
+        user_section_stats_map = {str(sub.get('test_id')): sub.get('section_stats') for sub in user_subs}
+        user_time_spent_map = {str(sub.get('test_id')): int(sub.get('time_spent', 0)) for sub in user_subs}
 
-        # Optimize aggregation for ranking: fetch all finalized scores to calculate rank on the fly
+        # ── SINGLE BULK AGGREGATION for ranking: score + time_spent across all students ──
         pipeline = [
             {'$match': {'test_id': {'$in': mongo_test_ids}, 'is_finalized': True}},
-            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1}}
+            {'$project': {'student_id': 1, 'test_id': 1, 'score': 1, 'submitted_at': 1, 'time_spent': 1}}
         ]
         all_subs = list(db['tests_testsubmission'].aggregate(pipeline))
         
         from collections import defaultdict
-        test_scores = defaultdict(list)
+        # test_scores stores list of (score, time_spent) tuples for rank calculation
+        test_score_tuples = defaultdict(list)  # tid -> [(score, time_spent), ...]
+        test_scores = defaultdict(list)          # tid -> [score, ...] kept for percentile
         user_scores = {}
         
         for sub in all_subs:
             tid = str(sub.get('test_id'))
             sid = str(sub.get('student_id'))
             score = float(sub.get('score', 0))
+            ts = int(sub.get('time_spent', 0))
             test_scores[tid].append(score)
+            test_score_tuples[tid].append({'sid': sid, 'score': score, 'time_spent': ts})
             
             if sid == str(user.pk):
                 user_scores[tid] = {
@@ -4252,195 +4272,131 @@ class TestViewSet(viewsets.ModelViewSet):
             if tid not in tests_map:
                 continue
             test = tests_map[tid]
-            
-            scores = sorted(test_scores[tid], reverse=True)
-            total_students = len(scores)
-            
-            try:
-                # Rank: first occurrence of the student's exact score
-                rank = scores.index(u_data['score']) + 1
-            except ValueError:
-                rank = total_students
-                
-            percentile = 0.0
-            if total_students > 1:
-                # Standard percentile calc: (students below score / total) * 100
-                students_below = sum(1 for s in scores if s < u_data['score'])
-                percentile = round((students_below / total_students) * 100, 2)
-            elif total_students == 1:
-                percentile = 100.0
-                
+
             date_str = test.created_at.isoformat()
             if u_data['submitted_at']:
                 try: date_str = u_data['submitted_at'].isoformat()
                 except: pass
             if date_str and len(date_str) > 10: date_str = date_str[:10]
-            
-            # Calculate section-wise breakdown for Subject Mastery view
-            section_stats = []
-            try:
-                # Optimized fetching: Use prefetched sections and questions
-                sections = test.sections.all()
+
+            # ── SECTION STATS: use precomputed value if available, compute as fallback ──
+            section_stats = user_section_stats_map.get(tid) or []
+            has_mistakes = False
+            has_unreviewed_mistakes = False
+
+            if not section_stats:
+                # Fallback: compute on-the-fly for older records that don't have precomputed stats
+                try:
+                    sections = test.sections.all()
+                    user_res = u_data.get('responses', {})
+                    if isinstance(user_res, str):
+                        import json
+                        try: user_res = json.loads(user_res)
+                        except: user_res = {}
+
+                    for sec in sections:
+                        sec_score = 0.0
+                        sec_total = 0.0
+                        for q in sec.questions.all():
+                            c_marks = float(sec.correct_marks or 0)
+                            n_marks = float(sec.negative_marks or 0)
+                            sec_total += c_marks
+                            qid = str(q.pk)
+                            res_item = user_res.get(qid)
+                            if res_item is None:
+                                try: res_item = user_res.get(int(qid))
+                                except: pass
+                            if res_item is not None:
+                                ans = res_item.get('answer') if isinstance(res_item, dict) else res_item
+                                if ans is not None:
+                                    is_correct = False
+                                    q_type = q.question_type or 'SINGLE_CHOICE'
+                                    if q_type == 'SINGLE_CHOICE':
+                                        ans_str = str(ans).strip().lower()
+                                        keys = ['a', 'b', 'c', 'd', 'e', 'f']
+                                        for oi, opt in enumerate(q.question_options or []):
+                                            opt_id = str(opt.get('id', ''))
+                                            opt_label = keys[oi] if oi < len(keys) else None
+                                            if ans_str == opt_id or (opt_label and ans_str == opt_label):
+                                                if opt.get('isCorrect'): is_correct = True
+                                                break
+                                    elif q_type == 'MULTI_CHOICE':
+                                        correct_set = set([str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')])
+                                        is_correct = set(map(str, ans if isinstance(ans, list) else [])) == correct_set
+                                    elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
+                                        try:
+                                            val = float(ans)
+                                            is_correct = float(q.answer_from) <= val <= float(q.answer_to)
+                                        except: pass
+                                    if is_correct: sec_score += c_marks
+                                    else:
+                                        sec_score -= n_marks
+                                        has_mistakes = True
+                                        reflection = res_item.get('reflection') if isinstance(res_item, dict) else None
+                                        if not reflection:
+                                            has_unreviewed_mistakes = True
+                        section_stats.append({
+                            'name': sec.name,
+                            'marks': round(sec_score, 2),
+                            'total': round(sec_total, 2)
+                        })
+                    # Opportunistically backfill section_stats for this record
+                    try:
+                        _mtest_ids = []
+                        try: _mtest_ids.append(ObjectId(test.pk))
+                        except: pass
+                        _mtest_ids.append(test.pk)
+                        _muser_ids = []
+                        try: _muser_ids.append(ObjectId(user.pk))
+                        except: pass
+                        _muser_ids.append(user.pk)
+                        try: _muser_ids.append(int(user.pk))
+                        except: pass
+                        db['tests_testsubmission'].update_one(
+                            {'test_id': {'$in': _mtest_ids}, 'student_id': {'$in': _muser_ids}, 'is_finalized': True},
+                            {'$set': {'section_stats': section_stats}}
+                        )
+                    except Exception: pass
+                except Exception as e:
+                    print(f"[my_results] Fallback section compute error for {test.name}: {e}")
+            else:
+                # Check has_mistakes using responses (lightweight pass — no re-grading)
                 user_res = u_data.get('responses', {})
                 if isinstance(user_res, str):
                     import json
                     try: user_res = json.loads(user_res)
                     except: user_res = {}
-                
-                has_mistakes = False
-                has_unreviewed_mistakes = False
-
-                for sec in sections:
-                    sec_score = 0.0
-                    sec_total = 0.0
-                    sec_questions = sec.questions.all()
-                    
-                    for q in sec_questions:
-                        c_marks = float(sec.correct_marks or 0)
-                        n_marks = float(sec.negative_marks or 0)
-                        sec_total += c_marks
-                        
-                        qid = str(q.pk)
-                        res_item = user_res.get(qid)
-                        if res_item is None:
-                            try: res_item = user_res.get(int(qid))
-                            except: pass
-                        if res_item is not None:
-                            ans = res_item.get('answer') if isinstance(res_item, dict) else res_item
-                            if ans is not None:
-                                # Simplified scoring for performance; exact same logic as submit()
-                                is_correct = False
-                                q_type = q.question_type or 'SINGLE_CHOICE'
-                                
-                                if q_type == 'SINGLE_CHOICE':
-                                    ans_str = str(ans).strip().lower()
-                                    keys = ['a', 'b', 'c', 'd', 'e', 'f']
-                                    opts = q.question_options or []
-                                    for oi, opt in enumerate(opts):
-                                        opt_id = str(opt.get('id', ''))
-                                        opt_label = keys[oi] if oi < len(keys) else None
-                                        if ans_str == opt_id or (opt_label and ans_str == opt_label):
-                                            if opt.get('isCorrect'): is_correct = True
-                                            break
-                                elif q_type == 'MULTI_CHOICE':
-                                    correct_set = set([str(opt['id']) for opt in (q.question_options or []) if opt.get('isCorrect')])
-                                    is_correct = set(map(str, ans if isinstance(ans, list) else [])) == correct_set
-                                elif q_type in ('NUMERICAL', 'INTEGER_TYPE'):
-                                    try:
-                                        val = float(ans)
-                                        is_correct = float(q.answer_from) <= val <= float(q.answer_to)
-                                    except: pass
-                                
-                                if is_correct: sec_score += c_marks
-                                else: 
-                                    sec_score -= n_marks
-                                    has_mistakes = True
-                                    reflection = res_item.get('reflection') if isinstance(res_item, dict) else None
-                                    if not reflection:
-                                        has_unreviewed_mistakes = True
-                    
-                    section_stats.append({
-                        'name': sec.name,
-                        'marks': round(sec_score, 2),
-                        'total': round(sec_total, 2)
-                    })
-            except Exception as e:
-                print(f"Error calculating sections for {test.name}: {e}")
+                for r_val in user_res.values():
+                    reflection = r_val.get('reflection') if isinstance(r_val, dict) else None
+                    if isinstance(r_val, dict) and r_val.get('answer') is not None:
+                        has_mistakes = True
+                        if not reflection:
+                            has_unreviewed_mistakes = True
+                            break
 
             calc_marks = sum(s['marks'] for s in section_stats) if section_stats else 0.0
             user_marks = u_data['score'] if (u_data['score'] != 0 or not section_stats) else round(calc_marks, 2)
             total_marks = test.total_marks if (test.total_marks and test.total_marks > 0) else (sum(s['total'] for s in section_stats) or 100)
 
-            # Accurate rank & percentile calculation among all finalized submissions for this test
+            # ── RANKING: use already-fetched bulk data — zero extra DB queries ──
+            rank = 1
+            percentile = 100.0
             try:
-                try: t_id_obj = ObjectId(test.pk)
-                except: t_id_obj = test.pk
-
-                all_test_subs = list(db['tests_testsubmission'].find(
-                    {'test_id': t_id_obj, 'is_finalized': True},
-                    {'student_id': 1, 'score': 1, 'responses': 1, 'time_spent': 1, 'submitted_at': 1, '_id': 1}
-                ))
-
-                # Check if any submissions in Mongo need score calculation (e.g. uncalculated OMR sheets)
-                uncalculated_docs = [d for d in all_test_subs if d.get('score') is None or float(d.get('score') or 0) == 0]
-                if uncalculated_docs and 'sections' in locals():
-                    # Batch score uncalculated documents once and update MongoDB
-                    for un_doc in uncalculated_docs:
-                        d_responses = un_doc.get('responses') or {}
-                        if isinstance(d_responses, str):
-                            import json
-                            try: d_responses = json.loads(d_responses)
-                            except: d_responses = {}
-                        if not isinstance(d_responses, dict):
-                            d_responses = {}
-
-                        d_score = 0.0
-                        for sec in sections:
-                            for q in sec.questions.all():
-                                c_marks = float(sec.correct_marks or 0)
-                                n_marks = float(sec.negative_marks or 0)
-                                qid = str(q.pk)
-                                r_item = d_responses.get(qid)
-                                if r_item is None:
-                                    try: r_item = d_responses.get(int(qid))
-                                    except: pass
-                                if r_item is not None:
-                                    ans = r_item.get('answer') if isinstance(r_item, dict) else r_item
-                                    if ans is not None:
-                                        is_corr = False
-                                        qtype = q.question_type or 'SINGLE_CHOICE'
-                                        if qtype == 'SINGLE_CHOICE':
-                                            ans_str = str(ans).strip().lower()
-                                            keys = ['a', 'b', 'c', 'd', 'e', 'f']
-                                            for oi, opt in enumerate(q.question_options or []):
-                                                opt_id = str(opt.get('id', ''))
-                                                opt_label = keys[oi] if oi < len(keys) else None
-                                                if ans_str == opt_id or (opt_label and ans_str == opt_label):
-                                                    if opt.get('isCorrect'): is_corr = True
-                                                    break
-                                            if is_corr: d_score += c_marks
-                                            else: d_score -= n_marks
-                                        elif qtype in ('NUMERICAL', 'INTEGER_TYPE'):
-                                            try:
-                                                val = float(ans)
-                                                if float(q.answer_from) <= val <= float(q.answer_to): d_score += c_marks
-                                                else: d_score -= n_marks
-                                            except: d_score -= n_marks
-                        
-                        computed_sc = round(d_score, 2)
-                        un_doc['score'] = computed_sc
-                        try:
-                            db['tests_testsubmission'].update_one({'_id': un_doc['_id']}, {'$set': {'score': computed_sc}})
-                        except Exception: pass
-
-                # Build finalized sorted score table for exact rank matching
-                all_scores_list = []
-                for sub_item in all_test_subs:
-                    sc = float(sub_item.get('score') or 0)
-                    all_scores_list.append({
-                        'sid': str(sub_item.get('student_id')),
-                        'score': sc,
-                        'time_spent': int(sub_item.get('time_spent', 0)),
-                        'sub_id': str(sub_item['_id'])
-                    })
-
-                all_scores_list.sort(key=lambda d: (-d['score'], d['time_spent']))
-                
-                exact_rank = 1
-                for i, doc_item in enumerate(all_scores_list):
+                all_scores_list = test_score_tuples.get(tid, [])
+                # Sort by score desc, time_spent asc (faster submission = better tie-break rank)
+                all_scores_list_sorted = sorted(all_scores_list, key=lambda d: (-d['score'], d['time_spent']))
+                total_students = len(all_scores_list_sorted)
+                for i, doc_item in enumerate(all_scores_list_sorted):
                     if doc_item['sid'] == str(user.pk):
-                        exact_rank = i + 1
+                        rank = i + 1
                         break
-                rank = exact_rank
-
-                total_students = len(all_scores_list)
                 if total_students > 1:
                     students_below = sum(1 for d in all_scores_list if d['score'] < user_marks)
                     percentile = round((students_below / total_students) * 100, 2)
-                else:
+                elif total_students == 1:
                     percentile = 100.0
             except Exception as rank_err:
-                print(f"Rank calculation error for {test.name}: {rank_err}")
+                print(f"[my_results] Rank calculation error for {test.name}: {rank_err}")
 
             results.append({
                 'id': tid,
@@ -4457,6 +4413,7 @@ class TestViewSet(viewsets.ModelViewSet):
             })
             
         results.sort(key=lambda x: x['date'], reverse=True)
+
 
         # Cache for 2 minutes — short enough to stay fresh, long enough to
         # absorb all 6 simultaneous frontend component calls.

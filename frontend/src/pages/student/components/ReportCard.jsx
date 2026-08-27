@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Award, Download, Printer, RefreshCw, GraduationCap, CheckCircle2, 
     XCircle, AlertCircle, FileText, Calendar, User, BookOpen, 
-    TrendingUp, ShieldCheck, Sparkles, BarChart2, ChevronRight, Target, Clock, Info
+    TrendingUp, ShieldCheck, Sparkles, BarChart2, ChevronRight, ChevronDown, 
+    ChevronUp, Target, Clock, Info, Layers
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -17,6 +18,7 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedTerm, setSelectedTerm] = useState('ALL');
+    const [expandedTests, setExpandedTests] = useState({});
     const reportCardRef = useRef(null);
 
     // Sync prop changes if initialStudentData updates
@@ -375,20 +377,22 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                             border-collapse: collapse !important;
                             margin-top: 8px !important;
                             margin-bottom: 8px !important;
+                            font-size: 10px !important;
                         }
                         th {
                             background-color: #f1f5f9 !important;
                             color: #0f172a !important;
                             font-weight: 800 !important;
-                            padding: 10px 12px !important;
+                            padding: 8px 8px !important;
                             border: 1px solid #cbd5e1 !important;
-                            font-size: 11px !important;
+                            font-size: 10px !important;
                             text-align: left !important;
                         }
                         td {
-                            padding: 10px 12px !important;
+                            padding: 8px 8px !important;
                             border: 1px solid #cbd5e1 !important;
                             color: #0f172a !important;
+                            font-size: 10px !important;
                         }
                         tr:nth-child(even) {
                             background-color: #f8fafc !important;
@@ -427,6 +431,25 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
         }, 400);
     };
 
+    const toggleTestExpand = (testId) => {
+        setExpandedTests(prev => ({
+            ...prev,
+            [testId]: !prev[testId]
+        }));
+    };
+
+    const toggleExpandAll = () => {
+        const allTestIds = performanceSummary.filteredResults.map((r, i) => r.id || `test-${i}`);
+        const allExpanded = allTestIds.length > 0 && allTestIds.every(id => expandedTests[id]);
+        if (allExpanded) {
+            setExpandedTests({});
+        } else {
+            const nextState = {};
+            allTestIds.forEach(id => { nextState[id] = true; });
+            setExpandedTests(nextState);
+        }
+    };
+
     if (loading) {
         return (
             <div className={`flex flex-col items-center justify-center min-h-[60vh] space-y-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -443,6 +466,9 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
     });
 
     const reportVerificationId = `PF-RC-${studentProfile.rollNo}-${Date.now().toString(36).toUpperCase()}`;
+
+    const areAllExpanded = performanceSummary.filteredResults.length > 0 && 
+        performanceSummary.filteredResults.every((r, i) => expandedTests[r.id || `test-${i}`]);
 
     return (
         <div className="space-y-6 pb-12">
@@ -810,57 +836,275 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                     </div>
                 </div>
 
-                {/* 5. Detailed Test Examination Matrix */}
+                {/* 5. Detailed Test Examination Matrix with Subject-Wise Breakdown */}
                 <div className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-orange-500 flex items-center gap-2">
-                        <FileText size={15} />
-                        Examination Record & Performance History
-                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 className="text-xs font-black uppercase tracking-wider text-orange-500 flex items-center gap-2">
+                                <FileText size={15} />
+                                Examination Record & Performance History
+                            </h3>
+                            <p className="text-[11px] text-slate-400 mt-0.5 print-text-dark">
+                                Detailed test standing, subject-wise marks allocation & question solution analysis.
+                            </p>
+                        </div>
+
+                        {performanceSummary.filteredResults.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={toggleExpandAll}
+                                className={`no-print flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-200' 
+                                        : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
+                                }`}
+                            >
+                                <Layers size={13} className="text-orange-500" />
+                                <span>{areAllExpanded ? 'Collapse All Details' : 'Expand All Subject Marks'}</span>
+                            </button>
+                        )}
+                    </div>
 
                     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
                         <table className="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr className={`border-b text-[11px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                                    <th className="py-3 px-3 w-8 no-print"></th>
                                     <th className="py-3 px-4">Test Code / Name</th>
-                                    <th className="py-3 px-4 text-center">Date</th>
-                                    <th className="py-3 px-4 text-center">Marks Scored</th>
-                                    <th className="py-3 px-4 text-center">Max Marks</th>
-                                    <th className="py-3 px-4 text-center">Percentage</th>
-                                    <th className="py-3 px-4 text-center">Rank</th>
-                                    <th className="py-3 px-4 text-center">Status</th>
+                                    <th className="py-3 px-3 text-center">Date</th>
+                                    <th className="py-3 px-4">Subject-Wise Marks</th>
+                                    <th className="py-3 px-3 text-center">Score</th>
+                                    <th className="py-3 px-3 text-center">Max</th>
+                                    <th className="py-3 px-3 text-center">%</th>
+                                    <th className="py-3 px-3 text-center">Rank</th>
+                                    <th className="py-3 px-3 text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                                 {performanceSummary.filteredResults.length > 0 ? (
                                     performanceSummary.filteredResults.map((r, i) => {
+                                        const testId = r.id || `test-${i}`;
+                                        const isExpanded = !!expandedTests[testId];
                                         const pct = r.total > 0 ? Math.round((r.marks / r.total) * 100) : 0;
                                         const testDate = r.date || r.end_time || r.start_time
                                             ? new Date(r.date || r.end_time || r.start_time).toLocaleDateString('en-GB')
                                             : 'N/A';
 
+                                        const sectionList = (r.section_stats && r.section_stats.length > 0)
+                                            ? r.section_stats
+                                            : [{
+                                                name: r.subject_details?.name || r.subject_name || 'General',
+                                                marks: r.marks || 0,
+                                                total: r.total || 0
+                                            }];
+
                                         return (
-                                            <tr key={i} className={isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50'}>
-                                                <td className="py-3 px-4 font-semibold print-text-dark">{r.name || r.code || `Test #${i+1}`}</td>
-                                                <td className="py-3 px-4 text-center font-mono text-slate-400 print-text-dark">{testDate}</td>
-                                                <td className="py-3 px-4 text-center font-mono font-bold text-emerald-500">{r.marks}</td>
-                                                <td className="py-3 px-4 text-center font-mono text-slate-400 print-text-dark">{r.total}</td>
-                                                <td className="py-3 px-4 text-center font-black text-orange-500">{pct}%</td>
-                                                <td className="py-3 px-4 text-center font-bold font-mono text-blue-400">{r.rank ? `#${r.rank}` : '—'}</td>
-                                                <td className="py-3 px-4 text-center">
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                        pct >= 75 ? 'bg-emerald-500/10 text-emerald-500' :
-                                                        pct >= 50 ? 'bg-blue-500/10 text-blue-500' :
-                                                        'bg-amber-500/10 text-amber-500'
-                                                    }`}>
-                                                        {pct >= 75 ? 'Distinction' : pct >= 50 ? 'Pass' : 'Review'}
-                                                    </span>
-                                                </td>
-                                            </tr>
+                                            <React.Fragment key={testId}>
+                                                <tr 
+                                                    className={`transition-colors ${
+                                                        isExpanded 
+                                                            ? (isDarkMode ? 'bg-orange-500/5' : 'bg-orange-50/50') 
+                                                            : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50')
+                                                    }`}
+                                                >
+                                                    {/* Expand Toggle */}
+                                                    <td className="py-3 px-2 text-center no-print">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleTestExpand(testId)}
+                                                            className={`p-1 rounded-md transition-all ${
+                                                                isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-200 text-slate-500'
+                                                            }`}
+                                                            title={isExpanded ? 'Collapse breakdown' : 'Expand subject marks'}
+                                                        >
+                                                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                                                        </button>
+                                                    </td>
+
+                                                    {/* Test Name & Code */}
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold print-text-dark leading-snug">
+                                                                {r.name || r.code || `Test #${i+1}`}
+                                                            </span>
+                                                            {r.code && r.name && (
+                                                                <span className="text-[10px] text-slate-400 font-mono print-text-dark">
+                                                                    {r.code}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Date */}
+                                                    <td className="py-3 px-3 text-center font-mono text-slate-400 print-text-dark whitespace-nowrap">
+                                                        {testDate}
+                                                    </td>
+
+                                                    {/* Subject-Wise Marks Badges */}
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {sectionList.map((sec, secIdx) => {
+                                                                const secPct = sec.total > 0 ? Math.round((sec.marks / sec.total) * 100) : 0;
+                                                                return (
+                                                                    <span
+                                                                        key={secIdx}
+                                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                                                            secPct >= 80 
+                                                                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
+                                                                                : secPct >= 65 
+                                                                                ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' 
+                                                                                : secPct >= 50 
+                                                                                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+                                                                                : 'bg-red-500/10 text-red-500 border-red-500/20'
+                                                                        }`}
+                                                                        title={`${sec.name}: ${sec.marks}/${sec.total} (${secPct}%)`}
+                                                                    >
+                                                                        <span className="font-bold uppercase tracking-tight">{sec.name}:</span>
+                                                                        <span className="font-mono font-black">{sec.marks}/{sec.total}</span>
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Score */}
+                                                    <td className="py-3 px-3 text-center font-mono font-bold text-emerald-500">
+                                                        {r.marks}
+                                                    </td>
+
+                                                    {/* Max */}
+                                                    <td className="py-3 px-3 text-center font-mono text-slate-400 print-text-dark">
+                                                        {r.total}
+                                                    </td>
+
+                                                    {/* Percentage */}
+                                                    <td className="py-3 px-3 text-center font-black text-orange-500">
+                                                        {pct}%
+                                                    </td>
+
+                                                    {/* Rank */}
+                                                    <td className="py-3 px-3 text-center font-bold font-mono text-blue-400">
+                                                        {r.rank ? `#${r.rank}` : '—'}
+                                                    </td>
+
+                                                    {/* Status Badge */}
+                                                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                            pct >= 75 ? 'bg-emerald-500/10 text-emerald-500' :
+                                                            pct >= 50 ? 'bg-blue-500/10 text-blue-500' :
+                                                            'bg-amber-500/10 text-amber-500'
+                                                        }`}>
+                                                            {pct >= 75 ? 'Distinction' : pct >= 50 ? 'Pass' : 'Review'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+
+                                                {/* Expandable Subject-Wise Breakdown Sub-Card */}
+                                                {isExpanded && (
+                                                    <tr className={isDarkMode ? 'bg-[#151a28]/60' : 'bg-slate-50/80'}>
+                                                        <td colSpan="9" className="p-4 sm:p-5 border-t border-b border-orange-500/20">
+                                                            <div className="space-y-4">
+                                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
+                                                                    <div>
+                                                                        <h4 className="text-xs font-black uppercase tracking-wider text-orange-500 flex items-center gap-2">
+                                                                            <BookOpen size={14} />
+                                                                            {r.name || r.code} — Subject-Wise Marksheet
+                                                                        </h4>
+                                                                        <p className="text-[11px] text-slate-400 mt-0.5 print-text-dark">
+                                                                            Sectional marks, accuracy indicators & exam standing.
+                                                                        </p>
+                                                                    </div>
+
+                                                                    {r.percentile !== undefined && r.percentile !== null && (
+                                                                        <div className="text-[11px] font-bold">
+                                                                            <span className="text-slate-400 print-text-dark">Percentile: </span>
+                                                                            <span className="text-blue-500 font-mono font-black">{r.percentile}%</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Subject Cards Grid */}
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                                    {sectionList.map((sec, secIdx) => {
+                                                                        const secPct = sec.total > 0 ? Math.round((sec.marks / sec.total) * 100) : 0;
+                                                                        let secGrade = 'D';
+                                                                        if (secPct >= 85) secGrade = 'A+';
+                                                                        else if (secPct >= 75) secGrade = 'A';
+                                                                        else if (secPct >= 65) secGrade = 'B+';
+                                                                        else if (secPct >= 55) secGrade = 'B';
+                                                                        else if (secPct >= 45) secGrade = 'C';
+
+                                                                        const colorClass = secPct >= 80 
+                                                                            ? 'text-emerald-500' 
+                                                                            : secPct >= 65 
+                                                                            ? 'text-blue-500' 
+                                                                            : secPct >= 50 
+                                                                            ? 'text-amber-500' 
+                                                                            : 'text-red-500';
+
+                                                                        const barBg = secPct >= 80 
+                                                                            ? 'bg-emerald-500' 
+                                                                            : secPct >= 65 
+                                                                            ? 'bg-blue-500' 
+                                                                            : secPct >= 50 
+                                                                            ? 'bg-amber-500' 
+                                                                            : 'bg-red-500';
+
+                                                                        return (
+                                                                            <div 
+                                                                                key={secIdx}
+                                                                                className={`p-3.5 rounded-xl border print-card ${
+                                                                                    isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+                                                                                }`}
+                                                                            >
+                                                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                                                    <span className="font-extrabold uppercase text-[11px] tracking-wide truncate print-text-dark">
+                                                                                        {sec.name}
+                                                                                    </span>
+                                                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                                                                        secPct >= 75 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                                                                        secPct >= 50 ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                                                                        'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                                                                    }`}>
+                                                                                        Grade {secGrade}
+                                                                                    </span>
+                                                                                </div>
+
+                                                                                <div className="flex items-baseline justify-between mb-1.5">
+                                                                                    <div className="flex items-baseline gap-1">
+                                                                                        <span className={`text-base font-black font-mono ${colorClass}`}>
+                                                                                            {sec.marks}
+                                                                                        </span>
+                                                                                        <span className="text-[11px] text-slate-400 font-mono print-text-dark">
+                                                                                            / {sec.total}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <span className={`text-xs font-black ${colorClass}`}>
+                                                                                        {secPct}%
+                                                                                    </span>
+                                                                                </div>
+
+                                                                                {/* Progress Bar */}
+                                                                                <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                                                                                    <div 
+                                                                                        className={`h-full rounded-full transition-all duration-500 ${barBg}`}
+                                                                                        style={{ width: `${Math.min(Math.max(secPct, 0), 100)}%` }}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
                                         );
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="7" className="py-6 text-center text-slate-400 italic">
+                                        <td colSpan="9" className="py-6 text-center text-slate-400 italic">
                                             No test examination records recorded yet.
                                         </td>
                                     </tr>

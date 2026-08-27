@@ -47,6 +47,18 @@ def ensure_database_indexes():
         test_coll.create_index([('is_result_published', 1)], background=True)
         test_coll.create_index([('created_at', -1)], background=True)
         
+        # sections_section & sections_section_questions — critical for fast question loading
+        sec_coll = db['sections_section']
+        sec_coll.create_index([('test_id', 1)], background=True)
+        sec_coll.create_index([('priority', 1)], background=True)
+
+        sec_q_coll = db['sections_section_questions']
+        sec_q_coll.create_index([('section_id', 1)], background=True)
+        sec_q_coll.create_index([('question_id', 1)], background=True)
+
+        q_coll = db['questions_question']
+        q_coll.create_index([('created_at', -1)], background=True)
+
         # api_doubt — critical for doubts filtering
         doubt_coll = db['api_doubt']
         doubt_coll.create_index([('status', 1), ('created_at', -1)], background=True)
