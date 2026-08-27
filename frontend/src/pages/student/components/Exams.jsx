@@ -382,11 +382,62 @@ const Exams = ({ isDarkMode, onRefresh, cache, setCache }) => {
         }
     }, [token, fetchTests, cache]);
 
+    // Helper to determine if the student/test belongs to Foundation / Junior classes (Classes 6-10)
+    const isJuniorClass = useCallback((currentUser, currentTest) => {
+        const combinedStr = [
+            currentUser?.class_level_details?.name,
+            currentUser?.class_level_name,
+            currentUser?.class_level?.name,
+            currentUser?.class_level,
+            currentUser?.exam_section,
+            currentUser?.study_section,
+            currentTest?.class_level_details?.name,
+            currentTest?.class_level_name,
+            currentTest?.class_level?.name,
+            currentTest?.name
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        // If it explicitly belongs to Class 11, 12, Repeater, Dropper -> Senior (requires code)
+        if (/\b(class\s*1[12]|11th|12th|repeater|dropper|target|xi|xii)\b/i.test(combinedStr)) {
+            return false;
+        }
+
+        // Foundation / Classes 6 to 10 indicators -> Junior (exempt from code)
+        if (/\b(class\s*([6-9]|10)|foundation|std\s*([6-9]|10)|grade\s*([6-9]|10)|vi|vii|viii|ix|x)\b/i.test(combinedStr)) {
+            return true;
+        }
+
+        // Pure numeric check for 6, 7, 8, 9, 10
+        const numbers = (combinedStr.match(/\b([6-9]|10)\b/g) || []);
+        if (numbers.length > 0 && !/\b(11|12)\b/.test(combinedStr)) {
+            return true;
+        }
+
+        return false;
+    }, []);
+
+    // Helper to determine if the test attempt is a Late Attempt (missed exam after deadline)
+    const isLateAttempt = useCallback((currentTest) => {
+        if (!currentTest) return false;
+        const now = new Date();
+        const end = currentTest.end_time ? new Date(currentTest.end_time) : null;
+        const isExpired = end && now > end;
+        const hasStarted = (currentTest.submission?.time_spent > 0) || currentTest.submission?.is_finalized;
+        return isExpired && !hasStarted;
+    }, []);
+
     const handleStartClick = useCallback((test) => {
-        // setSelectedTest(test);
-        // setIsModalOpen(true);
-        navigate(`/student/exam/instructions/${test.id}`);
-    }, [navigate]);
+        // Exemption 1: Classes 6-10 do not require an access code
+        // Exemption 2: Late attempts (missed scheduled window) do not require an access code
+        if (isJuniorClass(user, test) || isLateAttempt(test)) {
+            navigate(`/student/exam/instructions/${test.id}`);
+            return;
+        }
+
+        // Regular scheduled test for Class 11, 12, Repeaters -> Prompt for 6-digit access code
+        setSelectedTest(test);
+        setIsModalOpen(true);
+    }, [user, navigate, isJuniorClass, isLateAttempt]);
 
     const handleVerifyCode = useCallback(async (code) => {
         const apiUrl = getApiUrl();
