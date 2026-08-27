@@ -2191,8 +2191,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 </div>
 
                                 <div className="flex flex-col gap-4 mt-8">
-                                    {paginatedQuestions.map((q) => {
+                                    {paginatedQuestions.map((q, index) => {
                                         const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
+                                        const serialNo = (currentPage - 1) * itemsPerPage + index + 1;
                                         const getMultiNames = (list, masterList, singleItem) => {
                                             const ids = [];
                                             if (Array.isArray(list) && list.length > 0) {
@@ -2226,8 +2227,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 `}
                                             >
                                                 <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-                                                    {/* Selection & Level */}
-                                                    <div className="flex items-center gap-5 shrink-0">
+                                                    {/* Selection, Sl No & Level */}
+                                                    <div className="flex items-center gap-4 shrink-0">
                                                         {(isSelectionMode || isInternalSelectionMode) && (() => {
                                                             const qid = q.id || q._id;
                                                             const isChecked = isSelectionMode ? selectedIds.includes(qid) : selectedInternalIds.includes(qid);
@@ -2267,6 +2268,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                 </div>
                                                             );
                                                         })()}
+                                                        {/* Sl No Badge */}
+                                                        <div className={`w-12 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105 ${isDarkMode ? 'bg-[#10141D] text-slate-300 border-white/5' : 'bg-white text-slate-700 border-slate-200 shadow-sm'}`}>
+                                                            <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">SL NO</div>
+                                                            <div className="text-xs font-black">#{serialNo}</div>
+                                                        </div>
+                                                        {/* Level Badge */}
                                                         <div className={`px-2 min-w-[3.5rem] h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
                                                             <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
                                                             <div className="text-xs font-black text-center capitalize max-w-[5rem] truncate" title={Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0 ? q.difficulty_levels.map(l => (LEVEL_NUM_TO_KEY[String(l)] || String(l)).replace('_', ' ')).join(', ') : ((LEVEL_NUM_TO_KEY[String(q.difficulty_level || q.level)] || String(q.difficulty_level || q.level || 'easy')).replace('_', ' '))}>
