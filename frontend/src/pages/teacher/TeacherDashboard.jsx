@@ -285,7 +285,7 @@ const TeacherDashboard = () => {
                 )}
                 {visitedTabs.has('Notifications') && (
                     <div className={activeTab === 'Notifications' ? 'block' : 'hidden'}>
-                        <TeacherNotifications />
+                        <TeacherNotifications user={user} />
                     </div>
                 )}
                 {!knownTabs.includes(activeTab) && (

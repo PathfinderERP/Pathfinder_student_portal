@@ -9,7 +9,7 @@ from .views import (
     UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress,
     get_swot_analysis, ClassFeedbackViewSet, get_admin_student_activity_summary, get_admin_student_activity_detail,
     get_admin_teacher_activity_summary, get_admin_teacher_activity_detail,
-    get_teacher_performance_analytics
+    get_teacher_performance_analytics, get_teacher_notifications
 )
 from .erp_views import (
     get_student_erp_data, get_all_students_erp_data, get_student_attendance, 
@@ -101,6 +101,7 @@ urlpatterns = [
     path('teacher-portal/attendance/', teacher_attendance_view, name='teacher-portal-attendance'),
     path('teacher-portal/batch-attendance/', batch_teacher_attendance_view, name='teacher-portal-batch-attendance'),
     path('teacher-portal/performance-analytics/', get_teacher_performance_analytics, name='teacher-performance-analytics'),
+    path('teacher-portal/notifications/', get_teacher_notifications, name='teacher-portal-notifications'),
     path('rank-produce/', topper_rank_view, name='rank-produce'),
     path('mentorship-conversion/', mentorship_conversion_view, name='mentorship-conversion'),
     path('upload-media/', upload_media_to_r2_view, name='upload-media'),

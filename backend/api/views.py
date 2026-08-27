@@ -2528,3 +2528,210 @@ def get_teacher_performance_analytics(request):
         'rating_trend': rating_trend,
         'doubt_by_subject': doubt_subject_data,
     }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_teacher_notifications(request):
+    """
+    Returns aggregated dynamic real-time notifications for the logged-in teacher:
+    - Institutional Notices & Memos (from Notice model)
+    - Assigned & Pending Doubts (from Doubt model)
+    - Recent Student Class Feedbacks (from ClassFeedback model)
+    """
+    from api.models import Notice, Doubt, ClassFeedback
+    from django.db.models import Q
+    from django.utils import timezone
+    import datetime
+
+    user = request.user
+    full_name = f"{user.first_name} {user.last_name}".strip()
+    first_name = (user.first_name or '').strip()
+
+    def format_rel_time(dt):
+        if not dt:
+            return 'Recently'
+        now = timezone.now()
+        if isinstance(dt, str):
+            try:
+                dt = datetime.datetime.fromisoformat(dt)
+            except Exception:
+                return 'Recently'
+        if isinstance(dt, datetime.date) and not isinstance(dt, datetime.datetime):
+            dt = datetime.datetime.combine(dt, datetime.time.min)
+        if timezone.is_aware(dt) and timezone.is_naive(now):
+            dt = timezone.make_naive(dt)
+        elif timezone.is_naive(dt) and timezone.is_aware(now):
+            dt = timezone.make_aware(dt)
+        diff = now - dt
+        secs = int(diff.total_seconds())
+        if secs < 0:
+            return 'Just now'
+        if secs < 60:
+            return 'Just now'
+        elif secs < 3600:
+            m = secs // 60
+            return f"{m} min{'s' if m > 1 else ''} ago"
+        elif secs < 86400:
+            h = secs // 3600
+            return f"{h} hour{'s' if h > 1 else ''} ago"
+        elif secs < 604800:
+            d = secs // 86400
+            return f"{d} day{'s' if d > 1 else ''} ago"
+        else:
+            return dt.strftime("%b %d, %Y")
+
+    notifications = []
+
+    # 1. Institutional Notices
+    try:
+        notices = Notice.objects.filter(
+            Q(is_general=True) | Q(user__isnull=True) | Q(user=user)
+        ).order_by('-id')[:20]
+
+        for n in notices:
+            cat_upper = (n.category or 'ADMIN').upper()
+            if cat_upper in ['EXAMS', 'RESOURCES', 'WORKSHOP']:
+                tab_cat = 'ACADEMIC'
+            elif cat_upper in ['SYSTEM']:
+                tab_cat = 'SYSTEM'
+            else:
+                tab_cat = 'MEMO'
+
+            n_type = 'warn' if cat_upper == 'SYSTEM' else 'memo' if cat_upper == 'ADMIN' else 'info'
+            created_dt = getattr(n, 'date', None) or timezone.now().date()
+            iso_str = created_dt.isoformat() if hasattr(created_dt, 'isoformat') else str(created_dt)
+
+            notifications.append({
+                'id': f"notice-{n.id}",
+                'type': n_type,
+                'category': tab_cat,
+                'title': n.title or 'Institutional Notice',
+                'msg': n.content or '',
+                'time': format_rel_time(created_dt),
+                'timestamp': iso_str,
+                'badge': n.category or 'Notice',
+                'link': n.link or '',
+                'attachment': n.attachment or '',
+                'source': 'notice'
+            })
+    except Exception as e:
+        print("[get_teacher_notifications] Error fetching notices:", e)
+
+    # 2. Assigned / Pending Doubts for this teacher (or recent unassigned/pending doubts)
+    try:
+        doubt_q = (
+            Q(teacher_id=str(user.pk)) |
+            Q(teacher_id__iexact=user.email) |
+            Q(teacher_id__iexact=user.username)
+        )
+        if full_name:
+            doubt_q |= Q(teacher_name__iexact=full_name) | Q(teacher_name__icontains=full_name)
+        if first_name and len(first_name) >= 3:
+            doubt_q |= Q(teacher_name__icontains=first_name)
+
+        teacher_doubts = list(Doubt.objects.filter(doubt_q).order_by('-id')[:20])
+
+        # If few doubts assigned directly, include recent active doubts in queue
+        if len(teacher_doubts) < 5:
+            existing_ids = {d.id for d in teacher_doubts}
+            extra_doubts = Doubt.objects.filter(status__in=['Assign', 'Unassigned']).exclude(id__in=existing_ids).order_by('-id')[:10]
+            teacher_doubts.extend(extra_doubts)
+
+        for d in teacher_doubts:
+            dt = getattr(d, 'date', None) or getattr(d, 'assign_date', None) or getattr(d, 'created_at', None) or timezone.now()
+            iso_str = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+
+            if d.status == 'Assign':
+                d_type = 'warn'
+                status_label = 'Pending Action'
+            elif d.status == 'Resolved':
+                d_type = 'success'
+                status_label = 'Resolved'
+            elif d.status == 'Rejected':
+                d_type = 'warn'
+                status_label = 'Rejected'
+            else:
+                d_type = 'memo'
+                status_label = d.status or 'Active'
+
+            desc = getattr(d, 'description', '') or getattr(d, 'question', '') or 'Doubt question submitted'
+            snippet = str(desc)[:120]
+            if len(str(desc)) > 120:
+                snippet += '...'
+
+            student_info = []
+            if getattr(d, 'student_name', None):
+                student_info.append(d.student_name)
+            if getattr(d, 'centre_name', None):
+                student_info.append(d.centre_name)
+            if getattr(d, 'student_class', None):
+                student_info.append(f"Class {d.student_class}")
+            st_str = " · ".join(student_info) if student_info else "Student"
+
+            notifications.append({
+                'id': f"doubt-{d.id}",
+                'type': d_type,
+                'category': 'ACADEMIC',
+                'title': f"Doubt {status_label}: {d.subject or 'Subject'} ({getattr(d, 'category', 'General')})",
+                'msg': f"{st_str}: \"{snippet}\"",
+                'time': format_rel_time(dt),
+                'timestamp': iso_str,
+                'badge': f"Doubt: {d.status or 'New'}",
+                'source': 'doubt'
+            })
+    except Exception as e:
+        print("[get_teacher_notifications] Error fetching doubts:", e)
+
+    # 3. Class Feedbacks received
+    try:
+        feedback_q = (
+            Q(teacher_id=str(user.pk)) |
+            Q(teacher_id__iexact=user.email) |
+            Q(teacher_id__iexact=user.username)
+        )
+        if full_name:
+            feedback_q |= Q(teacher_name__iexact=full_name) | Q(teacher_name__icontains=full_name)
+        if first_name and len(first_name) >= 3:
+            feedback_q |= Q(teacher_name__icontains=first_name)
+
+        feedbacks = list(ClassFeedback.objects.filter(feedback_q).select_related('student').order_by('-id')[:20])
+        
+        # If few feedbacks for this specific teacher, include recent institutional feedback
+        if len(feedbacks) < 3:
+            existing_ids = {f.id for f in feedbacks}
+            extra_feedbacks = ClassFeedback.objects.exclude(id__in=existing_ids).select_related('student').order_by('-id')[:5]
+            feedbacks.extend(extra_feedbacks)
+
+        for fb in feedbacks:
+            dt = getattr(fb, 'created_at', None) or timezone.now()
+            iso_str = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+            score = fb.average_score or 0
+
+            fb_type = 'success' if score >= 4 else 'info' if score >= 3 else 'warn'
+            batch_str = fb.student.assigned_batch if fb.student and fb.student.assigned_batch else 'Batch'
+            centre_str = fb.student.centre_name if fb.student and fb.student.centre_name else 'Centre'
+
+            notifications.append({
+                'id': f"feedback-{fb.id}",
+                'type': fb_type,
+                'category': 'ACADEMIC',
+                'title': f"Class Feedback Logged ({score}★)",
+                'msg': f"Feedback for {fb.subject or 'Subject'} ({fb.chapter_name or 'Class'}) conducted on {fb.date_of_class or 'recent session'} for {centre_str} [{batch_str}].",
+                'time': format_rel_time(dt),
+                'timestamp': iso_str,
+                'badge': f"{score}★ Rating",
+                'source': 'feedback'
+            })
+    except Exception as e:
+        print("[get_teacher_notifications] Error fetching feedbacks:", e)
+
+    # Sort all notifications descending by timestamp
+    notifications.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+    return response.Response({
+        'notifications': notifications,
+        'count': len(notifications)
+    }, status=200)
+
+
