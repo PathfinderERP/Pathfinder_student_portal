@@ -876,6 +876,7 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                                     <th className="py-3 px-3 text-center">Score</th>
                                     <th className="py-3 px-3 text-center">Max</th>
                                     <th className="py-3 px-3 text-center">%</th>
+                                    <th className="py-3 px-3 text-center">Percentile</th>
                                     <th className="py-3 px-3 text-center">Rank</th>
                                     <th className="py-3 px-3 text-center">Status</th>
                                 </tr>
@@ -982,8 +983,13 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                                                         {pct}%
                                                     </td>
 
+                                                    {/* Percentile */}
+                                                    <td className="py-3 px-3 text-center font-mono font-bold text-blue-500">
+                                                        {r.percentile !== undefined && r.percentile !== null ? `${r.percentile}%` : '—'}
+                                                    </td>
+
                                                     {/* Rank */}
-                                                    <td className="py-3 px-3 text-center font-bold font-mono text-blue-400">
+                                                    <td className="py-3 px-3 text-center font-bold font-mono text-indigo-400">
                                                         {r.rank ? `#${r.rank}` : '—'}
                                                     </td>
 
@@ -1002,7 +1008,7 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                                                 {/* Expandable Subject-Wise Breakdown Sub-Card */}
                                                 {isExpanded && (
                                                     <tr className={isDarkMode ? 'bg-[#151a28]/60' : 'bg-slate-50/80'}>
-                                                        <td colSpan="9" className="p-4 sm:p-5 border-t border-b border-orange-500/20">
+                                                        <td colSpan="10" className="p-4 sm:p-5 border-t border-b border-orange-500/20">
                                                             <div className="space-y-4">
                                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
                                                                     <div>
@@ -1104,7 +1110,7 @@ const ReportCard = ({ isDarkMode, studentData: initialStudentData }) => {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="9" className="py-6 text-center text-slate-400 italic">
+                                        <td colSpan="10" className="py-6 text-center text-slate-400 italic">
                                             No test examination records recorded yet.
                                         </td>
                                     </tr>
