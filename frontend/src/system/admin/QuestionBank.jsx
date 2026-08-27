@@ -64,6 +64,11 @@ const processLatexToHtml = (text) => {
     return processed.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 };
 
+const normalizeForSearch = (str) => {
+    if (!str) return '';
+    return String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
 const DIFFICULTY_OPTIONS = [
     { value: 'very_easy', label: 'Very Easy' },
     { value: 'easy', label: 'Easy' },
@@ -115,11 +120,13 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
 
     const filteredOptions = useMemo(() => {
         let list = options || [];
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
+        if (searchTerm && searchTerm.trim()) {
+            const rawTerm = searchTerm.trim().toLowerCase();
+            const normTerm = normalizeForSearch(searchTerm);
             list = list.filter(opt => {
-                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
-                return text.includes(term);
+                const rawText = String(opt.label || opt.name || opt.value || '').toLowerCase();
+                const normText = normalizeForSearch(rawText);
+                return rawText.includes(rawTerm) || (normTerm && normText.includes(normTerm));
             });
         }
 
@@ -554,25 +561,38 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             // Use debounced search instead of immediate filter search
             if (debouncedSearch) {
                 const searchTerm = debouncedSearch.trim().toLowerCase();
+                const normSearchTerm = normalizeForSearch(debouncedSearch);
                 if (searchTerm) {
                     const qText = (q.question || q.content || '').toLowerCase();
                     const qId = String(q.id || q._id || '').toLowerCase();
 
+                    const matchText = (text) => {
+                        if (!text) return false;
+                        const lower = String(text).toLowerCase();
+                        return lower.includes(searchTerm) || (normSearchTerm && normalizeForSearch(lower).includes(normSearchTerm));
+                    };
+
                     // Resolve names from master data for searching if needed
                     const matchesSubjectName = qSubjects.some(sid => {
                         const sObj = subjects.find(s => String(s.id) === String(sid));
-                        return (sObj?.name || '').toLowerCase().includes(searchTerm);
+                        return matchText(sObj?.name);
                     });
 
                     const matchesTopicName = qTopics.some(tid => {
                         const tObj = topics.find(t => String(t.id) === String(tid));
-                        return (tObj?.name || '').toLowerCase().includes(searchTerm);
+                        return matchText(tObj?.name);
                     });
 
-                    if (!qText.includes(searchTerm) &&
-                        !qId.includes(searchTerm) &&
+                    const matchesChapterName = qChapters.some(cid => {
+                        const cObj = chapters.find(c => String(c.id) === String(cid));
+                        return matchText(cObj?.name);
+                    });
+
+                    if (!matchText(qText) &&
+                        !matchText(qId) &&
                         !matchesSubjectName &&
-                        !matchesTopicName) {
+                        !matchesTopicName &&
+                        !matchesChapterName) {
                         return false;
                     }
                 }
