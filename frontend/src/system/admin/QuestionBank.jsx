@@ -114,10 +114,30 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
     const totalAvailableCount = validOptions.length > 0 ? validOptions.length : (options || []).length;
 
     const filteredOptions = useMemo(() => {
-        if (!searchTerm) return options || [];
-        return (options || []).filter(opt => {
-            const text = (opt.label || opt.name || opt.value || '').toLowerCase();
-            return text.includes(searchTerm.toLowerCase());
+        let list = options || [];
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            list = list.filter(opt => {
+                const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+                return text.includes(term);
+            });
+        }
+
+        // Natural alphabetical sorting (e.g. 7(a) before 7(b), A before B, 1 before 2)
+        // Keep null / empty / 'None / Not Assigned' / 'All ...' options at the top
+        return [...list].sort((a, b) => {
+            const aVal = a.id !== undefined ? a.id : a.value;
+            const bVal = b.id !== undefined ? b.id : b.value;
+            const aIsTop = aVal === '__NULL__' || aVal === '' || aVal === null || aVal === undefined || String(a.label || a.name || '').toLowerCase().includes('not assigned') || String(a.label || a.name || '').toLowerCase().startsWith('all ');
+            const bIsTop = bVal === '__NULL__' || bVal === '' || bVal === null || bVal === undefined || String(b.label || b.name || '').toLowerCase().includes('not assigned') || String(b.label || b.name || '').toLowerCase().startsWith('all ');
+
+            if (aIsTop && !bIsTop) return -1;
+            if (!aIsTop && bIsTop) return 1;
+            if (aIsTop && bIsTop) return 0;
+
+            const aText = String(a.label || a.name || a.value || '');
+            const bText = String(b.label || b.name || b.value || '');
+            return aText.localeCompare(bText, undefined, { numeric: true, sensitivity: 'base' });
         });
     }, [options, searchTerm]);
 
@@ -229,7 +249,7 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className={`absolute z-100 left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                <div className={`absolute z-100 left-0 mt-1 min-w-full sm:min-w-[340px] max-w-[min(480px,90vw)] py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
                     ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
 
                     {/* Dropdown Header Info */}
@@ -297,16 +317,15 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
                             return (
                                 <div
                                     key={i}
-                                    title={optText}
                                     onClick={() => handleOptionClick(optVal)}
                                     className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
                                         ${isSelected
                                             ? 'bg-blue-500 text-white'
                                             : isDarkMode ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-blue-50/80 text-slate-700 hover:text-blue-700'}`}
                                 >
-                                    <div className="flex items-center gap-3 truncate flex-1">
+                                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
                                         {multiMode && (
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${
+                                            <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center transition-all shrink-0 ${
                                                 isSelected
                                                     ? 'bg-white border-white text-blue-600'
                                                     : isDarkMode ? 'border-white/30 bg-white/5' : 'border-slate-300 bg-white'
@@ -314,7 +333,7 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
                                                 {isSelected && <Check size={10} strokeWidth={4} />}
                                             </div>
                                         )}
-                                        <span className="truncate" title={optText}>{optText}</span>
+                                        <span className="break-words text-left leading-snug whitespace-normal">{optText}</span>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                         {opt.topicCount !== undefined && (
