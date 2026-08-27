@@ -64,6 +64,22 @@ const processLatexToHtml = (text) => {
     return processed.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 };
 
+const DIFFICULTY_OPTIONS = [
+    { value: 'very_easy', label: 'Very Easy' },
+    { value: 'easy', label: 'Easy' },
+    { value: 'moderate', label: 'Moderate' },
+    { value: 'hard', label: 'Hard' },
+    { value: 'very_hard', label: 'Very Hard' }
+];
+
+const LEVEL_NUM_TO_KEY = {
+    '1': 'very_easy',
+    '2': 'easy',
+    '3': 'moderate',
+    '4': 'hard',
+    '5': 'very_hard'
+};
+
 // Custom Floating Label Select Component with Multi-Select Support
 const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon: Icon, showCount = true, isMulti = false }) => {
     const { isDarkMode } = useTheme();
@@ -495,8 +511,14 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             if (!checkMatch(filters.testNameId, qTestNames)) return false;
 
             const qLevels = getFieldValues(q, 'difficulty_level', 'difficulty_levels');
-            if (q.level && !qLevels.includes(String(q.level))) qLevels.push(String(q.level));
-            if (!checkMatch(filters.level, qLevels)) return false;
+            if (q.level) qLevels.push(String(q.level));
+            const normalizedQLevels = new Set();
+            qLevels.forEach(lvl => {
+                const s = String(lvl).toLowerCase();
+                normalizedQLevels.add(s);
+                if (LEVEL_NUM_TO_KEY[s]) normalizedQLevels.add(LEVEL_NUM_TO_KEY[s]);
+            });
+            if (!checkMatch(filters.level, Array.from(normalizedQLevels))) return false;
 
             if (filters.question_type && q.question_type !== filters.question_type) return false;
 
@@ -596,7 +618,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         examTypeId: [],
         targetExamId: [],
         testNameId: [],
-        level: ['1'],
+        level: ['easy'],
         hasCalculator: false,
         useNumericOptions: false,
         isIndependentSelection: false,
@@ -1534,7 +1556,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     question_options: cleanOptions,
                     solution: cleanSolution,
                     question_type: q.question_type,
-                    difficulty_level: levelList.length > 0 ? String(levelList[0]) : '1',
+                    difficulty_level: levelList.length > 0 ? String(levelList[0]) : 'easy',
                     difficulty_levels: levelList.map(String),
                     class_level: firstOrNull(classList),
                     class_levels: classList,
@@ -1949,18 +1971,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             isMulti={true}
                             label="Difficulty"
                             value={filters.level}
-                            options={[
-                                { value: '1', label: 'Level 1 (Very Easy)' },
-                                { value: '2', label: 'Level 2 (Easy)' },
-                                { value: '3', label: 'Level 3 (Moderate)' },
-                                { value: '4', label: 'Level 4 (Hard)' },
-                                { value: '5', label: 'Level 5 (Very Hard)' },
-                                { value: 'very_easy', label: 'Very Easy' },
-                                { value: 'easy', label: 'Easy' },
-                                { value: 'moderate', label: 'Moderate' },
-                                { value: 'hard', label: 'Hard' },
-                                { value: 'very_hard', label: 'Very Hard' }
-                            ]}
+                            options={DIFFICULTY_OPTIONS}
                             placeholder="All Levels"
                             onChange={(val) => setFilters({ ...filters, level: val })}
                         />
@@ -2015,7 +2026,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 examTypeId: '',
                                 targetExamId: '',
                                 question_type: '',
-                                level: '',
+                                level: [],
                                 is_wrong: '',
                                 sortBy: 'newest',
                                 filterDate: '',
@@ -2237,12 +2248,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                 </div>
                                                             );
                                                         })()}
-                                                        <div className={`w-14 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
+                                                        <div className={`px-2 min-w-[3.5rem] h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-110 ${isDarkMode ? 'bg-[#10141D] text-emerald-500 border-white/5' : 'bg-white text-emerald-600 border-slate-100 shadow-sm'}`}>
                                                             <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">LVL</div>
-                                                            <div className="text-sm font-black">
+                                                            <div className="text-xs font-black text-center capitalize max-w-[5rem] truncate" title={Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0 ? q.difficulty_levels.map(l => (LEVEL_NUM_TO_KEY[String(l)] || String(l)).replace('_', ' ')).join(', ') : ((LEVEL_NUM_TO_KEY[String(q.difficulty_level || q.level)] || String(q.difficulty_level || q.level || 'easy')).replace('_', ' '))}>
                                                                 {Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0
-                                                                    ? q.difficulty_levels.join(', ')
-                                                                    : (q.difficulty_level || q.level || '1')}
+                                                                    ? q.difficulty_levels.map(l => (LEVEL_NUM_TO_KEY[String(l)] || String(l)).replace('_', ' ')).join(', ')
+                                                                    : (LEVEL_NUM_TO_KEY[String(q.difficulty_level || q.level)] || String(q.difficulty_level || q.level || 'easy')).replace('_', ' ')}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2399,9 +2410,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                         }
                                                                         return [];
                                                                     };
-                                                                    const levels = Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0
+                                                                    const rawLevels = Array.isArray(q.difficulty_levels) && q.difficulty_levels.length > 0
                                                                         ? q.difficulty_levels.map(String)
-                                                                        : (q.difficulty_level ? [String(q.difficulty_level)] : (q.level ? [String(q.level)] : ['1']));
+                                                                        : (q.difficulty_level ? [String(q.difficulty_level)] : (q.level ? [String(q.level)] : ['easy']));
+                                                                    const levels = rawLevels.map(l => LEVEL_NUM_TO_KEY[String(l)] || String(l));
 
                                                                     setForm({
                                                                         ...form,
@@ -2688,19 +2700,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             isMulti={true}
                             label="Difficulty Level"
                             value={form.level}
-                            options={[
-                                { value: '1', label: 'Level 1 (Very Easy)' },
-                                { value: '2', label: 'Level 2 (Easy)' },
-                                { value: '3', label: 'Level 3 (Moderate)' },
-                                { value: '4', label: 'Level 4 (Hard)' },
-                                { value: '5', label: 'Level 5 (Very Hard)' },
-                                { value: 'very_easy', label: 'Very Easy' },
-                                { value: 'easy', label: 'Easy' },
-                                { value: 'moderate', label: 'Moderate' },
-                                { value: 'hard', label: 'Hard' },
-                                { value: 'very_hard', label: 'Very Hard' }
-                            ]}
-                            placeholder="Select Level"
+                            options={DIFFICULTY_OPTIONS}
+                            placeholder="Select Difficulty"
                             onChange={(val) => setForm({ ...form, level: val })}
                         />
                         <div className="flex items-center gap-6 px-4 py-2 border-2 border-dashed border-slate-200 rounded-[5px]">
@@ -3364,12 +3365,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 label="Update Difficulty"
                                 value={bulkUpdateFields.difficulty_level}
                                 options={[
-                                    { value: '', label: 'All Levels' },
-                                    { value: 'very_easy', label: 'Very Easy' },
-                                    { value: 'easy', label: 'Easy' },
-                                    { value: 'moderate', label: 'Moderate' },
-                                    { value: 'hard', label: 'Hard' },
-                                    { value: 'very_hard', label: 'Very Hard' }
+                                    { value: '', label: 'Keep Original' },
+                                    ...DIFFICULTY_OPTIONS
                                 ]}
                                 placeholder="Keep Original"
                                 onChange={(val) => setBulkUpdateFields({ ...bulkUpdateFields, difficulty_level: val })}
