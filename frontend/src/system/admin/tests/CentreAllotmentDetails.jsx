@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import {
     ArrowLeft, Search, RefreshCw, Smartphone, Calendar, Clock,
-    Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail, CheckSquare, Square, Trash2, Check, FileText
+    Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail, CheckSquare, Square, Trash2, Check, FileText,
+    FileSpreadsheet, Upload, Download, AlertCircle, FileUp
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -37,6 +39,15 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         start_time: '',
         end_time: ''
     });
+
+    // Excel / CSV Import State
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importPreviewRows, setImportPreviewRows] = useState([]);
+    const [isImportLoading, setIsImportLoading] = useState(false);
+    const [autoGenerateCodes, setAutoGenerateCodes] = useState(true);
+    const [importValidationErrors, setImportValidationErrors] = useState([]);
+    const fileInputRef = useRef(null);
 
     // Custom Alert State
     const [alert, setAlert] = useState({ show: false, message: '', type: 'success' });
@@ -259,6 +270,183 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         }
     };
 
+    // Download Pre-filled Excel Template
+    const handleDownloadTemplate = () => {
+        const formatDt = (dt) => {
+            if (!dt) return '';
+            const d = new Date(dt);
+            if (isNaN(d.getTime())) return '';
+            const yr = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hr = String(d.getHours()).padStart(2, '0');
+            const mn = String(d.getMinutes()).padStart(2, '0');
+            return `${yr}-${mo}-${day} ${hr}:${mn}`;
+        };
+
+        const rows = allotments.filter(a => a.centre_details?.code !== 'N/A' && a.centre_details?.code).map(a => ({
+            'Centre Code': a.centre_details?.code || '',
+            'Centre Name': a.centre_details?.name || '',
+            'Start Time (YYYY-MM-DD HH:MM)': formatDt(a.start_time),
+            'End Time (YYYY-MM-DD HH:MM)': formatDt(a.end_time),
+            'Magic Code (Optional)': a.access_code || '',
+            'Status (Active/Inactive)': a.is_active ? 'Active' : 'Inactive'
+        }));
+
+        const data = rows.length > 0 ? rows : [
+            {
+                'Centre Code': 'AR',
+                'Centre Name': 'ARAMBAGH',
+                'Start Time (YYYY-MM-DD HH:MM)': '2026-08-29 09:00',
+                'End Time (YYYY-MM-DD HH:MM)': '2026-09-01 21:00',
+                'Magic Code (Optional)': '482088',
+                'Status (Active/Inactive)': 'Active'
+            }
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        ws['!cols'] = [
+            { wch: 15 },
+            { wch: 25 },
+            { wch: 30 },
+            { wch: 30 },
+            { wch: 24 },
+            { wch: 24 }
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Centre Schedule');
+        const safeName = (test.name || 'Test').replace(/[^a-zA-Z0-9_-]/g, '_');
+        XLSX.writeFile(wb, `${safeName}_Centre_Schedule_Template.xlsx`);
+        triggerAlert('Excel template downloaded!', 'success');
+    };
+
+    // Parse Excel/CSV File
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImportFile(file);
+        setImportValidationErrors([]);
+        const reader = new FileReader();
+
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target.result;
+                const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+                if (!rawRows || rawRows.length === 0) {
+                    setImportValidationErrors(['The selected file contains no data rows.']);
+                    setImportPreviewRows([]);
+                    return;
+                }
+
+                const parsed = rawRows.map((r, idx) => {
+                    const getVal = (...keys) => {
+                        for (const k of keys) {
+                            const found = Object.keys(r).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
+                            if (found && r[found] !== undefined && r[found] !== null && r[found] !== '') {
+                                return r[found];
+                            }
+                        }
+                        return '';
+                    };
+
+                    const rawCode = getVal('centre code', 'center code', 'centre_code', 'center_code', 'code');
+                    const rawName = getVal('centre name', 'center name', 'centre_name', 'center_name', 'name', 'centre');
+                    const rawStart = getVal('start time (yyyy-mm-dd hh:mm)', 'start time', 'start_time', 'start');
+                    const rawEnd = getVal('end time (yyyy-mm-dd hh:mm)', 'end time', 'end_time', 'end');
+                    const rawCodeVal = getVal('magic code (optional)', 'magic code', 'access code', 'passcode', 'magic_code', 'access_code');
+                    const rawStatus = getVal('status (active/inactive)', 'status', 'is_active', 'active');
+
+                    const formatDateVal = (v) => {
+                        if (!v) return '';
+                        if (v instanceof Date && !isNaN(v.getTime())) {
+                            const yr = v.getFullYear();
+                            const mo = String(v.getMonth() + 1).padStart(2, '0');
+                            const day = String(v.getDate()).padStart(2, '0');
+                            const hr = String(v.getHours()).padStart(2, '0');
+                            const mn = String(v.getMinutes()).padStart(2, '0');
+                            return `${yr}-${mo}-${day} ${hr}:${mn}`;
+                        }
+                        return String(v).trim();
+                    };
+
+                    const codeStr = String(rawCode || '').trim();
+                    const nameStr = String(rawName || '').trim();
+                    const startStr = formatDateVal(rawStart);
+                    const endStr = formatDateVal(rawEnd);
+                    const magicCodeStr = String(rawCodeVal || '').trim();
+                    const isActive = rawStatus ? !['inactive', 'false', '0', 'no', 'disabled'].includes(String(rawStatus).trim().toLowerCase()) : true;
+
+                    const matchedAllotment = allotments.find(a =>
+                        (codeStr && a.centre_details?.code?.toLowerCase() === codeStr.toLowerCase()) ||
+                        (nameStr && a.centre_details?.name?.toLowerCase() === nameStr.toLowerCase())
+                    );
+
+                    return {
+                        id: idx + 1,
+                        centre_code: codeStr,
+                        centre_name: nameStr || matchedAllotment?.centre_details?.name || '',
+                        start_time: startStr,
+                        end_time: endStr,
+                        magic_code: magicCodeStr,
+                        is_active: isActive,
+                        matched: !!matchedAllotment,
+                        centre_display: matchedAllotment?.centre_details?.name || nameStr || codeStr || 'Unknown'
+                    };
+                });
+
+                setImportPreviewRows(parsed);
+            } catch (err) {
+                console.error('Error parsing Excel:', err);
+                setImportValidationErrors([`Failed to parse file: ${err.message}`]);
+                setImportPreviewRows([]);
+            }
+        };
+
+        reader.readAsBinaryString(file);
+    };
+
+    // Submit Imported Rows
+    const handleConfirmImport = async () => {
+        if (importPreviewRows.length === 0) {
+            triggerAlert('No rows to import', 'error');
+            return;
+        }
+
+        setIsImportLoading(true);
+        try {
+            const apiUrl = getApiUrl();
+            const payload = {
+                rows: importPreviewRows.map(r => ({
+                    centre_code: r.centre_code,
+                    centre_name: r.centre_name,
+                    start_time: r.start_time,
+                    end_time: r.end_time,
+                    magic_code: r.magic_code,
+                    is_active: r.is_active
+                })),
+                auto_generate_missing_codes: autoGenerateCodes
+            };
+
+            const res = await axios.post(`${apiUrl}/api/tests/${test.id}/import-centre-allotments/`, payload, getAuthConfig());
+            
+            triggerAlert(res.data.message || 'Centres updated from Excel successfully!', 'success');
+            setIsImportModalOpen(false);
+            setImportFile(null);
+            setImportPreviewRows([]);
+            fetchAllotments(true);
+        } catch (err) {
+            console.error('Import error:', err);
+            triggerAlert(err.response?.data?.error || 'Failed to import centre schedules', 'error');
+        } finally {
+            setIsImportLoading(false);
+        }
+    };
+
     const filteredAllotments = allotments.filter(a =>
         a.centre_details?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.centre_details?.code?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -369,6 +557,32 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                             className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
                         />
                     </div>
+
+                    {/* Download Template Button */}
+                    <button
+                        onClick={handleDownloadTemplate}
+                        title="Download Excel template pre-filled with current centres"
+                        className={`flex items-center gap-2 px-3.5 py-2.5 rounded-[5px] border text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-emerald-400 hover:bg-emerald-500/10' : 'bg-white border-slate-200 text-emerald-600 hover:bg-emerald-50 shadow-sm'}`}
+                    >
+                        <Download size={15} />
+                        <span className="hidden sm:inline">Template</span>
+                    </button>
+
+                    {/* Import Excel Button */}
+                    <button
+                        onClick={() => {
+                            setIsImportModalOpen(true);
+                            setImportFile(null);
+                            setImportPreviewRows([]);
+                            setImportValidationErrors([]);
+                        }}
+                        title="Import centre schedules & magic codes from Excel/CSV"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95"
+                    >
+                        <FileSpreadsheet size={16} />
+                        <span>Import Excel</span>
+                    </button>
+
                     <button
                         onClick={() => fetchAllotments(true)}
                         className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
@@ -676,7 +890,171 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                 </div>
             )}
 
-            {/* Alert Notifications */}
+            {/* Excel / CSV Import Modal */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => !isImportLoading && setIsImportModalOpen(false)} />
+                    <div className={`relative w-full max-w-2xl rounded-[10px] shadow-2xl border overflow-hidden animate-scale-up duration-300 flex flex-col max-h-[85vh] ${isDarkMode ? 'bg-[#1A1F2B] border-white/10' : 'bg-white border-slate-200'}`}>
+                        {/* Modal Header */}
+                        <div className="bg-emerald-600 p-6 flex justify-between items-center text-white shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-white/20 rounded-[5px]">
+                                    <FileSpreadsheet size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-black uppercase tracking-tight">Import Centre Exam Time & Magic Code</h3>
+                                    <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">Test: {test.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => !isImportLoading && setIsImportModalOpen(false)} className="text-white/80 hover:text-white transition-all">
+                                <X size={24} strokeWidth={3} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+                            {/* Download Template Banner */}
+                            <div className={`p-4 rounded-[5px] border flex items-center justify-between gap-4 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-emerald-50/70 border-emerald-200'}`}>
+                                <div>
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Need the standard Excel format?</h4>
+                                    <p className="text-[11px] font-medium opacity-60 mt-0.5">Download a pre-filled template with all centres for this test.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleDownloadTemplate}
+                                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-all active:scale-95 shadow-sm"
+                                >
+                                    <Download size={13} /> Download Template
+                                </button>
+                            </div>
+
+                            {/* File Upload Drop Zone */}
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`border-2 border-dashed rounded-[10px] p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${importFile ? (isDarkMode ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-emerald-500 bg-emerald-50/50') : (isDarkMode ? 'border-white/10 hover:border-white/30 bg-white/2' : 'border-slate-200 hover:border-slate-300 bg-slate-50')}`}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".xlsx, .xls, .csv"
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${importFile ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-200/50 dark:bg-white/10 text-slate-400'}`}>
+                                    <Upload size={24} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-wider">
+                                        {importFile ? importFile.name : 'Click to Upload Excel (.xlsx, .xls) or CSV'}
+                                    </p>
+                                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">
+                                        {importFile ? `${(importFile.size / 1024).toFixed(1)} KB` : 'Supports Centre Code, Start Time, End Time, and Magic Code'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Validation Errors */}
+                            {importValidationErrors.length > 0 && (
+                                <div className="p-4 rounded-[5px] bg-red-500/10 border border-red-500/30 text-red-500 space-y-1">
+                                    {importValidationErrors.map((err, i) => (
+                                        <div key={i} className="text-xs font-bold flex items-center gap-2">
+                                            <AlertCircle size={14} className="shrink-0" />
+                                            <span>{err}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Options */}
+                            <div className="flex items-center justify-between p-4 rounded-[5px] border border-dashed border-white/10 dark:bg-white/5 bg-slate-50">
+                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={autoGenerateCodes}
+                                        onChange={(e) => setAutoGenerateCodes(e.target.checked)}
+                                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-black uppercase tracking-wider">Auto-generate Magic Codes</span>
+                                        <span className="text-[10px] font-medium opacity-50">Automatically create 6-digit access codes if empty in Excel</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            {/* Preview Table */}
+                            {importPreviewRows.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-black uppercase tracking-widest opacity-60">
+                                            Preview ({importPreviewRows.length} Centres detected)
+                                        </h4>
+                                        <span className="text-[10px] font-bold text-emerald-500 uppercase">
+                                            {importPreviewRows.filter(r => r.matched).length} Matched / {importPreviewRows.filter(r => !r.matched).length} New
+                                        </span>
+                                    </div>
+                                    <div className={`rounded-[5px] border overflow-hidden max-h-56 overflow-y-auto ${isDarkMode ? 'border-white/10 bg-[#10141D]' : 'border-slate-200 bg-slate-50'}`}>
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className={`text-[9px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'bg-white/5 text-slate-400 border-white/5' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                                    <th className="py-2.5 px-3">#</th>
+                                                    <th className="py-2.5 px-3">Centre</th>
+                                                    <th className="py-2.5 px-3">Start Time</th>
+                                                    <th className="py-2.5 px-3">End Time</th>
+                                                    <th className="py-2.5 px-3 text-center">Magic Code</th>
+                                                    <th className="py-2.5 px-3 text-center">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y text-[11px] font-medium ${isDarkMode ? 'divide-white/5' : 'divide-slate-200'}`}>
+                                                {importPreviewRows.map((row) => (
+                                                    <tr key={row.id} className={row.matched ? '' : 'bg-amber-500/5'}>
+                                                        <td className="py-2 px-3 opacity-40 font-mono text-[10px]">{row.id}</td>
+                                                        <td className="py-2 px-3">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold uppercase">{row.centre_display}</span>
+                                                                {row.centre_code && <span className="text-[9px] opacity-40 font-mono">Code: {row.centre_code}</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2 px-3 font-mono text-[10px] opacity-80">{row.start_time || '---'}</td>
+                                                        <td className="py-2 px-3 font-mono text-[10px] opacity-80">{row.end_time || '---'}</td>
+                                                        <td className="py-2 px-3 text-center font-mono font-bold text-blue-500">
+                                                            {row.magic_code || (autoGenerateCodes ? <span className="text-[9px] text-emerald-500 uppercase font-sans font-bold">Auto</span> : '---')}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center">
+                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${row.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                                {row.is_active ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className={`p-6 border-t flex items-center justify-between gap-4 shrink-0 ${isDarkMode ? 'border-white/5 bg-[#141822]' : 'border-slate-100 bg-slate-50'}`}>
+                            <button
+                                type="button"
+                                onClick={() => setIsImportModalOpen(false)}
+                                className={`px-5 py-3 rounded-[5px] text-xs font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isImportLoading || importPreviewRows.length === 0}
+                                onClick={handleConfirmImport}
+                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-emerald-900/20 flex items-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isImportLoading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
+                                <span>Import & Apply {importPreviewRows.length > 0 ? `(${importPreviewRows.length})` : ''}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {alert.show && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-999 animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-sm">
                     <div className={`flex items-center gap-4 px-6 py-4 rounded-[5px] shadow-2xl border backdrop-blur-md ${alert.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 'bg-red-500/90 border-red-400 text-white'}`}>

@@ -1096,7 +1096,123 @@ class TestViewSet(viewsets.ModelViewSet):
         # Cache the result for 5 minutes (300 seconds) to ensure immediate UX and reduce loads
         cache.set(cache_key, data, 300)
             
-        return Response(data)
+    @action(detail=True, methods=['post'], url_path='import-centre-allotments')
+    def import_centre_allotments(self, request, pk=None):
+        test = self.get_object()
+        rows = request.data.get('rows', [])
+        auto_generate_missing_codes = request.data.get('auto_generate_missing_codes', True)
+
+        if not rows:
+            return Response({'error': 'No rows provided for import'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from master_data.models import Centre
+        from tests.models import TestCentreAllotment
+        from datetime import datetime
+        import random
+        import string
+        from django.utils.dateparse import parse_datetime
+        from django.utils import timezone
+        from django.core.cache import cache
+
+        updated_count = 0
+        created_count = 0
+        errors = []
+
+        for idx, row in enumerate(rows, 1):
+            code = str(row.get('centre_code') or '').strip()
+            name = str(row.get('centre_name') or '').strip()
+            start_time_str = str(row.get('start_time') or '').strip()
+            end_time_str = str(row.get('end_time') or '').strip()
+            magic_code = str(row.get('magic_code') or '').strip()
+            is_active_val = row.get('is_active')
+
+            if not code and not name:
+                errors.append(f"Row {idx}: Missing Centre Code and Name")
+                continue
+
+            centre = None
+            if code:
+                centre = Centre.objects.filter(code__iexact=code).first()
+            if not centre and name:
+                centre = Centre.objects.filter(name__iexact=name).first()
+
+            if not centre:
+                errors.append(f"Row {idx}: Centre '{code or name}' not found in database")
+                continue
+
+            allotment = TestCentreAllotment.objects.filter(test=test, centre=centre).first()
+            created = False
+            if not allotment:
+                allotment = TestCentreAllotment(test=test, centre=centre, is_active=True)
+                created = True
+
+            # Parse start_time
+            if start_time_str:
+                dt = parse_datetime(start_time_str)
+                if not dt:
+                    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M", "%d/%m/%Y %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+                        try:
+                            dt = datetime.strptime(start_time_str, fmt)
+                            break
+                        except ValueError:
+                            pass
+                if dt:
+                    if timezone.is_naive(dt):
+                        dt = timezone.make_aware(dt)
+                    allotment.start_time = dt
+                else:
+                    errors.append(f"Row {idx} ({centre.name}): Could not parse start time '{start_time_str}'")
+
+            # Parse end_time
+            if end_time_str:
+                dt = parse_datetime(end_time_str)
+                if not dt:
+                    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M", "%d/%m/%Y %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+                        try:
+                            dt = datetime.strptime(end_time_str, fmt)
+                            break
+                        except ValueError:
+                            pass
+                if dt:
+                    if timezone.is_naive(dt):
+                        dt = timezone.make_aware(dt)
+                    allotment.end_time = dt
+                else:
+                    errors.append(f"Row {idx} ({centre.name}): Could not parse end time '{end_time_str}'")
+
+            # Handle magic_code / access_code
+            if magic_code:
+                allotment.access_code = magic_code
+                allotment.is_code_sent = False
+            elif auto_generate_missing_codes and not allotment.access_code:
+                while True:
+                    gen_code = ''.join(random.choices(string.digits, k=6))
+                    if not TestCentreAllotment.objects.filter(access_code=gen_code).exists():
+                        break
+                allotment.access_code = gen_code
+                allotment.is_code_sent = False
+
+            if is_active_val is not None:
+                if isinstance(is_active_val, str):
+                    allotment.is_active = is_active_val.strip().lower() in ['true', '1', 'yes', 'active']
+                else:
+                    allotment.is_active = bool(is_active_val)
+
+            allotment.save()
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        cache.delete(f"test_{test.id}_centers_full_v3")
+        cache.delete("admin_test_list")
+
+        return Response({
+            'message': f'Processed {created_count + updated_count} centres ({created_count} newly allotted, {updated_count} updated).',
+            'created_count': created_count,
+            'updated_count': updated_count,
+            'errors': errors
+        })
 
     @action(detail=True, methods=['get'], url_path='status')
     def status(self, request, pk=None):
