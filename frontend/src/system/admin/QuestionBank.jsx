@@ -90,6 +90,7 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
     const { isDarkMode } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedClassSubFilter, setSelectedClassSubFilter] = useState('ALL');
     const containerRef = useRef(null);
 
     const multiMode = isMulti || Array.isArray(value);
@@ -99,7 +100,10 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
     }, [multiMode, value]);
 
     useEffect(() => {
-        if (!isOpen) setSearchTerm('');
+        if (!isOpen) {
+            setSearchTerm('');
+            setSelectedClassSubFilter('ALL');
+        }
     }, [isOpen]);
 
     useEffect(() => {
@@ -118,15 +122,35 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
 
     const totalAvailableCount = validOptions.length > 0 ? validOptions.length : (options || []).length;
 
+    const distinctClasses = useMemo(() => {
+        const badges = [];
+        (options || []).forEach(opt => {
+            if (opt && opt.classBadge && !badges.includes(opt.classBadge)) {
+                badges.push(opt.classBadge);
+            }
+        });
+        return badges.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [options]);
+
     const filteredOptions = useMemo(() => {
         let list = options || [];
+
+        if (selectedClassSubFilter !== 'ALL') {
+            list = list.filter(opt => {
+                const aVal = opt.id !== undefined ? opt.id : opt.value;
+                const isTop = aVal === '__NULL__' || aVal === '' || aVal === null || aVal === undefined || String(opt.label || opt.name || '').toLowerCase().includes('not assigned');
+                return isTop || opt.classBadge === selectedClassSubFilter;
+            });
+        }
+
         if (searchTerm && searchTerm.trim()) {
             const rawTerm = searchTerm.trim().toLowerCase();
             const normTerm = normalizeForSearch(searchTerm);
             list = list.filter(opt => {
                 const rawText = String(opt.label || opt.name || opt.value || '').toLowerCase();
                 const normText = normalizeForSearch(rawText);
-                return rawText.includes(rawTerm) || (normTerm && normText.includes(normTerm));
+                const classText = String(opt.classBadge || '').toLowerCase();
+                return rawText.includes(rawTerm) || (normTerm && normText.includes(normTerm)) || classText.includes(rawTerm);
             });
         }
 
@@ -142,11 +166,16 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
             if (!aIsTop && bIsTop) return 1;
             if (aIsTop && bIsTop) return 0;
 
+            // When distinct classes exist and no single class filter is chosen, group by classBadge first
+            if (selectedClassSubFilter === 'ALL' && a.classBadge && b.classBadge && a.classBadge !== b.classBadge) {
+                return a.classBadge.localeCompare(b.classBadge, undefined, { numeric: true, sensitivity: 'base' });
+            }
+
             const aText = String(a.label || a.name || a.value || '');
             const bText = String(b.label || b.name || b.value || '');
             return aText.localeCompare(bText, undefined, { numeric: true, sensitivity: 'base' });
         });
-    }, [options, searchTerm]);
+    }, [options, searchTerm, selectedClassSubFilter]);
 
     // Text summary of selected options
     const displayText = useMemo(() => {
@@ -301,6 +330,52 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
                         </div>
                     )}
 
+                    {/* Sub-dropdown Class Filter Tabs */}
+                    {distinctClasses.length > 1 && (
+                        <div className={`px-3 py-2 border-b flex items-center gap-1.5 overflow-x-auto no-scrollbar sticky top-[80px] z-100 ${
+                            isDarkMode ? 'bg-[#151922] border-white/5' : 'bg-slate-50 border-slate-100'
+                        }`}>
+                            <span className="text-[9px] font-black uppercase tracking-wider opacity-50 shrink-0 mr-0.5">Class:</span>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedClassSubFilter('ALL');
+                                }}
+                                className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all shrink-0 flex items-center gap-1 ${
+                                    selectedClassSubFilter === 'ALL'
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                            >
+                                <span>All</span>
+                                <span className="opacity-70 font-mono">({options.filter(o => o.id !== '__NULL__').length})</span>
+                            </button>
+                            {distinctClasses.map(cls => {
+                                const count = options.filter(o => o.classBadge === cls).length;
+                                const isSelectedTab = selectedClassSubFilter === cls;
+                                return (
+                                    <button
+                                        key={cls}
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedClassSubFilter(cls);
+                                        }}
+                                        className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all shrink-0 flex items-center gap-1 ${
+                                            isSelectedTab
+                                                ? 'bg-amber-500 text-white shadow-sm font-black'
+                                                : isDarkMode ? 'bg-white/5 hover:bg-white/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                                        }`}
+                                    >
+                                        <span>{cls}</span>
+                                        <span className="opacity-80 font-mono font-bold">({count})</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                         {hasValue && (
                             <div
@@ -321,49 +396,97 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
                                 ? safeArrayValue.includes(String(optVal))
                                 : (String(opt.id) === String(value) || (opt.value !== undefined && opt.value === value && value !== ''));
                             const optText = String(opt.label || opt.name || opt.value || '');
+
+                            const prevOpt = i > 0 ? filteredOptions[i - 1] : null;
+                            const currentBadge = opt.classBadge || '';
+                            const prevBadge = prevOpt ? (prevOpt.classBadge || '') : null;
+                            const isFirstOfGroup = distinctClasses.length > 1 && selectedClassSubFilter === 'ALL' && currentBadge && currentBadge !== prevBadge;
+
                             return (
-                                <div
-                                    key={i}
-                                    onClick={() => handleOptionClick(optVal)}
-                                    className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
-                                        ${isSelected
-                                            ? 'bg-blue-500 text-white'
-                                            : isDarkMode ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-blue-50/80 text-slate-700 hover:text-blue-700'}`}
-                                >
-                                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                                        {multiMode && (
-                                            <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center transition-all shrink-0 ${
-                                                isSelected
-                                                    ? 'bg-white border-white text-blue-600'
-                                                    : isDarkMode ? 'border-white/30 bg-white/5' : 'border-slate-300 bg-white'
-                                            }`}>
-                                                {isSelected && <Check size={10} strokeWidth={4} />}
-                                            </div>
-                                        )}
-                                        <span className="break-words text-left leading-snug whitespace-normal">{optText}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {opt.topicCount !== undefined && (
-                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide transition-all ${
-                                                isSelected
-                                                    ? 'bg-white/20 text-white'
-                                                    : isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'
-                                            }`}>
-                                                {opt.topicCount} {opt.topicCount === 1 ? 'topic' : 'topics'}
+                                <React.Fragment key={optVal !== undefined ? optVal : i}>
+                                    {isFirstOfGroup && (
+                                        <div className={`px-3.5 py-1.5 text-[9px] font-black uppercase tracking-wider flex items-center justify-between border-y sticky top-0 z-10 ${
+                                            isDarkMode ? 'bg-[#151922] text-amber-400 border-white/5' : 'bg-amber-50/95 text-amber-800 border-amber-100 backdrop-blur-sm'
+                                        }`}>
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                {currentBadge}
                                             </span>
-                                        )}
-                                        {opt.badge && (
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                                isSelected
-                                                    ? 'bg-white/20 text-white'
-                                                    : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
-                                            }`}>
-                                                {opt.badge}
-                                            </span>
-                                        )}
-                                        {!multiMode && isSelected && <Check size={14} className="shrink-0" strokeWidth={3} />}
+                                            {multiMode && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const groupItemIds = options.filter(o => o.classBadge === currentBadge && o.id !== '__NULL__').map(o => String(o.id !== undefined ? o.id : o.value));
+                                                        const allSelected = groupItemIds.every(id => safeArrayValue.includes(id));
+                                                        let next;
+                                                        if (allSelected) {
+                                                            next = safeArrayValue.filter(id => !groupItemIds.includes(id));
+                                                        } else {
+                                                            next = Array.from(new Set([...safeArrayValue, ...groupItemIds]));
+                                                        }
+                                                        onChange(next);
+                                                    }}
+                                                    className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all ${
+                                                        isDarkMode ? 'bg-white/10 hover:bg-white/20 text-amber-300' : 'bg-white hover:bg-amber-100 text-amber-700 border border-amber-200'
+                                                    }`}
+                                                >
+                                                    {options.filter(o => o.classBadge === currentBadge && o.id !== '__NULL__').every(o => safeArrayValue.includes(String(o.id !== undefined ? o.id : o.value))) ? 'Deselect Class' : 'Select Class'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div
+                                        onClick={() => handleOptionClick(optVal)}
+                                        className={`px-4 py-2.5 text-[13px] font-bold cursor-pointer transition-all flex items-center justify-between gap-3
+                                            ${isSelected
+                                                ? 'bg-blue-500 text-white'
+                                                : isDarkMode ? 'hover:bg-white/10 text-slate-300 hover:text-white' : 'hover:bg-blue-50/80 text-slate-700 hover:text-blue-700'}`}
+                                    >
+                                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                            {multiMode && (
+                                                <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center transition-all shrink-0 ${
+                                                    isSelected
+                                                        ? 'bg-white border-white text-blue-600'
+                                                        : isDarkMode ? 'border-white/30 bg-white/5' : 'border-slate-300 bg-white'
+                                                }`}>
+                                                    {isSelected && <Check size={10} strokeWidth={4} />}
+                                                </div>
+                                            )}
+                                            <span className="break-words text-left leading-snug whitespace-normal">{optText}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {opt.classBadge && (
+                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wide transition-all ${
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                }`}>
+                                                    {opt.classBadge}
+                                                </span>
+                                            )}
+                                            {opt.topicCount !== undefined && (
+                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide transition-all ${
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                                }`}>
+                                                    {opt.topicCount} {opt.topicCount === 1 ? 'topic' : 'topics'}
+                                                </span>
+                                            )}
+                                            {opt.badge && (
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                    {opt.badge}
+                                                </span>
+                                            )}
+                                            {!multiMode && isSelected && <Check size={14} className="shrink-0" strokeWidth={3} />}
+                                        </div>
                                     </div>
-                                </div>
+                                </React.Fragment>
                             );
                         }) : (
                             <div className="px-4 py-2.5 text-[11px] font-bold opacity-40 uppercase italic">No options available</div>
@@ -1042,15 +1165,22 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const subjectIds = Array.isArray(filters.subjectId) ? filters.subjectId.filter(id => id && id !== '__NULL__') : (filters.subjectId && filters.subjectId !== '__NULL__' ? [filters.subjectId] : []);
         const activeChap = chapters.filter(c => c.is_active !== false);
         const activeTop = topics.filter(t => t.is_active !== false);
+        const showClassBadge = classIds.length !== 1;
+
         return activeChap.filter(c => {
             const matchesClass = classIds.length === 0 || classIds.map(String).includes(String(c.class_level));
             const matchesSubject = subjectIds.length === 0 || subjectIds.map(String).includes(String(c.subject));
             return matchesClass && matchesSubject;
-        }).map(c => ({
-            ...c,
-            topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length
-        }));
-    }, [chapters, topics, filters.classId, filters.subjectId]);
+        }).map(c => {
+            const cl = classes.find(cls => String(cls.id) === String(c.class_level) || String(cls._id) === String(c.class_level) || cls.name === c.class_level);
+            const className = cl ? (String(cl.name).toLowerCase().startsWith('class') ? cl.name : `Class ${cl.name}`) : '';
+            return {
+                ...c,
+                topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length,
+                classBadge: showClassBadge && className ? className : undefined
+            };
+        });
+    }, [chapters, topics, classes, filters.classId, filters.subjectId]);
 
     const repositoryFilteredTopics = useMemo(() => {
         const classIds = Array.isArray(filters.classId) ? filters.classId.filter(id => id && id !== '__NULL__') : (filters.classId && filters.classId !== '__NULL__' ? [filters.classId] : []);
@@ -1083,11 +1213,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             const matchesClass = !bulkUpdateFields.class_level || String(c.class_level) === String(bulkUpdateFields.class_level);
             const matchesSubject = !bulkUpdateFields.subject || String(c.subject) === String(bulkUpdateFields.subject);
             return matchesClass && matchesSubject;
-        }).map(c => ({
-            ...c,
-            topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length
-        }));
-    }, [chapters, topics, bulkUpdateFields.class_level, bulkUpdateFields.subject]);
+        }).map(c => {
+            const cl = classes.find(cls => String(cls.id) === String(c.class_level) || String(cls._id) === String(c.class_level) || cls.name === c.class_level);
+            const className = cl ? (String(cl.name).toLowerCase().startsWith('class') ? cl.name : `Class ${cl.name}`) : '';
+            return {
+                ...c,
+                topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length,
+                classBadge: !bulkUpdateFields.class_level && className ? className : undefined
+            };
+        });
+    }, [chapters, topics, classes, bulkUpdateFields.class_level, bulkUpdateFields.subject]);
 
     const bulkUpdateFilteredTopics = useMemo(() => {
         const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
@@ -1117,8 +1252,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const activeChap = chapters.filter(c => c.is_active !== false);
         const activeTop = topics.filter(t => t.is_active !== false);
         let list = activeChap;
+        const classIds = Array.isArray(form.classId) ? form.classId.map(String) : (form.classId ? [String(form.classId)] : []);
         if (!form.isIndependentSelection) {
-            const classIds = Array.isArray(form.classId) ? form.classId.map(String) : (form.classId ? [String(form.classId)] : []);
             const subjectIds = Array.isArray(form.subjectId) ? form.subjectId.map(String) : (form.subjectId ? [String(form.subjectId)] : []);
             list = activeChap.filter(c => {
                 const matchesClass = classIds.length === 0 || classIds.includes(String(c.class_level));
@@ -1126,11 +1261,17 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 return matchesClass && matchesSubject;
             });
         }
-        return list.map(c => ({
-            ...c,
-            topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length
-        }));
-    }, [chapters, topics, form.classId, form.subjectId, form.isIndependentSelection]);
+        const showClassBadge = classIds.length !== 1;
+        return list.map(c => {
+            const cl = classes.find(cls => String(cls.id) === String(c.class_level) || String(cls._id) === String(c.class_level) || cls.name === c.class_level);
+            const className = cl ? (String(cl.name).toLowerCase().startsWith('class') ? cl.name : `Class ${cl.name}`) : '';
+            return {
+                ...c,
+                topicCount: activeTop.filter(t => String(t.chapter) === String(c.id)).length,
+                classBadge: showClassBadge && className ? className : undefined
+            };
+        });
+    }, [chapters, topics, classes, form.classId, form.subjectId, form.isIndependentSelection]);
 
     const filteredTopics = useMemo(() => {
         const activeChapIds = new Set(chapters.filter(c => c.is_active !== false).map(c => String(c.id)));
