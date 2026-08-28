@@ -375,6 +375,9 @@ const CustomSelect = ({ label, value, onChange, options = [], placeholder, icon:
     );
 };
 
+// Module-level question cache for instant Question Bank render & switching
+let globalQuestionsCache = null;
+
 const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, alreadySelectedIds = [], totalAllowed = 0, currentCount = 0 }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
@@ -413,8 +416,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const [isLoadingMaster, setIsLoadingMaster] = useState(false);
 
     // Repository State
-    const [questions, setQuestions] = useState([]);
-    const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+    const [questions, setQuestions] = useState(() => globalQuestionsCache || []);
+    const [isLoadingQuestions, setIsLoadingQuestions] = useState(() => !globalQuestionsCache);
     const [selectedIds, setSelectedIds] = useState([]);
 
     // Repository Filter State
@@ -848,13 +851,16 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         const config = getAuthConfig();
         if (!config) return;
 
-        setIsLoadingQuestions(true);
+        if (!globalQuestionsCache || force) {
+            setIsLoadingQuestions(true);
+        }
         activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
             const response = await axios.get(`${apiUrl}/api/questions/`, config);
             const data = response.data;
             const questionList = Array.isArray(data) ? data : (data.results || data.questions || []);
+            globalQuestionsCache = questionList;
             setQuestions(questionList);
         } catch (err) {
             console.error("Failed to fetch questions", err);
@@ -1807,6 +1813,13 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                         if (bulkUpdateFields[key] !== '') {
                             if (key === 'solve_time') {
                                 updates[key] = parseInt(bulkUpdateFields[key]);
+                            } else if (key === 'difficulty_level') {
+                                updates['difficulty_level'] = bulkUpdateFields[key];
+                                updates['difficulty_levels'] = [bulkUpdateFields[key]];
+                            } else if (['class_level', 'subject', 'chapter', 'topic', 'exam_type', 'target_exam', 'test_name'].includes(key)) {
+                                updates[key] = bulkUpdateFields[key];
+                                const pluralKey = key === 'class_level' ? 'class_levels' : `${key}s`;
+                                updates[pluralKey] = [bulkUpdateFields[key]];
                             } else {
                                 updates[key] = bulkUpdateFields[key];
                             }
@@ -1836,6 +1849,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 is_wrong: '',
                 solve_time: ''
             });
+            fetchQuestions();
         } catch (error) {
             console.error("Bulk update error", error);
             alert("Failed to perform bulk update");

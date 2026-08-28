@@ -29,6 +29,30 @@ class QuestionViewSet(viewsets.ModelViewSet):
     serializer_class = QuestionSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = None
+
+    def list(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        is_unfiltered = len(request.query_params) == 0
+        cache_key = "question_bank_all_v1"
+
+        if is_unfiltered:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+
+        if is_unfiltered:
+            cache.set(cache_key, data, 86400 * 7) # 7-day cache, invalidated on mutation
+
+        return Response(data)
     
     def get_queryset(self):
         queryset = Question.objects.all()
@@ -214,6 +238,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         question = self.get_object()
         question.is_wrong = not question.is_wrong
         question.save(update_fields=['is_wrong'])
+        self._clear_global_caches()
         return Response({
             'status': 'marked as wrong',
             'is_wrong': question.is_wrong
@@ -266,6 +291,11 @@ class QuestionViewSet(viewsets.ModelViewSet):
             for k, v in clean_updates.items():
                 if k in ['subject', 'chapter', 'topic', 'class_level', 'exam_type', 'target_exam', 'test_name']:
                     final_updates[f"{k}_id"] = ObjectId(v) if ObjectId.is_valid(v) else v
+                    plural_key = 'class_levels' if k == 'class_level' else f"{k}s"
+                    final_updates[plural_key] = [str(v)]
+                elif k == 'difficulty_level':
+                    final_updates['difficulty_level'] = str(v)
+                    final_updates['difficulty_levels'] = [str(v)]
                 elif k == 'is_wrong':
                     final_updates[k] = v.lower() == 'true' if isinstance(v, str) else bool(v)
                 elif k == 'solve_time':
@@ -399,6 +429,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         cache.delete("dashboard_question_stats_v1")
         cache.delete("dashboard_section_stats_v1")
+        cache.delete("question_bank_all_v1")
         cache.set("global_test_update_v1", timezone.now().timestamp(), 86400 * 30)
 
     def _sync_single_and_multi_fields(self, instance):
