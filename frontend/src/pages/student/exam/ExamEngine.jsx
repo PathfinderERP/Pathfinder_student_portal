@@ -67,6 +67,9 @@ const ExamEngine = () => {
     const [showResumeModal, setShowResumeModal] = useState(false);
     const isSubmittedRef = useRef(false);
     const debounceTimerRef = useRef(null);
+    const sectionsScrollRef = useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
 
     const handleReturnToDashboard = () => {
         try {
@@ -91,6 +94,65 @@ const ExamEngine = () => {
         const timer = setTimeout(() => setIsStabilizing(false), 3000);
         return () => clearTimeout(timer);
     }, []);
+
+    // Manage section tab scroll state (left/right indicators & horizontal mouse wheel)
+    const updateSectionScrollState = useCallback(() => {
+        const el = sectionsScrollRef.current;
+        if (el) {
+            const hasOverflow = el.scrollWidth > el.clientWidth + 2;
+            setCanScrollLeft(hasOverflow && el.scrollLeft > 2);
+            setCanScrollRight(hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+        }
+    }, []);
+
+    useEffect(() => {
+        const el = sectionsScrollRef.current;
+        if (!el) return;
+
+        updateSectionScrollState();
+
+        const handleWheel = (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                el.scrollLeft += e.deltaY;
+                updateSectionScrollState();
+            }
+        };
+
+        el.addEventListener('wheel', handleWheel, { passive: false });
+        el.addEventListener('scroll', updateSectionScrollState);
+        window.addEventListener('resize', updateSectionScrollState);
+
+        return () => {
+            el.removeEventListener('wheel', handleWheel);
+            el.removeEventListener('scroll', updateSectionScrollState);
+            window.removeEventListener('resize', updateSectionScrollState);
+        };
+    }, [paperData?.sections, updateSectionScrollState]);
+
+    // Automatically scroll active section tab into view
+    useEffect(() => {
+        if (sectionsScrollRef.current) {
+            const activeBtn = sectionsScrollRef.current.querySelector(`[data-section-idx="${activeSectionIdx}"]`);
+            if (activeBtn) {
+                activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+            }
+            setTimeout(updateSectionScrollState, 300);
+        }
+    }, [activeSectionIdx, updateSectionScrollState]);
+
+    const scrollSections = (direction) => {
+        const el = sectionsScrollRef.current;
+        if (el) {
+            const offset = direction === 'left' ? -250 : 250;
+            if (typeof el.scrollBy === 'function') {
+                el.scrollBy({ left: offset, behavior: 'smooth' });
+            } else {
+                el.scrollLeft += offset;
+            }
+            setTimeout(updateSectionScrollState, 250);
+        }
+    };
 
     // Save responses to localStorage synchronously on every state change
     useEffect(() => {
@@ -929,18 +991,23 @@ const ExamEngine = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: ${isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)'};
                 }
+                .custom-scrollbar-horizontal {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(255, 255, 255, 0.45) rgba(0, 0, 0, 0.15);
+                }
                 .custom-scrollbar-horizontal::-webkit-scrollbar {
                     height: 4px;
                 }
                 .custom-scrollbar-horizontal::-webkit-scrollbar-track {
-                    background: transparent;
+                    background: rgba(0, 0, 0, 0.15);
+                    border-radius: 10px;
                 }
                 .custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
-                    background: ${isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'};
+                    background: rgba(255, 255, 255, 0.45);
                     border-radius: 10px;
                 }
                 .custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
-                    background: ${isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)'};
+                    background: rgba(255, 255, 255, 0.75);
                 }
                 .scrollbar-none::-webkit-scrollbar {
                     display: none;
@@ -1044,9 +1111,29 @@ const ExamEngine = () => {
             </div>
 
             {/* Sections Bar */}
-            <div className="bg-[#EF6C00] px-3 md:px-4 py-1.5 md:py-2.5 flex items-center overflow-x-auto whitespace-nowrap gap-1.5 md:gap-2 border-t border-white/10 z-10 custom-scrollbar-horizontal scrollbar-none">
-                <span className="text-white font-black text-[10px] md:text-xs mr-1.5 shrink-0 uppercase tracking-wider">Sections:</span>
-                <div className="flex gap-1.5 md:gap-2">
+            <div className="bg-[#EF6C00] px-2 sm:px-3 py-1 md:py-1.5 flex items-center border-t border-white/10 z-10 select-none gap-1 w-full max-w-full overflow-hidden shrink-0">
+                <span className="text-white font-black text-[10px] md:text-xs mr-1 shrink-0 uppercase tracking-wider">
+                    Sections:
+                </span>
+
+                {/* Left Scroll Button */}
+                <button
+                    type="button"
+                    onClick={() => scrollSections('left')}
+                    className={`p-1 rounded bg-black/25 hover:bg-black/45 active:bg-black/60 text-white transition-all shrink-0 flex items-center justify-center h-6 w-6 cursor-pointer shadow-sm active:scale-90 ${
+                        canScrollLeft ? 'opacity-100' : 'opacity-40'
+                    }`}
+                    title="Scroll sections left"
+                    aria-label="Scroll sections left"
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {/* Scrollable Container */}
+                <div 
+                    ref={sectionsScrollRef}
+                    className="flex-1 min-w-0 flex items-center overflow-x-auto whitespace-nowrap gap-1.5 md:gap-2 custom-scrollbar-horizontal pb-1 pt-0.5 scroll-smooth"
+                >
                     {paperData.sections.map((section, idx) => {
                         const attemptedCount = section.questions_detail.reduce((count, q) => {
                             const qId = q.id;
@@ -1060,6 +1147,7 @@ const ExamEngine = () => {
                         return (
                             <button
                                 key={idx}
+                                data-section-idx={idx}
                                 onClick={() => { 
                                     if (checkUnsavedOption()) return;
                                     setLastViewedPerSection(prev => ({...prev, [activeSectionIdx]: activeQuestionIdx}));
@@ -1076,6 +1164,19 @@ const ExamEngine = () => {
                         );
                     })}
                 </div>
+
+                {/* Right Scroll Button */}
+                <button
+                    type="button"
+                    onClick={() => scrollSections('right')}
+                    className={`p-1 rounded bg-black/25 hover:bg-black/45 active:bg-black/60 text-white transition-all shrink-0 flex items-center justify-center h-6 w-6 cursor-pointer shadow-sm active:scale-90 ${
+                        canScrollRight ? 'opacity-100' : 'opacity-40'
+                    }`}
+                    title="Scroll sections right"
+                    aria-label="Scroll sections right"
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </button>
             </div>
 
             {/* Main Layout */}
