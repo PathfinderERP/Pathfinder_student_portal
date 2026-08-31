@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Trophy, Target, Clock, Zap, CheckCircle, XCircle, MinusCircle, BarChart2, TrendingUp, Award, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Target, Clock, Zap, CheckCircle, XCircle, MinusCircle, BarChart2, TrendingUp, Award, Loader2, Download, Printer } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 import MathRenderer from '../../../components/MathRenderer';
+import { printOrSaveReport } from '../../../services/reportExportService';
 
 // ─── Doughnut Chart with hover (flicker-free) ────────────────────────────────
 const DoughnutChart = ({ slices, size = 160, thickness = 28 }) => {
@@ -99,7 +100,7 @@ const DoughnutChart = ({ slices, size = 160, thickness = 28 }) => {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const ResultReport = ({ test, isDarkMode, onBack }) => {
-    const { getApiUrl, token } = useAuth();
+    const { getApiUrl, token, user } = useAuth();
     const [activeTab, setActiveTab] = useState(test?.defaultTab || 'score_overview');
     const [hovCard, setHovCard]     = useState(null);
     const [data, setData]           = useState(null);
@@ -108,6 +109,18 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
     const [activeSec, setActiveSec] = useState('');
     const [mistakeReasons, setMistakeReasons] = useState([]);
     const [reflections, setReflections] = useState({});
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+    const handleDownloadOrPrint = async () => {
+        setIsDownloadingPdf(true);
+        try {
+            await printOrSaveReport({ test, data, user, report, sections });
+        } catch (err) {
+            console.error("Print/PDF export error:", err);
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
 
     useEffect(() => {
         if (test?.defaultTab) setActiveTab(test.defaultTab);
@@ -559,17 +572,59 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
 
                 {/* Header Strip */}
                 <div className={`px-7 py-5 border-b ${isDarkMode ? 'border-white/[0.06] bg-gradient-to-r from-[#1a2235] to-[#151b27]' : 'border-slate-100 bg-gradient-to-r from-slate-50 to-white'}`}>
-                    <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div className="flex items-start justify-between flex-wrap gap-4">
                         <div>
                             <p className={`text-[10px] font-black uppercase tracking-[0.25em] mb-1 ${muted}`}>Student's Report</p>
                             <h2 className={`text-[15px] font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{report.testName}</h2>
                         </div>
-                        {!report.isMissed && (
-                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
-                                <Award size={14} />
-                                Rank {report.rank}
-                            </div>
-                        )}
+                        
+                        <div className="flex items-center gap-3 flex-wrap">
+                            {!report.isMissed && (
+                                <div className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                                    <Award size={14} />
+                                    Rank {report.rank}
+                                </div>
+                            )}
+
+                            {/* Download & Print Report Button */}
+                            <button
+                                onClick={handleDownloadOrPrint}
+                                disabled={isDownloadingPdf}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ${
+                                    isDownloadingPdf 
+                                        ? 'bg-blue-400 cursor-wait text-white' 
+                                        : 'bg-[#4871D9] hover:bg-[#3D60B8] text-white shadow-blue-500/20'
+                                }`}
+                                title="Download complete result report as PDF or print with all details"
+                            >
+                                {isDownloadingPdf ? (
+                                    <>
+                                        <Loader2 size={14} className="animate-spin" />
+                                        <span>Preparing PDF...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download size={14} />
+                                        <span>Download Report</span>
+                                    </>
+                                )}
+                            </button>
+
+                            {/* Quick Print Button */}
+                            <button
+                                onClick={handleDownloadOrPrint}
+                                disabled={isDownloadingPdf}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest border transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300' 
+                                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm'
+                                }`}
+                                title="Print report directly"
+                            >
+                                <Printer size={14} />
+                                <span className="hidden sm:inline">Print</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1111,3 +1166,4 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
 };
 
 export default ResultReport;
+

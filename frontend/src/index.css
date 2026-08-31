@@ -197,4 +197,38 @@ html.dark {
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;
-}
+}
+
+/* Print Styles */
+@media print {
+    html, body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    header, nav, aside, footer, [role="navigation"], .no-print, .print\:hidden,
+    #root > div > div > aside, #root > div > div > header,
+    .portal-sidebar, .portal-header {
+        display: none !important;
+    }
+
+    .print-report-container {
+        display: block !important;
+        visibility: visible !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        opacity: 1 !important;
+        z-index: 99999 !important;
+        pointer-events: auto !important;
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}
+
+
