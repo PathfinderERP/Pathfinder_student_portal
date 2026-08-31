@@ -28,8 +28,9 @@ export const renderLatexInHtml = (html) => {
 
 /**
  * Builds a complete standalone, print-perfect HTML document string for a test result.
+ * Supports filtering: 'all', 'incorrect', 'correct', 'unattempted', 'scorecard'.
  */
-export const buildReportHtml = ({ test, data, user, report, sections }) => {
+export const buildReportHtml = ({ test, data, user, report, sections, filter = 'all' }) => {
     const studentName = data?.student_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Student';
     const enrollment = data?.enrollment || user?.admission_number || user?.username || 'N/A';
     const batch = user?.assigned_batch || user?.batch || 'General Batch';
@@ -40,6 +41,24 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
     const duration = report?.totalTime || data?.duration_str || 'N/A';
     const timeSpent = report?.timeSpent || data?.time_spent_str || 'N/A';
     const dateStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    let filterLabel = 'Detailed Question-by-Question Solutions & Analysis';
+    let filterSuffix = 'Full_Report';
+    if (filter === 'incorrect') {
+        filterLabel = 'Incorrect / Mistake Questions Analysis';
+        filterSuffix = 'Mistakes_Only';
+    } else if (filter === 'correct') {
+        filterLabel = 'Correctly Answered Questions & Solutions';
+        filterSuffix = 'Correct_Only';
+    } else if (filter === 'unattempted') {
+        filterLabel = 'Unattempted / Skipped Questions Key';
+        filterSuffix = 'Unattempted_Only';
+    } else if (filter === 'scorecard') {
+        filterLabel = 'Scorecard & Performance Summary';
+        filterSuffix = 'Scorecard';
+    }
+
+    const isScorecardOnly = filter === 'scorecard';
 
     // Section Breakdown Rows
     const sectionRowsHtml = (sections || []).map((row, idx) => {
@@ -62,16 +81,43 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
     }).join('');
 
     // Detailed Question-by-Question Sections
-    const questionsSectionsHtml = (data?.all_section_names || []).map((secName, sIdx) => {
-        const questions = data?.section_questions?.[secName] || [];
-        if (!questions.length) return '';
+    const questionsSectionsHtml = isScorecardOnly ? '' : (data?.all_section_names || []).map((secName, sIdx) => {
+        const rawQuestions = data?.section_questions?.[secName] || [];
+        if (!rawQuestions.length) return '';
 
-        const qItemsHtml = questions.map((q, qIndex) => {
+        const filteredQuestions = rawQuestions.filter((q) => {
             const isGrace = q.is_wrong === true;
-            const isCorrect = !isGrace && q.result === 'CA';
+            const isCorrect = !isGrace && (q.result === 'CA' || (q.earned !== undefined && q.earned > 0));
             const isPartial = !isGrace && q.result === 'PA';
-            const isIncorrect = !isGrace && q.result === 'IA';
-            const isSkipped = !isGrace && q.result === 'NA';
+            const isIncorrect = !isGrace && (q.result === 'IA' || (q.earned !== undefined && q.earned < 0));
+            const isSkipped = !isGrace && (q.result === 'NA' || !q.user_answer);
+
+            if (filter === 'incorrect') return isIncorrect;
+            if (filter === 'correct') return isCorrect;
+            if (filter === 'unattempted') return isSkipped;
+            return true; // 'all'
+        });
+
+        if (!filteredQuestions.length) {
+            return `
+                <div style="margin-top: 14px;">
+                    <div class="page-avoid" style="background: #1e293b; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between;">
+                        <span>Section ${sIdx + 1}: ${secName}</span>
+                        <span>0 Questions Included</span>
+                    </div>
+                    <div style="padding: 10px 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; margin-top: 6px; font-size: 11px; color: #64748b; font-style: italic;">
+                        No ${filter === 'incorrect' ? 'incorrect' : filter === 'correct' ? 'correct' : 'unattempted'} questions in this section.
+                    </div>
+                </div>
+            `;
+        }
+
+        const qItemsHtml = filteredQuestions.map((q, qIndex) => {
+            const isGrace = q.is_wrong === true;
+            const isCorrect = !isGrace && (q.result === 'CA' || (q.earned !== undefined && q.earned > 0));
+            const isPartial = !isGrace && q.result === 'PA';
+            const isIncorrect = !isGrace && (q.result === 'IA' || (q.earned !== undefined && q.earned < 0));
+            const isSkipped = !isGrace && (q.result === 'NA' || !q.user_answer);
 
             let badgeHtml = '';
             if (isGrace) badgeHtml = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;">✦ Grace Marks Awarded</span>`;
@@ -148,7 +194,7 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
                     <!-- Question Header Bar -->
                     <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <strong style="color: #0f172a; font-size: 12px;">Q.${qIndex + 1}</strong>
+                            <strong style="color: #0f172a; font-size: 12px;">Q.${q.question_number || (qIndex + 1)}</strong>
                             <span style="color: #64748b;">Type: <b style="color: #334155; text-transform: uppercase;">${q.type}</b></span>
                             ${badgeHtml}
                         </div>
@@ -194,7 +240,7 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
             <div style="margin-top: 20px;">
                 <div class="page-avoid" style="background: #1e293b; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; margin-bottom: 12px; break-inside: avoid;">
                     <span>Section ${sIdx + 1}: ${secName}</span>
-                    <span>${questions.length} Questions</span>
+                    <span>${filteredQuestions.length} Questions Included</span>
                 </div>
                 ${qItemsHtml}
             </div>
@@ -205,7 +251,7 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
     const cleanExam = examName.replace(/[\\/:*?"<>|]/g, '_').trim();
     const cleanStudent = studentName.replace(/[\\/:*?"<>|]/g, '_').trim();
     const cleanEnroll = (enrollment && enrollment !== 'N/A') ? enrollment.replace(/[\\/:*?"<>|]/g, '_').trim() : '';
-    const documentTitle = cleanEnroll ? `${cleanExam}_${cleanEnroll}_${cleanStudent}_Report` : `${cleanExam}_${cleanStudent}_Report`;
+    const documentTitle = cleanEnroll ? `${cleanExam}_${cleanEnroll}_${cleanStudent}_${filterSuffix}` : `${cleanExam}_${cleanStudent}_${filterSuffix}`;
 
     return `
 <!DOCTYPE html>
@@ -367,14 +413,23 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
         </div>
     </div>
 
-    <!-- Detailed Solutions -->
+    <!-- Detailed Solutions Header & Content -->
+    ${!isScorecardOnly ? `
     <div style="border-top: 2px solid #0f172a; padding-top: 16px;">
-        <h2 style="font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin-bottom: 2px;">
-            Detailed Question-by-Question Solutions & Analysis
-        </h2>
-        <p style="font-size: 11px; color: #64748b; margin-bottom: 16px;">Complete record of student responses, correct solutions, and step-by-step KaTeX explanations.</p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+            <div>
+                <h2 style="font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin-bottom: 2px;">
+                    ${filterLabel}
+                </h2>
+                <p style="font-size: 11px; color: #64748b;">Complete record of student responses, correct solutions, and step-by-step KaTeX explanations.</p>
+            </div>
+            <span style="background: #e2e8f0; color: #334155; padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase;">
+                Scope: ${filter === 'incorrect' ? 'Incorrect Only' : filter === 'correct' ? 'Correct Only' : filter === 'unattempted' ? 'Unattempted Only' : 'All Questions'}
+            </span>
+        </div>
         ${questionsSectionsHtml}
     </div>
+    ` : ''}
 
     <!-- Footer -->
     <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; font-size: 9.5px; color: #94a3b8; font-weight: 600;">
@@ -391,22 +446,28 @@ export const buildReportHtml = ({ test, data, user, report, sections }) => {
  * Triggers clean, instant background printing or saving as PDF via an isolated iframe.
  * Automatically synchronizes the window title so "Save as PDF" defaults to the correct clean exam & student filename.
  */
-export const printOrSaveReport = ({ test, data, user, report, sections }) => {
+export const printOrSaveReport = ({ test, data, user, report, sections, filter = 'all' }) => {
     return new Promise((resolve) => {
         const studentName = data?.student_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Student';
         const enrollment = data?.enrollment || user?.admission_number || user?.username || '';
         const examName = test?.name || report?.testName || 'Examination Report';
 
+        let filterSuffix = 'Full_Report';
+        if (filter === 'incorrect') filterSuffix = 'Mistakes_Only';
+        else if (filter === 'correct') filterSuffix = 'Correct_Only';
+        else if (filter === 'unattempted') filterSuffix = 'Unattempted_Only';
+        else if (filter === 'scorecard') filterSuffix = 'Scorecard';
+
         const cleanExam = examName.replace(/[\\/:*?"<>|]/g, '_').trim();
         const cleanStudent = studentName.replace(/[\\/:*?"<>|]/g, '_').trim();
         const cleanEnroll = (enrollment && enrollment !== 'N/A') ? enrollment.replace(/[\\/:*?"<>|]/g, '_').trim() : '';
-        const pdfFileName = cleanEnroll ? `${cleanExam}_${cleanEnroll}_${cleanStudent}_Report` : `${cleanExam}_${cleanStudent}_Report`;
+        const pdfFileName = cleanEnroll ? `${cleanExam}_${cleanEnroll}_${cleanStudent}_${filterSuffix}` : `${cleanExam}_${cleanStudent}_${filterSuffix}`;
 
         const originalTitle = document.title;
         // Temporarily set document title for browser print / save-as-pdf dialog
         document.title = pdfFileName;
 
-        const html = buildReportHtml({ test, data, user, report, sections });
+        const html = buildReportHtml({ test, data, user, report, sections, filter });
 
         const iframe = document.createElement('iframe');
         iframe.style.position = 'fixed';

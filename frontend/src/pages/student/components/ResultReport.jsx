@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Trophy, Target, Clock, Zap, CheckCircle, XCircle, MinusCircle, BarChart2, TrendingUp, Award, Loader2, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Trophy, Target, Clock, Zap, CheckCircle, XCircle, MinusCircle, BarChart2, TrendingUp, Award, Loader2, Download, Printer, X, FileText, Check, HelpCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
 import MathRenderer from '../../../components/MathRenderer';
@@ -110,11 +110,14 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
     const [mistakeReasons, setMistakeReasons] = useState([]);
     const [reflections, setReflections] = useState({});
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [selectedFilter, setSelectedFilter] = useState('all');
 
-    const handleDownloadOrPrint = async () => {
+    const handleExecuteExport = async (filterToUse = selectedFilter) => {
         setIsDownloadingPdf(true);
         try {
-            await printOrSaveReport({ test, data, user, report, sections });
+            await printOrSaveReport({ test, data, user, report, sections, filter: filterToUse });
+            setShowDownloadModal(false);
         } catch (err) {
             console.error("Print/PDF export error:", err);
         } finally {
@@ -586,16 +589,16 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                                 </div>
                             )}
 
-                            {/* Download & Print Report Button */}
+                            {/* Download & Print Report Button with Custom Options */}
                             <button
-                                onClick={handleDownloadOrPrint}
+                                onClick={() => setShowDownloadModal(true)}
                                 disabled={isDownloadingPdf}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ${
                                     isDownloadingPdf 
                                         ? 'bg-blue-400 cursor-wait text-white' 
                                         : 'bg-[#4871D9] hover:bg-[#3D60B8] text-white shadow-blue-500/20'
                                 }`}
-                                title="Download complete result report as PDF or print with all details"
+                                title="Choose questions (all, incorrect, correct) to download report as PDF"
                             >
                                 {isDownloadingPdf ? (
                                     <>
@@ -612,14 +615,14 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
 
                             {/* Quick Print Button */}
                             <button
-                                onClick={handleDownloadOrPrint}
+                                onClick={() => setShowDownloadModal(true)}
                                 disabled={isDownloadingPdf}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest border transition-all ${
                                     isDarkMode 
                                         ? 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300' 
                                         : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm'
                                 }`}
-                                title="Print report directly"
+                                title="Print report or save via browser"
                             >
                                 <Printer size={14} />
                                 <span className="hidden sm:inline">Print</span>
@@ -1161,6 +1164,221 @@ const ResultReport = ({ test, isDarkMode, onBack }) => {
                     return <SolutionTab />;
                 })()}
             </div>
+
+            {/* ── Custom Download / Print Options Modal ── */}
+            {showDownloadModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-[#151b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'} animate-scale-up`}>
+                        {/* Modal Header */}
+                        <div className={`px-6 py-5 border-b flex items-center justify-between ${isDarkMode ? 'border-white/[0.08] bg-[#1a2235]' : 'border-slate-100 bg-slate-50/80'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-blue-500/10 text-[#4871D9] border border-blue-500/20">
+                                    <Download size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black tracking-tight">Download Result Report</h3>
+                                    <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        Choose which questions and sections to include
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDownloadModal(false)}
+                                className={`p-1.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Modal Options List */}
+                        <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+                            {/* Option 1: All Questions */}
+                            <div
+                                onClick={() => setSelectedFilter('all')}
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                                    selectedFilter === 'all'
+                                        ? (isDarkMode ? 'border-blue-500 bg-blue-500/10' : 'border-blue-600 bg-blue-50/70 shadow-sm')
+                                        : (isDarkMode ? 'border-white/5 hover:border-white/15 bg-white/[0.02]' : 'border-slate-200 hover:border-slate-300 bg-white')
+                                }`}
+                            >
+                                <div className="flex items-start gap-3.5">
+                                    <div className={`mt-0.5 p-2 rounded-lg ${selectedFilter === 'all' ? 'bg-blue-500 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>
+                                        <FileText size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-black">All Questions & Solutions</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                                                {report.totalQuestions} Qs (Full Paper)
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Complete question paper with all student answers, correct solutions, and steps.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${selectedFilter === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300'}`}>
+                                    {selectedFilter === 'all' && <Check size={12} strokeWidth={3} />}
+                                </div>
+                            </div>
+
+                            {/* Option 2: Incorrect Questions Only (Mistake Booklet) */}
+                            <div
+                                onClick={() => setSelectedFilter('incorrect')}
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                                    selectedFilter === 'incorrect'
+                                        ? (isDarkMode ? 'border-red-500 bg-red-500/10' : 'border-red-600 bg-red-50/70 shadow-sm')
+                                        : (isDarkMode ? 'border-white/5 hover:border-white/15 bg-white/[0.02]' : 'border-slate-200 hover:border-slate-300 bg-white')
+                                }`}
+                            >
+                                <div className="flex items-start gap-3.5">
+                                    <div className={`mt-0.5 p-2 rounded-lg ${selectedFilter === 'incorrect' ? 'bg-red-600 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>
+                                        <XCircle size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-black">Incorrect / Wrong Questions Only</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/20">
+                                                {report.incorrect} Mistakes
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Mistake Booklet — focused revision of questions answered wrongly with solutions.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${selectedFilter === 'incorrect' ? 'border-red-600 bg-red-600 text-white' : 'border-slate-300'}`}>
+                                    {selectedFilter === 'incorrect' && <Check size={12} strokeWidth={3} />}
+                                </div>
+                            </div>
+
+                            {/* Option 3: Correct Questions Only */}
+                            <div
+                                onClick={() => setSelectedFilter('correct')}
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                                    selectedFilter === 'correct'
+                                        ? (isDarkMode ? 'border-emerald-500 bg-emerald-500/10' : 'border-emerald-600 bg-emerald-50/70 shadow-sm')
+                                        : (isDarkMode ? 'border-white/5 hover:border-white/15 bg-white/[0.02]' : 'border-slate-200 hover:border-slate-300 bg-white')
+                                }`}
+                            >
+                                <div className="flex items-start gap-3.5">
+                                    <div className={`mt-0.5 p-2 rounded-lg ${selectedFilter === 'correct' ? 'bg-emerald-600 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>
+                                        <CheckCircle size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-black">Correct Questions Only</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                                {report.correct} Correct
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Solutions for questions that were successfully answered correctly.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${selectedFilter === 'correct' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300'}`}>
+                                    {selectedFilter === 'correct' && <Check size={12} strokeWidth={3} />}
+                                </div>
+                            </div>
+
+                            {/* Option 4: Unattempted / Skipped */}
+                            <div
+                                onClick={() => setSelectedFilter('unattempted')}
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                                    selectedFilter === 'unattempted'
+                                        ? (isDarkMode ? 'border-amber-500 bg-amber-500/10' : 'border-amber-600 bg-amber-50/70 shadow-sm')
+                                        : (isDarkMode ? 'border-white/5 hover:border-white/15 bg-white/[0.02]' : 'border-slate-200 hover:border-slate-300 bg-white')
+                                }`}
+                            >
+                                <div className="flex items-start gap-3.5">
+                                    <div className={`mt-0.5 p-2 rounded-lg ${selectedFilter === 'unattempted' ? 'bg-amber-600 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>
+                                        <MinusCircle size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-black">Unattempted / Skipped Questions</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                                {report.unattempted || 0} Skipped
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Review untouched questions and learn their step-by-step methods.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${selectedFilter === 'unattempted' ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-300'}`}>
+                                    {selectedFilter === 'unattempted' && <Check size={12} strokeWidth={3} />}
+                                </div>
+                            </div>
+
+                            {/* Option 5: Scorecard Only */}
+                            <div
+                                onClick={() => setSelectedFilter('scorecard')}
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                                    selectedFilter === 'scorecard'
+                                        ? (isDarkMode ? 'border-indigo-500 bg-indigo-500/10' : 'border-indigo-600 bg-indigo-50/70 shadow-sm')
+                                        : (isDarkMode ? 'border-white/5 hover:border-white/15 bg-white/[0.02]' : 'border-slate-200 hover:border-slate-300 bg-white')
+                                }`}
+                            >
+                                <div className="flex items-start gap-3.5">
+                                    <div className={`mt-0.5 p-2 rounded-lg ${selectedFilter === 'scorecard' ? 'bg-indigo-600 text-white' : (isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600')}`}>
+                                        <BarChart2 size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-black">Scorecard & Analytics Only</span>
+                                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                                                Overview Only
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            Only student profile, score summary, ranking, and section-wise tables (no questions).
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${selectedFilter === 'scorecard' ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'}`}>
+                                    {selectedFilter === 'scorecard' && <Check size={12} strokeWidth={3} />}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className={`px-6 py-4 border-t flex items-center justify-between gap-3 ${isDarkMode ? 'border-white/[0.08] bg-[#1a2235]' : 'border-slate-100 bg-slate-50/80'}`}>
+                            <button
+                                onClick={() => setShowDownloadModal(false)}
+                                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                                    isDarkMode ? 'border-white/10 hover:bg-white/5 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                                }`}
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={() => handleExecuteExport(selectedFilter)}
+                                disabled={isDownloadingPdf}
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all shadow-md active:scale-95 ${
+                                    isDownloadingPdf 
+                                        ? 'bg-blue-400 cursor-wait' 
+                                        : 'bg-[#4871D9] hover:bg-[#3D60B8] shadow-blue-500/25'
+                                }`}
+                            >
+                                {isDownloadingPdf ? (
+                                    <>
+                                        <Loader2 size={15} className="animate-spin" />
+                                        <span>Preparing PDF...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download size={15} />
+                                        <span>Download / Print PDF</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
