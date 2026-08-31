@@ -362,8 +362,8 @@ const ExamInstructions = () => {
                     <p className="text-lg mb-2 underline">IMPORTANT SECURITY RULES:</p>
                     <p>1. You will be entered into Full Screen Mode automatically.</p>
                     <p>2. Exiting Full Screen Mode or switching tabs/windows (Alt+Tab) is strictly prohibited.</p>
-                    <p>3. If a violation is detected, you will have exactly 5 seconds to resume the exam.</p>
-                    <p>4. If 5 seconds pass without resuming, your session will be TERMINATED and submitted immediately due to security violation.</p>
+                    <p>3. If a violation is detected, you will have 2 minutes to resume the exam.</p>
+                    <p>4. If 2 minutes pass without resuming, your session will be TERMINATED and submitted immediately due to security violation.</p>
                     <p className="pt-2 italic">* Any attempt to bypass these security measures will result in disqualification.</p>
                 </div>
 

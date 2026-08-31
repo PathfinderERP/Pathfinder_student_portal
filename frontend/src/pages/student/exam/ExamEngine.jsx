@@ -41,7 +41,7 @@ const ExamEngine = () => {
     const [violationMessage, setViolationMessage] = useState('');
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '' });
-    const [violationTimer, setViolationTimer] = useState(5);
+    const [violationTimer, setViolationTimer] = useState(120);
     const [submissionType, setSubmissionType] = useState('MANUAL'); // 'MANUAL', 'TIME_UP', 'VIOLATION'
     const [questionTimes, setQuestionTimes] = useState({}); // { qId: seconds }
     const [lastViewedPerSection, setLastViewedPerSection] = useState({});
@@ -727,7 +727,7 @@ const ExamEngine = () => {
         }
 
         if (!showViolation) {
-            setViolationTimer(5);
+            setViolationTimer(120);
         }
 
         return () => {
@@ -852,7 +852,7 @@ const ExamEngine = () => {
                                 <div className="bg-red-50/80 px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl border border-red-100 flex flex-col gap-1 items-center">
                                     <span className="text-red-700 font-black text-[10px] sm:text-xs uppercase tracking-widest">Auto-Submit Countdown</span>
                                     <p className="text-red-700 font-black text-2xl sm:text-4xl animate-pulse">
-                                        00:0{violationTimer}
+                                        {Math.floor(violationTimer / 60).toString().padStart(2, '0')}:{(violationTimer % 60).toString().padStart(2, '0')}
                                     </p>
                                     <p className="text-red-700 font-bold text-[10px] sm:text-sm text-center leading-snug">
                                         THE EXAM WILL BE AUTOMATICALLY TERMINATED AND SUBMITTED IF NOT RESUMED IMMEDIATELY.
@@ -1537,7 +1537,7 @@ const ExamEngine = () => {
                             <div className="bg-red-50/80 px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl border border-red-100 flex flex-col gap-1 items-center">
                                 <span className="text-red-700 font-black text-[10px] sm:text-xs uppercase tracking-widest">Auto-Submit Countdown</span>
                                 <p className="text-red-700 font-black text-2xl sm:text-4xl animate-pulse">
-                                    00:0{violationTimer}
+                                    {Math.floor(violationTimer / 60).toString().padStart(2, '0')}:{(violationTimer % 60).toString().padStart(2, '0')}
                                 </p>
                                 <p className="text-red-700 font-bold text-[10px] sm:text-sm text-center leading-snug">
                                     THE EXAM WILL BE AUTOMATICALLY TERMINATED AND SUBMITTED IF NOT RESUMED IMMEDIATELY.
