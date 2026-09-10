@@ -804,9 +804,60 @@ class TestViewSet(viewsets.ModelViewSet):
                 centre_mappings = {}
                 for c in db['tests_test_centres'].find({}):
                     centre_mappings.setdefault(c['test_id'], []).append(str(c['centre_id']))
+
+                # Fetch Allotments, Codes Sent counts, and schedules in bulk
+                from datetime import datetime
+                from django.utils.dateparse import parse_datetime
+                _raw_now = timezone.now()
+                now_dt = _raw_now.replace(tzinfo=None) if _raw_now.tzinfo is not None else _raw_now
+
+                def _normalize_dt(val):
+                    if not val:
+                        return None
+                    if isinstance(val, datetime):
+                        return val.replace(tzinfo=None) if val.tzinfo is not None else val
+                    try:
+                        dt = parse_datetime(str(val))
+                        if dt:
+                            return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+                    except Exception:
+                        pass
+                    return None
+
+                codes_sent_counts = {}
+                allotment_centre_counts = {}
+                allotment_schedules = {}
+                for a in db['tests_testcentreallotment'].find({}):
+                    tid = str(a.get('test_id'))
+                    allotment_centre_counts[tid] = allotment_centre_counts.get(tid, 0) + 1
+                    if a.get('is_code_sent'):
+                        codes_sent_counts[tid] = codes_sent_counts.get(tid, 0) + 1
+                    
+                    st = _normalize_dt(a.get('start_time'))
+                    et = _normalize_dt(a.get('end_time'))
+                    allotment_schedules.setdefault(tid, []).append({
+                        'start_time': st,
+                        'end_time': et,
+                        'is_active': a.get('is_active', True)
+                    })
                 
                 for doc in tests_cursor:
                     test_id = doc.get('id')
+                    t_allotments = allotment_schedules.get(str(test_id), [])
+                    has_schedule = any(bool(a.get('start_time')) for a in t_allotments)
+                    
+                    # Live / Running: within start_time and end_time
+                    is_running = any(
+                        (a['start_time'] and a['start_time'] <= now_dt) and
+                        (not a['end_time'] or a['end_time'] >= now_dt)
+                        for a in t_allotments if a.get('is_active', True)
+                    )
+                    
+                    # Over: all scheduled allotments have ended
+                    is_over = bool(t_allotments) and has_schedule and all(
+                        bool(a['end_time']) and a['end_time'] < now_dt
+                        for a in t_allotments if a.get('start_time')
+                    )
                     
                     item = {
                         'id': test_id,
@@ -815,6 +866,9 @@ class TestViewSet(viewsets.ModelViewSet):
                         'duration': doc.get('duration', 0),
                         'total_marks': doc.get('total_marks', 0),
                         'is_completed': doc.get('is_completed', False),
+                        'is_running': is_running,
+                        'is_over': is_over,
+                        'has_schedule': has_schedule,
                         'is_omr_based': doc.get('is_omr_based', False),
                         'is_result_published': doc.get('is_result_published', False),
                         'created_at': doc.get('created_at'),
@@ -838,7 +892,8 @@ class TestViewSet(viewsets.ModelViewSet):
                         'class_levels': class_mappings.get(test_id, []),
                         'target_exams': target_mappings.get(test_id, []),
                         'centres': centre_mappings.get(test_id, []),
-                        'centres_count': len(centre_mappings.get(test_id, [])),
+                        'centres_count': allotment_centre_counts.get(str(test_id), len(centre_mappings.get(test_id, []))),
+                        'codes_sent_count': codes_sent_counts.get(str(test_id), 0),
                         
                         # Default counts
                         'total_students': 0,
@@ -1095,6 +1150,7 @@ class TestViewSet(viewsets.ModelViewSet):
             
         # Cache the result for 5 minutes (300 seconds) to ensure immediate UX and reduce loads
         cache.set(cache_key, data, 300)
+        return Response(data)
             
     @action(detail=True, methods=['post'], url_path='import-centre-allotments')
     def import_centre_allotments(self, request, pk=None):
@@ -4748,6 +4804,7 @@ class TestCentreAllotmentViewSet(viewsets.ModelViewSet):
         from django.core.cache import cache
         cache.delete(f"test_{allotment.test_id}_centers_full_v3")
         cache.delete("admin_test_list") # Broad refresh as count might change
+        TestViewSet._local_cache = {}
         
         return Response({'code': code, 'history': allotment.code_history})
 
@@ -4794,6 +4851,10 @@ Pathfinder Test Management System
             allotment.is_code_sent = True
             allotment.was_sent = True
             allotment.save()
+            from django.core.cache import cache
+            cache.delete(f"test_{allotment.test_id}_centers_full_v3")
+            cache.delete("admin_test_list")
+            TestViewSet._local_cache = {}
             return Response({'message': f'Access code sent to {email}'})
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -4803,6 +4864,7 @@ Pathfinder Test Management System
         from django.core.cache import cache
         cache.delete(f"test_{instance.test_id}_centers_full_v3")
         cache.delete("admin_test_list")
+        TestViewSet._local_cache = {}
 
     def perform_destroy(self, instance):
         test_id = instance.test_id
@@ -4810,5 +4872,6 @@ Pathfinder Test Management System
         from django.core.cache import cache
         cache.delete(f"test_{test_id}_centers_full_v3")
         cache.delete("admin_test_list")
+        TestViewSet._local_cache = {}
 
  

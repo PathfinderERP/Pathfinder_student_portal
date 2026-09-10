@@ -3034,6 +3034,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
                                         <input
                                             type="text"
+                                            tabIndex={-1}
                                             placeholder="https://example.com/image1.png"
                                             value={q.image_1 || ''}
                                             onChange={(e) => {
@@ -3048,6 +3049,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
                                         <input
                                             type="text"
+                                            tabIndex={-1}
                                             placeholder="https://example.com/image2.png"
                                             value={q.image_2 || ''}
                                             onChange={(e) => {
@@ -3110,6 +3112,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                     </div>
                                                     <button
                                                         type="button"
+                                                        tabIndex={-1}
                                                         onClick={() => handleToggleOption(qIdx, opt.id)}
                                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-[5px] transition-all ${opt.isCorrect ? 'bg-emerald-500/10 text-emerald-500' : isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
                                                     >

@@ -6,15 +6,20 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import TestStatusBadge from './components/TestStatusBadge';
+import TestFilterToolbar from './components/TestFilterToolbar';
+import useTestFilters from './hooks/useTestFilters';
 
 const TestResponses = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const navigate = useNavigate();
     const [tests, setTests] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [testFilter, setTestFilter] = useState('all'); // 'all', 'completed', 'in_progress'
-    const [selectedSession, setSelectedSession] = useState('all');
+    const [masterSessions, setMasterSessions] = useState([]);
+    const [masterTargetExams, setMasterTargetExams] = useState([]);
+    const [masterClassLevels, setMasterClassLevels] = useState([]);
+    const [masterCentres, setMasterCentres] = useState([]);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +39,37 @@ const TestResponses = ({ isOMR = false }) => {
     const [isDeletingFailed, setIsDeletingFailed] = useState(false);
     const [isRetrying, setIsRetrying] = useState(false);
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
+
+    const {
+        searchTerm,
+        setSearchTerm,
+        selectedSessions,
+        setSelectedSessions,
+        selectedTargetExams,
+        setSelectedTargetExams,
+        selectedClassLevels,
+        setSelectedClassLevels,
+        selectedCentres,
+        setSelectedCentres,
+        selectedCompletion,
+        setSelectedCompletion,
+        sessionOptions,
+        targetExamOptions,
+        classLevelOptions,
+        centreOptions,
+        completionOptions,
+        filteredRecords: filteredTests,
+        activeFiltersCount,
+        handleClearAllFilters,
+    } = useTestFilters({
+        tests,
+        masterSessions,
+        masterTargetExams,
+        masterClassLevels,
+        masterCentres,
+        isOMR,
+        includeAllotmentStatus: false,
+    });
 
     // Export Modal & Data state
     const [exportModal, setExportModal] = useState({ isOpen: false, preselectedCentreCode: 'all' });
@@ -102,28 +138,52 @@ const TestResponses = ({ isOMR = false }) => {
             });
 
             Object.keys(centreMap).forEach(cName => {
-                const cStudents = centreMap[cName];
-                const cRows = cStudents.map((s, idx) => formatRow(s, idx));
-                const safeSheetName = cName.replace(/[\/?*\[\]]/g, '_').substring(0, 31) || 'Centre';
+                const safeName = cName.replace(/[:\\/?*[\]]/g, '').substring(0, 30);
+                const cRows = centreMap[cName].map((s, idx) => formatRow(s, idx));
                 const wsCentre = XLSX.utils.json_to_sheet(cRows);
-                try {
-                    XLSX.utils.book_append_sheet(wb, wsCentre, safeSheetName);
-                } catch (err) {
-                    const altName = safeSheetName.substring(0, 25) + '_' + Math.floor(Math.random() * 100);
-                    XLSX.utils.book_append_sheet(wb, wsCentre, altName);
-                }
+                XLSX.utils.book_append_sheet(wb, wsCentre, safeName);
             });
 
-            const fileName = `${(selectedTest.name || 'Test').replace(/\s+/g, '_')}_Responses.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            toast.success('Excel workbook exported successfully!');
+            XLSX.writeFile(wb, `${selectedTest.name.replace(/[^a-zA-Z0-9]/g, '_')}_Responses.xlsx`);
+            toast.success('Responses Exported Successfully!');
             setExportModal({ isOpen: false, preselectedCentreCode: 'all' });
         } catch (err) {
-            console.error('Export error:', err);
-            toast.error('Failed to export data');
+            console.error('Export Error:', err);
+            toast.error('Failed to export responses.');
         } finally {
             setIsPreparingExport(false);
         }
+    };
+
+    const handleExportCentreSummary = () => {
+        if (!selectedTest || !centres || centres.length === 0) {
+            toast.error('No centre data available to export.');
+            return;
+        }
+
+        const rows = centres.map((centre, index) => ({
+            'S.No': index + 1,
+            'Centre Name': centre.centre_details?.name || 'N/A',
+            'Centre Code': centre.centre_details?.code || 'N/A',
+            'Attempted Students': centre.submission_count || 0,
+        }));
+
+        // Add Total row
+        const totalAttempted = centres.reduce((sum, c) => sum + (c.submission_count || 0), 0);
+        rows.push({
+            'S.No': '',
+            'Centre Name': 'TOTAL',
+            'Centre Code': '',
+            'Attempted Students': totalAttempted,
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'Centre Summary');
+
+        const safeTestName = (selectedTest.name || 'Test').replace(/[^a-zA-Z0-9]/g, '_');
+        XLSX.writeFile(wb, `${safeTestName}_Centre_Wise_Students.xlsx`);
+        toast.success('Centre-wise student count exported successfully!');
     };
 
     const fetchTests = async (forceRefresh = false, silent = false) => {
@@ -136,11 +196,21 @@ const TestResponses = ({ isOMR = false }) => {
         activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/${forceRefresh ? '?refresh=true' : ''}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
-            setTests(data);
+            const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+            const [testsRes, sessionsRes, targetExamsRes, classesRes, centresRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/tests/${forceRefresh ? '?refresh=true' : ''}`, authHeader),
+                axios.get(`${apiUrl}/api/master-data/sessions/`, authHeader).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, authHeader).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/classes/`, authHeader).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/centres/`, authHeader).catch(() => ({ data: [] })),
+            ]);
+
+            setTests(Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []));
+            setMasterSessions(Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data.results || []));
+            setMasterTargetExams(Array.isArray(targetExamsRes.data) ? targetExamsRes.data : (targetExamsRes.data.results || []));
+            setMasterClassLevels(Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data.results || []));
+            setMasterCentres(Array.isArray(centresRes.data) ? centresRes.data : (centresRes.data.results || []));
+
             if (forceRefresh && !silent) toast.success('ERP Data Synchronized Successfully!');
         } catch (err) {
             console.error('Error fetching tests:', err);
@@ -166,40 +236,10 @@ const TestResponses = ({ isOMR = false }) => {
         };
     }, []);
 
-    const sessions = useMemo(() => {
-        const unique = Array.from(new Set(tests.map(t => t.session_details?.name).filter(Boolean)));
-        return unique.sort();
-    }, [tests]);
-
-    const filteredTests = useMemo(() => {
-        return tests.filter(test => {
-            const matchesSearch = test.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
-
-            const matchesStatus = testFilter === 'all' ||
-                (testFilter === 'completed' && test.is_completed) ||
-                (testFilter === 'in_progress' && !test.is_completed);
-
-            const matchesSession = selectedSession === 'all' ||
-                test.session_details?.name === selectedSession;
-
-            let matchesOMR = true;
-            const examTypeName = test.exam_type_details?.name?.toLowerCase() || '';
-            const isOMRTest = examTypeName.includes('omr');
-            if (isOMR) {
-                matchesOMR = isOMRTest;
-            } else {
-                matchesOMR = !isOMRTest;
-            }
-
-            return matchesSearch && matchesStatus && matchesSession && matchesOMR;
-        });
-    }, [tests, searchTerm, testFilter, selectedSession, isOMR]);
-
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, testFilter, selectedSession]);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedCompletion]);
 
     const pageCount = Math.ceil(filteredTests.length / itemsPerPage);
     const currentTests = filteredTests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -627,80 +667,53 @@ const TestResponses = ({ isOMR = false }) => {
         <div className={`p-6 min-h-screen ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}>
             {viewMode === 'TESTS' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    {/* Main Test List Header */}
-                    <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                            <div>
-                                <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                                    Test <span className="text-orange-500">Response Analysis</span>
-                                </h2>
-                                <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    Track student participation and responses across centres
-                                </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-4">
-                                {/* Refresh Button */}
+                    {/* Main Test List Header & Filters */}
+                    <TestFilterToolbar
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        sessionOptions={sessionOptions}
+                        selectedSessions={selectedSessions}
+                        setSelectedSessions={setSelectedSessions}
+                        targetExamOptions={targetExamOptions}
+                        selectedTargetExams={selectedTargetExams}
+                        setSelectedTargetExams={setSelectedTargetExams}
+                        classLevelOptions={classLevelOptions}
+                        selectedClassLevels={selectedClassLevels}
+                        setSelectedClassLevels={setSelectedClassLevels}
+                        centreOptions={centreOptions}
+                        selectedCentres={selectedCentres}
+                        setSelectedCentres={setSelectedCentres}
+                        completionOptions={completionOptions}
+                        selectedCompletion={selectedCompletion}
+                        setSelectedCompletion={setSelectedCompletion}
+                        activeFiltersCount={activeFiltersCount}
+                        onClearAll={handleClearAllFilters}
+                        totalCount={tests.length}
+                        filteredCount={filteredTests.length}
+                        isDarkMode={isDarkMode}
+                        headerTitle="Test Response Analysis"
+                        headerSubtitle="Track student participation and responses across centres"
+                        customActions={
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => fetchTests(false)}
                                     title="Manual Refresh"
-                                    className={`p-2.5 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                    className={`p-2.5 rounded-[5px] border transition-all hover:scale-105 active:rotate-180 text-xs font-bold flex items-center gap-1.5 ${isDarkMode ? 'bg-[#10141D] border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'}`}
                                 >
-                                    <RefreshCw size={18} className={isLoading && !isSyncing ? 'animate-spin' : ''} />
+                                    <RefreshCw size={14} className={isLoading && !isSyncing ? 'animate-spin text-orange-500' : ''} />
+                                    <span className="hidden sm:inline">Refresh</span>
                                 </button>
-
-                                {/* Search */}
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search by name or code"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
-                                    />
-                                </div>
-
-                                {/* Session Filter */}
-                                <div className="flex items-center gap-2">
-                                    <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                        <Layers size={16} />
-                                    </div>
-                                    <select
-                                        value={selectedSession}
-                                        onChange={(e) => setSelectedSession(e.target.value)}
-                                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
-                                    >
-                                        <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Sessions</option>
-                                        {sessions.map(s => <option key={s} value={s} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>{s}</option>)}
-                                    </select>
-                                </div>
-
-                                {/* Status Filter */}
-                                <div className="flex items-center gap-2">
-                                    <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                        <Filter size={16} />
-                                    </div>
-                                    <select
-                                        value={testFilter}
-                                        onChange={(e) => setTestFilter(e.target.value)}
-                                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-green-500/10' : 'bg-white border-slate-200 focus:ring-green-500/5'}`}
-                                    >
-                                        <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Result</option>
-                                        <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
-                                        <option value="in_progress" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Processing / Ready</option>
-                                    </select>
-                                </div>
-
                                 <button
                                     onClick={() => fetchTests(true)}
+                                    disabled={isSyncing}
                                     className={`px-4 py-2.5 rounded-[5px] bg-orange-600 hover:bg-orange-700 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-orange-500/20 active:scale-95 ${isSyncing ? 'opacity-70 pointer-events-none' : ''}`}
                                 >
                                     <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
                                     {isSyncing ? 'Syncing...' : 'SYNC WITH ERP'}
                                 </button>
                             </div>
-                        </div>
-                    </div>
+                        }
+                    />
 
                     {/* Table */}
                     <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
@@ -746,9 +759,12 @@ const TestResponses = ({ isOMR = false }) => {
                                         <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'}`}>
                                             <td className="py-5 px-6 text-xs font-black opacity-30">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                             <td className="py-5 px-6">
-                                                <div className="flex items-center gap-2 whitespace-nowrap">
-                                                    <span className="text-xs font-black uppercase tracking-tight">{test.name}</span>
-                                                    <span className="text-[9px] font-bold opacity-40 px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <span className="text-xs font-black uppercase tracking-tight">{test.name}</span>
+                                                        <TestStatusBadge test={test} />
+                                                    </div>
+                                                    <span className="text-[9px] font-bold opacity-40 uppercase tracking-wider">
                                                         {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                                     </span>
                                                 </div>
@@ -931,6 +947,14 @@ const TestResponses = ({ isOMR = false }) => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleExportCentreSummary}
+                                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 rounded-[5px] transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                                    title="Export centre-wise count of students who gave the exam"
+                                >
+                                    <FileSpreadsheet size={14} />
+                                    EXPORT CENTRE SUMMARY
+                                </button>
                                 <button
                                     onClick={() => handleOpenExportModal('all')}
                                     className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 rounded-[5px] transition-all shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer"

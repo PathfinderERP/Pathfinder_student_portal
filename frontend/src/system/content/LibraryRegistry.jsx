@@ -68,7 +68,7 @@ const CustomVideoPlayer = ({ src }) => {
     );
 };
 
-const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
+const MultiSelect = ({ label, options = [], value = [], onChange, placeholder, isDarkMode, required, className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = React.useRef(null);
@@ -85,19 +85,32 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
 
     const safeValue = Array.isArray(value) ? value : [];
 
+    const getOptLabel = (opt) => {
+        if (!opt) return '';
+        if (typeof opt === 'string' || typeof opt === 'number') return String(opt);
+        return opt.label || opt.name || opt.session_name || opt.class_name || opt.subject_name || opt.chapter_name || opt.topic_name || opt.exam_type_name || opt.target_exam_name || opt.value || '';
+    };
+
+    const getOptValue = (opt) => {
+        if (!opt) return '';
+        if (typeof opt === 'string' || typeof opt === 'number') return opt;
+        return opt.id !== undefined ? opt.id : (opt.value !== undefined ? opt.value : opt);
+    };
+
     const filteredOptions = useMemo(() => {
         if (!searchTerm) return options;
-        return options.filter(opt => {
-            const text = (opt.label || opt.name || opt.value || '').toLowerCase();
+        return (options || []).filter(opt => {
+            const text = getOptLabel(opt).toLowerCase();
             return text.includes(searchTerm.toLowerCase());
         });
     }, [options, searchTerm]);
 
-    const toggleOption = (id) => {
-        const strId = String(id);
-        const newValue = safeValue.some(v => String(v) === strId)
-            ? safeValue.filter(v => String(v) !== strId)
-            : [...safeValue, id];
+    const toggleOption = (optVal) => {
+        const strVal = String(optVal);
+        const exists = safeValue.some(v => String(v) === strVal);
+        const newValue = exists
+            ? safeValue.filter(v => String(v) !== strVal)
+            : [...safeValue, optVal];
         onChange(newValue);
     };
 
@@ -105,51 +118,59 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
         if (safeValue.length === options.length) {
             onChange([]);
         } else {
-            onChange(options.map(opt => opt.id || opt.value));
+            onChange(options.map(opt => getOptValue(opt)));
         }
     };
 
     const getSelectedLabels = () => {
-        if (safeValue.length === 0) return placeholder;
+        if (safeValue.length === 0) return placeholder || 'All';
         const labels = safeValue.map(val => {
-            const opt = options.find(o => String(o.id) === String(val) || String(o.value) === String(val));
-            return opt ? (opt.label || opt.name || opt.value) : '';
+            const opt = options.find(o => String(getOptValue(o)) === String(val));
+            return opt ? getOptLabel(opt) : String(val);
         }).filter(Boolean);
         
         if (labels.length === 0) return `${safeValue.length} Selected`;
-        return labels.join(', ');
+        if (labels.length <= 2) return labels.join(', ');
+        return `${labels.slice(0, 2).join(', ')} (+${labels.length - 2})`;
     };
+
+    const fullTitle = safeValue.map(val => {
+        const opt = options.find(o => String(getOptValue(o)) === String(val));
+        return opt ? getOptLabel(opt) : String(val);
+    }).filter(Boolean).join(', ');
 
     return (
         <div className={`relative group ${className}`} ref={containerRef}>
             <div
                 onClick={() => setIsOpen(!isOpen)}
-                className={`relative w-full px-4 py-3 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between
+                className={`relative w-full px-3.5 py-2.5 rounded-[5px] border-2 transition-all cursor-pointer flex items-center justify-between gap-2 min-h-[42px]
                     ${isOpen
                         ? `border-[#E67E22] ${isDarkMode ? 'bg-[#1a1f2e] shadow-[0_0_0_4px_rgba(230,126,34,0.1)]' : 'bg-white shadow-[0_0_0_4px_rgba(230,126,34,0.1)]'}`
                         : isDarkMode ? 'border-white/5 bg-[#1a1f2e] text-white hover:border-white/10' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 shadow-sm'}`}
             >
-                <label className={`absolute left-3 -top-2 px-1 text-[10px] font-black uppercase tracking-widest transition-all
-                    ${isOpen ? `text-[#E67E22] ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-40' : 'bg-white text-slate-500'}`}>
+                <label className={`absolute left-3 -top-2 px-1 text-[9px] font-black uppercase tracking-widest transition-all z-10
+                    ${isOpen ? `text-[#E67E22] ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}` : isDarkMode ? 'bg-[#10141D] text-slate-500 opacity-70' : 'bg-white text-slate-500'}`}>
                     {label} {required && '*'}
                 </label>
 
                 <span className={`text-xs font-bold truncate ${safeValue.length === 0
                     ? (isDarkMode ? 'text-white/30' : 'text-slate-400')
-                    : (isDarkMode ? 'text-white' : 'text-slate-700')}`} title={getSelectedLabels()}>
+                    : (isDarkMode ? 'text-white' : 'text-slate-700')}`} title={fullTitle || getSelectedLabels()}>
                     {getSelectedLabels()}
                 </span>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 shrink-0">
                     {safeValue.length > 0 && (
                         <button
+                            type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onChange([]);
                             }}
-                            className={`p-1 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-slate-100'}`}
+                            className={`p-0.5 rounded-full transition-all ${isDarkMode ? 'hover:bg-white/10 text-red-400' : 'hover:bg-slate-100 text-red-500'}`}
+                            title="Clear selection"
                         >
-                            <X size={12} strokeWidth={3} className="text-red-500" />
+                            <X size={12} strokeWidth={3} />
                         </button>
                     )}
                     <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#E67E22]' : 'opacity-40'}`} />
@@ -157,14 +178,15 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
             </div>
 
             {isOpen && (
-                <div className={`absolute z-[100] left-0 right-0 mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
+                <div className={`absolute z-[100] left-0 min-w-[220px] w-full mt-1 py-1 rounded-[5px] border shadow-2xl animate-in fade-in zoom-in-95 duration-200
                     ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 shadow-black text-white' : 'bg-white border-slate-200 shadow-slate-200/50 text-slate-800'}`}>
 
                     <div className={`p-2 border-b sticky top-0 z-10 ${isDarkMode ? 'border-white/5 bg-[#1a1f2e]' : 'border-slate-100 bg-white'}`}>
                         <div className="flex items-center gap-2 mb-2">
                             <button
+                                type="button"
                                 onClick={handleSelectAll}
-                                className={`flex-1 py-1.5 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-100 hover:bg-slate-200'}`}
+                                className={`flex-1 py-1 rounded-[3px] text-[10px] font-black uppercase tracking-tighter transition-all ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-[#E67E22]' : 'bg-orange-50 hover:bg-orange-100 text-[#E67E22]'}`}
                             >
                                 {safeValue.length === options.length ? 'Deselect All' : 'Select All'}
                             </button>
@@ -178,7 +200,7 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder={`Search ${label}...`}
-                                className={`w-full pl-8 pr-3 py-2 rounded-[5px] text-[11px] font-bold outline-none transition-all
+                                className={`w-full pl-8 pr-3 py-1.5 rounded-[5px] text-[11px] font-bold outline-none transition-all
                                     ${isDarkMode ? 'bg-black/20 border border-white/10 text-white focus:border-[#E67E22]' : 'bg-white border border-slate-200 text-slate-700 focus:border-[#E67E22] shadow-sm'}`}
                             />
                         </div>
@@ -186,25 +208,27 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder, isDark
 
                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                         {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => {
-                            const strVal = String(opt.id || opt.value);
+                            const optVal = getOptValue(opt);
+                            const optLabel = getOptLabel(opt);
+                            const strVal = String(optVal);
                             const isSelected = safeValue.some(v => String(v) === strVal);
                             return (
                                 <div
                                     key={i}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        toggleOption(opt.id || opt.value);
+                                        toggleOption(optVal);
                                     }}
-                                    className={`px-4 py-2.5 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between
+                                    className={`px-3 py-2 text-[12px] font-bold cursor-pointer transition-all flex items-center justify-between gap-2
                                         ${isSelected
                                             ? 'bg-[#E67E22] text-white'
                                             : isDarkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
+                                    <div className="flex items-center gap-2.5 truncate">
+                                        <div className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white' : isDarkMode ? 'border-white/20' : 'border-slate-300'}`}>
                                             {isSelected && <Check size={10} className="text-[#E67E22]" strokeWidth={4} />}
                                         </div>
-                                        {opt.label || opt.name || opt.value}
+                                        <span className="truncate">{optLabel}</span>
                                     </div>
                                 </div>
                             );
@@ -439,7 +463,9 @@ const LibraryRegistry = () => {
         class_level: '',
         class_levels: [],
         subject: '',
+        subjects: [],
         chapter: '',
+        chapters: [],
         topic: '',
         exam_type: '',
         target_exams: [],
@@ -1295,15 +1321,17 @@ const LibraryRegistry = () => {
                 (item.topic_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (item.chapter_name || "").toLowerCase().includes(searchQuery.toLowerCase());
 
-            const matchesSession = !activeFilters.session || 
-                String(item.session) === String(activeFilters.session) || 
-                (item.sessions && item.sessions.some(s => String(s) === String(activeFilters.session))) || 
+            const matchesSession = activeFilters.sessions.length === 0 || 
+                activeFilters.sessions.map(String).includes(String(item.session)) || 
+                (item.sessions && item.sessions.some(s => activeFilters.sessions.map(String).includes(String(s)))) || 
                 item.is_virtual;
-            const matchesClass = !activeFilters.class_level || 
-                String(item.class_level) === String(activeFilters.class_level) ||
-                (item.class_levels && item.class_levels.some(c => String(c) === String(activeFilters.class_level)));
-            const matchesSubject = !activeFilters.subject || String(item.subject) === String(activeFilters.subject);
-            const matchesChapter = !activeFilters.chapter || String(item.chapter) === String(activeFilters.chapter);
+            const matchesClass = activeFilters.class_levels.length === 0 || 
+                activeFilters.class_levels.map(String).includes(String(item.class_level)) ||
+                (item.class_levels && item.class_levels.some(c => activeFilters.class_levels.map(String).includes(String(c))));
+            const matchesSubject = activeFilters.subjects.length === 0 || 
+                activeFilters.subjects.map(String).includes(String(item.subject));
+            const matchesChapter = activeFilters.chapters.length === 0 || 
+                activeFilters.chapters.map(String).includes(String(item.chapter));
             const matchesTopic = !activeFilters.topic || String(item.topic) === String(activeFilters.topic);
             const matchesExamType = !activeFilters.exam_type || String(item.exam_type) === String(activeFilters.exam_type);
             const matchesTargetExam = activeFilters.target_exams.length === 0 || 
@@ -1352,13 +1380,13 @@ const LibraryRegistry = () => {
             classes: classes,
             subjects: subjects,
             chapters: chapters.filter(c => 
-                (!activeFilters.class_level || String(c.class_level) === String(activeFilters.class_level)) &&
-                (!activeFilters.subject || String(c.subject) === String(activeFilters.subject))
+                (activeFilters.class_levels.length === 0 || activeFilters.class_levels.map(String).includes(String(c.class_level))) &&
+                (activeFilters.subjects.length === 0 || activeFilters.subjects.map(String).includes(String(c.subject)))
             ),
             topics: topics.filter(t => 
-                (!activeFilters.chapter || String(t.chapter) === String(activeFilters.chapter)) &&
-                (!activeFilters.subject || String(t.subject) === String(activeFilters.subject)) &&
-                (!activeFilters.class_level || String(t.class_level) === String(activeFilters.class_level))
+                (activeFilters.chapters.length === 0 || activeFilters.chapters.map(String).includes(String(t.chapter))) &&
+                (activeFilters.subjects.length === 0 || activeFilters.subjects.map(String).includes(String(t.subject))) &&
+                (activeFilters.class_levels.length === 0 || activeFilters.class_levels.map(String).includes(String(t.class_level)))
             ),
             examTypes: examTypes,
             targetExams: targetExams,
@@ -1517,47 +1545,50 @@ const LibraryRegistry = () => {
                                 <Filter size={14} /> Filters
                             </div>
 
-                            <CustomSelect
+                            <MultiSelect
                                 label="Session"
                                 options={dynamicFilterOptions.sessions}
-                                value={activeFilters.session}
+                                value={activeFilters.sessions}
                                 placeholder="All Sessions"
                                 isDarkMode={isDarkMode}
-                                onChange={(val) => setActiveFilters({ ...activeFilters, session: val })}
+                                className="min-w-[170px]"
+                                onChange={(val) => setActiveFilters({ ...activeFilters, sessions: val })}
                             />
 
-                            <CustomSelect
+                            <MultiSelect
                                 label="Class"
                                 options={dynamicFilterOptions.classes}
-                                value={activeFilters.class_level}
+                                value={activeFilters.class_levels}
                                 placeholder="All Classes"
                                 isDarkMode={isDarkMode}
-                                onChange={(val) => setActiveFilters({ ...activeFilters, class_level: val })}
+                                className="min-w-[170px]"
+                                onChange={(val) => setActiveFilters({ ...activeFilters, class_levels: val })}
                             />
-                            <CustomSelect
+                            <MultiSelect
                                 label="Subject"
                                 options={dynamicFilterOptions.subjects}
-                                value={activeFilters.subject}
+                                value={activeFilters.subjects}
                                 placeholder="All Subjects"
                                 isDarkMode={isDarkMode}
-                                onChange={(val) => setActiveFilters({ ...activeFilters, subject: val })}
+                                className="min-w-[170px]"
+                                onChange={(val) => setActiveFilters({ ...activeFilters, subjects: val })}
                             />
-                            <CustomSelect
+                            <MultiSelect
                                 label="Chapter"
                                 options={dynamicFilterOptions.chapters}
-                                value={activeFilters.chapter}
+                                value={activeFilters.chapters}
                                 placeholder="All Chapters"
                                 isDarkMode={isDarkMode}
-                                className="min-w-[250px] max-w-[400px]"
-                                onChange={(val) => setActiveFilters({ ...activeFilters, chapter: val })}
+                                className="min-w-[220px] max-w-[340px]"
+                                onChange={(val) => setActiveFilters({ ...activeFilters, chapters: val })}
                             />
                             <MultiSelect
                                 label="Target Exam"
-                                options={targetExams}
+                                options={dynamicFilterOptions.targetExams || targetExams}
                                 value={activeFilters.target_exams}
                                 placeholder="All Target Exams"
                                 isDarkMode={isDarkMode}
-                                className="min-w-[250px]"
+                                className="min-w-[200px] max-w-[300px]"
                                 onChange={(val) => setActiveFilters({ ...activeFilters, target_exams: val })}
                             />
                             <select
@@ -1571,9 +1602,9 @@ const LibraryRegistry = () => {
                                 <option value="video">Video Content</option>
                                 <option value="dpp">DPP Questions</option>
                             </select>
-                            {(activeFilters.session || activeFilters.class_level || activeFilters.subject || activeFilters.chapter || activeFilters.target_exams.length > 0 || activeFilters.contentType) && (
+                            {(activeFilters.sessions.length > 0 || activeFilters.class_levels.length > 0 || activeFilters.subjects.length > 0 || activeFilters.chapters.length > 0 || activeFilters.target_exams.length > 0 || activeFilters.contentType) && (
                                 <button
-                                    onClick={() => setActiveFilters({ session: '', class_level: '', subject: '', chapter: '', topic: '', exam_type: '', target_exams: [], contentType: '' })}
+                                    onClick={() => setActiveFilters({ session: '', sessions: [], class_level: '', class_levels: [], subject: '', subjects: [], chapter: '', chapters: [], topic: '', exam_type: '', target_exams: [], contentType: '' })}
                                     className="px-4 py-2.5 rounded-[5px] font-bold text-[10px] uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 active:scale-95"
                                 >
                                     Clear All Filters
@@ -1657,7 +1688,7 @@ const LibraryRegistry = () => {
                                         </td>
                                         <td className="py-5 px-6 text-center">
                                             <span className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">
-                                                {item.session_names?.length > 0 ? item.session_names.join(', ') : (item.session_name || (activeFilters.session ? sessions.find(s => String(s.id) === String(activeFilters.session))?.name : '-') || '-')}
+                                                {item.session_names?.length > 0 ? item.session_names.join(', ') : (item.session_name || (activeFilters.sessions?.length === 1 ? sessions.find(s => String(s.id) === String(activeFilters.sessions[0]))?.name : '-') || '-')}
                                             </span>
                                         </td>
                                         <td className="py-5 px-6 text-center">
@@ -1710,7 +1741,7 @@ const LibraryRegistry = () => {
                                                         if (item.is_virtual) {
                                                             const prefillData = {
                                                                 name: item.name,
-                                                                session: activeFilters.session || item.session,
+                                                                session: (activeFilters.sessions?.length === 1 ? activeFilters.sessions[0] : item.session),
                                                                 class_level: item.class_level,
                                                                 subject: item.subject,
                                                                 chapter: item.chapter
@@ -2810,6 +2841,7 @@ const LibraryRegistry = () => {
                                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 1 (URL)</label>
                                                     <input
                                                         type="text"
+                                                        tabIndex={-1}
                                                         placeholder="https://example.com/image1.png"
                                                         value={q.image_1 || ''}
                                                         onChange={(e) => {
@@ -2824,6 +2856,7 @@ const LibraryRegistry = () => {
                                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Question Image 2 (URL)</label>
                                                     <input
                                                         type="text"
+                                                        tabIndex={-1}
                                                         placeholder="https://example.com/image2.png"
                                                         value={q.image_2 || ''}
                                                         onChange={(e) => {

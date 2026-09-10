@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { 
     MessageSquare, Search, Filter, Eye, X, 
-    CheckCircle, Clock, AlertCircle, ChevronRight, User, 
+    CheckCircle, Clock, AlertCircle, ChevronRight, ChevronLeft,
+    ChevronsLeft, ChevronsRight, User, 
     Calendar, Tag, MessageCircle, AlertTriangle, TrendingUp,
-    MapPin, BarChart3, PieChart, RefreshCcw
+    MapPin, BarChart3, PieChart, RefreshCcw, Send, LayoutGrid, List
 } from 'lucide-react';
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -31,17 +32,28 @@ const GrievanceManagement = () => {
     const [monthFilter, setMonthFilter] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
     
+    // View & Pagination
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [jumpPage, setJumpPage] = useState('');
+
     // Modal states
     const [selectedGrievance, setSelectedGrievance] = useState(null);
     const [isShowModalOpen, setIsShowModalOpen] = useState(false);
-    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-    const [selectedTeacher, setSelectedTeacher] = useState('');
+    const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+    const [replyText, setReplyText] = useState('');
+    const [replyStatus, setReplyStatus] = useState('Resolved');
+    const [submittingReply, setSubmittingReply] = useState(false);
 
     useEffect(() => {
         fetchGrievances();
-        fetchTeachers();
         fetchCentres();
     }, []);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, categoryFilter, priorityFilter, centreFilter, monthFilter, dateFilter]);
 
     const fetchGrievances = async () => {
         try {
@@ -84,18 +96,6 @@ const GrievanceManagement = () => {
         }
     };
 
-    const fetchTeachers = async () => {
-        try {
-            const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/admin/erp-teachers/`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            setTeachers(response.data || []);
-        } catch (error) {
-            console.error("Error fetching teachers:", error);
-        }
-    };
-
     const fetchCentres = async () => {
         try {
             const apiUrl = getApiUrl();
@@ -108,33 +108,41 @@ const GrievanceManagement = () => {
         }
     };
 
-    const handleAssign = async () => {
-        if (!selectedTeacher || !selectedGrievance) return;
-        
-        const teacher = teachers.find(t => (t.code || t.id) === selectedTeacher);
-        if (!teacher) return;
+    const handleSendReply = async () => {
+        if (!replyText.trim() || !selectedGrievance) {
+            toast.error("Please enter a reply description");
+            return;
+        }
 
-        const teacherName = teacher.name || teacher.teacher_name;
-        const teacherId = teacher.code || teacher.employee_id;
-
+        setSubmittingReply(true);
         try {
             const apiUrl = getApiUrl();
             await axios.patch(`${apiUrl}/api/grievances/${selectedGrievance.id}/`, {
-                status: 'Assign',
-                teacher_id: teacherId,
-                teacher_name: teacherName,
-                assign_date: new Date().toISOString()
+                solution_description: replyText.trim(),
+                status: replyStatus,
+                solved_date: new Date().toISOString()
             }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            toast.success(`Grievance assigned to ${teacherName}`);
-            setIsAssignModalOpen(false);
+            toast.success("Reply sent to student successfully!");
+            setIsReplyModalOpen(false);
+            if (isShowModalOpen) setIsShowModalOpen(false);
+            setReplyText('');
             fetchGrievances();
         } catch (error) {
-            console.error("Error assigning grievance:", error);
-            toast.error("Failed to assign grievance");
+            console.error("Error replying to grievance:", error);
+            toast.error("Failed to send reply");
+        } finally {
+            setSubmittingReply(false);
         }
+    };
+
+    const openReplyModal = (grievance) => {
+        setSelectedGrievance(grievance);
+        setReplyText(grievance.solution || '');
+        setReplyStatus(grievance.status === 'Resolved' ? 'Resolved' : 'Resolved');
+        setIsReplyModalOpen(true);
     };
 
     const handleStatusUpdate = async (id, newStatus) => {
@@ -172,18 +180,59 @@ const GrievanceManagement = () => {
 
     const chartData = getChartData();
 
-    const filteredGrievances = grievances.filter(g => {
-        const matchesSearch = g.student.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             g.subject.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'All' || g.status === statusFilter;
-        const matchesCategory = categoryFilter === 'All' || g.category === categoryFilter;
-        const matchesPriority = priorityFilter === 'All' || g.priority === priorityFilter;
-        const matchesCentre = centreFilter === 'All' || g.centreName === centreFilter || g.centreCode === centreFilter;
-        const matchesMonth = monthFilter === 'All' || g.month === monthFilter;
-        const matchesDate = !dateFilter || g.shortDate === new Date(dateFilter).toLocaleDateString();
-        
-        return matchesSearch && matchesStatus && matchesCategory && matchesPriority && matchesCentre && matchesMonth && matchesDate;
-    });
+    const filteredGrievances = useMemo(() => {
+        return grievances.filter(g => {
+            const query = (searchTerm || '').toLowerCase().trim();
+            const matchesSearch = !query || 
+                (g.student && g.student.toLowerCase().includes(query)) || 
+                (g.subject && g.subject.toLowerCase().includes(query)) ||
+                (g.description && g.description.toLowerCase().includes(query)) ||
+                (g.admissionNumber && g.admissionNumber.toLowerCase().includes(query)) ||
+                (g.studentClass && g.studentClass.toLowerCase().includes(query)) ||
+                (g.centreName && g.centreName.toLowerCase().includes(query)) ||
+                (g.examTag && g.examTag.toLowerCase().includes(query)) ||
+                (g.category && g.category.toLowerCase().includes(query)) ||
+                (g.studentEmail && g.studentEmail.toLowerCase().includes(query));
+
+            const matchesStatus = statusFilter === 'All' || g.status === statusFilter;
+            const matchesCategory = categoryFilter === 'All' || g.category === categoryFilter;
+            const matchesPriority = priorityFilter === 'All' || g.priority === priorityFilter;
+            const matchesCentre = centreFilter === 'All' || g.centreName === centreFilter || g.centreCode === centreFilter;
+            const matchesMonth = monthFilter === 'All' || g.month === monthFilter;
+            const matchesDate = !dateFilter || g.shortDate === new Date(dateFilter).toLocaleDateString();
+            
+            return matchesSearch && matchesStatus && matchesCategory && matchesPriority && matchesCentre && matchesMonth && matchesDate;
+        });
+    }, [grievances, searchTerm, statusFilter, categoryFilter, priorityFilter, centreFilter, monthFilter, dateFilter]);
+
+    const totalPages = Math.ceil(filteredGrievances.length / itemsPerPage) || 1;
+
+    const paginatedGrievances = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredGrievances.slice(start, start + itemsPerPage);
+    }, [filteredGrievances, currentPage, itemsPerPage]);
+
+    const handleJumpPage = (e) => {
+        e?.preventDefault();
+        const pageNum = parseInt(jumpPage, 10);
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+            setCurrentPage(pageNum);
+            setJumpPage('');
+        } else {
+            toast.error(`Please enter a page number between 1 and ${totalPages}`);
+        }
+    };
+
+    const statusCounts = useMemo(() => {
+        return {
+            All: grievances.length,
+            Pending: grievances.filter(g => g.status === 'Pending').length,
+            Unassigned: grievances.filter(g => g.status === 'Unassigned').length,
+            Assign: grievances.filter(g => g.status === 'Assign' || g.status === 'In Progress').length,
+            Resolved: grievances.filter(g => g.status === 'Resolved').length,
+            Rejected: grievances.filter(g => g.status === 'Rejected').length,
+        };
+    }, [grievances]);
 
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -419,97 +468,365 @@ const GrievanceManagement = () => {
                 </div>
             </div>
 
-            {/* Grievance Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {filteredGrievances.length > 0 ? (
-                    filteredGrievances.map((grievance) => (
-                        <div 
-                            key={grievance.id}
-                            className={`group p-6 rounded-[5px] border transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-200 hover:border-orange-500/20 shadow-lg shadow-slate-200/20'}`}
+            {/* Grievances Header & View Bar */}
+            <div className={`p-4 rounded-[5px] border flex flex-col md:flex-row items-center justify-between gap-4 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                {/* Status Filter Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar w-full md:w-auto pb-2 md:pb-0">
+                    {[
+                        { id: 'All', label: 'All', count: statusCounts.All },
+                        { id: 'Pending', label: 'Pending', count: statusCounts.Pending },
+                        { id: 'Unassigned', label: 'Unassigned', count: statusCounts.Unassigned },
+                        { id: 'Assign', label: 'In Progress', count: statusCounts.Assign },
+                        { id: 'Resolved', label: 'Resolved', count: statusCounts.Resolved },
+                        { id: 'Rejected', label: 'Rejected', count: statusCounts.Rejected },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setStatusFilter(tab.id)}
+                            className={`px-3 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 shrink-0 ${
+                                statusFilter === tab.id
+                                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                                    : isDarkMode ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
                         >
-                            {/* Priority Indicator */}
-                            <div className={`absolute top-0 left-0 w-1 h-full ${grievance.priority === 'High' ? 'bg-red-500' : grievance.priority === 'Medium' ? 'bg-orange-500' : 'bg-green-500'}`} />
+                            <span>{tab.label}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${statusFilter === tab.id ? 'bg-black/20 text-white' : isDarkMode ? 'bg-white/10 text-slate-300' : 'bg-white text-slate-700'}`}>
+                                {tab.count}
+                            </span>
+                        </button>
+                    ))}
+                </div>
 
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border ${getStatusStyle(grievance.status)}`}>
-                                            {grievance.status}
-                                        </span>
-                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full bg-slate-500/10 text-slate-500 border border-slate-500/10`}>
-                                            {grievance.category}
-                                        </span>
-                                    </div>
-                                    <h3 className="text-lg font-black tracking-tight leading-tight group-hover:text-orange-500 transition-colors uppercase">
-                                        {grievance.examTag}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-[10px] font-bold opacity-40">
-                                        <Calendar size={12} />
-                                        <span>{grievance.date}</span>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex flex-col items-end gap-2">
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-500/5 rounded-full border border-slate-500/10">
-                                        <AlertTriangle size={12} className={getPriorityStyle(grievance.priority)} />
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${getPriorityStyle(grievance.priority)}`}>
-                                            {grievance.priority} Priority
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                {/* View Switcher & Total Count */}
+                <div className="flex items-center gap-3 shrink-0 ml-auto">
+                    <span className="text-xs font-bold text-slate-400">
+                        Total: <strong className="text-orange-500 font-black">{filteredGrievances.length}</strong>
+                    </span>
+                    <div className={`flex items-center p-1 rounded-[5px] border ${isDarkMode ? 'bg-black/20 border-white/10' : 'bg-slate-100 border-slate-200'}`}>
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all ${
+                                viewMode === 'grid'
+                                    ? 'bg-orange-500 text-white shadow-sm'
+                                    : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                            title="Cards View"
+                        >
+                            <LayoutGrid size={13} />
+                            <span>Cards</span>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('table')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all ${
+                                viewMode === 'table'
+                                    ? 'bg-orange-500 text-white shadow-sm'
+                                    : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                            title="Row / Table View"
+                        >
+                            <List size={13} />
+                            <span>Rows</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-                            <p className={`text-sm leading-relaxed mb-8 line-clamp-2 font-medium italic ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                                "{grievance.description}"
-                            </p>
+            {/* Grievance Content: Row / Table View or Card Grid View */}
+            {viewMode === 'table' ? (
+                <div className={`rounded-[5px] border shadow-xl overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/40'}`}>
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse min-w-[1000px]">
+                            <thead>
+                                <tr className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-400 border-b border-white/5' : 'bg-slate-50 text-slate-600 border-b border-slate-200'}`}>
+                                    <th className="py-4 px-4 text-center w-16">SL No.</th>
+                                    <th className="py-4 px-4">Student &amp; Contact</th>
+                                    <th className="py-4 px-4">Category &amp; Exam</th>
+                                    <th className="py-4 px-4">Student Concern</th>
+                                    <th className="py-4 px-4 text-center">Priority</th>
+                                    <th className="py-4 px-4 text-center">Status</th>
+                                    <th className="py-4 px-4 text-center">Date</th>
+                                    <th className="py-4 px-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y text-xs font-bold ${isDarkMode ? 'divide-white/5 text-slate-300' : 'divide-slate-100 text-slate-700'}`}>
+                                {paginatedGrievances.length > 0 ? (
+                                    paginatedGrievances.map((grievance, index) => {
+                                        const slNumber = ((currentPage - 1) * itemsPerPage) + index + 1;
+                                        return (
+                                            <tr key={grievance.id} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'}`}>
+                                                <td className="py-4 px-4 text-center font-black text-orange-500">
+                                                    #{slNumber}
+                                                </td>
+                                                <td className="py-4 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-[5px] bg-orange-500 flex items-center justify-center text-white font-black uppercase text-xs shrink-0 shadow-md shadow-orange-500/20">
+                                                            {grievance.student?.charAt(0)}
+                                                        </div>
+                                                        <div className="space-y-0.5 min-w-0">
+                                                            <p className="font-black text-xs uppercase tracking-tight truncate">{grievance.student}</p>
+                                                            <p className="text-[9px] font-bold opacity-60 uppercase tracking-wider">{grievance.studentClass} &bull; <span className="text-orange-500">{grievance.centreName}</span></p>
+                                                            <p className="text-[9px] font-medium opacity-40 lowercase">{grievance.studentEmail}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 px-4">
+                                                    <div className="space-y-1">
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-500/10 text-slate-500 border border-slate-500/10 inline-block">
+                                                            {grievance.category}
+                                                        </span>
+                                                        <p className="font-extrabold text-[11px] uppercase text-[#E67E22] truncate max-w-[160px]">{grievance.examTag}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 px-4 max-w-xs">
+                                                    <p className="text-xs font-medium italic line-clamp-2" title={grievance.description}>
+                                                        "{grievance.description}"
+                                                    </p>
+                                                    {grievance.solution && (
+                                                        <div className="mt-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-500 truncate" title={grievance.solution}>
+                                                            <CheckCircle size={10} /> Replied: {grievance.solution}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="py-4 px-4 text-center">
+                                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-500/5 border border-slate-500/10 ${getPriorityStyle(grievance.priority)}`}>
+                                                        {grievance.priority}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-4 text-center">
+                                                    <span className={`text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-full border ${getStatusStyle(grievance.status)}`}>
+                                                        {grievance.status}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-4 text-center text-[10px] font-bold opacity-60 whitespace-nowrap">
+                                                    {grievance.shortDate || grievance.date}
+                                                </td>
+                                                <td className="py-4 px-4 text-center whitespace-nowrap">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            onClick={() => { setSelectedGrievance(grievance); setIsShowModalOpen(true); }}
+                                                            className={`p-2 rounded-[5px] transition-all hover:bg-orange-500 hover:text-white ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
+                                                            title="View Details"
+                                                        >
+                                                            <Eye size={15} strokeWidth={2.5} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openReplyModal(grievance)}
+                                                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                                                        >
+                                                            <MessageSquare size={12} />
+                                                            {grievance.solution ? 'Edit' : 'Reply'}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan={8} className="py-16 text-center opacity-30">
+                                            <MessageSquare size={48} className="mx-auto mb-3" />
+                                            <p className="text-sm font-black uppercase tracking-widest">No Grievances Found</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {paginatedGrievances.length > 0 ? (
+                        paginatedGrievances.map((grievance, index) => {
+                            const slNumber = ((currentPage - 1) * itemsPerPage) + index + 1;
+                            return (
+                                <div 
+                                    key={grievance.id}
+                                    className={`group p-6 rounded-[5px] border transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-[#10141D] border-white/5 hover:border-orange-500/30' : 'bg-white border-slate-200 hover:border-orange-500/20 shadow-lg shadow-slate-200/20'}`}
+                                >
+                                    {/* Priority Indicator */}
+                                    <div className={`absolute top-0 left-0 w-1.5 h-full ${grievance.priority === 'High' ? 'bg-red-500' : grievance.priority === 'Medium' ? 'bg-orange-500' : 'bg-green-500'}`} />
 
-                            <div className="flex items-center justify-between pt-6 border-t border-dashed border-slate-500/10">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-[5px] bg-orange-500 flex items-center justify-center text-white font-black uppercase text-sm shadow-lg shadow-orange-500/20">
-                                        {grievance.student?.charAt(0)}
-                                    </div>
-                                    <div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs font-black uppercase tracking-tight">{grievance.student}</p>
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                                            <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest">{grievance.studentClass}</p>
-                                            <span className="w-1 h-1 rounded-full bg-orange-500/30" />
-                                            <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest text-orange-500">{grievance.centreName}</p>
-                                            <span className="w-1 h-1 rounded-full bg-orange-500/30" />
-                                            <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest">{grievance.admissionNumber}</p>
-                                            <span className="w-1 h-1 rounded-full bg-orange-500/30" />
-                                            <p className="text-[9px] font-bold opacity-50 lowercase">{grievance.studentEmail}</p>
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                <span className="text-[10px] font-black text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-[4px] border border-orange-500/20">
+                                                    #{slNumber}
+                                                </span>
+                                                <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border ${getStatusStyle(grievance.status)}`}>
+                                                    {grievance.status}
+                                                </span>
+                                                <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full bg-slate-500/10 text-slate-500 border border-slate-500/10`}>
+                                                    {grievance.category}
+                                                </span>
+                                            </div>
+                                            <h3 className="text-lg font-black tracking-tight leading-tight group-hover:text-orange-500 transition-colors uppercase">
+                                                {grievance.examTag}
+                                            </h3>
+                                            <div className="flex items-center gap-2 text-[10px] font-bold opacity-40">
+                                                <Calendar size={12} />
+                                                <span>{grievance.date}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex flex-col items-end gap-2">
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-500/5 rounded-full border border-slate-500/10">
+                                                <AlertTriangle size={12} className={getPriorityStyle(grievance.priority)} />
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${getPriorityStyle(grievance.priority)}`}>
+                                                    {grievance.priority} Priority
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
+
+                                    <p className={`text-sm leading-relaxed mb-4 line-clamp-2 font-medium italic ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                                        "{grievance.description}"
+                                    </p>
+
+                                    {grievance.solution && (
+                                        <div className={`mb-6 p-3 rounded-[5px] border border-emerald-500/20 ${isDarkMode ? 'bg-emerald-500/5 text-slate-300' : 'bg-emerald-50/80 text-slate-800'}`}>
+                                            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-emerald-500 mb-1">
+                                                <CheckCircle size={12} /> Official Response
+                                            </div>
+                                            <p className="text-xs font-medium line-clamp-2 italic">
+                                                {grievance.solution}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between pt-6 border-t border-dashed border-slate-500/10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-[5px] bg-orange-500 flex items-center justify-center text-white font-black uppercase text-sm shadow-lg shadow-orange-500/20 shrink-0">
+                                                {grievance.student?.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-black uppercase tracking-tight">{grievance.student}</p>
+                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                        <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest">{grievance.studentClass}</p>
+                                                        <span className="w-1 h-1 rounded-full bg-orange-500/30" />
+                                                        <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest text-orange-500">{grievance.centreName}</p>
+                                                        <span className="w-1 h-1 rounded-full bg-orange-500/30" />
+                                                        <p className="text-[9px] font-bold opacity-50 uppercase tracking-widest">{grievance.admissionNumber}</p>
+                                                        <span className="w-1 h-1 rounded-full bg-orange-500/30" />
+                                                        <p className="text-[9px] font-bold opacity-50 lowercase">{grievance.studentEmail}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => { setSelectedGrievance(grievance); setIsShowModalOpen(true); }}
+                                                className={`p-2.5 rounded-[5px] transition-all hover:bg-orange-500 hover:text-white ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
+                                                title="View Details"
+                                            >
+                                                <Eye size={18} strokeWidth={2.5} />
+                                            </button>
+                                            <button 
+                                                onClick={() => openReplyModal(grievance)}
+                                                className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-xs font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2"
+                                            >
+                                                <MessageSquare size={14} />
+                                                {grievance.solution ? 'Edit Reply' : 'Reply'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => { setSelectedGrievance(grievance); setIsShowModalOpen(true); }}
-                                        className={`p-2.5 rounded-[5px] transition-all hover:bg-orange-500 hover:text-white ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
-                                    >
-                                        <Eye size={18} strokeWidth={2.5} />
-                                    </button>
-                                    {grievance.status === 'Unassigned' && (
-                                        <button 
-                                            onClick={() => { setSelectedGrievance(grievance); setIsAssignModalOpen(true); }}
-                                            className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-xs font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all active:scale-95"
-                                        >
-                                            Assign
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-20">
+                            <MessageSquare size={80} strokeWidth={1} className="mb-6" />
+                            <p className="text-2xl font-black uppercase tracking-[0.2em]">No Grievances Found</p>
                         </div>
-                    ))
-                ) : (
-                    <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-20">
-                        <MessageSquare size={80} strokeWidth={1} className="mb-6" />
-                        <p className="text-2xl font-black uppercase tracking-[0.2em]">No Grievances Found</p>
+                    )}
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {filteredGrievances.length > 0 && (
+                <div className={`p-4 rounded-[5px] border flex flex-col md:flex-row items-center justify-between gap-4 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
+                        <span>
+                            Showing <strong className="text-orange-500">{((currentPage - 1) * itemsPerPage) + 1}</strong> to <strong className="text-orange-500">{Math.min(currentPage * itemsPerPage, filteredGrievances.length)}</strong> of <strong className="text-orange-500">{filteredGrievances.length}</strong> cases
+                        </span>
+                        <div className="flex items-center gap-1.5 ml-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rows:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className={`px-2.5 py-1 rounded-[5px] border text-xs font-black outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
                     </div>
-                )}
-            </div>
+
+                    {/* Page Navigation & Jump To */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-[5px] border text-xs font-black transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed border-transparent' : isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-200 hover:bg-slate-100 text-slate-700'}`}
+                            title="First Page"
+                        >
+                            <ChevronsLeft size={14} />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-[5px] border text-xs font-black transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed border-transparent' : isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-200 hover:bg-slate-100 text-slate-700'}`}
+                            title="Previous Page"
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+
+                        <span className="text-xs font-black px-3 py-1.5 rounded-[5px] bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                            Page {currentPage} of {totalPages}
+                        </span>
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className={`p-2 rounded-[5px] border text-xs font-black transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed border-transparent' : isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-200 hover:bg-slate-100 text-slate-700'}`}
+                            title="Next Page"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className={`p-2 rounded-[5px] border text-xs font-black transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed border-transparent' : isDarkMode ? 'border-white/10 hover:bg-white/5 text-white' : 'border-slate-200 hover:bg-slate-100 text-slate-700'}`}
+                            title="Last Page"
+                        >
+                            <ChevronsRight size={14} />
+                        </button>
+
+                        {/* Jump to Page */}
+                        <form onSubmit={handleJumpPage} className="flex items-center gap-1.5 ml-3">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Jump:</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={totalPages}
+                                value={jumpPage}
+                                onChange={(e) => setJumpPage(e.target.value)}
+                                placeholder="#"
+                                className={`w-14 px-2 py-1 rounded-[5px] border text-xs font-black text-center outline-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-700 focus:border-orange-500'}`}
+                            />
+                            <button
+                                type="submit"
+                                className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider shadow-sm transition-all"
+                            >
+                                Go
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Show Modal */}
             {isShowModalOpen && selectedGrievance && (
@@ -584,37 +901,36 @@ const GrievanceManagement = () => {
                                 </p>
                             </div>
 
-                            {selectedGrievance.status !== 'Unassigned' && (
-                                <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                                        <User size={14} /> Assignment Info
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mb-1">Teacher</p>
-                                            <p className="font-black text-sm uppercase">{selectedGrievance.teacherName || 'Not Assigned'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mb-1">Assigned On</p>
-                                            <p className="font-black text-sm uppercase">{selectedGrievance.assignDate || 'N/A'}</p>
-                                        </div>
+                            {selectedGrievance.solution && (
+                                <div className={`p-6 rounded-[5px] border border-emerald-500/20 ${isDarkMode ? 'bg-emerald-500/5 text-slate-200' : 'bg-emerald-50 text-slate-800'}`}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                                            <CheckCircle size={14} /> Official Response
+                                        </p>
+                                        {selectedGrievance.solvedDate && (
+                                            <span className="text-[9px] font-bold opacity-50">
+                                                {selectedGrievance.solvedDate}
+                                            </span>
+                                        )}
                                     </div>
-                                    
-                                    {selectedGrievance.solution && (
-                                        <div className="mt-6 pt-6 border-t border-slate-500/10">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-green-500 mb-3 flex items-center gap-2">
-                                                <CheckCircle size={14} /> Resolution Note
-                                            </p>
-                                            <p className="text-sm font-bold italic leading-relaxed text-slate-500">
-                                                {selectedGrievance.solution}
-                                            </p>
-                                        </div>
-                                    )}
+                                    <p className="text-sm font-medium leading-relaxed">
+                                        {selectedGrievance.solution}
+                                    </p>
                                 </div>
                             )}
 
                             <div className="flex gap-4 pt-4">
-                                {selectedGrievance.status === 'Assign' && (
+                                <button 
+                                    onClick={() => {
+                                        setIsShowModalOpen(false);
+                                        openReplyModal(selectedGrievance);
+                                    }}
+                                    className="flex-1 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <MessageSquare size={16} />
+                                    {selectedGrievance.solution ? 'Edit Reply' : 'Reply to Student'}
+                                </button>
+                                {selectedGrievance.status !== 'Resolved' && (
                                     <button 
                                         onClick={() => handleStatusUpdate(selectedGrievance.id, 'Resolved')}
                                         className="flex-1 py-4 bg-green-600 hover:bg-green-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-green-600/20 transition-all active:scale-95"
@@ -624,7 +940,7 @@ const GrievanceManagement = () => {
                                 )}
                                 <button 
                                     onClick={() => handleStatusUpdate(selectedGrievance.id, 'Rejected')}
-                                    className={`flex-1 py-4 border font-black uppercase tracking-[0.2em] text-xs rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'border-red-500/50 text-red-500 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
+                                    className={`py-4 px-6 border font-black uppercase tracking-[0.2em] text-xs rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'border-red-500/50 text-red-500 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
                                 >
                                     Reject Case
                                 </button>
@@ -634,43 +950,84 @@ const GrievanceManagement = () => {
                 </div>
             )}
 
-            {/* Assign Modal */}
-            {isAssignModalOpen && selectedGrievance && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="w-full max-w-md mx-4 overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="p-8 bg-orange-500 text-white">
-                            <h3 className="text-2xl font-black uppercase tracking-tight">Assign Grievance</h3>
-                            <p className="text-xs font-bold opacity-70 mt-1 uppercase tracking-widest">Select a teacher for resolution</p>
+            {/* Reply Modal */}
+            {isReplyModalOpen && selectedGrievance && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="w-full max-w-xl overflow-hidden rounded-[5px] shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between px-8 py-6 bg-orange-500 text-white">
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                                    <MessageSquare size={20} /> Reply to Grievance
+                                </h3>
+                                <p className="text-xs font-bold opacity-80 uppercase tracking-widest">
+                                    Student: {selectedGrievance.student} ({selectedGrievance.studentClass})
+                                </p>
+                            </div>
+                            <button onClick={() => setIsReplyModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                                <X size={20} strokeWidth={3} />
+                            </button>
                         </div>
                         
-                        <div className={`p-10 space-y-8 ${isDarkMode ? 'bg-[#10141D]' : 'bg-white'}`}>
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Available Teachers</label>
+                        <div className={`p-8 space-y-6 ${isDarkMode ? 'bg-[#10141D] text-slate-200' : 'bg-white text-slate-700'}`}>
+                            {/* Student concern preview */}
+                            <div className={`p-4 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">Student Concern</span>
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${getPriorityStyle(selectedGrievance.priority)}`}>
+                                        {selectedGrievance.priority} Priority
+                                    </span>
+                                </div>
+                                <p className="text-xs font-bold italic line-clamp-3 opacity-90">
+                                    "{selectedGrievance.description}"
+                                </p>
+                            </div>
+
+                            {/* Reply Input */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                                    <span>Official Reply / Resolution Note *</span>
+                                    <span className="text-[9px] lowercase font-normal opacity-60">Visible in student portal</span>
+                                </label>
+                                <textarea 
+                                    rows={5}
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    placeholder="Type your response here to resolve the student's concern..."
+                                    className={`w-full p-4 rounded-[5px] border text-sm font-medium outline-none transition-all resize-none ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-orange-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-orange-500'}`}
+                                />
+                            </div>
+
+                            {/* Status Selector */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Update Status To</label>
                                 <select 
-                                    className={`w-full p-4 rounded-[5px] border text-sm font-black outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10 focus:border-orange-500' : 'bg-slate-50 border-slate-200 focus:border-orange-500'}`}
-                                    value={selectedTeacher}
-                                    onChange={(e) => setSelectedTeacher(e.target.value)}
+                                    value={replyStatus}
+                                    onChange={(e) => setReplyStatus(e.target.value)}
+                                    className={`w-full p-3 rounded-[5px] border text-xs font-black outline-none transition-all ${isDarkMode ? 'bg-[#1a1f2e] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
                                 >
-                                    <option value="">Select a Teacher</option>
-                                    {Array.isArray(teachers) && teachers.map(t => (
-                                        <option key={t.code || t.id} value={t.code || t.id}>{t.name || t.teacher_name} ({t.code || t.employee_id || 'N/A'})</option>
-                                    ))}
+                                    <option value="Resolved">Resolved (Default)</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Rejected">Rejected</option>
                                 </select>
                             </div>
 
-                            <div className="flex gap-4">
+                            {/* Action Buttons */}
+                            <div className="flex gap-4 pt-2">
                                 <button 
-                                    onClick={() => setIsAssignModalOpen(false)}
-                                    className={`flex-1 py-4 font-black uppercase tracking-widest text-xs rounded-[5px] border ${isDarkMode ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    type="button"
+                                    onClick={() => setIsReplyModalOpen(false)}
+                                    className={`flex-1 py-3.5 font-black uppercase tracking-widest text-xs rounded-[5px] border ${isDarkMode ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                                 >
                                     Cancel
                                 </button>
                                 <button 
-                                    onClick={handleAssign}
-                                    disabled={!selectedTeacher}
-                                    className={`flex-1 py-4 rounded-[5px] font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 ${selectedTeacher ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                    type="button"
+                                    onClick={handleSendReply}
+                                    disabled={submittingReply || !replyText.trim()}
+                                    className={`flex-1 py-3.5 rounded-[5px] font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${replyText.trim() && !submittingReply ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-500/20' : 'bg-slate-300 dark:bg-white/10 text-slate-400 cursor-not-allowed'}`}
                                 >
-                                    Assign Case
+                                    {submittingReply ? <RefreshCcw size={14} className="animate-spin" /> : <Send size={14} />}
+                                    {submittingReply ? 'Sending...' : 'Send Reply'}
                                 </button>
                             </div>
                         </div>

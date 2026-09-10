@@ -15,6 +15,9 @@ import { toast } from 'react-hot-toast';
 import TestSectionManager from './sections/TestSectionManager';
 import TestQuestionManager from './questions/TestQuestionManager';
 import QuestionPaperView from './questions/QuestionPaperView';
+import TestStatusBadge from './components/TestStatusBadge';
+import TestFilterToolbar from './components/TestFilterToolbar';
+import useTestFilters from './hooks/useTestFilters';
 
 // Custom Searchable Dropdown Component
 const SearchableSelect = ({
@@ -200,9 +203,6 @@ const TestCreate = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const debouncedSearchRef = useRef(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [data, setData] = useState([]);
@@ -222,11 +222,38 @@ const TestCreate = ({ isOMR = false }) => {
     const [classes, setClasses] = useState([]);
     const [targetExams, setTargetExams] = useState([]);
     const [examDetails, setExamDetails] = useState([]);
+    const [masterCentres, setMasterCentres] = useState([]);
 
-
-    // Filter State
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'completed', 'pending', 'running'
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const {
+        searchTerm,
+        setSearchTerm,
+        selectedSessions,
+        setSelectedSessions,
+        selectedTargetExams,
+        setSelectedTargetExams,
+        selectedClassLevels,
+        setSelectedClassLevels,
+        selectedCentres,
+        setSelectedCentres,
+        selectedCompletion,
+        setSelectedCompletion,
+        sessionOptions,
+        targetExamOptions,
+        classLevelOptions,
+        centreOptions,
+        completionOptions,
+        filteredRecords,
+        activeFiltersCount,
+        handleClearAllFilters,
+    } = useTestFilters({
+        tests: data,
+        masterSessions: sessions,
+        masterTargetExams: targetExams,
+        masterClassLevels: classes,
+        masterCentres: masterCentres,
+        isOMR,
+        includeAllotmentStatus: false,
+    });
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -285,6 +312,7 @@ const TestCreate = ({ isOMR = false }) => {
             setClasses(cached.classes || []);
             setTargetExams(cached.targetExams || []);
             setExamDetails(cached.examDetails || []);
+            setMasterCentres(cached.centres || []);
             return cached;
         }
 
@@ -294,12 +322,13 @@ const TestCreate = ({ isOMR = false }) => {
         activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
-            const [sessRes, typeRes, classRes, targetRes, detailRes] = await Promise.all([
+            const [sessRes, typeRes, classRes, targetRes, detailRes, centreRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/master-data/sessions/`, config),
                 axios.get(`${apiUrl}/api/master-data/exam-types/`, config),
                 axios.get(`${apiUrl}/api/master-data/classes/`, config),
                 axios.get(`${apiUrl}/api/master-data/target-exams/`, config),
-                axios.get(`${apiUrl}/api/master-data/exam-details/`, config)
+                axios.get(`${apiUrl}/api/master-data/exam-details/`, config),
+                axios.get(`${apiUrl}/api/centres/`, config).catch(() => ({ data: [] }))
             ]);
 
             const newCache = {
@@ -307,7 +336,8 @@ const TestCreate = ({ isOMR = false }) => {
                 examTypes: typeRes.data,
                 classes: classRes.data,
                 targetExams: targetRes.data,
-                examDetails: detailRes.data
+                examDetails: detailRes.data,
+                centres: centreRes.data
             };
 
             masterDataCacheRef.current = newCache;
@@ -318,6 +348,7 @@ const TestCreate = ({ isOMR = false }) => {
             setClasses(classRes.data);
             setTargetExams(targetRes.data);
             setExamDetails(detailRes.data);
+            setMasterCentres(Array.isArray(centreRes.data) ? centreRes.data : (centreRes.data.results || []));
 
             return newCache;
         } catch (err) {
@@ -397,28 +428,16 @@ const TestCreate = ({ isOMR = false }) => {
         }
     }, [getApiUrl, getAuthConfig, data.length]);
 
-    // Handle debounced search
+    // Reset page on filter change
     useEffect(() => {
-        if (debouncedSearchRef.current) {
-            clearTimeout(debouncedSearchRef.current);
-        }
+        setCurrentPage(1);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedCompletion]);
 
-        debouncedSearchRef.current = setTimeout(() => {
-            setDebouncedSearch(searchTerm);
-            setCurrentPage(1);
-        }, 500);
-
-        return () => {
-            if (debouncedSearchRef.current) {
-                clearTimeout(debouncedSearchRef.current);
-            }
-        };
-    }, [searchTerm]);
-
-    // Load test list immediately; master data is fetched lazily when the modal is opened.
+    // Load test list and master data on mount
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+        fetchMasterData();
+    }, [fetchData, fetchMasterData]);
 
     useEffect(() => {
         const handleMasterDataUpdated = async (event) => {
@@ -585,142 +604,109 @@ const TestCreate = ({ isOMR = false }) => {
         }
     };
 
-    const filteredRecords = useMemo(() => {
-        return data.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                item.code.toLowerCase().includes(debouncedSearch.toLowerCase());
-
-            let matchesStatus = true;
-            if (statusFilter === 'completed') matchesStatus = item.is_completed === true;
-            if (statusFilter === 'pending') matchesStatus = item.is_completed === false;
-            if (statusFilter === 'running') matchesStatus = item.is_running === true;
-
-            let matchesOMR = true;
-            const examTypeName = item.exam_type_details?.name?.toLowerCase() || '';
-            const isOMRTest = examTypeName.includes('omr');
-            if (isOMR) {
-                matchesOMR = isOMRTest;
-            } else {
-                matchesOMR = !isOMRTest;
-            }
-
-            return matchesSearch && matchesStatus && matchesOMR;
-        });
-    }, [data, debouncedSearch, statusFilter, isOMR]);
-
-    // Reset page on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [debouncedSearch, statusFilter]);
-
     const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
     const currentRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const renderHeader = () => (
-        <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                    <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                        Test <span className="text-orange-500">Management</span>
-                    </h2>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        Create and configure entrance and academic tests.
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => fetchData(true)}
-                        className={`p-3 rounded-[5px] border transition-all hover:scale-110 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
-                    >
-                        <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
     const renderContent = () => (
-        <div className={`p-8 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-            <div className="flex flex-wrap items-center gap-4 mb-8">
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search by name or code (500ms debounce)..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
-                    />
-                </div>
-
-                {/* Status Filter */}
-                <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                        <Filter size={16} />
+        <div className="space-y-8">
+            <TestFilterToolbar
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                sessionOptions={sessionOptions}
+                selectedSessions={selectedSessions}
+                setSelectedSessions={setSelectedSessions}
+                targetExamOptions={targetExamOptions}
+                selectedTargetExams={selectedTargetExams}
+                setSelectedTargetExams={setSelectedTargetExams}
+                classLevelOptions={classLevelOptions}
+                selectedClassLevels={selectedClassLevels}
+                setSelectedClassLevels={setSelectedClassLevels}
+                centreOptions={centreOptions}
+                selectedCentres={selectedCentres}
+                setSelectedCentres={setSelectedCentres}
+                completionOptions={completionOptions}
+                selectedCompletion={selectedCompletion}
+                setSelectedCompletion={setSelectedCompletion}
+                activeFiltersCount={activeFiltersCount}
+                onClearAll={handleClearAllFilters}
+                totalCount={data.length}
+                filteredCount={filteredRecords.length}
+                isDarkMode={isDarkMode}
+                headerTitle="Test Management"
+                headerSubtitle="Create and configure entrance and academic tests."
+                customActions={
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => { fetchData(true); fetchMasterData(true); }}
+                            className={`p-2.5 rounded-[5px] border transition-all hover:scale-105 active:rotate-180 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-600 shadow-sm'}`}
+                            title="Refresh Data"
+                        >
+                            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                        </button>
+                        <button
+                            onClick={handleCreate}
+                            className="px-4 py-2.5 rounded-[5px] bg-orange-600 hover:bg-orange-700 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-orange-500/20 active:scale-95"
+                        >
+                            <Plus size={14} />
+                            <span>Create Test</span>
+                        </button>
                     </div>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
-                    >
-                        <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Test</option>
-                        <option value="running" className={isDarkMode ? 'bg-[#10141D] text-emerald-500' : 'bg-white text-emerald-600'}>Running Only</option>
-                        <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
-                        <option value="pending" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Pending Only</option>
-                    </select>
-                </div>
-            </div>
+                }
+            />
 
-            <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
-                            <th className="pb-4 px-4 font-black">#</th>
-                            <th className="pb-4 px-4 font-black">Test Name</th>
-                            <th className="pb-4 px-4 font-black">Test Code</th>
-                            <th className="pb-4 px-4 font-black text-center">Duration</th>
-                            <th className="pb-4 px-4 font-black text-center">Total Marks</th>
-                            <th className="pb-4 px-4 font-black text-center">Completed</th>
-                            <th className="pb-4 px-4 font-black text-center">Question Paper</th>
-                            <th className="pb-4 px-4 font-black text-center">Question Sections</th>
-                            <th className="pb-4 px-4 font-black text-center">Questions</th>
-                            <th className="pb-4 px-4 text-right font-black">Details</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-transparent">
-                        {isLoading ? (
-                            Array(5).fill(0).map((_, i) => (
-                                <tr key={i} className="animate-pulse">
-                                    <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4">
-                                        <div className="space-y-2">
-                                            <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                            <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </div>
-                                    </td>
-                                    <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                    <td className="py-5 px-4 text-right"><div className={`h-8 w-16 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
-                                </tr>
-                            ))
-                        ) : (
-                            currentRecords.map((item, index) => (
-                                <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
-                                    <td className="py-5 px-4 font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                                    <td className="py-5 px-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-extrabold text-sm mb-1">{item.name}</span>
-                                            <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
-                                                {Array.isArray(item.sessions_details) && item.sessions_details.length > 0 ? (item.sessions_details.length > 3 ? `${item.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${item.sessions_details.length - 3} session` : item.sessions_details.map(s => s.name).join(', ')) : (item.session_details?.name || '-')} • {Array.isArray(item.class_levels_details) && item.class_levels_details.length > 0 ? item.class_levels_details.map(c => c.name).join(', ') : (item.class_level_details?.name || '-')} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
-                                            </span>
-                                        </div>
-                                    </td>
+            <div className={`p-8 rounded-[5px] border shadow-xl ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                                <th className="pb-4 px-4 font-black">#</th>
+                                <th className="pb-4 px-4 font-black">Test Name</th>
+                                <th className="pb-4 px-4 font-black">Test Code</th>
+                                <th className="pb-4 px-4 font-black text-center">Duration</th>
+                                <th className="pb-4 px-4 font-black text-center">Total Marks</th>
+                                <th className="pb-4 px-4 font-black text-center">Completed</th>
+                                <th className="pb-4 px-4 font-black text-center">Question Paper</th>
+                                <th className="pb-4 px-4 font-black text-center">Question Sections</th>
+                                <th className="pb-4 px-4 font-black text-center">Questions</th>
+                                <th className="pb-4 px-4 text-right font-black">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-transparent">
+                            {isLoading ? (
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="py-5 px-4"><div className={`h-4 w-4 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4">
+                                            <div className="space-y-2">
+                                                <div className={`h-4 w-48 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                <div className={`h-3 w-32 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-4"><div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-center"><div className={`h-4 w-12 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-center"><div className={`h-6 w-12 mx-auto rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-center"><div className={`h-8 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                        <td className="py-5 px-4 text-right"><div className={`h-8 w-16 ml-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div></td>
+                                    </tr>
+                                ))
+                            ) : (
+                                currentRecords.map((item, index) => (
+                                    <tr key={item.id} className={`group ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-200/50'} transition-colors`}>
+                                        <td className="py-5 px-4 font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                        <td className="py-5 px-4">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <span className="font-extrabold text-sm">{item.name}</span>
+                                                    <TestStatusBadge test={item} />
+                                                </div>
+                                                <span className="text-[10px] opacity-40 font-bold uppercase tracking-wider">
+                                                    {Array.isArray(item.sessions_details) && item.sessions_details.length > 0 ? (item.sessions_details.length > 3 ? `${item.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${item.sessions_details.length - 3} session` : item.sessions_details.map(s => s.name).join(', ')) : (item.session_details?.name || '-')} • {Array.isArray(item.class_levels_details) && item.class_levels_details.length > 0 ? item.class_levels_details.map(c => c.name).join(', ') : (item.class_level_details?.name || '-')} • {Array.isArray(item.target_exam_details) ? (item.target_exam_details.length > 3 ? `${item.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${item.target_exam_details.length - 3} test` : item.target_exam_details.map(te => te.name).join(', ')) : (item.target_exam_details?.name || '-')}
+                                                </span>
+                                            </div>
+                                        </td>
                                     <td className="py-5 px-4">
                                         <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-tighter ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                                             {item.code}
@@ -884,6 +870,7 @@ const TestCreate = ({ isOMR = false }) => {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 
@@ -1349,7 +1336,6 @@ const TestCreate = ({ isOMR = false }) => {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {renderHeader()}
             {renderContent()}
             {renderModal()}
         </div>

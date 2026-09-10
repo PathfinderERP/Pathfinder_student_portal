@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
+import Select from 'react-select';
+import { 
+    Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, 
+    ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, 
+    ChevronRight, Layers, RefreshCw, GraduationCap, BookOpen, 
+    RotateCcw, SlidersHorizontal 
+} from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import CentreAllotmentDetails from './CentreAllotmentDetails';
@@ -15,11 +21,19 @@ const TestAllotment = ({ isOMR = false }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    // Filters State
+    // Multi-Select Filters State
     const [sessions, setSessions] = useState([]);
-    const [filterSession, setFilterSession] = useState('');
-    const [filterStatus, setFilterStatus] = useState(''); // 'allotted', 'not_allotted'
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [masterTargetExams, setMasterTargetExams] = useState([]);
+    const [masterClassLevels, setMasterClassLevels] = useState([]);
+    const [masterCentres, setMasterCentres] = useState([]);
+
+    const [selectedSessions, setSelectedSessions] = useState([]);
+    const [selectedTargetExams, setSelectedTargetExams] = useState([]);
+    const [selectedClassLevels, setSelectedClassLevels] = useState([]);
+    const [selectedCentres, setSelectedCentres] = useState([]);
+    const [selectedStatus, setSelectedStatus] = useState({ value: '', label: 'All Status' });
+    const [selectedCompletion, setSelectedCompletion] = useState({ value: '', label: 'All State' });
+
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
     // Allotment Modal State
@@ -51,14 +65,6 @@ const TestAllotment = ({ isOMR = false }) => {
         return activeToken ? { headers: { 'Authorization': `Bearer ${activeToken}` } } : {};
     }, [token]);
 
-    const availableSessionIds = useMemo(() => {
-        return new Set(tests.map(t => t.session || t.session_details?.id));
-    }, [tests]);
-
-    const filteredSessionsForDropdown = useMemo(() => {
-        return sessions.filter(s => availableSessionIds.has(s.id));
-    }, [sessions, availableSessionIds]);
-
     const fetchData = useCallback(async (force = false) => {
         if (!force && tests.length > 0) return;
         
@@ -69,25 +75,25 @@ const TestAllotment = ({ isOMR = false }) => {
         activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
-            const [testsRes, sessionsRes] = await Promise.all([
+            const [testsRes, sessionsRes, targetExamsRes, classesRes, centresRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/tests/${force ? '?refresh=true' : ''}`, getAuthConfig()),
-                axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig())
+                axios.get(`${apiUrl}/api/master-data/sessions/`, getAuthConfig()).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, getAuthConfig()).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/classes/`, getAuthConfig()).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/centres/`, getAuthConfig()).catch(() => ({ data: [] })),
             ]);
 
             const testsData = Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []);
             const sessionsData = Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data.results || []);
+            const targetExamsData = Array.isArray(targetExamsRes.data) ? targetExamsRes.data : (targetExamsRes.data.results || []);
+            const classesData = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data.results || []);
+            const centresData = Array.isArray(centresRes.data) ? centresRes.data : (centresRes.data.results || []);
 
             setTests(testsData);
-            setSessions(sessionsData.filter(s => s.is_active));
-
-            // Compute available sessions from the freshly fetched tests
-            const uniqueSessionIds = new Set(testsData.map(t => t.session || t.session_details?.id));
-            const availableSessions = sessionsData.filter(s => uniqueSessionIds.has(s.id));
-
-            // Default to 'All Sessions' (empty string)
-            if (!filterSession) {
-                setFilterSession('');
-            }
+            setSessions(sessionsData.filter(s => s.is_active !== false));
+            setMasterTargetExams(targetExamsData.filter(e => e.is_active !== false));
+            setMasterClassLevels(classesData.filter(c => c.is_active !== false));
+            setMasterCentres(centresData.filter(c => c.is_active !== false));
 
         } catch (err) {
             console.error('Failed to fetch data:', err);
@@ -95,7 +101,7 @@ const TestAllotment = ({ isOMR = false }) => {
             setIsLoading(false);
             activeFetchKeysRef.current.delete(fetchKey);
         }
-    }, [getApiUrl, getAuthConfig, tests.length]); // Removed filterSession from here
+    }, [getApiUrl, getAuthConfig, tests.length]);
 
     useEffect(() => {
         fetchData();
@@ -295,48 +301,365 @@ const TestAllotment = ({ isOMR = false }) => {
         }
     };
 
+    const sessionOptions = useMemo(() => {
+        const uniqueNames = new Set();
+        sessions.forEach(s => {
+            if (s.name) uniqueNames.add(String(s.name).trim());
+        });
+        tests.forEach(t => {
+            if (t.session_details?.name) uniqueNames.add(String(t.session_details.name).trim());
+            if (Array.isArray(t.sessions_details)) {
+                t.sessions_details.forEach(sd => {
+                    if (sd.name) uniqueNames.add(String(sd.name).trim());
+                });
+            }
+        });
+        return Array.from(uniqueNames)
+            .filter(Boolean)
+            .map(name => ({ value: name, label: name }))
+            .sort((a, b) => b.label.localeCompare(a.label));
+    }, [sessions, tests]);
+
+    const targetExamOptions = useMemo(() => {
+        const uniqueNames = new Set();
+        masterTargetExams.forEach(e => {
+            if (e.name) uniqueNames.add(String(e.name).trim());
+        });
+        tests.forEach(t => {
+            if (t.target_exam_details?.name) uniqueNames.add(String(t.target_exam_details.name).trim());
+            if (Array.isArray(t.target_exam_details)) {
+                t.target_exam_details.forEach(ed => {
+                    if (ed.name) uniqueNames.add(String(ed.name).trim());
+                });
+            }
+        });
+        return Array.from(uniqueNames)
+            .filter(Boolean)
+            .map(name => ({ value: name, label: name }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [masterTargetExams, tests]);
+
+    const classLevelOptions = useMemo(() => {
+        const uniqueNames = new Set();
+        masterClassLevels.forEach(c => {
+            if (c.name) uniqueNames.add(String(c.name).trim());
+        });
+        tests.forEach(t => {
+            if (t.class_level_details?.name) uniqueNames.add(String(t.class_level_details.name).trim());
+            if (Array.isArray(t.class_levels_details)) {
+                t.class_levels_details.forEach(cd => {
+                    if (cd.name) uniqueNames.add(String(cd.name).trim());
+                });
+            }
+        });
+        return Array.from(uniqueNames)
+            .filter(Boolean)
+            .map(name => ({ value: name, label: name }))
+            .sort((a, b) => {
+                const numA = parseInt(a.label, 10);
+                const numB = parseInt(b.label, 10);
+                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                return a.label.localeCompare(b.label);
+            });
+    }, [masterClassLevels, tests]);
+
+    const centreOptions = useMemo(() => {
+        const seenCodes = new Set();
+        const list = [];
+        masterCentres.forEach(c => {
+            const key = String(c.id || c.pk || c._id || c.code);
+            const label = c.code ? `${c.name} (${c.code})` : c.name;
+            const dedupeKey = (c.code || c.name || key).toLowerCase();
+            if (!seenCodes.has(dedupeKey)) {
+                seenCodes.add(dedupeKey);
+                list.push({ value: key, label });
+            }
+        });
+        return list.sort((a, b) => a.label.localeCompare(b.label));
+    }, [masterCentres]);
+
+    const statusOptions = [
+        { value: '', label: 'All Status' },
+        { value: 'allotted', label: 'Allotted Only' },
+        { value: 'not_allotted', label: 'Not Allotted Only' },
+        { value: 'codes_sent', label: 'Codes Sent' },
+        { value: 'codes_pending', label: 'Codes Pending' },
+    ];
+
+    const completionOptions = [
+        { value: '', label: 'All State' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'live', label: 'Live' },
+        { value: 'scheduled', label: 'Scheduled' },
+        { value: 'not_scheduled', label: 'Not Scheduled' },
+        { value: 'ended', label: 'Ended' },
+        { value: 'not_allotted', label: 'Not Allotted' },
+    ];
+
+    const customSelectStyles = useMemo(() => ({
+        control: (provided, state) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? '#10141D' : '#ffffff',
+            borderColor: state.isFocused 
+                ? (isDarkMode ? '#3b82f6' : '#2563eb') 
+                : (isDarkMode ? 'rgba(255,255,255,0.1)' : '#e2e8f0'),
+            borderRadius: '5px',
+            padding: '1px 2px',
+            minHeight: '38px',
+            boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.15)' : 'none',
+            '&:hover': {
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#cbd5e1',
+            },
+            cursor: 'pointer',
+        }),
+        menu: (provided) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? '#10141D' : '#ffffff',
+            border: isDarkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+            borderRadius: '5px',
+            zIndex: 9999,
+        }),
+        menuPortal: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({
+            ...provided,
+            padding: '4px',
+            maxHeight: '220px',
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected
+                ? (isDarkMode ? '#2563eb' : '#3b82f6')
+                : state.isFocused
+                    ? (isDarkMode ? 'rgba(255,255,255,0.08)' : '#f1f5f9')
+                    : 'transparent',
+            color: state.isSelected
+                ? '#ffffff'
+                : (isDarkMode ? '#f1f5f9' : '#1e293b'),
+            fontSize: '11px',
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            margin: '2px 0',
+            cursor: 'pointer',
+            '&:active': {
+                backgroundColor: isDarkMode ? '#1d4ed8' : '#2563eb',
+                color: '#fff',
+            }
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#94a3b8' : '#64748b',
+            fontSize: '11px',
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#f8fafc' : '#0f172a',
+            fontSize: '11px',
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+        }),
+        multiValue: (provided) => ({
+            ...provided,
+            backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+            border: isDarkMode ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #bfdbfe',
+            borderRadius: '4px',
+            margin: '2px',
+        }),
+        multiValueLabel: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#93c5fd' : '#1d4ed8',
+            fontSize: '10px',
+            fontWeight: '800',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            padding: '2px 6px',
+        }),
+        multiValueRemove: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#93c5fd' : '#1d4ed8',
+            cursor: 'pointer',
+            ':hover': {
+                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
+                color: '#ef4444',
+            },
+        }),
+        input: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#f8fafc' : '#0f172a',
+            fontSize: '11px',
+            fontWeight: '700',
+        }),
+        indicatorSeparator: () => ({ display: 'none' }),
+        dropdownIndicator: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#64748b' : '#94a3b8',
+            padding: '4px',
+            ':hover': {
+                color: isDarkMode ? '#f8fafc' : '#0f172a',
+            }
+        }),
+        clearIndicator: (provided) => ({
+            ...provided,
+            color: isDarkMode ? '#64748b' : '#94a3b8',
+            padding: '4px',
+            ':hover': {
+                color: '#ef4444',
+            }
+        }),
+    }), [isDarkMode]);
+
     const filteredRecords = useMemo(() => {
         return tests.filter(t => {
-            const matchesSearch = t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                t.code?.toLowerCase().includes(searchTerm.toLowerCase());
+            // 1. Text Search
+            const searchLower = searchTerm.trim().toLowerCase();
+            const matchesSearch = !searchLower || 
+                t.name?.toLowerCase().includes(searchLower) ||
+                t.code?.toLowerCase().includes(searchLower);
 
-            const matchesSession = filterSession ? (t.session?.toString() === filterSession || t.session_details?.id?.toString() === filterSession) : true;
+            // 2. Session Multi-Select
+            let matchesSession = true;
+            if (selectedSessions.length > 0) {
+                const selectedVals = selectedSessions.map(s => String(s.value));
+                const selectedLabels = selectedSessions.map(s => s.label);
+                const tSessionId = t.session ? String(t.session) : (t.session_details?.id ? String(t.session_details.id) : null);
+                const tSessionName = t.session_details?.name;
+                const tMultiSessions = Array.isArray(t.sessions) ? t.sessions.map(String) : [];
+                const tMultiDetails = Array.isArray(t.sessions_details) ? t.sessions_details : [];
 
-            const matchesStatus = filterStatus === 'allotted' ? (t.centres_count > 0)
-                : filterStatus === 'not_allotted' ? (t.centres_count === 0)
-                    : true;
+                matchesSession = selectedVals.includes(tSessionId) ||
+                    (tSessionName && selectedLabels.includes(tSessionName)) ||
+                    tMultiSessions.some(id => selectedVals.includes(id)) ||
+                    tMultiDetails.some(sd => selectedLabels.includes(sd.name) || selectedVals.includes(String(sd.id)));
+            }
 
+            // 3. Target Exam Multi-Select
+            let matchesTargetExam = true;
+            if (selectedTargetExams.length > 0) {
+                const selectedVals = selectedTargetExams.map(e => String(e.value));
+                const selectedLabels = selectedTargetExams.map(e => e.label.toLowerCase());
+                const tTargetExams = Array.isArray(t.target_exams) ? t.target_exams.map(String) : [];
+                const tTargetDetails = Array.isArray(t.target_exam_details) ? t.target_exam_details : [];
+
+                matchesTargetExam = tTargetExams.some(id => selectedVals.includes(id)) ||
+                    tTargetDetails.some(ed => selectedLabels.includes((ed.name || '').toLowerCase()) || selectedVals.includes(String(ed.id)));
+            }
+
+            // 4. Class Level Multi-Select
+            let matchesClassLevel = true;
+            if (selectedClassLevels.length > 0) {
+                const selectedVals = selectedClassLevels.map(c => String(c.value));
+                const selectedLabels = selectedClassLevels.map(c => c.label.toLowerCase());
+                const tClassId = t.class_level ? String(t.class_level) : (t.class_level_details?.id ? String(t.class_level_details.id) : null);
+                const tClassName = t.class_level_details?.name;
+                const tMultiClasses = Array.isArray(t.class_levels) ? t.class_levels.map(String) : [];
+                const tMultiDetails = Array.isArray(t.class_levels_details) ? t.class_levels_details : [];
+
+                matchesClassLevel = selectedVals.includes(tClassId) ||
+                    (tClassName && selectedLabels.includes(tClassName.toLowerCase())) ||
+                    tMultiClasses.some(id => selectedVals.includes(id)) ||
+                    tMultiDetails.some(cd => selectedLabels.includes((cd.name || '').toLowerCase()) || selectedVals.includes(String(cd.id)));
+            }
+
+            // 5. Centre Multi-Select
+            let matchesCentres = true;
+            if (selectedCentres.length > 0) {
+                const selectedCentreIds = selectedCentres.map(c => String(c.value));
+                const tCentres = Array.isArray(t.centres) ? t.centres.map(String) : [];
+                matchesCentres = selectedCentreIds.some(id => tCentres.includes(id));
+            }
+
+            // 6. Allotment Status
+            let matchesStatus = true;
+            const statusVal = selectedStatus?.value;
+            if (statusVal === 'allotted') {
+                matchesStatus = (t.centres_count || 0) > 0;
+            } else if (statusVal === 'not_allotted') {
+                matchesStatus = (t.centres_count || 0) === 0;
+            } else if (statusVal === 'codes_sent') {
+                matchesStatus = (t.codes_sent_count || 0) > 0;
+            } else if (statusVal === 'codes_pending') {
+                matchesStatus = (t.centres_count || 0) > 0 && (t.codes_sent_count || 0) < (t.centres_count || 0);
+            }
+
+            // 7. Completion / State Filter
+            let matchesCompletion = true;
+            const compVal = selectedCompletion?.value;
+            if (compVal === 'completed') {
+                matchesCompletion = Boolean(t.is_completed);
+            } else if (compVal === 'live') {
+                matchesCompletion = Boolean(t.is_running) && !t.is_completed;
+            } else if (compVal === 'scheduled') {
+                matchesCompletion = Boolean(t.has_schedule) && !t.is_running && !t.is_over && !t.is_completed;
+            } else if (compVal === 'not_scheduled') {
+                matchesCompletion = (t.centres_count || 0) > 0 && !t.has_schedule && !t.is_completed;
+            } else if (compVal === 'ended') {
+                matchesCompletion = Boolean(t.is_over) && !t.is_completed;
+            } else if (compVal === 'not_allotted') {
+                matchesCompletion = (t.centres_count || 0) === 0 && !t.is_completed;
+            }
+
+            // 8. OMR filter
             let matchesOMR = true;
             const examTypeName = t.exam_type_details?.name?.toLowerCase() || '';
-            const isOMRTest = examTypeName.includes('omr');
+            const isOMRTest = examTypeName.includes('omr') || Boolean(t.is_omr_based);
             if (isOMR) {
                 matchesOMR = isOMRTest;
             } else {
                 matchesOMR = !isOMRTest;
             }
 
-            return matchesSearch && matchesSession && matchesStatus && matchesOMR;
+            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesCompletion && matchesOMR;
         });
-    }, [tests, searchTerm, filterSession, filterStatus, isOMR]);
+    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion, isOMR]);
+
+    const activeFiltersCount = useMemo(() => {
+        let count = 0;
+        if (searchTerm.trim()) count++;
+        if (selectedSessions.length > 0) count += selectedSessions.length;
+        if (selectedTargetExams.length > 0) count += selectedTargetExams.length;
+        if (selectedClassLevels.length > 0) count += selectedClassLevels.length;
+        if (selectedCentres.length > 0) count += selectedCentres.length;
+        if (selectedStatus?.value) count++;
+        if (selectedCompletion?.value) count++;
+        return count;
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion]);
+
+    const handleClearAllFilters = () => {
+        setSearchTerm('');
+        setSelectedSessions([]);
+        setSelectedTargetExams([]);
+        setSelectedClassLevels([]);
+        setSelectedCentres([]);
+        setSelectedStatus({ value: '', label: 'All Status' });
+        setSelectedCompletion({ value: '', label: 'All State' });
+        setCurrentPage(1);
+    };
 
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, filterSession, filterStatus]);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion]);
 
     const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
     const currentTests = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     // Show Centre Details Page if view is 'details'
     if (view === 'details' && selectedTestForDetails) {
-        return <CentreAllotmentDetails test={selectedTestForDetails} onBack={() => { setView('list'); fetchData(); }} />;
+        return <CentreAllotmentDetails test={selectedTestForDetails} onBack={() => { setView('list'); fetchData(true); }} />;
     }
 
     return (
-        <div className={`p-8 animate-in fade-in duration-500`}>
+        <div className={`p-8 animate-in fade-in duration-500 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
             {/* Header */}
             <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
                     <div>
                         <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
                             Test <span className="text-orange-500">Allotment</span>
@@ -346,64 +669,165 @@ const TestAllotment = ({ isOMR = false }) => {
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Search Input */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search by name or code"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
-                            />
-                        </div>
-
-                        {/* Session Filter */}
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                <Layers size={16} />
-                            </div>
-                            <select
-                                value={filterSession}
-                                onChange={(e) => setFilterSession(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
+                    <div className="flex items-center gap-3">
+                        {/* Clear All Filters Button */}
+                        {activeFiltersCount > 0 && (
+                            <button
+                                onClick={handleClearAllFilters}
+                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                                    isDarkMode
+                                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                                        : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                                }`}
+                                title="Reset all applied filters"
                             >
-                                <option value="" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Sessions</option>
-                                {filteredSessionsForDropdown
-                                    .sort((a, b) => b.name.localeCompare(a.name))
-                                    .map(s => (
-                                        <option key={s.id} value={s.id} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>{s.name}</option>
-                                    ))}
-                            </select>
-                        </div>
-
-                        {/* Status Filter */}
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                <Filter size={16} />
-                            </div>
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-orange-500/10' : 'bg-white border-slate-200 focus:ring-orange-500/5'}`}
-                            >
-                                <option value="" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Status</option>
-                                <option value="allotted" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Allotted Only</option>
-                                <option value="not_allotted" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Not Allotted Only</option>
-                            </select>
-                        </div>
+                                <RotateCcw size={14} /> Clear Filters ({activeFiltersCount})
+                            </button>
+                        )}
 
                         {/* Refresh Button */}
                         <button
                             onClick={() => fetchData(true)}
                             disabled={isLoading}
-                            className={`p-2.5 rounded-[5px] border transition-all ${isDarkMode ? 'bg-[#10141D] border-white/10 text-slate-400 hover:text-white hover:border-white/20' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
+                            className={`p-2.5 rounded-[5px] border transition-all flex items-center gap-2 text-xs font-bold ${
+                                isDarkMode
+                                    ? 'bg-[#10141D] border-white/10 text-slate-400 hover:text-white hover:border-white/20'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-sm'
+                            }`}
                             title="Refresh Data"
                         >
-                            <RefreshCw size={16} className={isLoading ? 'animate-spin opacity-50' : ''} />
+                            <RefreshCw size={16} className={isLoading ? 'animate-spin text-orange-500' : ''} />
+                            <span className="hidden sm:inline">Refresh</span>
                         </button>
                     </div>
+                </div>
+
+                {/* Filter Options Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
+                    {/* Search Input */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 z-10" size={15} />
+                        <input
+                            type="text"
+                            placeholder="Search name / code..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`w-full pl-9 pr-8 py-2 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-2 h-[38px] ${
+                                isDarkMode 
+                                    ? 'bg-[#10141D] border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-500' 
+                                    : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-400 shadow-sm'
+                            }`}
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Session Multi-Select */}
+                    <div className="min-w-[140px]">
+                        <Select
+                            isMulti
+                            options={sessionOptions}
+                            value={selectedSessions}
+                            onChange={(val) => setSelectedSessions(val || [])}
+                            placeholder="Sessions..."
+                            styles={customSelectStyles}
+                            classNamePrefix="react-select"
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            isClearable={false}
+                        />
+                    </div>
+
+                    {/* Target Exam Multi-Select */}
+                    <div className="min-w-[140px]">
+                        <Select
+                            isMulti
+                            options={targetExamOptions}
+                            value={selectedTargetExams}
+                            onChange={(val) => setSelectedTargetExams(val || [])}
+                            placeholder="Target Exams..."
+                            styles={customSelectStyles}
+                            classNamePrefix="react-select"
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            isClearable={false}
+                        />
+                    </div>
+
+                    {/* Class Level Multi-Select */}
+                    <div className="min-w-[130px]">
+                        <Select
+                            isMulti
+                            options={classLevelOptions}
+                            value={selectedClassLevels}
+                            onChange={(val) => setSelectedClassLevels(val || [])}
+                            placeholder="Classes..."
+                            styles={customSelectStyles}
+                            classNamePrefix="react-select"
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            isClearable={false}
+                        />
+                    </div>
+
+                    {/* Centre Multi-Select */}
+                    <div className="min-w-[140px]">
+                        <Select
+                            isMulti
+                            options={centreOptions}
+                            value={selectedCentres}
+                            onChange={(val) => setSelectedCentres(val || [])}
+                            placeholder="Centres..."
+                            styles={customSelectStyles}
+                            classNamePrefix="react-select"
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            isClearable={false}
+                        />
+                    </div>
+
+                    {/* Allotment Status Select */}
+                    <div className="min-w-[130px]">
+                        <Select
+                            options={statusOptions}
+                            value={selectedStatus}
+                            onChange={(val) => setSelectedStatus(val || { value: '', label: 'All Status' })}
+                            placeholder="Status..."
+                            styles={customSelectStyles}
+                            classNamePrefix="react-select"
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            isClearable={false}
+                        />
+                    </div>
+
+                    {/* Completion Status Select */}
+                    <div className="min-w-[130px]">
+                        <Select
+                            options={completionOptions}
+                            value={selectedCompletion}
+                            onChange={(val) => setSelectedCompletion(val || { value: '', label: 'All State' })}
+                            placeholder="State..."
+                            styles={customSelectStyles}
+                            classNamePrefix="react-select"
+                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                            isClearable={false}
+                        />
+                    </div>
+                </div>
+
+                {/* Filter Summary Footer */}
+                <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold pt-3 border-t ${isDarkMode ? 'text-slate-400 border-white/5' : 'text-slate-600 border-slate-100'}`}>
+                    <div className="flex items-center gap-2">
+                        <SlidersHorizontal size={14} className="text-orange-500" />
+                        <span>Showing <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{filteredRecords.length}</strong> of <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{tests.length}</strong> tests</span>
+                    </div>
+                    {activeFiltersCount > 0 && (
+                        <span className="text-[11px] font-bold text-orange-500 uppercase tracking-wider bg-orange-500/10 px-2.5 py-1 rounded-[4px]">
+                            {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''} applied
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -412,7 +836,7 @@ const TestAllotment = ({ isOMR = false }) => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-500 border-white/5' : 'text-slate-400 border-slate-100'}`}>
+                            <tr className={`text-[10px] font-black uppercase tracking-widest border-b ${isDarkMode ? 'text-slate-400 border-white/5' : 'text-slate-600 border-slate-200 bg-slate-50/50'}`}>
                                 <th className="py-6 px-6 text-center">#</th>
                                 <th className="py-6 px-6">Name</th>
                                 <th className="py-6 px-6">Test Code</th>
@@ -445,28 +869,48 @@ const TestAllotment = ({ isOMR = false }) => {
                                 ))
                             ) : filteredRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="py-20 text-center opacity-40">No tests found matching your criteria.</td>
+                                    <td colSpan="8" className={`py-20 text-center font-bold text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No tests found matching your criteria.</td>
                                 </tr>
                             ) : currentTests.map((test, index) => (
-                                <tr key={test.id} className={`group ${test.is_running ? (isDarkMode ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-l-4 border-l-emerald-500' : 'bg-emerald-50 hover:bg-emerald-100 border-l-4 border-l-emerald-500') : (isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50')} transition-colors`}>
-                                    <td className="py-5 px-6 text-center font-bold text-xs opacity-50">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                <tr key={test.id} className={`group ${test.is_running ? (isDarkMode ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-l-4 border-l-emerald-500' : 'bg-emerald-50 hover:bg-emerald-100 border-l-4 border-l-emerald-500') : (isDarkMode ? 'hover:bg-white/2' : 'hover:bg-slate-50')} transition-colors border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                                    <td className={`py-5 px-6 text-center font-bold text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
                                         <div className="flex flex-col">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-extrabold text-xs uppercase">{test.name}</span>
-                                                {test.is_running && (
-                                                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-500/20">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <span className={`font-extrabold text-xs uppercase ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{test.name}</span>
+                                                {test.is_completed ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 border border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+                                                        <Check size={10} strokeWidth={3} /> Completed
+                                                    </span>
+                                                ) : test.is_running ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-500/20 border border-emerald-500/30 dark:text-emerald-400">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                                         Live
                                                     </span>
+                                                ) : (test.centres_count || 0) === 0 ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 border border-slate-200 dark:text-slate-400 dark:bg-white/5 dark:border-white/10">
+                                                        Not Allotted
+                                                    </span>
+                                                ) : !test.has_schedule ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20">
+                                                        Not Scheduled
+                                                    </span>
+                                                ) : test.is_over ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 border border-purple-200 dark:text-purple-400 dark:bg-purple-500/10 dark:border-purple-500/20">
+                                                        Ended
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 dark:text-blue-400 dark:bg-blue-500/10 dark:border-blue-500/20">
+                                                        Scheduled
+                                                    </span>
                                                 )}
                                             </div>
-                                            <span className="text-[9px] opacity-40 font-bold uppercase tracking-wider">
+                                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                                 {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="py-5 px-6 font-black text-xs opacity-70">{test.code}</td>
+                                    <td className={`py-5 px-6 font-black text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{test.code}</td>
                                     <td className="py-5 px-6 text-center">
                                         <button
                                             onClick={() => handleEditCentres(test, true)}

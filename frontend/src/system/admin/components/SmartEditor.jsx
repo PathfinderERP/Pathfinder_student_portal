@@ -48,6 +48,36 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
           isDarkMode ? 'text-white' : 'text-slate-900'
         }`,
       },
+      handleKeyDown: (view, event) => {
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          const focusableSelectors = [
+            'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
+            'select:not([disabled]):not([tabindex="-1"])',
+            'textarea:not([disabled]):not([tabindex="-1"])',
+            '.ProseMirror[contenteditable="true"]'
+          ].join(', ');
+
+          const allFocusables = Array.from(document.querySelectorAll(focusableSelectors))
+            .filter(el => {
+              const style = window.getComputedStyle(el);
+              return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
+            });
+
+          const currentIndex = allFocusables.indexOf(view.dom);
+          if (currentIndex !== -1) {
+            if (event.shiftKey) {
+              const prev = allFocusables[currentIndex - 1];
+              if (prev) prev.focus();
+            } else {
+              const next = allFocusables[currentIndex + 1];
+              if (next) next.focus();
+            }
+          }
+          return true;
+        }
+        return false;
+      },
       handlePaste: (view, event) => {
         const items = (event.clipboardData || event.originalEvent.clipboardData).items;
         for (const item of items) {
@@ -84,6 +114,7 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
   const ToolbarButton = ({ onClick, isActive = false, icon: Icon, title }) => (
     <button
       type="button"
+      tabIndex={-1}
       onClick={onClick}
       title={title}
       className={`p-2 rounded transition-all ${
@@ -221,7 +252,14 @@ const SmartEditor = ({ value, onChange, placeholder = "Start typing...", isDarkM
       )}
 
       {/* Editor Content */}
-      <div className="relative">
+      <div 
+        className="relative cursor-text min-h-[150px]"
+        onClick={() => {
+          if (editor && !editor.isFocused) {
+            editor.commands.focus('end');
+          }
+        }}
+      >
         <style>
           {`
             .tiptap p.is-editor-empty:first-child::before {

@@ -8,15 +8,20 @@ import toast from 'react-hot-toast';
 import QuestionAnalysis from './QuestionAnalysis';
 import QuestionStudentAnalysis from './QuestionStudentAnalysis';
 import TestResultStudents from './TestResultStudents';
+import TestStatusBadge from './components/TestStatusBadge';
+import TestFilterToolbar from './components/TestFilterToolbar';
+import useTestFilters from './hooks/useTestFilters';
 
 const TestResult = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token } = useAuth();
     const navigate = useNavigate();
     const [tests, setTests] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [testFilter, setTestFilter] = useState('all');
-    const [selectedSession, setSelectedSession] = useState('all');
+    const [masterSessions, setMasterSessions] = useState([]);
+    const [masterTargetExams, setMasterTargetExams] = useState([]);
+    const [masterClassLevels, setMasterClassLevels] = useState([]);
+    const [masterCentres, setMasterCentres] = useState([]);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +33,37 @@ const TestResult = ({ isOMR = false }) => {
     const [testToForcePublish, setTestToForcePublish] = useState(null); // For custom modal
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
+    const {
+        searchTerm,
+        setSearchTerm,
+        selectedSessions,
+        setSelectedSessions,
+        selectedTargetExams,
+        setSelectedTargetExams,
+        selectedClassLevels,
+        setSelectedClassLevels,
+        selectedCentres,
+        setSelectedCentres,
+        selectedCompletion,
+        setSelectedCompletion,
+        sessionOptions,
+        targetExamOptions,
+        classLevelOptions,
+        centreOptions,
+        completionOptions,
+        filteredRecords: filteredTests,
+        activeFiltersCount,
+        handleClearAllFilters,
+    } = useTestFilters({
+        tests,
+        masterSessions,
+        masterTargetExams,
+        masterClassLevels,
+        masterCentres,
+        isOMR,
+        includeAllotmentStatus: false,
+    });
+
     const fetchTests = async (force = false) => {
         const fetchKey = 'test-list';
         if (activeFetchKeysRef.current.has(fetchKey)) return;
@@ -36,12 +72,20 @@ const TestResult = ({ isOMR = false }) => {
         activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/${force ? '?refresh=true' : ''}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = res.data;
-            const testList = Array.isArray(data) ? data : (data.results || []);
-            setTests(testList);
+            const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+            const [testsRes, sessionsRes, targetExamsRes, classesRes, centresRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/tests/${force ? '?refresh=true' : ''}`, authHeader),
+                axios.get(`${apiUrl}/api/master-data/sessions/`, authHeader).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, authHeader).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/classes/`, authHeader).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/centres/`, authHeader).catch(() => ({ data: [] })),
+            ]);
+
+            setTests(Array.isArray(testsRes.data) ? testsRes.data : (testsRes.data.results || []));
+            setMasterSessions(Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data.results || []));
+            setMasterTargetExams(Array.isArray(targetExamsRes.data) ? targetExamsRes.data : (targetExamsRes.data.results || []));
+            setMasterClassLevels(Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data.results || []));
+            setMasterCentres(Array.isArray(centresRes.data) ? centresRes.data : (centresRes.data.results || []));
         } catch (err) {
             console.error('Error fetching tests:', err);
         } finally {
@@ -64,7 +108,7 @@ const TestResult = ({ isOMR = false }) => {
         };
     }, []);
 
-    // Smart Auto-Refresh logic to fulfill "update automatically when more student gave the exam"
+    // Smart Auto-Refresh logic
     useEffect(() => {
         if (!isAutoRefresh || isLoading) return;
         const interval = setInterval(() => {
@@ -73,40 +117,10 @@ const TestResult = ({ isOMR = false }) => {
         return () => clearInterval(interval);
     }, [isAutoRefresh, isLoading]);
 
-    const sessions = useMemo(() => {
-        const unique = Array.from(new Set(tests.map(t => t.session_details?.name).filter(Boolean)));
-        return unique.sort();
-    }, [tests]);
-
-    const filteredTests = useMemo(() => {
-        return tests.filter(test => {
-            const matchesSearch = test.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
-
-            const matchesStatus = testFilter === 'all' ||
-                (testFilter === 'completed' && test.is_completed) ||
-                (testFilter === 'in_progress' && !test.is_completed);
-
-            const matchesSession = selectedSession === 'all' ||
-                test.session_details?.name === selectedSession;
-
-            let matchesOMR = true;
-            const examTypeName = test.exam_type_details?.name?.toLowerCase() || '';
-            const isOMRTest = examTypeName.includes('omr');
-            if (isOMR) {
-                matchesOMR = isOMRTest;
-            } else {
-                matchesOMR = !isOMRTest;
-            }
-
-            return matchesSearch && matchesStatus && matchesSession && matchesOMR;
-        });
-    }, [tests, searchTerm, testFilter, selectedSession, isOMR]);
-
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, testFilter, selectedSession]);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedCompletion]);
 
     const pageCount = Math.ceil(filteredTests.length / itemsPerPage);
     const currentTests = filteredTests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -235,61 +249,34 @@ const TestResult = ({ isOMR = false }) => {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header */}
-            <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                            Test <span className="text-orange-500">Result List</span>
-                        </h2>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                            Manage test results, analysis, and student responses
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search by name or code"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-64 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
-                            />
-                        </div>
-
-                        {/* Session Filter */}
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                                <Layers size={16} />
-                            </div>
-                            <select
-                                value={selectedSession}
-                                onChange={(e) => setSelectedSession(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-purple-500/10' : 'bg-white border-slate-200 focus:ring-purple-500/5'}`}
-                            >
-                                <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>All Sessions</option>
-                                {sessions.map(s => <option key={s} value={s} className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>{s}</option>)}
-                            </select>
-                        </div>
-
-                        {/* Status Filter */}
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                                <Filter size={16} />
-                            </div>
-                            <select
-                                value={testFilter}
-                                onChange={(e) => setTestFilter(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 ${isDarkMode ? 'bg-[#10141D] border-white/10 focus:ring-green-500/10' : 'bg-white border-slate-200 focus:ring-green-500/5'}`}
-                            >
-                                <option value="all" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Every Result</option>
-                                <option value="completed" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Completed Only</option>
-                                <option value="in_progress" className={isDarkMode ? 'bg-[#10141D]' : 'bg-white'}>Processing / Ready</option>
-                            </select>
-                        </div>
-
+            {/* Filter Toolbar */}
+            <TestFilterToolbar
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                sessionOptions={sessionOptions}
+                selectedSessions={selectedSessions}
+                setSelectedSessions={setSelectedSessions}
+                targetExamOptions={targetExamOptions}
+                selectedTargetExams={selectedTargetExams}
+                setSelectedTargetExams={setSelectedTargetExams}
+                classLevelOptions={classLevelOptions}
+                selectedClassLevels={selectedClassLevels}
+                setSelectedClassLevels={setSelectedClassLevels}
+                centreOptions={centreOptions}
+                selectedCentres={selectedCentres}
+                setSelectedCentres={setSelectedCentres}
+                completionOptions={completionOptions}
+                selectedCompletion={selectedCompletion}
+                setSelectedCompletion={setSelectedCompletion}
+                activeFiltersCount={activeFiltersCount}
+                onClearAll={handleClearAllFilters}
+                totalCount={tests.length}
+                filteredCount={filteredTests.length}
+                isDarkMode={isDarkMode}
+                headerTitle="Test Result Directory"
+                headerSubtitle="Browse published evaluations, scoreboards, and section analytics"
+                customActions={
+                    <div className="flex items-center gap-3">
                         {/* Auto-Sync Toggle */}
                         <div className="flex items-center gap-2 group">
                             <span className={`text-[9px] font-black uppercase tracking-widest transition-opacity duration-300 ${isAutoRefresh ? 'text-green-500' : 'opacity-40'}`}>
@@ -305,13 +292,14 @@ const TestResult = ({ isOMR = false }) => {
 
                         <button
                             onClick={() => fetchTests(true)}
-                            className={`p-3 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
+                            className={`p-2.5 rounded-[5px] border transition-all active:rotate-180 duration-500 flex items-center gap-1.5 text-xs font-bold ${isDarkMode ? 'bg-[#10141D] border-white/10 text-blue-400 hover:text-white' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50 shadow-sm'}`}
                         >
-                            <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+                            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+                            <span className="hidden sm:inline">Refresh</span>
                         </button>
                     </div>
-                </div>
-            </div>
+                }
+            />
 
             {/* Table */}
             <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
@@ -358,9 +346,12 @@ const TestResult = ({ isOMR = false }) => {
                                 <tr key={test.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/2' : 'hover:bg-blue-50/30'}`}>
                                     <td className={`py-5 px-6 text-xs font-black ${isDarkMode ? 'opacity-30 text-white' : 'text-slate-500 opacity-90'}`}>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
-                                        <div className="flex items-center gap-2 whitespace-nowrap">
-                                            <span className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{test.name}</span>
-                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap ${isDarkMode ? 'opacity-40 text-slate-400' : 'text-slate-600 opacity-80'}`}>
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <span className={`text-xs font-black uppercase tracking-tight ${isDarkMode ? 'text-slate-200' : 'text-slate-900'}`}>{test.name}</span>
+                                                <TestStatusBadge test={test} />
+                                            </div>
+                                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'opacity-40 text-slate-400' : 'text-slate-600 opacity-80'}`}>
                                                 {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
                                         </div>

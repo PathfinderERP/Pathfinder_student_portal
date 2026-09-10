@@ -332,6 +332,63 @@ class GrievanceViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"[GrievanceViewSet] PyMongo patch failed: {e}")
 
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Handle partial update (e.g. replying or status changing) via PyMongo.
+        """
+        from .db_utils import get_db
+        from bson import ObjectId
+        from datetime import datetime
+
+        pk = kwargs.get('pk')
+        db = get_db()
+        if db is not None:
+            try:
+                collection = db['api_grievance']
+                target = None
+                if ObjectId.is_valid(pk):
+                    target = collection.find_one({'_id': ObjectId(pk)})
+                if not target:
+                    target = collection.find_one({'_id': str(pk)}) or collection.find_one({'id': pk})
+                    if not target and str(pk).isdigit():
+                        target = collection.find_one({'id': int(pk)})
+
+                if target is None:
+                    all_docs = list(collection.find())
+                    target = next((d for d in all_docs if str(d.get('_id')) == str(pk) or str(d.get('id', '')) == str(pk)), None)
+
+                if target is not None:
+                    payload = {}
+                    if 'status' in request.data:
+                        payload['status'] = request.data['status']
+                    if 'solution_description' in request.data:
+                        payload['solution_description'] = request.data['solution_description']
+                    if 'teacher_name' in request.data:
+                        payload['teacher_name'] = request.data['teacher_name']
+                    if 'teacher_id' in request.data:
+                        payload['teacher_id'] = request.data['teacher_id']
+                    if 'assign_date' in request.data:
+                        payload['assign_date'] = request.data['assign_date']
+                    if 'solved_date' in request.data:
+                        payload['solved_date'] = request.data['solved_date']
+                    elif request.data.get('status') == 'Resolved' and 'solved_date' not in payload:
+                        payload['solved_date'] = datetime.utcnow().isoformat()
+                    
+                    for k, v in request.data.items():
+                        if k not in payload and k != 'id':
+                            payload[k] = v
+
+                    collection.update_one({'_id': target['_id']}, {'$set': payload})
+                    updated_doc = collection.find_one({'_id': target['_id']})
+                    return response.Response(self._format_doc(updated_doc))
+            except Exception as e:
+                print(f"[GrievanceViewSet] PyMongo update failed: {e}")
+
+        return super().partial_update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         """
         Delete a grievance directly via PyMongo.

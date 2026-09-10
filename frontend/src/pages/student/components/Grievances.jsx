@@ -268,9 +268,26 @@ const Grievances = ({ isDarkMode }) => {
                                     </div>
                                 </div>
                                 {item.description && (
-                                    <p className={`text-xs font-medium mt-2 line-clamp-2 ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>
-                                        {item.description}
+                                    <p className={`text-xs font-medium mt-2 line-clamp-3 ${isDarkMode ? 'text-white/60' : 'text-slate-600'}`}>
+                                        "{item.description}"
                                     </p>
+                                )}
+                                {(item.solution_description || item.solution) && (
+                                    <div className={`mt-3 p-3.5 rounded-[5px] border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50/80 border-emerald-200'}`}>
+                                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                                <CheckCircle size={13} className="text-emerald-500" /> Response from Admin / Staff
+                                            </div>
+                                            {item.solved_date && (
+                                                <span className={`text-[9px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {new Date(item.solved_date).toLocaleString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                                            {item.solution_description || item.solution}
+                                        </p>
+                                    </div>
                                 )}
                             </div>
                         ))}

@@ -6,6 +6,9 @@ import {
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import TestStatusBadge from './components/TestStatusBadge';
+import TestFilterToolbar from './components/TestFilterToolbar';
+import useTestFilters from './hooks/useTestFilters';
 
 const MergeTestResult = ({ isOMR = false }) => {
     const { isDarkMode } = useTheme();
@@ -13,14 +16,47 @@ const MergeTestResult = ({ isOMR = false }) => {
 
     // ─── Test List State ───────────────────────────────────────────────────────
     const [tests, setTests] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [testFilter, setTestFilter] = useState('all');
-    const [selectedSession, setSelectedSession] = useState('all');
+    const [masterSessions, setMasterSessions] = useState([]);
+    const [masterTargetExams, setMasterTargetExams] = useState([]);
+    const [masterClassLevels, setMasterClassLevels] = useState([]);
+    const [masterCentres, setMasterCentres] = useState([]);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedTests, setSelectedTests] = useState([]);
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
+
+    const {
+        searchTerm,
+        setSearchTerm,
+        selectedSessions,
+        setSelectedSessions,
+        selectedTargetExams,
+        setSelectedTargetExams,
+        selectedClassLevels,
+        setSelectedClassLevels,
+        selectedCentres,
+        setSelectedCentres,
+        selectedCompletion,
+        setSelectedCompletion,
+        sessionOptions,
+        targetExamOptions,
+        classLevelOptions,
+        centreOptions,
+        completionOptions,
+        filteredRecords: filteredTests,
+        activeFiltersCount,
+        handleClearAllFilters,
+    } = useTestFilters({
+        tests,
+        masterSessions,
+        masterTargetExams,
+        masterClassLevels,
+        masterCentres,
+        isOMR,
+        includeAllotmentStatus: false,
+    });
 
     // ─── Merge / Leaderboard State ─────────────────────────────────────────────
     const [isMerging, setIsMerging] = useState(false);
@@ -39,10 +75,20 @@ const MergeTestResult = ({ isOMR = false }) => {
         activeFetchKeysRef.current.add(fetchKey);
         try {
             const apiUrl = getApiUrl();
-            const res = await axios.get(`${apiUrl}/api/tests/`, axiosConfig());
+            const [res, sessRes, targetRes, classRes, centreRes] = await Promise.all([
+                axios.get(`${apiUrl}/api/tests/`, axiosConfig()),
+                axios.get(`${apiUrl}/api/master-data/sessions/`, axiosConfig()).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/target-exams/`, axiosConfig()).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/master-data/classes/`, axiosConfig()).catch(() => ({ data: [] })),
+                axios.get(`${apiUrl}/api/centres/`, axiosConfig()).catch(() => ({ data: [] })),
+            ]);
             const data = res.data;
             const testList = Array.isArray(data) ? data : (data.results || []);
             setTests(testList);
+            setMasterSessions(Array.isArray(sessRes.data) ? sessRes.data : (sessRes.data.results || []));
+            setMasterTargetExams(Array.isArray(targetRes.data) ? targetRes.data : (targetRes.data.results || []));
+            setMasterClassLevels(Array.isArray(classRes.data) ? classRes.data : (classRes.data.results || []));
+            setMasterCentres(Array.isArray(centreRes.data) ? centreRes.data : (centreRes.data.results || []));
         } catch (err) {
             console.error('Error fetching tests:', err);
         } finally {
@@ -64,38 +110,6 @@ const MergeTestResult = ({ isOMR = false }) => {
             }
         };
     }, []);
-
-    // ─── Filter/Pagination Logic ───────────────────────────────────────────────
-    const sessions = useMemo(() => {
-        const unique = Array.from(new Set(tests.map(t => t.session_details?.name).filter(Boolean)));
-        return unique.sort();
-    }, [tests]);
-
-    const filteredTests = useMemo(() => {
-        return tests.filter(test => {
-            const matchesSearch = test.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                test.code?.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = testFilter === 'all' ||
-                (testFilter === 'completed' && test.is_completed) ||
-                (testFilter === 'in_progress' && !test.is_completed) ||
-                (testFilter === 'running' && test.is_running);
-            const matchesSession = selectedSession === 'all' ||
-                test.session_details?.name === selectedSession;
-
-            let matchesOMR = true;
-            const examTypeName = test.exam_type_details?.name?.toLowerCase() || '';
-            const isOMRTest = examTypeName.includes('omr');
-            if (isOMR) {
-                matchesOMR = isOMRTest;
-            } else {
-                matchesOMR = !isOMRTest;
-            }
-
-            return matchesSearch && matchesStatus && matchesSession && matchesOMR;
-        });
-    }, [tests, searchTerm, testFilter, selectedSession, isOMR]);
-
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, testFilter, selectedSession]);
 
     const pageCount = Math.ceil(filteredTests.length / itemsPerPage);
     const currentTests = filteredTests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -360,110 +374,81 @@ const MergeTestResult = ({ isOMR = false }) => {
     // ══════════════════════════════════════════════════════════════════════════
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header */}
-            <div className={`p-8 rounded-[5px] border shadow-xl mb-8 ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">
-                            Merge <span className="text-orange-500">Test Result</span>
-                        </h2>
-                        <p className={`text-sm font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Combine multi-paper exams (e.g. JEE Adv Paper 1 + Paper 2) into a unified leaderboard
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* Search */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search by name or code"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`pl-10 pr-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-4 w-56 ${isDarkMode ? 'bg-white/5 border-white/10 focus:ring-blue-500/10' : 'bg-slate-50 border-slate-200 focus:ring-blue-500/5'}`}
-                            />
-                        </div>
+            {/* Main Header & Filters Toolbar */}
+            <TestFilterToolbar
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                sessionOptions={sessionOptions}
+                selectedSessions={selectedSessions}
+                setSelectedSessions={setSelectedSessions}
+                targetExamOptions={targetExamOptions}
+                selectedTargetExams={selectedTargetExams}
+                setSelectedTargetExams={setSelectedTargetExams}
+                classLevelOptions={classLevelOptions}
+                selectedClassLevels={selectedClassLevels}
+                setSelectedClassLevels={setSelectedClassLevels}
+                centreOptions={centreOptions}
+                selectedCentres={selectedCentres}
+                setSelectedCentres={setSelectedCentres}
+                completionOptions={completionOptions}
+                selectedCompletion={selectedCompletion}
+                setSelectedCompletion={setSelectedCompletion}
+                activeFiltersCount={activeFiltersCount}
+                onClearAll={handleClearAllFilters}
+                totalCount={tests.length}
+                filteredCount={filteredTests.length}
+                isDarkMode={isDarkMode}
+                headerTitle="Merge Test Result"
+                headerSubtitle="Combine multi-paper exams (e.g. JEE Adv Paper 1 + Paper 2) into a unified leaderboard"
+                customActions={
+                    <button
+                        onClick={fetchTests}
+                        className={`p-2.5 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
+                        title="Refresh Tests"
+                    >
+                        <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+                    </button>
+                }
+            />
 
-                        {/* Session Filter */}
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                <Layers size={16} />
+            {/* Selection Banner */}
+            {selectedTests.length > 0 && (
+                <div className={`mb-8 p-4 rounded-[5px] border ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-200'}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-4">
+                            <span className={`px-3 py-1.5 rounded-[5px] text-orange-500 font-black text-sm ${isDarkMode ? 'bg-orange-500/20' : 'bg-orange-100'}`}>
+                                {selectedTests.length} Test{selectedTests.length > 1 ? 's' : ''} Selected
+                            </span>
+                            <div className="flex gap-2 flex-wrap">
+                                {tests.filter(t => selectedTests.includes(t.id)).map(t => (
+                                    <span key={t.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[10px] font-black uppercase ${isDarkMode ? 'bg-white/10 text-white' : 'bg-white text-slate-700 shadow-sm border border-slate-200'}`}>
+                                        {t.name}
+                                        <button onClick={() => handleSelectTest(t.id)} className="opacity-50 hover:opacity-100 hover:text-red-500 transition-colors">
+                                            <X size={11} strokeWidth={3} />
+                                        </button>
+                                    </span>
+                                ))}
                             </div>
-                            <select
-                                value={selectedSession}
-                                onChange={(e) => setSelectedSession(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}
-                            >
-                                <option value="all">All Sessions</option>
-                                {sessions.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
                         </div>
-
-                        {/* Status Filter */}
-                        <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                                <Filter size={16} />
-                            </div>
-                            <select
-                                value={testFilter}
-                                onChange={(e) => setTestFilter(e.target.value)}
-                                className={`px-4 py-2.5 rounded-[5px] border text-xs font-bold outline-none transition-all ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setSelectedTests([])}
+                                className={`text-xs font-bold flex items-center gap-1 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
                             >
-                                <option value="all">Every Test</option>
-                                <option value="running" className="text-emerald-500">Running Only</option>
-                                <option value="completed">Completed Only</option>
-                                <option value="in_progress">Pending Only</option>
-                            </select>
+                                <X size={14} /> Clear All
+                            </button>
+                            <button
+                                onClick={handleMergeResults}
+                                disabled={isMerging || selectedTests.length < 2}
+                                className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {isMerging ? <Loader2 size={13} className="animate-spin" /> : <Merge size={13} />}
+                                {isMerging ? 'Merging...' : 'Generate Leaderboard'}
+                            </button>
                         </div>
-
-                        <button
-                            onClick={fetchTests}
-                            className={`p-2.5 rounded-[5px] border transition-all active:rotate-180 duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-blue-400' : 'bg-white border-slate-200 text-blue-500 hover:bg-blue-50'}`}
-                        >
-                            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-                        </button>
                     </div>
                 </div>
-
-                {/* Selection Banner */}
-                {selectedTests.length > 0 && (
-                    <div className={`mt-6 p-4 rounded-[5px] border ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-200'}`}>
-                        <div className="flex items-center justify-between flex-wrap gap-3">
-                            <div className="flex items-center gap-4">
-                                <span className={`px-3 py-1.5 rounded-[5px] text-orange-500 font-black text-sm ${isDarkMode ? 'bg-orange-500/20' : 'bg-orange-100'}`}>
-                                    {selectedTests.length} Test{selectedTests.length > 1 ? 's' : ''} Selected
-                                </span>
-                                <div className="flex gap-2 flex-wrap">
-                                    {tests.filter(t => selectedTests.includes(t.id)).map(t => (
-                                        <span key={t.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[10px] font-black uppercase ${isDarkMode ? 'bg-white/10 text-white' : 'bg-white text-slate-700 shadow-sm border border-slate-200'}`}>
-                                            {t.name}
-                                            <button onClick={() => handleSelectTest(t.id)} className="opacity-50 hover:opacity-100 hover:text-red-500 transition-colors">
-                                                <X size={11} strokeWidth={3} />
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => setSelectedTests([])}
-                                    className={`text-xs font-bold flex items-center gap-1 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
-                                >
-                                    <X size={14} /> Clear All
-                                </button>
-                                <button
-                                    onClick={handleMergeResults}
-                                    disabled={isMerging || selectedTests.length < 2}
-                                    className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                    {isMerging ? <Loader2 size={13} className="animate-spin" /> : <Merge size={13} />}
-                                    {isMerging ? 'Merging...' : 'Generate Leaderboard'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Test Selection Table */}
             <div className={`rounded-[5px] border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#10141D] border-white/5 shadow-black/40' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
@@ -530,9 +515,12 @@ const MergeTestResult = ({ isOMR = false }) => {
                                     </td>
                                     <td className="py-5 px-6 text-xs font-black opacity-30">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                     <td className="py-5 px-6">
-                                        <div className="flex items-center gap-2 whitespace-nowrap">
-                                            <span className="text-xs font-black uppercase tracking-tight">{test.name}</span>
-                                            <span className="text-[9px] font-bold opacity-40 px-2 py-0.5 rounded-md bg-slate-500/5 whitespace-nowrap">
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <span className="text-xs font-black uppercase tracking-tight">{test.name}</span>
+                                                <TestStatusBadge test={test} />
+                                            </div>
+                                            <span className="text-[9px] font-bold opacity-40 uppercase tracking-wider">
                                                 {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
                                         </div>
@@ -544,15 +532,11 @@ const MergeTestResult = ({ isOMR = false }) => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         <span className={`px-3 py-1 rounded-[5px] text-[10px] font-bold ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
-                                            {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
+                                            {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')}
                                         </span>
                                     </td>
                                     <td className="py-5 px-6 text-center">
-                                        <span className={`px-3 py-1 rounded-[5px] text-[10px] font-bold ${test.is_completed
-                                            ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
-                                            : (isDarkMode ? 'bg-yellow-500/10 text-yellow-400' : 'bg-yellow-50 text-yellow-600')}`}>
-                                            {test.is_completed ? 'Completed' : 'Pending'}
-                                        </span>
+                                        <TestStatusBadge test={test} />
                                     </td>
                                 </tr>
                             ))}
