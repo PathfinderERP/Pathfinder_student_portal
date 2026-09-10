@@ -2388,6 +2388,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                                         const qSubjectNames = getMultiNames(q.subjects, subjects, q.subject);
                                         const qChapterNames = getMultiNames(q.chapters, chapters, q.chapter);
+                                        const qTopicNames = getMultiNames(q.topics, topics, q.topic);
 
                                         return (
                                             <div
@@ -2445,7 +2446,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                         })()}
                                                         {/* Sl No Badge */}
                                                         <div className={`w-12 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105 ${isDarkMode ? 'bg-[#10141D] text-slate-300 border-white/5' : 'bg-white text-slate-700 border-slate-200 shadow-sm'}`}>
-                                                            <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">SL NO</div>
+                                                             <div className="text-[8px] font-black uppercase opacity-40 leading-none mb-0.5">SL NO</div>
                                                             <div className="text-xs font-black">#{serialNo}</div>
                                                         </div>
                                                         {/* Level Badge */}
@@ -2478,6 +2479,11 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                             ))}
                                                             {qChapterNames.length > 0 && qChapterNames.map((name, cIdx) => (
                                                                 <div key={cIdx} className="px-3 py-1 rounded-[5px] bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest">
+                                                                    {name}
+                                                                </div>
+                                                            ))}
+                                                            {qTopicNames.length > 0 && qTopicNames.map((name, tIdx) => (
+                                                                <div key={tIdx} className="px-3 py-1 rounded-[5px] bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase tracking-widest border border-purple-500/20">
                                                                     {name}
                                                                 </div>
                                                             ))}
