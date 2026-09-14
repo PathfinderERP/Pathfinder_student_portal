@@ -3,6 +3,7 @@ import axios from 'axios';
 import { X, Loader2, Printer, ArrowLeft } from 'lucide-react';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useAuth } from '../../../../context/AuthContext';
+import MathRenderer from '../../../../components/MathRenderer';
 
 const QuestionPaperView = ({ test, onBack }) => {
     const { isDarkMode } = useTheme();
@@ -123,9 +124,9 @@ const QuestionPaperView = ({ test, onBack }) => {
                                         </div>
 
                                         {/* Question Content */}
-                                        <div
+                                        <MathRenderer
+                                            html={q.content}
                                             className={`text-[13px] leading-relaxed mb-4 print:text-black ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}
-                                            dangerouslySetInnerHTML={{ __html: q.content }}
                                         />
 
                                         {/* Images if any */}
@@ -142,7 +143,7 @@ const QuestionPaperView = ({ test, onBack }) => {
                                                 {q.question_options.map((opt, oIdx) => (
                                                     <div key={oIdx} className={`flex gap-2 items-start text-[12px] ${isDarkMode ? 'text-slate-400' : 'text-slate-700'}`}>
                                                         <span className="font-bold min-w-[20px]">{String.fromCharCode(97 + oIdx)}.</span>
-                                                        <div dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                        <MathRenderer html={opt.content} />
                                                     </div>
                                                 ))}
                                             </div>
@@ -162,7 +163,7 @@ const QuestionPaperView = ({ test, onBack }) => {
                                                             .map(({ opt, idx }) => (
                                                                 <div key={idx} className={`flex gap-2 items-start text-[12px] font-medium italic ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
                                                                     <span className="font-black shrink-0">{String.fromCharCode(97 + idx)}.</span>
-                                                                    <div dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                    <MathRenderer html={opt.content} />
                                                                 </div>
                                                             ))
                                                         }

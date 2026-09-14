@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useAuth } from '../../../../context/AuthContext';
 import QuestionBank from '../../QuestionBank';
+import MathRenderer from '../../../../components/MathRenderer';
 
 const QuestionItem = ({ q, qid, displayPos, sectionId, isDarkMode, isActionLoading, setSelectedQuestion, setShowDetailModal, handleMoveQuestion, handleRemoveQuestion, searchTerm, totalCount, isSelected, onToggleSelect, isCombinedView }) => {
     const controls = useDragControls();
@@ -66,9 +67,9 @@ const QuestionItem = ({ q, qid, displayPos, sectionId, isDarkMode, isActionLoadi
 
              {/* CONTENT */}
              <div className="flex-1 min-w-0 pr-10">
-                <div 
+                <MathRenderer 
+                    html={q.content}
                     className={`text-sm font-medium line-clamp-2 leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}
-                    dangerouslySetInnerHTML={{ __html: q.content }}
                 />
              </div>
 
@@ -853,7 +854,7 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                     <div className="space-y-10">
                         <div className="p-8 rounded-[5px] bg-black/5 border border-white/5">
                             <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 ml-1">Content</h4>
-                            <div className={`prose prose-sm max-w-none ${isDarkMode ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
+                            <MathRenderer html={selectedQuestion.content} className={`prose prose-sm max-w-none ${isDarkMode ? 'prose-invert' : ''}`} />
                         </div>
 
                         {!['NUMERICAL', 'INTEGER_TYPE'].includes(selectedQuestion.question_type || selectedQuestion.type) && selectedQuestion.question_options && selectedQuestion.question_options.length > 0 && (
@@ -868,7 +869,7 @@ const TestQuestionManager = ({ test, onBack, initialSectionId }) => {
                                                 }`}>
                                                 {String.fromCharCode(65 + i)}
                                             </div>
-                                            <div className="text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                            <MathRenderer html={opt.content} className="text-sm font-bold" />
                                         </div>
                                     </div>
                                 ))}

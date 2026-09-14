@@ -14,6 +14,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import SmartEditor from './components/SmartEditor';
+import MathRenderer from '../../components/MathRenderer';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -2500,9 +2501,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div
+                                                        <MathRenderer
+                                                            html={q.question || q.content}
                                                             className={`text-base font-bold tracking-tight prose dark:prose-invert max-w-none leading-relaxed italic ${isSelected ? '' : 'line-clamp-2'}`}
-                                                            dangerouslySetInnerHTML={{ __html: q.question || q.content }}
                                                         />
                                                     </div>
 
@@ -2570,7 +2571,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                         return (
                                                                             <div key={idx} className={`p-5 rounded-[5px] border-2 flex items-start gap-4 transition-all ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/50' : (isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100')}`}>
                                                                                 <span className={`w-8 h-8 rounded-[5px] flex items-center justify-center font-black text-xs ${isCorrect ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-200 text-slate-500'}`}>{String.fromCharCode(65 + idx)}</span>
-                                                                                <div className="prose dark:prose-invert max-w-none text-sm font-bold" dangerouslySetInnerHTML={{ __html: opt.content }} />
+                                                                                <MathRenderer html={opt.content} className="prose dark:prose-invert max-w-none text-sm font-bold" />
                                                                             </div>
                                                                         );
                                                                     })}
@@ -2667,8 +2668,9 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                         <span>Explanatory Solution</span>
                                                                         <ChevronDown size={14} className="group-open:rotate-180 transition-transform ml-auto" />
                                                                     </summary>
-                                                                    <div className="mt-6 pt-6 border-t border-dashed border-blue-200 prose dark:prose-invert max-w-none text-sm leading-relaxed"
-                                                                        dangerouslySetInnerHTML={{ __html: q.solution }}
+                                                                    <MathRenderer
+                                                                        html={q.solution}
+                                                                        className="mt-6 pt-6 border-t border-dashed border-blue-200 prose dark:prose-invert max-w-none text-sm leading-relaxed"
                                                                     />
                                                                 </details>
                                                             </div>
