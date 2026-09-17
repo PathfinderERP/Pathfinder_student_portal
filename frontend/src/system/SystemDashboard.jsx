@@ -52,6 +52,7 @@ import PackageTestAnalysis from './packages/PackageTestAnalysis';
 // Doubt Components
 import AssignDoubt from './doubt/AssignDoubt';
 import SolveDoubt from './doubt/SolveDoubt';
+import ExternalPortal from './doubt/ExternalPortal';
 
 // Content Components
 import LibraryRegistry from './content/LibraryRegistry';
@@ -450,10 +451,12 @@ const SystemDashboard = () => {
             ].filter(sub => hasPermission('package_mgmt', sub.id))
         },
         {
-            id: 'doubt_mgmt', icon: FileText, label: 'Doubt Management', active: activeTab.startsWith('Doubt') || activeTab.startsWith('Assign Doubt') || activeTab.startsWith('Solve Doubt'),
+            id: 'doubt_mgmt', icon: FileText, label: 'Doubt Management',
+            active: activeTab.startsWith('Doubt') || activeTab.startsWith('Assign Doubt') || activeTab.startsWith('Solve Doubt') || activeTab === 'Internal Portal' || activeTab === 'External Portal',
             badge: unassignedDoubtCount > 0 ? unassignedDoubtCount : null,
             subItems: [
-                { id: 'assign_doubt', label: 'Assign Doubt', active: activeTab === 'Assign Doubt', onClick: () => setActiveTab('Assign Doubt') },
+                { id: 'assign_doubt', label: 'Internal Portal', active: activeTab === 'Internal Portal' || activeTab === 'Assign Doubt', onClick: () => setActiveTab('Internal Portal') },
+                { id: 'external_portal', label: 'External Portal', active: activeTab === 'External Portal', onClick: () => setActiveTab('External Portal') },
             ].filter(sub => hasPermission('doubt_mgmt', sub.id))
         },
         { id: 'grievance_mgmt', icon: MessageSquare, label: 'Grievance Management', active: activeTab === 'Grievance Management', onClick: () => setActiveTab('Grievance Management') },
@@ -665,8 +668,11 @@ const SystemDashboard = () => {
                 return <PackageAllotment />;
             case 'Test Analysis':
                 return <PackageTestAnalysis />;
+            case 'Internal Portal':
             case 'Assign Doubt':
                 return <AssignDoubt />;
+            case 'External Portal':
+                return <ExternalPortal />;
             case 'Solve Doubt':
                 return <SolveDoubt />;
             case 'Grievance Management':
@@ -745,7 +751,7 @@ const SystemDashboard = () => {
         const persistentTabs = [
             'Dashboard', 'Question Bank', 'Test Create', 'Admin Master Data',
             'Centre Management', 'Admin Student', 'Test Allotment', 'Test Responses',
-            'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Class Feedback', 'Student Attendance',
+            'Merge Test Result', 'Test Result', 'Psychometric Test', 'Profile', 'Settings', 'Internal Portal', 'External Portal', 'Assign Doubt', 'Solve Doubt', 'Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Class Feedback', 'Student Attendance',
             'Student Activity', 'Community', 'Banner', 'Seminar', 'Test Shift', 'Guide',
             'OMR Test Create', 'OMR Test Allotment', 'OMR Test Responses', 'OMR Merge Test Result', 'OMR Test Result'
         ];

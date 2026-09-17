@@ -40,7 +40,8 @@ export const permissionTabs = [
         id: 'doubt_mgmt',
         label: 'Doubt Management',
         subs: [
-            { id: 'assign_doubt', label: 'Assign Doubt' }
+            { id: 'assign_doubt', label: 'Internal Portal' },
+            { id: 'external_portal', label: 'External Portal' }
         ]
     },
     { id: 'grievance_mgmt', label: 'Grievance Management' },
