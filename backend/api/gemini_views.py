@@ -1,4 +1,5 @@
 import os
+import re
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
 from rest_framework.decorators import api_view, permission_classes
@@ -1244,3 +1245,229 @@ def generate_chapter_test(request):
     except Exception as e:
         logger.error(f"[AI GENERATE TEST] Error: {str(e)}", exc_info=True)
         return Response({"error": "Failed to generate test"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _extract_text_from_file(file_url):
+    """Extract text from a remote URL or local file path using PyMuPDF (fitz)."""
+    if not file_url or file_url == '#' or file_url.startswith('javascript:'):
+        return ""
+    
+    try:
+        import requests
+        content_bytes = None
+        
+        if file_url.startswith('http://') or file_url.startswith('https://'):
+            res = requests.get(file_url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
+            if res.status_code == 200:
+                content_bytes = res.content
+        else:
+            local_path = file_url
+            if not os.path.isabs(local_path):
+                local_path = os.path.join(getattr(settings, 'MEDIA_ROOT', ''), file_url.lstrip('/'))
+            if os.path.exists(local_path):
+                with open(local_path, 'rb') as f:
+                    content_bytes = f.read()
+
+        if not content_bytes:
+            return ""
+
+        # Try PDF parsing
+        try:
+            import fitz
+            doc = fitz.open(stream=content_bytes, filetype="pdf")
+            pages_text = []
+            for i, page in enumerate(doc):
+                if i >= 40: # Process up to 40 pages
+                    break
+                p_text = page.get_text()
+                if p_text and p_text.strip():
+                    pages_text.append(p_text.strip())
+            if pages_text:
+                return "\n\n".join(pages_text)[:35000]
+        except Exception as pe:
+            logger.debug(f"[PDF Extract fitz] {pe}")
+
+        # Fallback raw text decoding
+        try:
+            decoded = content_bytes.decode('utf-8', errors='ignore')
+            if len(decoded.strip()) > 30:
+                return decoded[:35000]
+        except Exception:
+            pass
+
+    except Exception as e:
+        logger.warning(f"[_extract_text_from_file] Failed for {file_url}: {e}")
+
+    return ""
+
+
+def _parse_robust_json(raw_text: str) -> dict:
+    """
+    Multi-pass resilient JSON parser designed to handle LaTeX strings containing
+    unescaped backslashes (e.g. \\vec, \\alpha, \\frac, \\times) returned by AI models.
+    """
+    text = (raw_text or "").strip()
+    if text.startswith("```json"): text = text[7:]
+    if text.startswith("```"): text = text[3:]
+    if text.endswith("```"): text = text[:-3]
+    text = text.strip()
+
+    # Pass 1: Standard RFC JSON parser
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+
+    # Pass 2: Non-strict JSON parser
+    try:
+        return json.loads(text, strict=False)
+    except Exception:
+        pass
+
+    # Pass 3: Fix backslashes not followed by valid JSON escape characters
+    try:
+        fixed = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', text)
+        return json.loads(fixed, strict=False)
+    except Exception:
+        pass
+
+    # Pass 4: Pre-escape common LaTeX tokens and retry
+    try:
+        fixed = text
+        for token in [r'\frac', r'\beta', r'\bar', r'\binom', r'\begin', r'\theta', r'\tau', r'\times', r'\to', r'\text', r'\null', r'\nabla', r'\neq', r'\rho']:
+            fixed = fixed.replace(token, '\\' + token)
+        fixed = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', fixed)
+        return json.loads(fixed, strict=False)
+    except Exception:
+        pass
+
+    # Pass 5: Aggressively escape any non-quote backslash
+    try:
+        fixed = re.sub(r'(?<!\\)\\(?!["\\/])', r'\\\\', text)
+        return json.loads(fixed, strict=False)
+    except Exception:
+        pass
+
+    # Pass 6: Extract outermost JSON object wrapper
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        snippet = text[first_brace:last_brace+1]
+        snippet_fixed = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', snippet)
+        return json.loads(snippet_fixed, strict=False)
+
+    return json.loads(text)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_document_quiz(request):
+    """
+    Generates an interactive AI Quiz from a document (PDF, Word, Notes)
+    or curriculum module using the Gemini API.
+    """
+    try:
+        data = request.data
+        material_name = data.get('material_name') or data.get('title') or 'Study Material'
+        subject_name = data.get('subject_name') or 'General'
+        chapter_name = data.get('chapter_name') or ''
+        topic_name = data.get('topic_name') or ''
+        description = data.get('description') or ''
+        file_url = data.get('file_url') or data.get('pdf_file') or data.get('dpp_file')
+        num_questions = int(data.get('num_questions', 5))
+        num_questions = max(3, min(num_questions, 20)) # Between 3 and 20
+        difficulty = data.get('difficulty', 'MEDIUM').upper()
+
+        api_key = _get_gemini_api_key()
+        if not api_key:
+            return _gemini_not_configured_response()
+
+        extracted_text = ""
+        if file_url:
+            extracted_text = _extract_text_from_file(file_url)
+
+        genai.configure(api_key=api_key)
+
+        document_context = ""
+        if extracted_text and len(extracted_text.strip()) > 50:
+            document_context = f"\n--- EXTRACTED DOCUMENT CONTENT ---\n{extracted_text}\n--- END DOCUMENT CONTENT ---\n"
+        else:
+            document_context = f"\nDocument context unavailable. Focus questions on curriculum: {subject_name} > {chapter_name} > {topic_name}. Description: {description}\n"
+
+        prompt = f"""
+        You are an expert curriculum examiner. Generate an engaging, high-quality multiple-choice quiz with exactly {num_questions} questions based strictly on the provided document content and topic details.
+
+        CONTEXT:
+        Subject: {subject_name}
+        Chapter: {chapter_name}
+        Topic/Material Title: {material_name}
+        Difficulty Level: {difficulty}
+        {document_context}
+
+        QUIZ REQUIREMENTS:
+        1. Generate exactly {num_questions} distinct multiple-choice questions.
+        2. Test fundamental concepts, analytical understanding, problem solving, and key takeaways from the document content.
+        3. Each question must have exactly 4 plausible, well-crafted options.
+        4. Randomize the position of the correct answer across the options.
+        5. Provide a clear, educational explanation for each answer so students learn from mistakes.
+        6. Use LaTeX for math/chemical equations (e.g. $E=mc^2$ or $\\frac{{a}}{{b}}$). IMPORTANT: Always escape backslashes in JSON (write `\\\\vec{{a}}`, `\\\\alpha`, `\\\\frac{{a}}{{b}}`). Always escape percentage signs (use `\\\\%`).
+
+        Return ONLY a JSON object with this exact schema:
+        {{
+            "quiz_title": "Quiz on {material_name}",
+            "subject": "{subject_name}",
+            "chapter": "{chapter_name}",
+            "difficulty": "{difficulty}",
+            "total_questions": {num_questions},
+            "questions": [
+                {{
+                    "id": 1,
+                    "question": "Clear question text here (with formulas if needed)...",
+                    "options": [
+                        "Option A text",
+                        "Option B text",
+                        "Option C text",
+                        "Option D text"
+                    ],
+                    "correctAnswer": "Option A text (must exactly match one of the 4 options above)",
+                    "explanation": "Detailed explanation of why this answer is correct...",
+                    "concept": "Key concept tested (e.g. Vector Addition, Conservation of Energy)"
+                }}
+            ]
+        }}
+        """
+
+        model_names = ['gemini-flash-lite-latest', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
+        response = None
+        last_error = None
+
+        for m_name in model_names:
+            try:
+                model = genai.GenerativeModel(m_name, generation_config={"response_mime_type": "application/json"})
+                resp = model.generate_content(prompt)
+                if resp and resp.text:
+                    response = resp
+                    break
+            except google_exceptions.NotFound:
+                continue
+            except Exception as ex:
+                last_error = ex
+                continue
+
+        if not response or not response.text:
+            if last_error:
+                raise last_error
+            raise Exception("No response received from Gemini models.")
+
+        result = _parse_robust_json(response.text)
+        return Response(result, status=status.HTTP_200_OK)
+
+    except google_exceptions.ResourceExhausted:
+        return Response({"error": "AI rate limit reached. Please try again in a few moments."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    except json.JSONDecodeError as je:
+        logger.error(f"[AI GENERATE QUIZ] JSON Decode Error: {je}")
+        return Response({"error": "Invalid format received from AI model."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"[AI GENERATE QUIZ] Error: {str(e)}", exc_info=True)
+        return Response({"error": f"Failed to generate quiz: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

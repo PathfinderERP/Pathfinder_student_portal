@@ -8,15 +8,21 @@ import renderMathInElement from 'katex/dist/contrib/auto-render.mjs';
  *   1. <span data-latex="..."> elements (from TipTap editor / AI extraction)
  *   2. Raw LaTeX delimiters ($...$, $$...$$, \(...\), \[...\])
  */
-const MathRenderer = ({ html, className = '' }) => {
+const MathRenderer = ({ html, className = '', inline = false, style = {} }) => {
     const containerRef = useRef(null);
 
     useEffect(() => {
         const el = containerRef.current;
         if (!el) return;
 
+        const rawContent = String(html ?? '');
+        // Convert plain text newlines to <br/> if not already HTML
+        const formattedContent = rawContent.includes('<') && rawContent.includes('>')
+            ? rawContent
+            : rawContent.replace(/\n/g, '<br/>');
+
         // 1. Set raw HTML
-        el.innerHTML = html || '';
+        el.innerHTML = formattedContent;
 
         // 2. Walk every data-latex span and render KaTeX in-place
         const spans = el.querySelectorAll('span[data-latex]');
@@ -47,9 +53,13 @@ const MathRenderer = ({ html, className = '' }) => {
         }
     }, [html]);
 
-    if (!html) return null;
+    if (!html && html !== 0) return null;
 
-    return <div ref={containerRef} className={className} />;
+    if (inline) {
+        return <span ref={containerRef} className={`inline ${className}`} style={{ color: 'inherit', ...style }} />;
+    }
+
+    return <div ref={containerRef} className={`${className}`} style={{ color: 'inherit', ...style }} />;
 };
 
 export default MathRenderer;
