@@ -8,7 +8,7 @@ import {
     FlaskConical, Calculator, Dna, Cpu, Zap, Folder, FolderOpen,
     HelpCircle, BookMarked, Compass, Filter, Bookmark,
     Trophy, Award, CheckCircle, XCircle, RotateCcw, Brain,
-    FastForward, Target, BarChart3
+    FastForward, Target, BarChart3, Network, GitFork, Workflow, Share2
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
@@ -16,6 +16,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { toast } from 'react-hot-toast';
 import { logVideoActivity } from '../../../services/useActivityTracker';
 import MathRenderer from '../../../components/MathRenderer';
+import InteractiveMindMap from './InteractiveMindMap';
 
 const getSubjectDetails = (subject) => {
     const s = (subject || '').toLowerCase();
@@ -138,6 +139,11 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
     const [quizTotalElapsed, setQuizTotalElapsed] = useState(0);
     const [quizQuestionTimes, setQuizQuestionTimes] = useState({});
     const [quizConfigMode, setQuizConfigMode] = useState(false);
+
+    // AI Mind Map Generator State
+    const [mindMapCache, setMindMapCache] = useState({});
+    const [mindMapLoading, setMindMapLoading] = useState(false);
+    const [activeMindMapItem, setActiveMindMapItem] = useState(null);
 
     const quizCurrentIdxRef = useRef(quizCurrentIdx);
     quizCurrentIdxRef.current = quizCurrentIdx;
@@ -317,14 +323,14 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
             if (res.data && res.data.questions && res.data.questions.length > 0) {
                 setQuizData(res.data);
-                toast.success(`Generated ${res.data.questions.length} AI Quiz Questions!`, { icon: '🎯' });
+                toast.success(`Generated ${res.data.questions.length} Quiz Questions!`, { icon: '🎯' });
             } else {
                 toast.error("Failed to generate quiz questions. Please try again.");
                 setQuizModalOpen(false);
             }
         } catch (err) {
             console.error("Quiz generation error:", err);
-            const errMsg = err.response?.data?.error || "Could not generate AI quiz from this document.";
+            const errMsg = err.response?.data?.error || "Could not generate quiz from this document.";
             toast.error(errMsg);
             setQuizModalOpen(false);
         } finally {
@@ -343,6 +349,48 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
         setQuizReviewFilter('ALL');
         setQuizSubmitted(false);
     };
+
+    // Handle AI Concept Mind Map Generation
+    const handleGenerateMindMap = useCallback(async (targetItem = null) => {
+        const targetChapter = targetItem?.chapter_name || activeChapter || 'General';
+        const targetSubject = targetItem?.subject_name || activeSubject || 'General';
+        const targetMaterialName = targetItem?.name || targetChapter;
+        const cacheKey = `${targetSubject}__${targetChapter}__${targetMaterialName}`;
+
+        setMindMapLoading(true);
+        setActiveMindMapItem(targetItem);
+
+        try {
+            const apiUrl = getApiUrl();
+            const activeToken = token || localStorage.getItem('auth_token');
+            const res = await axios.post(`${apiUrl}/api/student/ai-mentor/generate-mindmap/`, {
+                material_name: targetMaterialName,
+                subject_name: targetSubject,
+                chapter_name: targetChapter,
+                topic_name: targetItem?.topic_name || '',
+                description: targetItem?.description || '',
+                file_url: targetItem?.pdf_file || targetItem?.dpp_file || null
+            }, {
+                headers: activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {}
+            });
+
+            if (res.data && (res.data.root || res.data.title)) {
+                setMindMapCache(prev => ({
+                    ...prev,
+                    [cacheKey]: res.data
+                }));
+                toast.success(`Generated Mind Map for ${targetChapter}!`, { icon: '🧠' });
+            } else {
+                toast.error("Could not generate mind map. Please try again.");
+            }
+        } catch (err) {
+            console.error("Mind map generation error:", err);
+            const errMsg = err.response?.data?.error || "Could not generate mind map.";
+            toast.error(errMsg);
+        } finally {
+            setMindMapLoading(false);
+        }
+    }, [activeChapter, activeSubject, getApiUrl, token]);
 
     // Per-question countdown reset on index change
     useEffect(() => {
@@ -488,6 +536,10 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                 hasGranular = true;
                 baseItem.dpps.forEach((d, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-d-${i}`, name: d.title || baseItem.name, description: d.description || baseItem.description, dpp_file: d.file, thumbnail: d.thumbnail || baseItem.thumbnail, pdf_file: null, video_link: null, video_file: null, resource_type: 'DPP' }));
             }
+            if (baseItem.mind_maps?.length > 0) {
+                hasGranular = true;
+                baseItem.mind_maps.forEach((m, i) => flattenedMaterials.push({ ...baseItem, id: `${baseItem.id}-m-${i}`, name: m.title || baseItem.name, description: m.description || baseItem.description, pdf_file: m.file, thumbnail: m.thumbnail || baseItem.thumbnail, video_link: null, video_file: null, dpp_file: null, resource_type: 'MIND_MAP' }));
+            }
 
             if (!hasGranular) {
                 flattenedMaterials.push(baseItem);
@@ -538,12 +590,13 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
 
             const isVideo = !!(item.resource_type === 'VIDEO' || item.video_link || item.video_file);
             const isDPP = !!(item.resource_type === 'DPP' || item.dpp_file || item.questions?.length > 0);
-            const isPDF = !!(item.resource_type === 'PDF' || item.pdf_file || (!isVideo && !isDPP));
+            const isMindMap = !!(item.resource_type === 'MIND_MAP' || item.mind_map_file || item.mindmap_file || (item.name && (item.name.toLowerCase().includes('mind map') || item.name.toLowerCase().includes('mindmap'))) || (item.description && (item.description.toLowerCase().includes('mind map') || item.description.toLowerCase().includes('mindmap'))));
+            const isPDF = !!(item.resource_type === 'PDF' || item.pdf_file || (!isVideo && !isDPP && !isMindMap));
 
             if (activeContentType === 'DPP') {
                 if (!isDPP) return;
             } else if (activeContentType === 'STUDY_MATERIAL') {
-                if (!isPDF && (isVideo || isDPP)) return;
+                if (!isPDF && (isVideo || isDPP || isMindMap)) return;
             } else if (activeContentType === 'VIDEO') {
                 if (!isVideo) return;
             }
@@ -654,7 +707,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[5px] bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20">
-                                            AI Document Quiz
+                                            Practice Quiz
                                         </span>
                                         {quizItem && (
                                             <span className="text-[9px] font-medium text-slate-400 truncate">
@@ -709,10 +762,10 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     </div>
                                     <div className="space-y-1">
                                         <h3 className="text-base font-bold uppercase tracking-tight text-slate-900 dark:text-white">
-                                            Gemini AI is generating your quiz...
+                                            Generating your quiz...
                                         </h3>
                                         <p className="text-xs text-slate-400 max-w-sm">
-                                            Reading document content and creating {quizNumQuestions} exam-style questions with KaTeX formulas and step-by-step solutions.
+                                            Creating {quizNumQuestions} practice questions with step-by-step solutions.
                                         </p>
                                     </div>
                                 </div>
@@ -724,7 +777,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                             <Zap size={24} />
                                         </div>
                                         <h3 className="text-lg font-bold uppercase tracking-tight text-slate-900 dark:text-white">
-                                            Customize Your AI Quiz
+                                            Customize Your Quiz
                                         </h3>
                                         <p className="text-xs text-slate-400 max-w-md mx-auto">
                                             Select your desired number of questions, difficulty level, and per-question timer.
@@ -1467,10 +1520,11 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                         setSelectedItem(null);
                                                         handleOpenQuizConfig(itemToQuiz);
                                                     }}
-                                                    className="px-5 py-2.5 bg-slate-900 hover:bg-black dark:bg-white/10 dark:hover:bg-white/20 text-white border border-slate-700 dark:border-white/15 rounded-[5px] font-bold uppercase text-xs tracking-wider shadow-sm transition-all hover:scale-102 active:scale-98 flex items-center gap-2 cursor-pointer"
+                                                    className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-[5px] font-black uppercase text-xs tracking-wider shadow-md transition-all hover:scale-102 active:scale-98 flex items-center gap-2 cursor-pointer animate-pulse"
+                                                    title="Generate Quiz from document"
                                                 >
-                                                    <Zap size={16} className="text-amber-400" />
-                                                    <span>Generate AI Quiz</span>
+                                                    <Zap size={16} className="fill-current animate-bounce" />
+                                                    <span>QUIZ</span>
                                                 </button>
                                             )}
                                         </div>
@@ -1535,39 +1589,44 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
             <div className="flex flex-col gap-6 animate-fade-in-up">
                 
                 {/* 1. TOP HEADER STRIP */}
-                <div className={`p-3.5 sm:p-4 md:p-5 rounded-[5px] border flex flex-col gap-3.5 md:gap-4 transition-all duration-200
+                <div className={`p-3.5 sm:p-4 md:p-5 rounded-[5px] border flex flex-col gap-3.5 md:gap-4 transition-all duration-200 relative overflow-hidden
                     ${isDarkMode 
-                        ? 'bg-[#10141D] border-white/10 shadow-sm' 
-                        : 'bg-white border-slate-200 shadow-sm'}`}>
+                        ? 'bg-gradient-to-r from-[#0D1424] via-[#111C35] to-[#0D1424] border-blue-500/20 shadow-lg text-white' 
+                        : 'bg-gradient-to-r from-[#0B1120] via-[#141E33] to-[#0B1120] border-slate-700 shadow-md text-white'}`}>
                     
+                    {/* Ambient Radial Lighting Accents */}
+                    <div className="absolute top-0 right-0 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -ml-20 -mb-20" />
+
                     {/* Header Top Row: Brand & Type Filter Tabs */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 relative z-10">
                         {/* Left: Brand Title */}
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[5px] bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shrink-0">
-                                {activeContentType === 'VIDEO' ? <PlayCircle size={18} strokeWidth={2.2} /> : activeContentType === 'DPP' ? <HelpCircle size={18} strokeWidth={2.2} /> : <BookMarked size={18} strokeWidth={2.2} />}
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[5px] bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-orange-400 shrink-0 shadow-sm">
+                                {activeContentType === 'VIDEO' ? <PlayCircle size={18} strokeWidth={2.2} /> : activeContentType === 'DPP' ? <HelpCircle size={18} strokeWidth={2.2} /> : activeContentType === 'MIND_MAP' ? <Network size={18} strokeWidth={2.2} /> : <BookMarked size={18} strokeWidth={2.2} />}
                             </div>
                             <div className="space-y-0.5 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-500">
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-400">
                                         Learning Vault
                                     </span>
-                                    <span className="text-[8px] font-medium px-2 py-0.5 rounded-[5px] bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/5">
+                                    <span className="text-[8px] font-medium px-2 py-0.5 rounded-[5px] bg-white/10 text-slate-200 border border-white/10">
                                         Class: {assignedClass || 'Enrolled'}
                                     </span>
                                 </div>
-                                <h1 className={`text-sm sm:text-base md:text-lg font-bold uppercase tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                    {activeContentType === 'VIDEO' ? 'Video Masterclasses' : activeContentType === 'DPP' ? 'Daily Practice Problems' : 'Curriculum Study Vault'}
+                                <h1 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-tight truncate text-white">
+                                    {activeContentType === 'VIDEO' ? 'Video Masterclasses' : activeContentType === 'DPP' ? 'Daily Practice Problems' : activeContentType === 'MIND_MAP' ? 'Chapter Concept Mind Maps' : 'Curriculum Study Vault'}
                                 </h1>
                             </div>
                         </div>
 
-                        {/* Center/Right on desktop, full-width 3-grid on mobile: Content-Type Filter Pills */}
-                        <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-slate-100 dark:bg-white/5 p-1 rounded-[5px] border border-slate-200 dark:border-white/5 w-full md:w-auto">
+                        {/* Center/Right on desktop, 4-grid on mobile: Content-Type Filter Pills */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:flex items-center gap-1 bg-black/40 p-1 rounded-[5px] border border-white/10 w-full md:w-auto backdrop-blur-md">
                             {[
                                 { id: 'STUDY_MATERIAL', label: 'Notes & PDFs', shortLabel: 'Notes', icon: BookMarked },
                                 { id: 'VIDEO', label: 'Video Lectures', shortLabel: 'Videos', icon: PlayCircle },
                                 { id: 'DPP', label: 'DPP Sheets', shortLabel: 'DPP', icon: HelpCircle },
+                                { id: 'MIND_MAP', label: 'Mind Maps', shortLabel: 'Mind Map', icon: Network },
                             ].map(tab => {
                                 const isTabActive = activeContentType === tab.id;
                                 const TabIcon = tab.icon;
@@ -1575,12 +1634,10 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveContentType(tab.id)}
-                                        className={`px-2 sm:px-3 py-1.5 rounded-[5px] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer text-center
+                                        className={`px-2.5 sm:px-3 py-1.5 rounded-[5px] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer text-center
                                             ${isTabActive 
-                                                ? 'bg-orange-500 text-white shadow-sm' 
-                                                : isDarkMode 
-                                                    ? 'text-slate-400 hover:text-white hover:bg-white/5' 
-                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'}`}
+                                                ? 'bg-orange-500 text-white shadow-md' 
+                                                : 'text-slate-300 hover:text-white hover:bg-white/10'}`}
                                     >
                                         <TabIcon size={11} strokeWidth={2.2} className="shrink-0" />
                                         <span className="truncate sm:hidden">{tab.shortLabel}</span>
@@ -1592,7 +1649,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                     </div>
 
                     {/* Search & Refresh Row */}
-                    <div className="flex items-center gap-2 w-full pt-2 border-t border-slate-100 dark:border-white/5">
+                    <div className="flex items-center gap-2 w-full pt-2 border-t border-white/10 relative z-10">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                             <input
@@ -1600,13 +1657,10 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                 placeholder="Search resources by title, topic..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className={`w-full pl-8 pr-7 py-1.5 rounded-[5px] border text-xs font-normal outline-none transition-all
-                                ${isDarkMode 
-                                    ? 'bg-black/30 border-white/10 text-white placeholder-slate-500 focus:border-orange-500' 
-                                    : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-orange-500'}`}
+                                className="w-full pl-8 pr-7 py-1.5 rounded-[5px] border text-xs font-normal outline-none transition-all bg-black/30 border-white/15 text-white placeholder-slate-400 focus:border-orange-500 focus:bg-black/50"
                             />
                             {searchQuery && (
-                                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-white cursor-pointer">
                                     <X size={12} />
                                 </button>
                             )}
@@ -1614,9 +1668,9 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                         <button
                             onClick={() => fetchMaterials(false)}
                             title="Refresh curriculum"
-                            className={`p-2 rounded-[5px] border transition-all cursor-pointer shrink-0 ${isDarkMode ? 'bg-black/30 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
+                            className="p-2 rounded-[5px] border transition-all cursor-pointer shrink-0 bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
                         >
-                            <RefreshCw size={14} className={isLoading ? 'animate-spin text-orange-500' : ''} />
+                            <RefreshCw size={14} className={isLoading ? 'animate-spin text-orange-400' : ''} />
                         </button>
                     </div>
                 </div>
@@ -1808,6 +1862,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                         </div>
 
                         {/* RIGHT COLUMN: ACTIVE CHAPTER STUDY MATERIALS (8 of 12 Cols) */}
+                        {/* RIGHT COLUMN: ACTIVE CHAPTER STUDY MATERIALS & MIND MAPS (8 of 12 Cols) */}
                         <div className="lg:col-span-8 space-y-4 sm:space-y-5">
                             
                             {/* Chapter Header Banner */}
@@ -1820,7 +1875,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                 {activeSubject}
                                             </span>
                                             <span className="text-[10px] font-medium text-slate-400 uppercase">
-                                                Active Syllabus Module
+                                                {activeContentType === 'MIND_MAP' ? 'AI Concept Mind Map' : 'Active Syllabus Module'}
                                             </span>
                                         </div>
                                         <h2 className={`text-sm sm:text-base md:text-lg font-bold uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -1829,12 +1884,58 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                     </div>
                                     
                                     <div className="flex items-center gap-2 shrink-0">
-                                        <span className={`text-xs font-bold uppercase px-3 py-1 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
-                                            {currentChapterMaterials.length} {currentChapterMaterials.length === 1 ? 'Resource' : 'Resources'}
-                                        </span>
+                                        {activeContentType === 'MIND_MAP' ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleGenerateMindMap(null)}
+                                                disabled={mindMapLoading}
+                                                className="px-3.5 py-1.5 rounded-[5px] bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+                                            >
+                                                <Sparkles size={13} className={mindMapLoading ? 'animate-spin' : ''} />
+                                                <span>{mindMapLoading ? 'Generating...' : 'Generate AI Map'}</span>
+                                            </button>
+                                        ) : (
+                                            <span className={`text-xs font-bold uppercase px-3 py-1 rounded-[5px] border ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                                                {currentChapterMaterials.length} {currentChapterMaterials.length === 1 ? 'Resource' : 'Resources'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
+
+                            {/* 1. If activeContentType is MIND_MAP, show the Interactive Concept Mind Map */}
+                            {activeContentType === 'MIND_MAP' && (
+                                <InteractiveMindMap
+                                    mindMapData={
+                                        activeMindMapItem 
+                                            ? mindMapCache[`${activeSubject}__${activeChapter}__${activeMindMapItem.name}`]
+                                            : mindMapCache[`${activeSubject}__${activeChapter}__${activeChapter}`]
+                                    }
+                                    isLoading={mindMapLoading}
+                                    onGenerate={() => handleGenerateMindMap(activeMindMapItem)}
+                                    subjectName={activeSubject}
+                                    chapterName={activeMindMapItem ? activeMindMapItem.name : activeChapter}
+                                    isDarkMode={isDarkMode}
+                                    onStartQuiz={() => handleOpenQuizConfig(activeMindMapItem || { name: activeChapter, subject_name: activeSubject, chapter_name: activeChapter })}
+                                />
+                            )}
+
+                            {/* 2. Available Notes & Materials Section */}
+                            {activeContentType === 'MIND_MAP' && currentChapterMaterials.length > 0 && (
+                                <div className="pt-2">
+                                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-200 dark:border-white/10">
+                                        <div className="flex items-center gap-2">
+                                            <FileText size={15} className="text-purple-500" />
+                                            <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                Available Notes & Concept Modules ({currentChapterMaterials.length})
+                                            </h3>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400">
+                                            Click below to generate Mind Map from specific note
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Materials Cards Grid */}
                             {currentChapterMaterials.length === 0 ? (
@@ -1851,7 +1952,8 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
                                     {currentChapterMaterials.map(item => {
                                         const isItemVideo = !!(item.video_link || item.video_file);
-                                        const isItemDpp = activeContentType === 'DPP' || !!item.dpp_file;
+                                        const isItemDpp = activeContentType === 'DPP' || item.resource_type === 'DPP' || !!item.dpp_file;
+                                        const isItemMindMap = activeContentType === 'MIND_MAP' || item.resource_type === 'MIND_MAP' || (item.name && (item.name.toLowerCase().includes('mind map') || item.name.toLowerCase().includes('mindmap')));
 
                                         return (
                                             <div
@@ -1872,15 +1974,15 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                         <video src={`${item.video_file}#t=0.1`} preload="metadata" className="w-full h-full object-cover" muted playsInline />
                                                     ) : (
                                                         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-white">
-                                                            {isItemVideo ? <PlayCircle size={36} className="text-white opacity-80" /> : <FileText size={36} className="text-white opacity-80" />}
+                                                            {isItemVideo ? <PlayCircle size={36} className="text-white opacity-80" /> : isItemMindMap ? <Network size={36} className="text-purple-400 opacity-80" /> : <FileText size={36} className="text-white opacity-80" />}
                                                         </div>
                                                     )}
 
                                                     {/* Format Tag */}
                                                     <div className="absolute top-2 left-2 z-10">
-                                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[8px] font-bold uppercase tracking-wider text-white ${isItemVideo ? 'bg-blue-600' : isItemDpp ? 'bg-emerald-600' : 'bg-orange-600'}`}>
-                                                            {isItemVideo ? <PlayCircle size={9} /> : <FileText size={9} />}
-                                                            <span>{isItemVideo ? 'Video' : isItemDpp ? 'DPP' : 'Notes'}</span>
+                                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[8px] font-bold uppercase tracking-wider text-white ${isItemVideo ? 'bg-blue-600' : isItemDpp ? 'bg-emerald-600' : isItemMindMap ? 'bg-purple-600' : 'bg-orange-600'}`}>
+                                                            {isItemVideo ? <PlayCircle size={9} /> : isItemDpp ? <HelpCircle size={9} /> : isItemMindMap ? <Network size={9} /> : <FileText size={9} />}
+                                                            <span>{isItemVideo ? 'Video' : isItemDpp ? 'DPP' : isItemMindMap ? 'Mind Map' : 'Notes'}</span>
                                                         </span>
                                                     </div>
 
@@ -1888,7 +1990,7 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center backdrop-blur-xs">
                                                         <div className="px-3 py-1 rounded-[5px] bg-white/20 border border-white/30 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                                                             <Eye size={12} />
-                                                            <span>{isItemVideo ? 'Play Lecture' : 'Read Notes'}</span>
+                                                            <span>{isItemVideo ? 'Play Lecture' : isItemMindMap ? 'Open Mind Map' : isItemDpp ? 'Open DPP' : 'Read Notes'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1918,23 +2020,23 @@ const StudyMaterials = ({ cache, setCache, studentClass, initialType = 'VIDEO' }
                                                     <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
                                                         <div className="flex items-center gap-1 text-xs font-bold text-orange-500">
                                                             <span className="text-[9px] uppercase font-bold tracking-wider">
-                                                                {isItemVideo ? 'Watch' : 'Open'}
+                                                                {isItemVideo ? 'Watch' : isItemMindMap ? 'Explore Map' : 'Open'}
                                                             </span>
                                                             <ArrowRight size={11} />
                                                         </div>
 
-                                                        {/* Quick AI Quiz Button on Card (Only for Notes, PDFs, and DPPs) */}
-                                                        {!isItemVideo && (
+                                                        {/* Quick AI Quiz Button on Card (Only for Notes, PDFs, and DPPs; hidden in Mind Map view) */}
+                                                        {!isItemVideo && !isItemMindMap && activeContentType !== 'MIND_MAP' && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     handleOpenQuizConfig(item);
                                                                 }}
-                                                                className="px-2.5 py-1 rounded-[5px] bg-orange-500/10 hover:bg-orange-500 text-orange-600 hover:text-white dark:text-orange-400 dark:hover:text-white border border-orange-500/20 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer shadow-xs"
-                                                                title="Generate AI Quiz from document"
+                                                                className="px-4 py-2 rounded-[5px] bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white border border-orange-400/40 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-md hover:shadow-orange-500/25 active:scale-95 animate-pulse"
+                                                                title="Generate Quiz from document"
                                                             >
-                                                                <Zap size={10} className="fill-current" />
-                                                                <span>AI Quiz</span>
+                                                                <Zap size={13} className="fill-current animate-bounce" />
+                                                                <span>QUIZ</span>
                                                             </button>
                                                         )}
                                                     </div>

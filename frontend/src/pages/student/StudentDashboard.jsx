@@ -5,7 +5,8 @@ import {
     TrendingUp, Activity, AlertCircle, BookOpen,
     BarChart2, Brain, Calendar, Users, ChevronRight,
     GraduationCap, Clock, CalendarDays, Flame,
-    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle
+    Target, Book, Zap, Award, LogOut, Bell, Beaker, Compass, RefreshCw, PlayCircle, Trophy, HelpCircle,
+    Network
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -429,7 +430,8 @@ const StudentDashboard = () => {
                 subItems: [
                     { name: 'Video Content', icon: PlayCircle },
                     { name: 'Notes', icon: FileText },
-                    { name: 'DPP Questions', icon: Target }
+                    { name: 'DPP Questions', icon: Target },
+                    { name: 'Mind Map', icon: Network }
                 ]
             },
             { name: 'Scholarlab', icon: Beaker },
@@ -567,6 +569,9 @@ const StudentDashboard = () => {
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="STUDY_MATERIAL" />;
             case 'DPP Questions':
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="DPP" />;
+            case 'Mind Map':
+            case 'Mindmap':
+                return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="MIND_MAP" />;
             case 'Study Materials':
                 // Default to Video Content if parent is clicked
                 return <StudyMaterials cache={studyMaterialsCache} setCache={setStudyMaterialsCache} studentClass={classNameValue} initialType="VIDEO" />;

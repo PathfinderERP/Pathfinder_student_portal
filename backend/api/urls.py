@@ -22,7 +22,7 @@ from .scholarlab_views import get_scholarlab_simulations, initialize_scholarlab_
 from .gemini_views import (
     generate_ai_study_plan, get_college_intelligence, search_college_ai, 
     extract_marksheet_data, get_student_ai_insights, student_ai_insights_chat, 
-    generate_chapter_test, generate_document_quiz
+    generate_chapter_test, generate_document_quiz, generate_chapter_mindmap
 )
 from .portal_requirements_views import (
     teacher_attendance_view, batch_teacher_attendance_view, topper_rank_view,
@@ -95,6 +95,7 @@ urlpatterns = [
     path('student/ai-mentor/chat/', student_ai_insights_chat, name='ai-mentor-chat'),
     path('student/ai-mentor/generate-test/', generate_chapter_test, name='ai-generate-test'),
     path('student/ai-mentor/generate-document-quiz/', generate_document_quiz, name='ai-generate-document-quiz'),
+    path('student/ai-mentor/generate-mindmap/', generate_chapter_mindmap, name='ai-generate-mindmap'),
     path('chat/search/', UserSearchView.as_view(), name='chat-search'),
     path('student/psychometric-profile/', StudentPsychometricProfileView.as_view(), name='psychometric-profile'),
     path('student/study-planner-config/', StudentStudyPlannerConfigView.as_view(), name='study-planner-config'),

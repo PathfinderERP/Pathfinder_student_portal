@@ -5,7 +5,7 @@ import {
     ShieldCheck, User, ExternalLink, Plus, RefreshCw, Clock, CheckCircle, Package,
     MessageSquare, Image, CircleDot, Compass, Activity,
     Contact, Home, LayoutGrid, PieChart, BookOpen, Star, Calendar, ArrowRightLeft, UserPlus,
-    GraduationCap, UserCheck
+    GraduationCap, UserCheck, Network
 } from 'lucide-react';
 import MentorshipConversionTab from '../components/tabs/MentorshipConversionTab';
 import ReferralsCollectedTab from '../components/tabs/ReferralsCollectedTab';
@@ -56,6 +56,7 @@ import ExternalPortal from './doubt/ExternalPortal';
 
 // Content Components
 import LibraryRegistry from './content/LibraryRegistry';
+import MindMapRegistry from './content/MindMapRegistry';
 import SolutionRegistry from './content/SolutionRegistry';
 import NoticeRegistry from './content/NoticeRegistry';
 import LiveClassRegistry from './content/LiveClassRegistry';
@@ -467,9 +468,10 @@ const SystemDashboard = () => {
         { id: 'class_feedback', icon: Star, label: 'Class Feedback', active: activeTab === 'Class Feedback', onClick: () => setActiveTab('Class Feedback') },
         { id: 'student_attendance', icon: Calendar, label: 'Student Attendance', active: activeTab === 'Student Attendance', onClick: () => setActiveTab('Student Attendance') },
         {
-            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Nexus Hub', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
+            id: 'content_mgmt', icon: Layers, label: 'Content Management', active: activeTab.startsWith('Content') || ['Library', 'Mind Maps', 'Solution To Dpp Rpp', 'Notice', 'Live Class', 'Video Management', 'Pen Paper Test', 'Homework', 'Nexus Hub', 'Banner', 'Seminar', 'Test Shift', 'Guide'].includes(activeTab),
             subItems: [
                 { id: 'library', label: 'Library', active: activeTab === 'Library', onClick: () => setActiveTab('Library') },
+                { id: 'mind_maps', label: 'Mind Maps', icon: Network, active: activeTab === 'Mind Maps', onClick: () => setActiveTab('Mind Maps') },
                 { id: 'solution_dpp_rpp', label: 'Solution To Dpp Rpp', active: activeTab === 'Solution To Dpp Rpp', onClick: () => setActiveTab('Solution To Dpp Rpp') },
                 { id: 'notice', label: 'Notice', active: activeTab === 'Notice', onClick: () => setActiveTab('Notice') },
                 { id: 'live_class', label: 'Live Class', active: activeTab === 'Live Class', onClick: () => setActiveTab('Live Class') },
@@ -687,6 +689,8 @@ const SystemDashboard = () => {
                 return <MentorshipConversionTab isAdminView={true} />;
             case 'Library':
                 return <LibraryRegistry />;
+            case 'Mind Maps':
+                return <MindMapRegistry />;
             case 'Solution To Dpp Rpp':
                 return <SolutionRegistry />;
             case 'Notice':

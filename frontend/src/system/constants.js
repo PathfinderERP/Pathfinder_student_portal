@@ -53,6 +53,7 @@ export const permissionTabs = [
         label: 'Content Management',
         subs: [
             { id: 'library', label: 'Library' },
+            { id: 'mind_maps', label: 'Mind Maps' },
             { id: 'solution_dpp_rpp', label: 'Solution To Dpp Rpp' },
             { id: 'notice', label: 'Notice' },
             { id: 'live_class', label: 'Live Class' },

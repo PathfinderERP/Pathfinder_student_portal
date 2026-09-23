@@ -1471,3 +1471,128 @@ def generate_document_quiz(request):
         logger.error(f"[AI GENERATE QUIZ] Error: {str(e)}", exc_info=True)
         return Response({"error": f"Failed to generate quiz: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_chapter_mindmap(request):
+    """
+    Generates an interactive, structured AI Concept Mind Map from a chapter, note,
+    or curriculum module using the Gemini API.
+    """
+    try:
+        data = request.data
+        material_name = data.get('material_name') or data.get('title') or ''
+        subject_name = data.get('subject_name') or 'General'
+        chapter_name = data.get('chapter_name') or material_name or 'Chapter Concept'
+        topic_name = data.get('topic_name') or ''
+        description = data.get('description') or ''
+        file_url = data.get('file_url') or data.get('pdf_file') or data.get('dpp_file')
+
+        api_key = _get_gemini_api_key()
+        if not api_key:
+            return _gemini_not_configured_response()
+
+        extracted_text = ""
+        if file_url:
+            extracted_text = _extract_text_from_file(file_url)
+
+        genai.configure(api_key=api_key)
+
+        document_context = ""
+        if extracted_text and len(extracted_text.strip()) > 50:
+            document_context = f"\n--- EXTRACTED NOTE / DOCUMENT CONTENT ---\n{extracted_text[:6000]}\n--- END DOCUMENT CONTENT ---\n"
+        else:
+            document_context = f"\nContext: Subject: {subject_name}, Chapter: {chapter_name}, Topic: {topic_name}. Description: {description}\n"
+
+        prompt = f"""
+        You are an expert master educator and concept visualizer.
+        Generate a comprehensive, beautifully structured Concept Mind Map tree for the chapter and notes provided below.
+        
+        CONTEXT:
+        Subject: {subject_name}
+        Chapter: {chapter_name}
+        Topic/Notes Title: {material_name}
+        {document_context}
+
+        MIND MAP STRUCTURE REQUIREMENTS:
+        1. Root Node: Represents the central chapter / topic title with a concise summary.
+        2. Branches: Break down the chapter into 4 to 6 core logical branches / major themes (e.g. Fundamental Principles, Core Equations, Key Phenomena, Applications & Cases, Common Traps).
+        3. Sub-nodes: Each branch must have 2 to 4 detailed child nodes covering:
+           - Concept title & description
+           - Key formulas / equations (written in standard LaTeX like `E = mc^2` or `\\vec{{F}} = m\\vec{{a}}` or `\\frac{{d}}{{dx}}`)
+           - 2 to 3 high-yield exam takeaways / memory hooks
+        4. Colors: Assign distinct aesthetic hex colors for each main branch (e.g., `#3B82F6`, `#10B981`, `#8B5CF6`, `#F59E0B`, `#EC4899`, `#06B6D4`).
+        5. LaTeX Escaping: Always escape backslashes in JSON (e.g., write `\\\\vec{{F}}`, `\\\\frac{{a}}{{b}}`, `\\\\theta`, `\\\\alpha`).
+
+        Return ONLY a single valid JSON object following this exact schema:
+        {{
+            "title": "{chapter_name}",
+            "subject": "{subject_name}",
+            "chapter": "{chapter_name}",
+            "summary": "1-2 sentence core overview of this chapter",
+            "root": {{
+                "id": "root-1",
+                "label": "{chapter_name}",
+                "type": "root",
+                "summary": "Core overview of {chapter_name}",
+                "children": [
+                    {{
+                        "id": "branch-1",
+                        "label": "Core Branch Name",
+                        "type": "core_branch",
+                        "color": "#3B82F6",
+                        "summary": "Summary of this branch",
+                        "children": [
+                            {{
+                                "id": "node-1-1",
+                                "label": "Concept or Subtopic Title",
+                                "type": "concept",
+                                "summary": "Clear explanation of this concept",
+                                "formula": "$$v = u + at$$",
+                                "key_points": [
+                                    "Crucial point 1",
+                                    "Crucial point 2"
+                                ]
+                            }}
+                        ]
+                    }}
+                ]
+            }}
+        }}
+        """
+
+        model_names = ['gemini-flash-lite-latest', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
+        response = None
+        last_error = None
+
+        for m_name in model_names:
+            try:
+                model = genai.GenerativeModel(m_name, generation_config={"response_mime_type": "application/json"})
+                resp = model.generate_content(prompt)
+                if resp and resp.text:
+                    response = resp
+                    break
+            except google_exceptions.NotFound:
+                continue
+            except Exception as ex:
+                last_error = ex
+                continue
+
+        if not response or not response.text:
+            if last_error:
+                raise last_error
+            raise Exception("No response received from Gemini models.")
+
+        result = _parse_robust_json(response.text)
+        return Response(result, status=status.HTTP_200_OK)
+
+    except google_exceptions.ResourceExhausted:
+        return Response({"error": "AI rate limit reached. Please try again in a few moments."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    except json.JSONDecodeError as je:
+        logger.error(f"[AI GENERATE MINDMAP] JSON Decode Error: {je}")
+        return Response({"error": "Invalid format received from AI model."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"[AI GENERATE MINDMAP] Error: {str(e)}", exc_info=True)
+        return Response({"error": f"Failed to generate mind map: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+

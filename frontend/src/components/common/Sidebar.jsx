@@ -125,7 +125,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
             className={`fixed inset-y-0 left-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r overflow-hidden
             ${isPremium ? 'sidebar-font' : ''}
             ${isPremium
-                    ? `${isDarkMode ? 'bg-[#030712]/80 border-white/[0.05]' : 'bg-[#FAFBFC]/80 border-slate-200/50 shadow-[4px_0_40px_rgba(0,0,0,0.02)]'} backdrop-blur-2xl`
+                    ? 'bg-gradient-to-b from-[#0B1120] via-[#0F172A] to-[#0A0F1D] border-white/10 text-white shadow-2xl backdrop-blur-2xl'
                     : `${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-[#F8FAFC] border-slate-200/40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]'}`}
             ${isOpen
                     ? "w-64 translate-x-0"
@@ -134,9 +134,9 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
         >
             {/* Premium Decorative elements */}
             {isPremium && isOpen && (
-                <div className="absolute inset-0 pointer-events-none opacity-30 overflow-hidden">
-                    <motion.div animate={{ x: [0, 50, 0], y: [0, 100, 0] }} transition={{ duration: 20, repeat: Infinity }} className={`absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl ${isDarkMode ? 'bg-indigo-500/10' : 'bg-orange-500/10'}`} />
-                    <motion.div animate={{ x: [0, -40, 0], y: [0, -80, 0] }} transition={{ duration: 15, repeat: Infinity }} className="absolute bottom-20 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl" />
+                <div className="absolute inset-0 pointer-events-none opacity-40 overflow-hidden">
+                    <motion.div animate={{ x: [0, 50, 0], y: [0, 100, 0] }} transition={{ duration: 20, repeat: Infinity }} className="absolute -top-10 -right-10 w-48 h-48 rounded-full blur-3xl bg-blue-500/10" />
+                    <motion.div animate={{ x: [0, -40, 0], y: [0, -80, 0] }} transition={{ duration: 15, repeat: Infinity }} className="absolute bottom-20 -left-10 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl" />
                 </div>
             )}
 
@@ -177,9 +177,9 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                         exit={{ opacity: 0, x: -10, filter: 'blur(10px)' }}
                                         className="flex flex-col flex-1 truncate"
                                     >
-                                        <span className={`text-2xl leading-none ${isPremium ? 'font-script font-semibold tracking-normal' : 'font-brand font-semibold tracking-tighter'} ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Pathfinder</span>
+                                        <span className={`text-2xl leading-none ${isPremium ? 'font-script font-semibold tracking-normal text-white' : (isDarkMode ? 'font-brand font-semibold tracking-tighter text-white' : 'font-brand font-semibold tracking-tighter text-slate-900')}`}>Pathfinder</span>
                                         {isPremium && (
-                                            <span className={`text-[9px] font-black tracking-[0.2em] mt-1 bg-clip-text text-transparent uppercase antialiased font-brand whitespace-nowrap ${isDarkMode ? 'bg-gradient-to-r from-indigo-400 to-blue-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`}>
+                                            <span className="text-[9px] font-black tracking-[0.2em] mt-1 bg-clip-text text-transparent uppercase antialiased font-brand whitespace-nowrap bg-gradient-to-r from-orange-400 to-amber-300">
                                                 STUDENT HUB
                                             </span>
                                         )}
@@ -206,7 +206,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                             {item.active && (
                                                 <motion.div
                                                     layoutId="activeIndicator"
-                                                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-[2px] ${isDarkMode ? colors.bg : colors.bg} z-20 ${colors.glow}`}
+                                                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-[2px] ${isPremium ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]' : (isDarkMode ? colors.bg : colors.bg)} z-20`}
                                                     initial={{ opacity: 0, scale: 0 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -230,10 +230,14 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                 onMouseLeave={() => setHoveredTooltip(null)}
                                                 className={`w-full flex items-center transition-all duration-300 group relative
                                                 ${isOpen ? "px-5" : "px-3 justify-center"} 
-                                                ${isPremium ? 'py-3.5' : 'py-2.5 rounded-xl'}
+                                                ${isPremium ? 'py-3.5 rounded-[5px]' : 'py-2.5 rounded-xl'}
                                                 ${item.active
-                                                        ? (isDarkMode ? "bg-white/5 text-sky-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]" : `${colors.activeBgLight} ${colors.textLight} shadow-[inset_0_0_0_1px_rgba(0,0,0,0.02)]`)
-                                                        : (isDarkMode ? "text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/50")
+                                                        ? (isPremium 
+                                                            ? "bg-white/10 text-orange-400 font-bold shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]" 
+                                                            : (isDarkMode ? "bg-white/5 text-sky-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]" : `${colors.activeBgLight} ${colors.textLight} shadow-[inset_0_0_0_1px_rgba(0,0,0,0.02)]`))
+                                                        : (isPremium 
+                                                            ? "text-slate-300 hover:text-white hover:bg-white/5" 
+                                                            : (isDarkMode ? "text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/50"))
                                                     }`}
                                             >
                                                 <div className={`relative ${isOpen ? "mr-4" : "mr-0"}`}>
@@ -242,8 +246,8 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                         strokeWidth={item.active ? 2.5 : (isPremium ? 1.5 : 2)}
                                                         className={`transition-all duration-300 flex-shrink-0 
                                                         ${item.active
-                                                                ? (isDarkMode ? colors.text : colors.textLight)
-                                                                : (isDarkMode ? "text-slate-500 group-hover:text-slate-300" : "text-slate-400 group-hover:text-slate-700")
+                                                                ? (isPremium ? "text-orange-400" : (isDarkMode ? colors.text : colors.textLight))
+                                                                : (isPremium ? "text-slate-400 group-hover:text-slate-200" : (isDarkMode ? "text-slate-500 group-hover:text-slate-300" : "text-slate-400 group-hover:text-slate-700"))
                                                             }`}
                                                     />
                                                     {!isOpen && item.badge && (
@@ -260,7 +264,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                 initial={isPremium ? { opacity: 0, x: -10 } : { opacity: 0 }}
                                                                 animate={{ opacity: 1, x: 0 }}
                                                                 exit={{ opacity: 0, x: -10 }}
-                                                                className={`text-[14px] font-bold text-left truncate tracking-tight ${!isPremium ? 'text-[15px] font-semibold' : ''}`}
+                                                                className={`text-[14px] text-left truncate tracking-tight ${isPremium ? (item.active ? 'text-orange-400 font-black' : 'text-slate-200 font-bold group-hover:text-white') : (!isPremium ? 'text-[15px] font-semibold' : '')}`}
                                                             >
                                                                 {item.label}
                                                             </motion.span>
@@ -273,7 +277,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                 <motion.div
                                                                     initial={{ scale: 0, rotate: 45 }}
                                                                     animate={{ scale: 1, rotate: 0 }}
-                                                                    className={`w-1.5 h-1.5 rounded-[1px] opacity-60 ${isDarkMode ? colors.bg : colors.bg}`}
+                                                                    className={`w-1.5 h-1.5 rounded-[1px] opacity-60 ${isPremium ? 'bg-orange-400' : (isDarkMode ? colors.bg : colors.bg)}`}
                                                                 />
                                                             )}
                                                         </motion.div>
@@ -283,7 +287,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                 {(isOpen && hasSubItems) && (
                                                     <ChevronDown
                                                         size={16}
-                                                        className={`flex-shrink-0 ml-1 transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''} ${isDarkMode ? 'text-white/20' : 'text-slate-300'}`}
+                                                        className={`flex-shrink-0 ml-1 transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''} ${isPremium ? (item.active ? 'text-orange-400' : 'text-slate-400') : (isDarkMode ? 'text-white/20' : 'text-slate-300')}`}
                                                     />
                                                 )}
                                             </motion.button>
@@ -294,7 +298,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                         initial={{ opacity: 0, height: 0 }}
                                                         animate={{ opacity: 1, height: 'auto' }}
                                                         exit={{ opacity: 0, height: 0 }}
-                                                        className={`ml-9 space-y-1.5 border-l-2 ${isDarkMode ? 'border-white/5' : 'border-slate-100/50'} pl-5 py-2`}
+                                                        className={`ml-9 space-y-1.5 border-l-2 ${isPremium ? 'border-white/10' : (isDarkMode ? 'border-white/5' : 'border-slate-100/50')} pl-5 py-2`}
                                                     >
                                                         {item.subItems.map((subItem, subIndex) => {
                                                             const hasDeepSubItems = subItem.subItems && subItem.subItems.length > 0;
@@ -310,18 +314,18 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                         }}
                                                                         className={`w-full flex items-center gap-3 py-2 text-[13px] font-bold rounded-xl transition-all duration-300
                                                                         ${subItem.active
-                                                                                ? (isDarkMode ? "text-sky-300" : colors.textLight)
-                                                                                : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900")
+                                                                                ? (isPremium ? "text-orange-400" : (isDarkMode ? "text-sky-300" : colors.textLight))
+                                                                                : (isPremium ? "text-slate-300 hover:text-white" : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900"))
                                                                             } ${!isPremium ? 'font-medium text-[13px]' : ''}`}
                                                                     >
                                                                         <span className="flex-1 text-left truncate">{subItem.label}</span>
                                                                         {subItem.active && (
-                                                                            <div className={`w-1 h-1 rounded-[1px] ${isDarkMode ? colors.bg : colors.bg} opacity-60 mr-1`} />
+                                                                            <div className={`w-1 h-1 rounded-[1px] ${isPremium ? 'bg-orange-400' : (isDarkMode ? colors.bg : colors.bg)} opacity-60 mr-1`} />
                                                                         )}
                                                                         {(isOpen && hasDeepSubItems) && (
                                                                             <ChevronDown
                                                                                 size={14}
-                                                                                className={`flex-shrink-0 transition-transform duration-500 ${isDeepExpanded ? 'rotate-180' : ''} ${isDarkMode ? 'text-white/20' : 'text-slate-300'}`}
+                                                                                className={`flex-shrink-0 transition-transform duration-500 ${isDeepExpanded ? 'rotate-180' : ''} ${isPremium ? 'text-slate-400' : (isDarkMode ? 'text-white/20' : 'text-slate-300')}`}
                                                                             />
                                                                         )}
                                                                     </button>
@@ -332,7 +336,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                                 initial={{ opacity: 0, height: 0 }}
                                                                                 animate={{ opacity: 1, height: 'auto' }}
                                                                                 exit={{ opacity: 0, height: 0 }}
-                                                                                className={`ml-4 mt-1 space-y-1 border-l text-left ${isDarkMode ? 'border-white/5' : 'border-slate-100'} pl-3`}
+                                                                                className={`ml-4 mt-1 space-y-1 border-l text-left ${isPremium ? 'border-white/10' : (isDarkMode ? 'border-white/5' : 'border-slate-100')} pl-3`}
                                                                             >
                                                                                 {subItem.subItems.map((deepItem, deepIndex) => (
                                                                                     <button
@@ -343,13 +347,13 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                                                                         }}
                                                                                         className={`w-full flex items-center gap-2 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-300
                                                                                         ${deepItem.active
-                                                                                                ? (isDarkMode ? "text-sky-300" : colors.textLight)
-                                                                                                : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900")
+                                                                                                ? (isPremium ? "text-orange-400" : (isDarkMode ? "text-sky-300" : colors.textLight))
+                                                                                                : (isPremium ? "text-slate-300 hover:text-white" : (isDarkMode ? "text-slate-500 hover:text-white" : "text-slate-500 hover:text-slate-900"))
                                                                                             } ${!isPremium ? 'font-medium text-[12px]' : ''}`}
                                                                                     >
                                                                                         <span className="flex-1 text-left truncate">{deepItem.label}</span>
                                                                                         {deepItem.active && (
-                                                                                            <div className={`w-0.5 h-0.5 rounded-[1px] ${isDarkMode ? colors.bg : colors.bg} opacity-60 mr-1`} />
+                                                                                            <div className={`w-0.5 h-0.5 rounded-[1px] ${isPremium ? 'bg-orange-400' : (isDarkMode ? colors.bg : colors.bg)} opacity-60 mr-1`} />
                                                                                         )}
                                                                                     </button>
                                                                                 ))}
@@ -371,12 +375,12 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                 </nav>
 
                 {/* Footer Section */}
-                <div className={`p-6 border-t ${isDarkMode ? 'border-white/[0.05]' : 'border-slate-200/40'}`}>
+                <div className={`p-6 border-t ${isPremium ? 'border-white/10' : (isDarkMode ? 'border-white/[0.05]' : 'border-slate-200/40')}`}>
                     <motion.div
-                        whileHover={isPremium ? { y: -5, scale: 1.02 } : { y: -2 }}
-                        className={`flex items-center p-3 rounded-2xl ${isPremium ? 'glass-panel shadow-2xl shadow-black/10' : (isDarkMode ? 'bg-white/5' : 'bg-white shadow-lg shadow-slate-200/50 border border-slate-100')} ${isOpen ? "" : "justify-center"}`}
+                        whileHover={isPremium ? { y: -3, scale: 1.02 } : { y: -2 }}
+                        className={`flex items-center p-3 rounded-[5px] ${isPremium ? 'bg-white/10 border border-white/15 shadow-xl text-white backdrop-blur-md' : (isDarkMode ? 'bg-white/5' : 'bg-white shadow-lg shadow-slate-200/50 border border-slate-100')} ${isOpen ? "" : "justify-center"}`}
                     >
-                        <div className={`rounded-xl overflow-hidden flex items-center justify-center font-black flex-shrink-0 border-2 ${isPremium ? 'w-9 h-9 text-base' : 'w-11 h-11 text-lg'} ${isDarkMode ? `${colors.activeBg} ${colors.text} border-white/[0.1]` : `${colors.activeBg} ${colors.textLight} border-white`}`}>
+                        <div className={`rounded-[5px] overflow-hidden flex items-center justify-center font-black flex-shrink-0 border ${isPremium ? 'w-9 h-9 text-base bg-gradient-to-br from-orange-500 to-amber-600 text-white border-white/20' : 'w-11 h-11 text-lg'} ${!isPremium ? (isDarkMode ? `${colors.activeBg} ${colors.text} border-white/[0.1]` : `${colors.activeBg} ${colors.textLight} border-white`) : ''}`}>
                             {user?.profile_image ? (
                                 <img src={user.profile_image} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
@@ -391,13 +395,13 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                                     exit={{ opacity: 0, x: -10 }}
                                     className={`ml-4 overflow-hidden flex-1`}
                                 >
-                                    <p className={`font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'} ${isPremium ? 'text-xs' : 'text-[14px]'} ${!isPremium ? 'text-sm font-semibold' : ''}`}>
+                                    <p className={`font-black truncate ${isPremium ? 'text-white text-xs' : (isDarkMode ? 'text-white' : 'text-slate-900')} ${!isPremium ? 'text-sm font-semibold' : ''}`}>
                                         {user?.first_name || user?.username || "User"}
                                     </p>
                                     {isPremium ? (
                                         <div className="flex items-center gap-1.5 mt-0.5">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            <p className={`text-[10px] font-black truncate tracking-widest uppercase ${isDarkMode ? 'text-white/40' : 'text-slate-500'}`}>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            <p className="text-[10px] font-black truncate tracking-widest uppercase text-slate-300">
                                                 {user?.role_label || "Student"}
                                             </p>
                                         </div>
@@ -416,7 +420,7 @@ const Sidebar = ({ items, user, isOpen, setOpen, isDarkMode, logout, accentColor
                             onClick={logout}
                             className={`mt-4 w-full flex items-center justify-center gap-2.5 px-4 py-2 transition-all
                             ${isPremium
-                                    ? 'text-[10px] font-black uppercase tracking-[0.2em] rounded-2.5xl text-slate-500 hover:text-red-400 hover:bg-red-500/10'
+                                    ? 'text-[10px] font-black uppercase tracking-[0.2em] rounded-[5px] text-slate-300 hover:text-red-400 hover:bg-red-500/10'
                                     : 'text-sm font-semibold text-slate-500 hover:text-red-600'}`}
                         >
                             <LogOut size={18} />
