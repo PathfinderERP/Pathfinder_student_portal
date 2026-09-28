@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext';
-import { Search, Loader2, Eye, ChevronDown, ChevronUp, Target, FileText, Clock, ChevronRight } from 'lucide-react';
+import { Search, Loader2, Eye, ChevronDown, ChevronUp, Target, FileText, Clock, ChevronRight, CheckCircle2 } from 'lucide-react';
 import MathRenderer from '../../../components/MathRenderer';
+import ChapterTestResultReport from './ChapterTestResultReport';
 
 const QuestionReviewItem = ({ q, index, isDarkMode, userAnswer }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -91,6 +92,7 @@ export default function ChapterTestResults({ isDarkMode }) {
     // Filtering & Pagination State
     const [subjectFilter, setSubjectFilter] = useState('');
     const [chapterFilter, setChapterFilter] = useState('');
+    const [reviewFilter, setReviewFilter] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [jumpToPage, setJumpToPage] = useState('');
@@ -141,9 +143,11 @@ export default function ChapterTestResults({ isDarkMode }) {
         return groupedResults.filter(group => {
             const matchSubject = subjectFilter ? group.subject_name === subjectFilter : true;
             const matchChapter = chapterFilter ? group.chapter_name === chapterFilter : true;
-            return matchSubject && matchChapter;
+            const hasReview = group.attempts.some(t => t.reflections && Object.keys(t.reflections).length > 0);
+            const matchReview = reviewFilter === 'reviewed' ? hasReview : reviewFilter === 'pending' ? !hasReview : true;
+            return matchSubject && matchChapter && matchReview;
         });
-    }, [groupedResults, subjectFilter, chapterFilter]);
+    }, [groupedResults, subjectFilter, chapterFilter, reviewFilter]);
 
     const totalPages = Math.ceil(filteredGroups.length / itemsPerPage);
     const paginatedGroups = React.useMemo(() => {
@@ -173,7 +177,7 @@ export default function ChapterTestResults({ isDarkMode }) {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [subjectFilter, chapterFilter, itemsPerPage]);
+    }, [subjectFilter, chapterFilter, reviewFilter, itemsPerPage]);
 
     useEffect(() => {
         setChapterFilter('');
@@ -211,66 +215,11 @@ export default function ChapterTestResults({ isDarkMode }) {
 
     if (selectedResult) {
         return (
-            <div className="space-y-6 animate-fade-in-up">
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => setSelectedResult(null)}
-                        className={`text-sm font-bold px-4 py-2 rounded-[5px] ${isDarkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-800 hover:bg-slate-300'}`}
-                    >
-                        &larr; Back to History
-                    </button>
-                    <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        {selectedResult.subject_name} - {selectedResult.chapter_name}
-                    </h2>
-                </div>
-
-                <div className={`p-6 rounded-[5px] border flex gap-8 items-center ${isDarkMode ? 'bg-[#0B0F15] border-white/5' : 'bg-white border-slate-200'}`}>
-                    <div>
-                        <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Score</div>
-                        <div className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedResult.score} / {selectedResult.total_questions}</div>
-                    </div>
-                    <div>
-                        <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Time Taken</div>
-                        <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{Math.floor(selectedResult.time_taken_seconds / 60)}m {selectedResult.time_taken_seconds % 60}s</div>
-                    </div>
-                    <div>
-                        <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Date</div>
-                        <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{new Date(selectedResult.created_at).toLocaleDateString()}</div>
-                    </div>
-                </div>
-                
-                <div className="mt-8 space-y-4">
-                    <h3 className={`text-lg font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Detailed Analysis</h3>
-                    {selectedResult.question_data && selectedResult.question_data.length > 0 ? (
-                        <div className="space-y-6">
-                            {selectedResult.question_data.map((q, index) => {
-                                const userAnswer = selectedResult.responses[q.id];
-                                const isCorrect = userAnswer === q.correctAnswer;
-                                const isUnanswered = !userAnswer;
-
-                                return (
-                                    <QuestionReviewItem 
-                                        key={q.id || index}
-                                        q={q}
-                                        index={index}
-                                        isDarkMode={isDarkMode}
-                                        userAnswer={userAnswer}
-                                    />
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className={`p-6 rounded-[5px] border ${isDarkMode ? 'bg-slate-900/50 border-white/5 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                            <p className="text-sm">
-                                You answered {Object.keys(selectedResult.responses || {}).length} questions out of {selectedResult.total_questions}.
-                            </p>
-                            <p className="text-sm mt-2">
-                                Detailed question snapshots were not recorded for this test attempt.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <ChapterTestResultReport
+                testResult={selectedResult}
+                isDarkMode={isDarkMode}
+                onBack={() => setSelectedResult(null)}
+            />
         );
     }
 
@@ -351,6 +300,19 @@ export default function ChapterTestResults({ isDarkMode }) {
                                     <option key={chap} value={chap}>{chap}</option>
                                 ))}
                             </select>
+                            <select 
+                                value={reviewFilter}
+                                onChange={(e) => setReviewFilter(e.target.value)}
+                                className={`px-3 py-2 rounded-[5px] border text-sm w-full sm:w-48 outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer font-medium ${
+                                    reviewFilter 
+                                        ? 'border-orange-500 text-orange-600 bg-orange-50/50' 
+                                        : isDarkMode ? 'bg-[#151A23] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+                                }`}
+                            >
+                                <option value="">All Review Status</option>
+                                <option value="reviewed">Mistake Reviewed</option>
+                                <option value="pending">Review Pending</option>
+                            </select>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Per page:</span>
@@ -399,6 +361,7 @@ export default function ChapterTestResults({ isDarkMode }) {
                                     const isExpanded = expandedGroups[key];
                                     const latestAttempt = group.attempts[0];
                                     const totalTimeSeconds = group.attempts.reduce((sum, result) => sum + (result.time_taken_seconds || 0), 0);
+                                    const reviewedCount = group.attempts.filter(t => t.reflections && Object.keys(t.reflections).length > 0).length;
                                     
                                     return (
                                         <React.Fragment key={key}>
@@ -416,9 +379,16 @@ export default function ChapterTestResults({ isDarkMode }) {
                                                     {group.chapter_name}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`text-xs font-bold px-2 py-1 rounded-[4px] ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
-                                                        {group.attempts.length} Attempt{group.attempts.length > 1 ? 's' : ''}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-xs font-bold px-2 py-1 rounded-[4px] ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                                            {group.attempts.length} Attempt{group.attempts.length > 1 ? 's' : ''}
+                                                        </span>
+                                                        {reviewedCount > 0 && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                                                <CheckCircle2 size={12} /> {reviewedCount} Reviewed
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className={`px-6 py-4 font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                                     <div className="flex items-center gap-1.5">
@@ -431,7 +401,11 @@ export default function ChapterTestResults({ isDarkMode }) {
                                                 </td>
                                             </tr>
                                             
-                                            {isExpanded && group.attempts.map((result, idx) => (
+                                            {isExpanded && group.attempts.map((result, idx) => {
+                                                const hasReflection = result.reflections && Object.keys(result.reflections).length > 0;
+                                                const reflectionCount = hasReflection ? Object.keys(result.reflections).length : 0;
+                                                
+                                                return (
                                                 <tr 
                                                     key={result.id} 
                                                     onClick={() => setSelectedResult(result)}
@@ -440,8 +414,19 @@ export default function ChapterTestResults({ isDarkMode }) {
                                                     <td className={`px-6 py-3 pl-12 text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {new Date(result.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                                                     </td>
-                                                    <td className={`px-6 py-3 text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                        Attempt {group.attempts.length - idx}
+                                                    <td className={`px-6 py-3 text-sm ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span>Attempt {group.attempts.length - idx}</span>
+                                                            {hasReflection ? (
+                                                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                                    <CheckCircle2 size={12} /> Mistake Reviewed ({reflectionCount})
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400">
+                                                                    Pending Review
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className={`px-6 py-3 text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {result.difficulty && <span className="text-[10px] uppercase bg-slate-500/20 px-2 py-1 rounded-sm">{result.difficulty}</span>}
@@ -467,7 +452,7 @@ export default function ChapterTestResults({ isDarkMode }) {
                                                         <ChevronRight size={16} className={isDarkMode ? 'text-slate-600' : 'text-slate-400'} />
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            );})}
                                         </React.Fragment>
                                     );
                                 })}

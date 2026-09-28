@@ -10,6 +10,7 @@ class ChapterTestResult(models.Model):
     time_taken_seconds = models.IntegerField(default=0)
     responses = models.JSONField(default=dict, help_text="Detailed responses per question")
     question_data = models.JSONField(default=list, help_text="Snapshot of the questions")
+    reflections = models.JSONField(default=dict, blank=True, help_text="Mistake reflections per question")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

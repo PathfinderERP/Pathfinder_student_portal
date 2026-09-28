@@ -5,17 +5,9 @@ import Select from 'react-select';
 import { useAuth } from '../../../context/AuthContext';
 import { useMasterData } from '../../../context/MasterDataContext';
 import MathRenderer from '../../../components/MathRenderer';
+import ChapterTestResultReport from './ChapterTestResultReport';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-// const DIFFICULTY_OPTIONS = [
-//     { value: '', label: 'All Levels' },
-//     { value: 'very_easy', label: 'Very Easy' },
-//     { value: 'easy', label: 'Easy' },
-//     { value: 'moderate', label: 'Moderate' },
-//     { value: 'hard', label: 'Hard' },
-//     { value: 'very_hard', label: 'Very Hard' },
-// ];
-
 const MAX_QUESTIONS = 20;
 
 // Fisher-Yates shuffle
@@ -52,6 +44,7 @@ const normaliseQuestion = (raw) => {
         question_type: raw.question_type,
         answer_from: raw.answer_from,
         answer_to: raw.answer_to,
+        subtopic: raw.subtopic_name || (typeof raw.subtopic === 'object' && raw.subtopic !== null ? raw.subtopic.name : (raw.subtopic || '')),
     };
 };
 
@@ -110,6 +103,7 @@ const ChapterTest = ({ isDarkMode }) => {
     const [noQuestionsFound, setNoQuestionsFound] = useState(false);
     const [answers, setAnswers] = useState({});
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [submittedResult, setSubmittedResult] = useState(null);
     const [score, setScore] = useState(0);
     const [totalAvailable, setTotalAvailable] = useState(0);
     // Test Settings
@@ -317,29 +311,37 @@ const ChapterTest = ({ isDarkMode }) => {
 
         const timeTaken = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
 
+        const subjectObj = subjects.find((s) => String(s.id) === String(selectedSubject));
+        const subjectName = subjectObj ? subjectObj.name || subjectObj.title : selectedSubject;
+
+        const chapterObj = filteredChapters.find((c) => String(c.id) === String(selectedChapter));
+        const chapterName = chapterObj ? chapterObj.name || chapterObj.title : selectedChapter;
+
+        let fallbackResult = {
+            subject_name: subjectName,
+            chapter_name: chapterName,
+            difficulty: 'All Levels',
+            score: currentScore,
+            total_questions: questions.length,
+            time_taken_seconds: timeTaken,
+            responses: answers,
+            question_data: questions,
+            reflections: {}
+        };
+
         try {
-            const subjectObj = subjects.find((s) => String(s.id) === String(selectedSubject));
-            const subjectName = subjectObj ? subjectObj.name || subjectObj.title : selectedSubject;
-
-            const chapterObj = filteredChapters.find((c) => String(c.id) === String(selectedChapter));
-            const chapterName = chapterObj ? chapterObj.name || chapterObj.title : selectedChapter;
-
-            await axios.post(`${getApiUrl()}/api/chapter-tests/results/`, {
-                subject_name: subjectName,
-                chapter_name: chapterName,
-                // difficulty: selectedDifficulty?.label || 'All Levels',
-                difficulty: 'All Levels',
-                score: currentScore,
-                total_questions: questions.length,
-                time_taken_seconds: timeTaken,
-                responses: answers,
-                question_data: questions
-            }, {
+            const res = await axios.post(`${getApiUrl()}/api/chapter-tests/results/`, fallbackResult, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (res.data) {
+                setSubmittedResult(res.data);
+            } else {
+                setSubmittedResult(fallbackResult);
+            }
         } catch (error) {
             console.error('Failed to save chapter test result:', error);
             // Even if save fails, we show the result locally
+            setSubmittedResult(fallbackResult);
         } finally {
             setIsSubmittingToBackend(false);
         }
@@ -383,7 +385,6 @@ const ChapterTest = ({ isDarkMode }) => {
     };
 
     // ── Computed flags ─────────────────────────────────────────────────────────
-    // const canGenerate = selectedChapter && selectedDifficulty !== null && !isFetching;
     const canGenerate = selectedChapter && !isFetching;
 
     // ─── Loading skeleton ──────────────────────────────────────────────────────
@@ -393,6 +394,31 @@ const ChapterTest = ({ isDarkMode }) => {
                 <Activity className="animate-spin mx-auto mb-4" size={32} />
                 <p>Loading Master Data...</p>
             </div>
+        );
+    }
+
+    if (isSubmitted && submittedResult) {
+        return (
+            <ChapterTestResultReport
+                testResult={submittedResult}
+                isDarkMode={isDarkMode}
+                onRetake={() => {
+                    setQuestions([]);
+                    setAnswers({});
+                    setIsSubmitted(false);
+                    setSubmittedResult(null);
+                    setNoQuestionsFound(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onBack={() => {
+                    setQuestions([]);
+                    setAnswers({});
+                    setIsSubmitted(false);
+                    setSubmittedResult(null);
+                    setNoQuestionsFound(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+            />
         );
     }
 
