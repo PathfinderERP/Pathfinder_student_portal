@@ -3178,20 +3178,37 @@ class TestViewSet(viewsets.ModelViewSet):
         Returns a list of tests with their student reflection counts.
         """
         from api.db_utils import get_db
+        from django.core.cache import cache
+        import logging
+        logger = logging.getLogger(__name__)
+
+        cache_key = 'tests_with_reflections_counts'
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response({'tests': cached_data})
+
         db = get_db()
         if db is None:
-            return Response({'error': 'Database unavailable'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-            
-        pipeline = [
-            {'$match': {'has_reflections': True}},
-            {'$group': {'_id': '$test_id', 'student_count': {'$sum': 1}}}
-        ]
-        results = db['tests_testsubmission'].aggregate(pipeline)
-        
+            return Response({'tests': {}}, status=status.HTTP_200_OK)
+
         counts_data = {}
-        for r in results:
-            counts_data[str(r['_id'])] = r['student_count']
-            
+        try:
+            pipeline = [
+                {'$match': {'has_reflections': True}},
+                {'$project': {'test_id': 1, '_id': 0}},
+                {'$group': {'_id': '$test_id', 'student_count': {'$sum': 1}}}
+            ]
+            # maxTimeMS prevents thread hanging if MongoDB Atlas is under load/latency
+            results = list(db['tests_testsubmission'].aggregate(pipeline, maxTimeMS=4000))
+            for r in results:
+                if r.get('_id') is not None:
+                    counts_data[str(r['_id'])] = r.get('student_count', 0)
+
+            cache.set(cache_key, counts_data, 120)
+        except Exception as e:
+            logger.warning(f"Error querying with_reflections: {e}")
+            counts_data = cache.get(cache_key) or {}
+
         return Response({'tests': counts_data})
 
 

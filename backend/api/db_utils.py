@@ -34,6 +34,7 @@ def ensure_database_indexes():
         sub_coll.create_index([('test_id', 1), ('student_id', 1), ('is_finalized', 1)], background=True)
         sub_coll.create_index([('student_id', 1), ('is_finalized', 1)], background=True)
         sub_coll.create_index([('test_id', 1), ('is_finalized', 1)], background=True)
+        sub_coll.create_index([('has_reflections', 1), ('test_id', 1)], background=True)
         
         # api_customuser — critical for fast login lookups
         user_coll = db['api_customuser']

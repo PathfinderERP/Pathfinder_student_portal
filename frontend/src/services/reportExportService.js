@@ -31,7 +31,17 @@ export const renderLatexInHtml = (html) => {
  * Supports filtering: 'all', 'incorrect', 'correct', 'unattempted', 'scorecard'.
  */
 export const buildReportHtml = ({ test, data, user, report, sections, filter = 'all' }) => {
-    const studentName = data?.student_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Student';
+    const rawFullName = data?.student_name ||
+        `${user?.first_name || ''} ${user?.last_name || ''}`.trim() ||
+        user?.name ||
+        '';
+
+    const studentUsername = user?.username || user?.email || data?.enrollment || '';
+    const studentName = rawFullName || (studentUsername.includes('@')
+        ? studentUsername.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        : (data?.student_name || 'Student'));
+
+    const email = user?.email || data?.email || 'N/A';
     const enrollment = data?.enrollment || user?.admission_number || user?.username || 'N/A';
     const batch = user?.assigned_batch || user?.batch || 'General Batch';
     const centre = user?.centre_name || user?.centre || 'Main Centre';
@@ -41,6 +51,7 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
     const duration = report?.totalTime || data?.duration_str || 'N/A';
     const timeSpent = report?.timeSpent || data?.time_spent_str || 'N/A';
     const dateStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/images/icon/pathfinder-logo-hd.png` : '/images/icon/pathfinder-logo-hd.png';
 
     let filterLabel = 'Detailed Question-by-Question Solutions & Analysis';
     let filterSuffix = 'Full_Report';
@@ -65,17 +76,17 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
         const skipped = Math.max(0, row.total - row.correct - row.partial - row.incorrect);
         return `
             <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                <td style="padding: 7px 10px; text-align: center; color: #64748b; font-weight: bold;">${idx + 1}</td>
-                <td style="padding: 7px 10px; font-weight: 800; color: #1e3a8a;">${row.section}</td>
-                <td style="padding: 7px 8px; text-align: center; font-weight: bold;">${row.total}</td>
-                <td style="padding: 7px 8px; text-align: center; font-weight: 800; color: #16a34a;">${row.correct}</td>
-                <td style="padding: 7px 8px; text-align: center; font-weight: bold; color: #d97706;">${row.partial}</td>
-                <td style="padding: 7px 8px; text-align: center; font-weight: 800; color: #dc2626;">${row.incorrect}</td>
-                <td style="padding: 7px 8px; text-align: center; color: #94a3b8;">${skipped}</td>
-                <td style="padding: 7px 8px; text-align: center; font-weight: bold; color: #15803d;">+${row.posM}</td>
-                <td style="padding: 7px 8px; text-align: center; font-weight: bold; color: #b91c1c;">${parseFloat(row.negM) > 0 ? `-${row.negM}` : '0.00'}</td>
-                <td style="padding: 7px 10px; text-align: center; font-weight: 900; color: #0f172a; background: #f1f5f9;">${row.marks} / ${row.totalM}</td>
-                <td style="padding: 7px 10px; text-align: center; font-weight: 600; color: #475569;">${row.time}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #64748b; font-weight: bold;">${idx + 1}</td>
+                <td style="padding: 6px 8px; font-weight: 800; color: #1e3a8a;">${row.section}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: bold;">${row.total}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 800; color: #16a34a;">${row.correct}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: #d97706;">${row.partial}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 800; color: #dc2626;">${row.incorrect}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #94a3b8;">${skipped}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: #15803d;">+${row.posM}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: #b91c1c;">${parseFloat(row.negM) > 0 ? `-${row.negM}` : '0.00'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 900; color: #0f172a; background: #f1f5f9;">${row.marks} / ${row.totalM}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 600; color: #475569;">${row.time}</td>
             </tr>
         `;
     }).join('');
@@ -100,12 +111,12 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
 
         if (!filteredQuestions.length) {
             return `
-                <div style="margin-top: 14px;">
-                    <div class="page-avoid" style="background: #1e293b; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between;">
+                <div style="margin-top: 10px;">
+                    <div style="background: #1e293b; color: #ffffff; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between;">
                         <span>Section ${sIdx + 1}: ${secName}</span>
                         <span>0 Questions Included</span>
                     </div>
-                    <div style="padding: 10px 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; margin-top: 6px; font-size: 11px; color: #64748b; font-style: italic;">
+                    <div style="padding: 8px 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 4px; margin-top: 4px; font-size: 10.5px; color: #64748b; font-style: italic;">
                         No ${filter === 'incorrect' ? 'incorrect' : filter === 'correct' ? 'correct' : 'unattempted'} questions in this section.
                     </div>
                 </div>
@@ -120,11 +131,11 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
             const isSkipped = !isGrace && (q.result === 'NA' || !q.user_answer);
 
             let badgeHtml = '';
-            if (isGrace) badgeHtml = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;">✦ Grace Marks Awarded</span>`;
-            else if (isCorrect) badgeHtml = `<span style="background: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;">✓ Correct</span>`;
-            else if (isPartial) badgeHtml = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;">~ Partial</span>`;
-            else if (isIncorrect) badgeHtml = `<span style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;">✗ Incorrect</span>`;
-            else if (isSkipped) badgeHtml = `<span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;">— Unattempted</span>`;
+            if (isGrace) badgeHtml = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 1px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px;">✦ Grace Marks</span>`;
+            else if (isCorrect) badgeHtml = `<span style="background: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 1px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px;">✓ Correct</span>`;
+            else if (isPartial) badgeHtml = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 1px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px;">~ Partial</span>`;
+            else if (isIncorrect) badgeHtml = `<span style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 1px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px;">✗ Incorrect</span>`;
+            else if (isSkipped) badgeHtml = `<span style="background: #f1f5f9; color: #475569; padding: 1px 6px; border-radius: 3px; font-weight: 800; font-size: 9.5px;">— Unattempted</span>`;
 
             // Render question options
             let optionsHtml = '';
@@ -161,23 +172,23 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
                     const optContentHtml = renderLatexInHtml(opt.content || opt.text || '');
 
                     return `
-                        <div style="background: ${bg}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 7px 10px; border-radius: 6px; margin-bottom: 5px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
-                            <div style="display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px;">
+                        <div class="opt-row" style="background: ${bg}; border: 1px solid ${borderColor}; color: ${textColor}; padding: 5px 8px; border-radius: 4px; margin-bottom: 4px; display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; break-inside: avoid; page-break-inside: avoid;">
+                            <div style="display: flex; align-items: flex-start; gap: 6px; font-size: 11px;">
                                 <strong style="color: #0f172a; min-width: 16px;">${optLabel}.</strong>
                                 <div>${optContentHtml}</div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                                ${isYours ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800;">YOUR ANSWER</span>` : ''}
-                                ${isCorrectOpt ? `<span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800;">✓ CORRECT</span>` : ''}
+                            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                                ${isYours ? `<span style="background: #dbeafe; color: #1e40af; padding: 1px 5px; border-radius: 3px; font-size: 8.5px; font-weight: 800;">YOUR ANSWER</span>` : ''}
+                                ${isCorrectOpt ? `<span style="background: #dcfce7; color: #15803d; padding: 1px 5px; border-radius: 3px; font-size: 8.5px; font-weight: 800;">✓ CORRECT</span>` : ''}
                             </div>
                         </div>
                     `;
                 }).join('');
-                optionsHtml = `<div style="padding: 0 12px 10px 12px;">${optItems}</div>`;
+                optionsHtml = `<div style="padding: 0 10px 8px 10px;">${optItems}</div>`;
             } else if (q.type === 'NUMERICAL' || q.type === 'INTEGER_TYPE') {
                 optionsHtml = `
-                    <div style="padding: 0 12px 10px 12px;">
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; display: flex; gap: 20px; font-size: 11.5px; font-weight: 600;">
+                    <div style="padding: 0 10px 8px 10px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 4px; display: flex; gap: 16px; font-size: 11px; font-weight: 600;">
                             <div>Your Answer: <strong style="color: #2563eb;">${q.user_answer || 'Skipped'}</strong></div>
                             <div>Correct Answer: <strong style="color: #16a34a;">${q.answer_from === q.answer_to ? q.answer_to : `${q.answer_from} - ${q.answer_to}`}</strong></div>
                         </div>
@@ -190,18 +201,18 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
             const earnedColor = q.earned > 0 ? '#16a34a' : q.earned < 0 ? '#dc2626' : '#0f172a';
 
             return `
-                <div class="page-avoid" style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #ffffff; margin-bottom: 14px; break-inside: avoid; page-break-inside: avoid;">
+                <div class="question-card" style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #ffffff; margin-bottom: 8px; break-inside: auto; page-break-inside: auto;">
                     <!-- Question Header Bar -->
-                    <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <strong style="color: #0f172a; font-size: 12px;">Q.${q.question_number || (qIndex + 1)}</strong>
+                    <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <strong style="color: #0f172a; font-size: 11.5px;">Q.${q.question_number || (qIndex + 1)}</strong>
                             <span style="color: #64748b;">Type: <b style="color: #334155; text-transform: uppercase;">${q.type}</b></span>
                             ${badgeHtml}
                         </div>
-                        <div style="color: #475569; display: flex; align-items: center; gap: 10px; font-size: 11px;">
+                        <div style="color: #475569; display: flex; align-items: center; gap: 8px; font-size: 10.5px;">
                             <span>Max: <b style="color: #16a34a;">+${q.correct_marks}</b></span>
                             <span>Neg: <b style="color: #dc2626;">-${q.negative_marks}</b></span>
-                            <span style="background: #ffffff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px;">
+                            <span style="background: #ffffff; border: 1px solid #cbd5e1; padding: 1px 5px; border-radius: 3px;">
                                 Marks: <b style="color: ${earnedColor}; font-weight: 800;">${q.earned}</b>
                             </span>
                             ${q.time_spent ? `<span style="color: #64748b;">Time: ${parseInt(q.time_spent / 60)}m ${q.time_spent % 60}s</span>` : ''}
@@ -209,7 +220,7 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
                     </div>
 
                     <!-- Question Content -->
-                    <div style="padding: 10px 12px; font-size: 12px; line-height: 1.5; color: #1e293b;">
+                    <div style="padding: 8px 10px; font-size: 11.5px; line-height: 1.45; color: #1e293b;">
                         ${qContentHtml}
                     </div>
 
@@ -217,18 +228,18 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
                     ${optionsHtml}
 
                     <!-- Solution -->
-                    <div style="background: #eff6ff; border-top: 1px solid #dbeafe; padding: 8px 12px; font-size: 11.5px;">
-                        <div style="font-weight: 800; text-transform: uppercase; font-size: 10px; color: #1e40af; margin-bottom: 3px;">
+                    <div style="background: #eff6ff; border-top: 1px solid #dbeafe; padding: 6px 10px; font-size: 11px;">
+                        <div style="font-weight: 800; text-transform: uppercase; font-size: 9.5px; color: #1e40af; margin-bottom: 2px;">
                             Solution & Explanation:
                         </div>
-                        <div style="color: #334155; line-height: 1.5;">
+                        <div style="color: #334155; line-height: 1.45;">
                             ${solutionHtml}
                         </div>
                     </div>
 
                     <!-- Reflection if exists -->
                     ${q.student_reflection ? `
-                        <div style="background: #fffbeb; border-top: 1px solid #fef3c7; padding: 6px 12px; font-size: 11px; color: #92400e; display: flex; justify-content: space-between;">
+                        <div style="background: #fffbeb; border-top: 1px solid #fef3c7; padding: 4px 10px; font-size: 10.5px; color: #92400e; display: flex; justify-content: space-between;">
                             <span><strong>Student Reflection:</strong> ${q.student_reflection}</span>
                         </div>
                     ` : ''}
@@ -237,8 +248,8 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
         }).join('');
 
         return `
-            <div style="margin-top: 20px;">
-                <div class="page-avoid" style="background: #1e293b; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; margin-bottom: 12px; break-inside: avoid;">
+            <div style="margin-top: 12px;">
+                <div style="background: #1e293b; color: #ffffff; padding: 6px 10px; border-radius: 4px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; margin-bottom: 8px; break-after: avoid; page-break-after: avoid;">
                     <span>Section ${sIdx + 1}: ${secName}</span>
                     <span>${filteredQuestions.length} Questions Included</span>
                 </div>
@@ -247,39 +258,78 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
         `;
     }).join('');
 
-    // Clean, sanitized filename title
-    const cleanExam = examName.replace(/[\\/:*?"<>|]/g, '_').trim();
-    const cleanStudent = studentName.replace(/[\\/:*?"<>|]/g, '_').trim();
-    const cleanEnroll = (enrollment && enrollment !== 'N/A') ? enrollment.replace(/[\\/:*?"<>|]/g, '_').trim() : '';
-    const documentTitle = cleanEnroll ? `${cleanExam}_${cleanEnroll}_${cleanStudent}_${filterSuffix}` : `${cleanExam}_${cleanStudent}_${filterSuffix}`;
-
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>${documentTitle}</title>
+    <title></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             color: #0f172a;
             background: #ffffff;
-            font-size: 12px;
+            font-size: 11.5px;
             line-height: 1.4;
-            padding: 24px;
+            padding: 16px;
         }
         @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm 10mm 12mm 10mm !important;
+            @bottom-right {
+                content: "Page " counter(page);
+                font-family: system-ui, -apple-system, sans-serif;
+                font-size: 8pt;
+                font-weight: 600;
+                color: #64748b;
+            }
+            @bottom-left {
+                content: "Pathfinder Educational Centre";
+                font-family: system-ui, -apple-system, sans-serif;
+                font-size: 8pt;
+                color: #94a3b8;
+            }
         }
         @media print {
-            body { padding: 0; }
+            @page {
+                size: A4 portrait;
+                margin: 8mm 10mm 12mm 10mm !important;
+                @bottom-right {
+                    content: "Page " counter(page);
+                    font-family: system-ui, -apple-system, sans-serif;
+                    font-size: 8pt;
+                    font-weight: 600;
+                    color: #64748b;
+                }
+                @bottom-left {
+                    content: "Pathfinder Educational Centre";
+                    font-family: system-ui, -apple-system, sans-serif;
+                    font-size: 8pt;
+                    color: #94a3b8;
+                }
+            }
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background-color: #ffffff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
             .page-avoid {
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
+            .question-card {
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+            }
+            .opt-row {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            .no-print { display: none !important; }
         }
         table { width: 100%; border-collapse: collapse; }
         img { max-width: 100%; height: auto; }
@@ -288,70 +338,70 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
 </head>
 <body>
     <!-- Top Header -->
-    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 18px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 20px; font-weight: 900; color: #1d4ed8; text-transform: uppercase;">PATHFINDER</span>
-                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px;">STUDENT EXAMINATION PORTAL</span>
+    <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="${logoUrl}" alt="Pathfinder" style="height: 38px; object-fit: contain; image-rendering: -webkit-optimize-contrast;" crossOrigin="anonymous" />
+                <div style="border-left: 2px solid #e2e8f0; padding-left: 12px;">
+                    <h1 style="font-size: 16px; font-weight: 900; color: #0f172a; line-height: 1.2;">Academic Performance & Result Report</h1>
+                    <p style="font-size: 10.5px; font-weight: 600; color: #64748b;">Comprehensive Scorecard & Detailed Question-by-Question Solution Key</p>
                 </div>
-                <h1 style="font-size: 18px; font-weight: 900; color: #0f172a; margin-top: 4px;">Academic Performance & Result Report</h1>
-                <p style="font-size: 11px; color: #64748b;">Comprehensive Scorecard & Detailed Question-by-Question Solution Key</p>
             </div>
             <div style="text-align: right;">
-                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 900; display: inline-block;">
+                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 900; display: inline-block;">
                     RANK ${report?.rank || `${data?.rank || 1}/${data?.total_students || 1}`}
                 </div>
-                <div style="font-size: 9.5px; color: #94a3b8; margin-top: 4px;">Generated: ${dateStr}</div>
+                <div style="font-size: 9px; color: #94a3b8; font-weight: 600; margin-top: 3px;">Generated: ${dateStr}</div>
             </div>
         </div>
 
         <!-- Info Boxes -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; font-size: 11.5px;">
-                <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">Student Profile</div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span style="color: #64748b;">Name:</span> <strong style="color: #0f172a; text-transform: uppercase;">${studentName}</strong></div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span style="color: #64748b;">Roll / Enrollment:</span> <strong>${enrollment}</strong></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; font-size: 11px;">
+                <div style="font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Student Profile</div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color: #64748b;">Name:</span> <strong style="color: #0f172a; text-transform: uppercase;">${studentName}</strong></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color: #64748b;">Email:</span> <strong>${email}</strong></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color: #64748b;">Roll / Enrollment:</span> <strong>${enrollment}</strong></div>
                 <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Batch / Centre:</span> <span>${batch} (${centre})</span></div>
             </div>
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; font-size: 11.5px;">
-                <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">Test Information</div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span style="color: #64748b;">Test Name:</span> <strong style="color: #0f172a;">${examName}</strong></div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 3px;"><span style="color: #64748b;">Test Code:</span> <strong style="text-transform: uppercase;">${examCode}</strong></div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; font-size: 11px;">
+                <div style="font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">Test Information</div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color: #64748b;">Test Name:</span> <strong style="color: #0f172a;">${examName}</strong></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color: #64748b;">Test Code:</span> <strong style="text-transform: uppercase;">${examCode}</strong></div>
                 <div style="display: flex; justify-content: space-between;"><span style="color: #64748b;">Duration / Submitted:</span> <span>${duration} | ${submittedDate}</span></div>
             </div>
         </div>
     </div>
 
     <!-- Executive Metric Cards -->
-    <div class="page-avoid" style="margin-bottom: 18px;">
-        <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; margin-bottom: 8px;">
+    <div class="page-avoid" style="margin-bottom: 14px;">
+        <div style="font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; margin-bottom: 6px;">
             Overall Performance Summary
         </div>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px;">
-            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 12px;">
-                <div style="font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #166534;">Total Score</div>
-                <div style="font-size: 18px; font-weight: 900; color: #15803d; margin-top: 2px;">${report?.isMissed ? '—' : `${report?.score || 0} / ${report?.totalMarks || 0}`}</div>
-                <div style="font-size: 10px; font-weight: 700; color: #16a34a;">${report?.percentage || '0%'} Percentage</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;">
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 10px;">
+                <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #166534;">Total Score</div>
+                <div style="font-size: 16px; font-weight: 900; color: #15803d; margin-top: 1px;">${report?.isMissed ? '—' : `${report?.score || 0} / ${report?.totalMarks || 0}`}</div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #16a34a;">${report?.percentage || '0%'} Percentage</div>
             </div>
-            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px;">
-                <div style="font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #1e40af;">Rank & Percentile</div>
-                <div style="font-size: 18px; font-weight: 900; color: #1d4ed8; margin-top: 2px;">${report?.isMissed ? '—' : (report?.rank || '—')}</div>
-                <div style="font-size: 10px; font-weight: 700; color: #2563eb;">${report?.percentile || '0%'} Percentile</div>
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px 10px;">
+                <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #1e40af;">Rank & Percentile</div>
+                <div style="font-size: 16px; font-weight: 900; color: #1d4ed8; margin-top: 1px;">${report?.isMissed ? '—' : (report?.rank || '—')}</div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #2563eb;">${report?.percentile || '0%'} Percentile</div>
             </div>
-            <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 10px 12px;">
-                <div style="font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #9a3412;">Accuracy</div>
-                <div style="font-size: 18px; font-weight: 900; color: #c2410c; margin-top: 2px;">${report?.isMissed ? '—' : (report?.accuracy || '0%')}</div>
-                <div style="font-size: 10px; font-weight: 700; color: #ea580c;">Attempt Accuracy</div>
+            <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px;">
+                <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #9a3412;">Accuracy</div>
+                <div style="font-size: 16px; font-weight: 900; color: #c2410c; margin-top: 1px;">${report?.isMissed ? '—' : (report?.accuracy || '0%')}</div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #ea580c;">Attempt Accuracy</div>
             </div>
-            <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px; padding: 10px 12px;">
-                <div style="font-size: 9.5px; font-weight: 900; text-transform: uppercase; color: #6b21a8;">Attempted</div>
-                <div style="font-size: 18px; font-weight: 900; color: #7e22ce; margin-top: 2px;">${report?.attempted || '0/0'}</div>
-                <div style="font-size: 10px; font-weight: 700; color: #9333ea;">Total Qs: ${report?.totalQuestions || 0}</div>
+            <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px; padding: 8px 10px;">
+                <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #6b21a8;">Attempted</div>
+                <div style="font-size: 16px; font-weight: 900; color: #7e22ce; margin-top: 1px;">${report?.attempted || '0/0'}</div>
+                <div style="font-size: 9.5px; font-weight: 700; color: #9333ea;">Total Qs: ${report?.totalQuestions || 0}</div>
             </div>
         </div>
 
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; display: grid; grid-template-columns: repeat(4, 1fr); font-size: 11px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; display: grid; grid-template-columns: repeat(4, 1fr); font-size: 10.5px;">
             <div>Correct: <strong style="color: #16a34a;">${report?.correct || 0} (${report?.positiveMarks || '+0.00'})</strong></div>
             <div>Incorrect: <strong style="color: #dc2626;">${report?.incorrect || 0} (${report?.negativeMarks || '-0.00'})</strong></div>
             <div>Partial / Skipped: <strong>${report?.partial || 0} / ${report?.unattempted || 0}</strong></div>
@@ -360,22 +410,22 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
     </div>
 
     <!-- Comparative Benchmarks -->
-    <div class="page-avoid" style="margin-bottom: 18px;">
-        <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; margin-bottom: 8px;">
+    <div class="page-avoid" style="margin-bottom: 14px;">
+        <div style="font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; margin-bottom: 6px;">
             Comparative Benchmarks
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
-                <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10.5px; font-weight: 800; color: #475569;">SCORE ANALYSIS</div>
-                <div style="padding: 8px 10px; font-size: 11.5px; display: flex; justify-content: space-between;">
+                <div style="background: #f1f5f9; padding: 4px 8px; font-size: 10px; font-weight: 800; color: #475569;">SCORE ANALYSIS</div>
+                <div style="padding: 6px 8px; font-size: 11px; display: flex; justify-content: space-between;">
                     <span>Topper: <b style="color: #16a34a;">${data?.top_score ?? 0}</b></span>
                     <span>Average: <b style="color: #64748b;">${data?.average_score ?? 0}</b></span>
                     <span>You: <b style="color: #2563eb;">${report?.isMissed ? '—' : data?.score ?? 0}</b></span>
                 </div>
             </div>
             <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
-                <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10.5px; font-weight: 800; color: #475569;">ACCURACY ANALYSIS</div>
-                <div style="padding: 8px 10px; font-size: 11.5px; display: flex; justify-content: space-between;">
+                <div style="background: #f1f5f9; padding: 4px 8px; font-size: 10px; font-weight: 800; color: #475569;">ACCURACY ANALYSIS</div>
+                <div style="padding: 6px 8px; font-size: 11px; display: flex; justify-content: space-between;">
                     <span>Topper: <b style="color: #16a34a;">${(data?.top_accuracy || 100).toFixed(2)}%</b></span>
                     <span>Average: <b style="color: #64748b;">${(data?.average_accuracy || 50).toFixed(2)}%</b></span>
                     <span>You: <b style="color: #2563eb;">${report?.isMissed ? '—' : `${data?.accuracy?.toFixed(2) || 0}%`}</b></span>
@@ -385,25 +435,25 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
     </div>
 
     <!-- Section-wise Table -->
-    <div class="page-avoid" style="margin-bottom: 24px;">
-        <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; margin-bottom: 8px;">
+    <div class="page-avoid" style="margin-bottom: 16px;">
+        <div style="font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; color: #334155; margin-bottom: 6px;">
             Section-Wise Performance Breakdown
         </div>
         <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
             <table>
                 <thead>
-                    <tr style="background: #f1f5f9; color: #334155; font-size: 9.5px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
-                        <th style="padding: 7px 10px; text-align: center;">#</th>
-                        <th style="padding: 7px 10px; text-align: left;">Section</th>
-                        <th style="padding: 7px 8px; text-align: center;">Total Qs</th>
-                        <th style="padding: 7px 8px; text-align: center;">Correct</th>
-                        <th style="padding: 7px 8px; text-align: center;">Partial</th>
-                        <th style="padding: 7px 8px; text-align: center;">Incorrect</th>
-                        <th style="padding: 7px 8px; text-align: center;">Skipped</th>
-                        <th style="padding: 7px 8px; text-align: center;">+ve Marks</th>
-                        <th style="padding: 7px 8px; text-align: center;">-ve Marks</th>
-                        <th style="padding: 7px 10px; text-align: center;">Net Score</th>
-                        <th style="padding: 7px 10px; text-align: center;">Time Spent</th>
+                    <tr style="background: #f1f5f9; color: #334155; font-size: 9px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
+                        <th style="padding: 6px 8px; text-align: center;">#</th>
+                        <th style="padding: 6px 8px; text-align: left;">Section</th>
+                        <th style="padding: 6px 6px; text-align: center;">Total Qs</th>
+                        <th style="padding: 6px 6px; text-align: center;">Correct</th>
+                        <th style="padding: 6px 6px; text-align: center;">Partial</th>
+                        <th style="padding: 6px 6px; text-align: center;">Incorrect</th>
+                        <th style="padding: 6px 6px; text-align: center;">Skipped</th>
+                        <th style="padding: 6px 6px; text-align: center;">+ve Marks</th>
+                        <th style="padding: 6px 6px; text-align: center;">-ve Marks</th>
+                        <th style="padding: 6px 8px; text-align: center;">Net Score</th>
+                        <th style="padding: 6px 8px; text-align: center;">Time Spent</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -415,15 +465,15 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
 
     <!-- Detailed Solutions Header & Content -->
     ${!isScorecardOnly ? `
-    <div style="border-top: 2px solid #0f172a; padding-top: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+    <div style="border-top: 2px solid #0f172a; padding-top: 12px; margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
             <div>
-                <h2 style="font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin-bottom: 2px;">
+                <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin-bottom: 1px;">
                     ${filterLabel}
                 </h2>
-                <p style="font-size: 11px; color: #64748b;">Complete record of student responses, correct solutions, and step-by-step KaTeX explanations.</p>
+                <p style="font-size: 10.5px; color: #64748b;">Complete record of student responses, correct solutions, and step-by-step KaTeX explanations.</p>
             </div>
-            <span style="background: #e2e8f0; color: #334155; padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase;">
+            <span style="background: #e2e8f0; color: #334155; padding: 2px 8px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;">
                 Scope: ${filter === 'incorrect' ? 'Incorrect Only' : filter === 'correct' ? 'Correct Only' : filter === 'unattempted' ? 'Unattempted Only' : 'All Questions'}
             </span>
         </div>
@@ -432,7 +482,7 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
     ` : ''}
 
     <!-- Footer -->
-    <div style="margin-top: 30px; padding-top: 10px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; font-size: 9.5px; color: #94a3b8; font-weight: 600;">
+    <div style="margin-top: 20px; padding-top: 8px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; font-weight: 600;">
         <span>Pathfinder ERP - Student Examination System</span>
         <span>Confidential Academic Report</span>
         <span>${new Date().getFullYear()} © All Rights Reserved</span>
@@ -448,7 +498,15 @@ export const buildReportHtml = ({ test, data, user, report, sections, filter = '
  */
 export const printOrSaveReport = ({ test, data, user, report, sections, filter = 'all' }) => {
     return new Promise((resolve) => {
-        const studentName = data?.student_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Student';
+        const rawFullName = data?.student_name ||
+            `${user?.first_name || ''} ${user?.last_name || ''}`.trim() ||
+            user?.name ||
+            '';
+        const studentUsername = user?.username || user?.email || data?.enrollment || '';
+        const studentName = rawFullName || (studentUsername.includes('@')
+            ? studentUsername.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            : (data?.student_name || 'Student'));
+
         const enrollment = data?.enrollment || user?.admission_number || user?.username || '';
         const examName = test?.name || report?.testName || 'Examination Report';
 
@@ -464,8 +522,8 @@ export const printOrSaveReport = ({ test, data, user, report, sections, filter =
         const pdfFileName = cleanEnroll ? `${cleanExam}_${cleanEnroll}_${cleanStudent}_${filterSuffix}` : `${cleanExam}_${cleanStudent}_${filterSuffix}`;
 
         const originalTitle = document.title;
-        // Temporarily set document title for browser print / save-as-pdf dialog
-        document.title = pdfFileName;
+        // Temporarily clear document title so browser headers remain clean
+        document.title = '';
 
         const html = buildReportHtml({ test, data, user, report, sections, filter });
 
@@ -482,10 +540,10 @@ export const printOrSaveReport = ({ test, data, user, report, sections, filter =
         const doc = iframe.contentWindow.document;
         doc.open();
         doc.write(html);
-        doc.title = pdfFileName;
+        doc.title = '';
         doc.close();
 
-        // Wait briefly for KaTeX CSS and KaTeX fonts to bind
+        // Wait briefly for KaTeX CSS, HD Logo, and KaTeX fonts to bind
         setTimeout(() => {
             try {
                 iframe.contentWindow.focus();
@@ -502,7 +560,6 @@ export const printOrSaveReport = ({ test, data, user, report, sections, filter =
                     resolve(true);
                 }, 1500);
             }
-        }, 400);
+        }, 500);
     });
 };
-
