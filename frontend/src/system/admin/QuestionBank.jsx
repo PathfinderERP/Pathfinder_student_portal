@@ -774,6 +774,21 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     }), []);
 
     const [formKey, setFormKey] = useState(0);
+    const [availableDraft, setAvailableDraft] = useState(null);
+
+    const isFormEmpty = (f) => {
+        if (!f) return true;
+        const hasMetadata = (f.classId?.length > 0) || (f.subjectId?.length > 0) || (f.chapterId?.length > 0) || (f.topicId?.length > 0) || (f.examTypeId?.length > 0) || (f.targetExamId?.length > 0) || (f.testNameId?.length > 0);
+        if (hasMetadata) return false;
+        if (!f.questions || f.questions.length === 0) return true;
+        if (f.questions.length > 1) return false;
+        const q0 = f.questions[0];
+        const hasText = q0.question && q0.question.replace(/<[^>]*>/g, '').trim().length > 0;
+        const hasOpt = q0.options?.some(o => o.content && o.content.replace(/<[^>]*>/g, '').trim().length > 0);
+        const hasSol = q0.solution && q0.solution.replace(/<[^>]*>/g, '').trim().length > 0;
+        const hasImg = q0.image_1 || q0.image_2;
+        return !(hasText || hasOpt || hasSol || hasImg);
+    };
 
     const [form, setForm] = useState({
         id: null,
@@ -1780,6 +1795,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             }
 
             alert(`${successCount} Question(s) ${form.id ? 'updated' : 'added'} successfully!`);
+            if (!form.id) {
+                localStorage.removeItem('question_draft');
+                setAvailableDraft(null);
+            }
             resetForm();
             if (form.id) setView('repository');
 
@@ -1791,34 +1810,98 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         }
     };
 
-    // Auto-save progress while editing
+    // Auto-save progress while editing & detect existing draft on entering manual mode
     useEffect(() => {
-        if (view === 'manual') {
-            const timer = setTimeout(() => {
-                localStorage.setItem('question_draft', JSON.stringify(form));
-            }, 1000);
-            return () => clearTimeout(timer);
+        if (view === 'manual' && !form.id) {
+            const rawDraft = localStorage.getItem('question_draft');
+            if (rawDraft) {
+                try {
+                    const parsed = JSON.parse(rawDraft);
+                    const draftForm = parsed.form || parsed;
+                    if (!isFormEmpty(draftForm)) {
+                        if (isFormEmpty(form)) {
+                            setAvailableDraft(parsed);
+                        } else {
+                            setAvailableDraft(null);
+                        }
+                    } else {
+                        setAvailableDraft(null);
+                    }
+                } catch (e) {
+                    console.error("Error checking draft", e);
+                    setAvailableDraft(null);
+                }
+            } else {
+                setAvailableDraft(null);
+            }
+
+            // Only auto-save if form actually has user-entered content (prevents overwriting saved draft with blank state)
+            if (!isFormEmpty(form)) {
+                const timer = setTimeout(() => {
+                    const draftObj = {
+                        form,
+                        savedAt: new Date().toISOString(),
+                        questionCount: form.questions?.length || 1
+                    };
+                    localStorage.setItem('question_draft', JSON.stringify(draftObj));
+                }, 1000);
+                return () => clearTimeout(timer);
+            }
         }
     }, [form, view]);
 
     const handleSaveProgress = () => {
-        localStorage.setItem('question_draft', JSON.stringify(form));
-        alert("Progress saved locally!");
+        const draftObj = {
+            form,
+            savedAt: new Date().toISOString(),
+            questionCount: form.questions?.length || 1
+        };
+        localStorage.setItem('question_draft', JSON.stringify(draftObj));
+        setAvailableDraft(null);
+        alert("Progress saved locally! Your questions are safely stored in browser storage and will be preserved even if your computer turns off.");
     };
 
-    const handleLoadDraft = () => {
-        const saved = localStorage.getItem('question_draft');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                setForm(parsed);
-                setFormKey(prev => prev + 1);
-                alert("Restored from draft!");
-            } catch (err) {
-                console.error("Draft load failed", err);
+    const handleLoadDraft = (customDraft = null) => {
+        try {
+            const raw = customDraft ? (typeof customDraft === 'string' ? customDraft : JSON.stringify(customDraft)) : localStorage.getItem('question_draft');
+            if (!raw) {
+                alert("No saved drafts found.");
+                return;
             }
-        } else {
-            alert("No saved drafts found.");
+            const parsed = typeof customDraft === 'object' && customDraft !== null ? customDraft : JSON.parse(raw);
+            const targetForm = parsed.form || parsed;
+            
+            if (!targetForm || !targetForm.questions) {
+                alert("Draft data is invalid or empty.");
+                return;
+            }
+
+            const refreshedQuestions = targetForm.questions.map((q, idx) => ({
+                ...createNewQuestion(),
+                ...q,
+                tempId: q.tempId || (Date.now() + idx),
+                options: q.options && q.options.length > 0 
+                    ? q.options.map((opt, oIdx) => ({ id: opt.id || (oIdx + 1), content: opt.content || '', isCorrect: !!opt.isCorrect }))
+                    : createNewQuestion().options
+            }));
+
+            setForm({
+                ...targetForm,
+                questions: refreshedQuestions
+            });
+            setFormKey(prev => prev + 1);
+            setAvailableDraft(null);
+            alert(`Restored ${refreshedQuestions.length} question(s) from saved draft!`);
+        } catch (err) {
+            console.error("Draft load failed", err);
+            alert("Could not load draft. The saved data might be corrupted.");
+        }
+    };
+
+    const handleDiscardDraft = () => {
+        if (confirm("Are you sure you want to discard this saved draft? This cannot be undone.")) {
+            localStorage.removeItem('question_draft');
+            setAvailableDraft(null);
         }
     };
 
@@ -2764,6 +2847,43 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
             {/* Main Form Card */}
             <div className={`p-10 rounded-[5px] border shadow-2xl relative ${isDarkMode ? 'bg-[#10141D] border-white/5' : 'bg-white border-slate-200'}`}>
+                {/* Draft Detection Banner */}
+                {availableDraft && (
+                    <div className="mb-8 p-5 rounded-[5px] bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/15 border-2 border-orange-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-[5px] bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/30">
+                                <HardDrive size={24} />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                                    Unsaved Draft Found
+                                </h4>
+                                <p className={`text-xs font-semibold mt-0.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    {availableDraft.savedAt ? `Saved on ${new Date(availableDraft.savedAt).toLocaleString()}` : 'A previous session draft was found'}{' '}
+                                    <span className="font-bold text-orange-500">• {(availableDraft.form?.questions?.length || availableDraft.questionCount || 1)} question{(availableDraft.form?.questions?.length || availableDraft.questionCount || 1) > 1 ? 's' : ''}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => handleLoadDraft(availableDraft)}
+                                className="px-5 py-2.5 bg-orange-500 text-white rounded-[5px] text-xs font-black uppercase tracking-widest hover:bg-orange-600 active:scale-95 transition-all shadow-md flex items-center gap-2"
+                            >
+                                <HardDrive size={16} />
+                                Restore Draft
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDiscardDraft}
+                                className={`px-4 py-2.5 border rounded-[5px] text-xs font-bold uppercase tracking-widest hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 active:scale-95 transition-all ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-slate-300 text-slate-600'}`}
+                            >
+                                Discard
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Decorative title */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-dashed border-slate-200/50 pb-8">
                     <div>
@@ -3001,7 +3121,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                             </div>
                                         </div>
                                         <SmartEditor
-                                            key={`question-${q.tempId}`}
+                                            key={`question-${formKey}-${q.tempId}`}
                                             value={q.question}
                                             onChange={(val) => {
                                                 const updated = [...form.questions];
@@ -3136,7 +3256,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                     </button>
                                                 </div>
                                                 <SmartEditor
-                                                    key={`opt-${q.tempId}-${optIndex}`}
+                                                    key={`opt-${formKey}-${q.tempId}-${optIndex}`}
                                                     value={opt.content}
                                                     onChange={(val) => {
                                                         const updated = [...form.questions];
@@ -3155,7 +3275,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 <div className="space-y-4">
                                     <label className="text-xs font-black uppercase tracking-[0.2em] ml-1">Step-by-step Solution <span className="opacity-40">(Optional)</span></label>
                                     <SmartEditor
-                                        key={`solution-${q.tempId}`}
+                                        key={`solution-${formKey}-${q.tempId}`}
                                         value={q.solution}
                                         onChange={(val) => {
                                             const updated = [...form.questions];
